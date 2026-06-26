@@ -4,48 +4,90 @@ title: ""
 labels:
   - bug
 body:
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before reporting
+      options:
+        - label: I have read the README
+          required: true
+        - label: I have updated tobira.nvim to the latest version
+          required: true
+        - label: I have searched existing issues
+          required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - Minor (cosmetic / annoyance)
+        - Tolerable (I can work around it)
+        - Breaking (some functionality does not work)
+        - Blocking (I cannot use the plugin)
+    validations:
+      required: true
+
   - type: textarea
-    id: background
+    id: description
     attributes:
       label: Description
       description: What is happening?
     validations:
       required: true
+
   - type: textarea
     id: steps
     attributes:
       label: Steps to reproduce
       placeholder: |
-        1. Call setup()
-        2. Press f in normal mode
+        1. Call require("tobira").setup({})
+        2. Press f in normal mode, then f again on the same line
         3. ...
     validations:
       required: true
+
   - type: textarea
     id: expected
     attributes:
       label: Expected behavior
     validations:
       required: true
+
   - type: textarea
     id: actual
     attributes:
       label: Actual behavior
     validations:
       required: true
+
+  - type: textarea
+    id: health
+    attributes:
+      label: ":checkhealth tobira output"
+      render: text
+    validations:
+      required: false
+
   - type: textarea
     id: env
     attributes:
       label: Environment
       placeholder: |
-        - Neovim: 0.10.x
+        - Neovim: 0.10.x  (paste output of `nvim --version`)
         - OS: macOS 15.x
         - Installed via: lazy.nvim
     validations:
-      required: false
+      required: true
+
   - type: textarea
-    id: related
+    id: repro
     attributes:
-      label: Related issues / PRs
+      label: Minimal reproducible config
+      description: A minimal `init.lua` that reproduces the issue
+      render: lua
+      placeholder: |
+        vim.opt.rtp:prepend("path/to/tobira.nvim")
+        require("tobira").setup({})
     validations:
       required: false

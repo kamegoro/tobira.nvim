@@ -1,15 +1,20 @@
-## Summary
+## Description
 
-<!-- What does this PR solve? -->
+<!-- Describe what this PR changes and why. -->
 
-## Changes
+Closes #
 
-<!-- Files changed and what was done -->
+## Type of change
+
+- [ ] Bug fix (non-breaking change that fixes an issue)
+- [ ] New feature (non-breaking change that adds functionality)
+- [ ] Breaking change (fix or feature that changes existing behavior)
+- [ ] Documentation update
 
 ## Checklist
 
-- [ ] Lua code follows existing patterns in the codebase
-- [ ] New patterns added to `graph.lua` if applicable
-- [ ] `gh pr checks` passes
-
-Closes #
+- [ ] Code follows the style of this project (`stylua --check`)
+- [ ] `selene` passes with no errors
+- [ ] Tested on Neovim stable
+- [ ] New detection patterns added to `graph.lua` (if applicable)
+- [ ] `:checkhealth tobira` still reports OK

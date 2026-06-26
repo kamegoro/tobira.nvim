@@ -1,0 +1,29 @@
+name: PR
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  title:
+    name: Validate PR title
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          requireScope: false
+          subjectPattern: ^(?![A-Z]).+$
+          types: |
+            feat
+            fix
+            docs
+            chore
+            ci
+            perf
+            refactor
+            test
+            revert
+          ignoreLabels: |
+            autorelease: pending
