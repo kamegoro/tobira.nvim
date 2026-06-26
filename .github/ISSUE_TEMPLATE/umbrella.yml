@@ -1,0 +1,37 @@
+name: Umbrella issue
+description: A large change that will be split into multiple sub-issues
+title: "[umbrella] "
+labels:
+  - umbrella
+body:
+  - type: textarea
+    id: background
+    attributes:
+      label: Background
+      description: Why is this change needed?
+    validations:
+      required: true
+  - type: textarea
+    id: overview
+    attributes:
+      label: Overview
+      description: How is this structured / what is the sequence?
+    validations:
+      required: false
+  - type: textarea
+    id: sub-issues
+    attributes:
+      label: Sub-issues
+      description: |
+        List of sub-issues to create. After creating them, register them as
+        child issues of this umbrella using GitHub's Sub-issues feature.
+      value: |
+        - [ ]
+    validations:
+      required: false
+  - type: textarea
+    id: related
+    attributes:
+      label: Related issues / PRs
+    validations:
+      required: false

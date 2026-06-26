@@ -1,0 +1,64 @@
+name: Issue to PR
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  implement:
+    if: github.event.label.name == 'claude-ready'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: claude-${{ github.event.issue.number }}
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      id-token: write
+    steps:
+      - name: Check automation enabled
+        id: check
+        run: |
+          if [ "${{ vars.CLAUDE_AUTOMATION_ENABLED }}" = "false" ] || [ -z "${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.enabled == 'true'
+
+      - name: Implement issue and create PR
+        if: steps.check.outputs.enabled == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: |
+            --max-turns 50
+            --disallowedTools "Bash(gh pr merge:*),Bash(gh pr close:*),Bash(gh issue close:*),Bash(gh repo:*),Bash(gh secret:*),Bash(gh label delete:*),Bash(git push:* -f*),Bash(git push:* --force*),Bash(git push origin main*),Bash(git push origin HEAD:main*)"
+          prompt: |
+            The `claude-ready` label was added to issue #${{ github.event.issue.number }}.
+            Read the issue and implement it according to the project conventions.
+
+            ## Steps
+
+            1. Read issue #${{ github.event.issue.number }}
+            2. If the issue is large and should be split into sub-issues per the project's
+               splitting policy, do NOT implement — instead convert the issue to an umbrella
+               issue and create the sub-issues (each containing `Part of #${{ github.event.issue.number }}`),
+               then stop.
+            3. Create a new branch named `claude/issue-${{ github.event.issue.number }}-<short-description>`
+               (**never commit or push directly to `main`**)
+            4. Implement the issue following the Lua patterns already in the codebase
+            5. Commit following Conventional Commits. Include:
+               - `Closes #${{ github.event.issue.number }}`
+               - `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>`
+            6. Open a PR with `gh pr create`, then add the `needs-human-review` label
+               (**do not merge or approve the PR yourself**)
+
+            ## Prohibited actions
+
+            - Direct commits / pushes / force-pushes to `main`
+            - `gh pr merge` / `gh pr close` / `gh issue close`
+            - Modifying repository settings, secrets, or other workflow files
