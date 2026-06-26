@@ -1,24 +1,11 @@
--- Integration tests for logger.lua
--- Requires Neovim (vim.* APIs are used)
-
 local logger = require('tobira.core.logger')
 
--- Use a temp file to avoid polluting real usage data
-local test_data_file = vim.fn.tempname() .. '_tobira_test.json'
-
-local function setup_logger()
-  -- Point logger at a temp file for isolation
-  -- We do this by temporarily overriding stdpath data during the test
-  logger.reset()
-end
-
 before_each(function()
-  setup_logger()
+  logger.reset()
 end)
 
 after_each(function()
   logger.reset()
-  vim.fn.delete(test_data_file)
 end)
 
 describe('logger.get', function()
@@ -59,7 +46,6 @@ describe('logger.mark_adopted', function()
   end)
 
   it('does nothing if the command has no record', function()
-    -- Should not error
     assert.has_no_error(function()
       logger.mark_adopted('nonexistent')
     end)
@@ -68,8 +54,7 @@ end)
 
 describe('logger.get_all', function()
   it('returns an empty table after reset', function()
-    local all = logger.get_all()
-    assert.same({}, all)
+    assert.same({}, logger.get_all())
   end)
 
   it('reflects marks after mark_shown', function()
@@ -87,5 +72,68 @@ describe('logger.reset', function()
     logger.mark_shown(';')
     logger.reset()
     assert.same({}, logger.get_all())
+  end)
+end)
+
+-- Pattern detection via simulate_keys (test helper)
+describe('logger pattern detection', function()
+  it('detects x_repeat after 3 consecutive x presses', function()
+    local queued = nil
+    local suggest = require('tobira.core.suggest')
+    local orig = suggest.queue
+    suggest.queue = function(pattern, cmd)
+      queued = { pattern = pattern, cmd = cmd }
+    end
+
+    logger.simulate_keys({ 'x', 'x', 'x' })
+
+    suggest.queue = orig
+    assert.is_not_nil(queued)
+    assert.equals('x_repeat', queued.pattern)
+  end)
+
+  it('detects u_repeat after 3 consecutive u presses', function()
+    local queued = nil
+    local suggest = require('tobira.core.suggest')
+    local orig = suggest.queue
+    suggest.queue = function(pattern, cmd)
+      queued = { pattern = pattern, cmd = cmd }
+    end
+
+    logger.simulate_keys({ 'u', 'u', 'u' })
+
+    suggest.queue = orig
+    assert.is_not_nil(queued)
+    assert.equals('u_repeat', queued.pattern)
+  end)
+
+  it('detects j_repeat after 5 consecutive j presses', function()
+    local queued = nil
+    local suggest = require('tobira.core.suggest')
+    local orig = suggest.queue
+    suggest.queue = function(pattern, cmd)
+      queued = { pattern = pattern, cmd = cmd }
+    end
+
+    logger.simulate_keys({ 'j', 'j', 'j', 'j', 'j' })
+
+    suggest.queue = orig
+    assert.is_not_nil(queued)
+    assert.equals('j_repeat', queued.pattern)
+  end)
+
+  it('detects zero_then_w pattern', function()
+    local queued = nil
+    local suggest = require('tobira.core.suggest')
+    local orig = suggest.queue
+    suggest.queue = function(pattern, cmd)
+      queued = { pattern = pattern, cmd = cmd }
+    end
+
+    logger.simulate_keys({ '0', 'w' })
+
+    suggest.queue = orig
+    assert.is_not_nil(queued)
+    assert.equals('zero_then_w', queued.pattern)
   end)
 end)

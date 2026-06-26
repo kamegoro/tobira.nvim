@@ -11,9 +11,10 @@ local current_mode = 'n'
 -- Key sequence tracking state
 local seq = {
   pending_f = nil, -- "f" or "F" pressed, waiting for next char
-  last_f = nil, -- { char, line, op } last used f-search
-  pending_op = nil, -- "d" or "c" operator waiting for motion
-  last_op = nil, -- last confirmed operator+motion (e.g. "dw")
+  last_f = nil, -- { char, line, op }
+  pending_op = nil, -- "d" or "c" waiting for motion
+  last_op = nil, -- last confirmed operator+motion (e.g. "dw", "dd")
+  run = {}, -- { key = count } consecutive run of the same key
 }
 
 local function ensure_dir()
@@ -48,19 +49,33 @@ local function increment(cmd)
   usage[cmd].count = usage[cmd].count + 1
 end
 
+-- Track consecutive runs of the same key.
+-- Returns the new run count for that key.
+local function track_run(key)
+  if seq.run.key == key then
+    seq.run.count = seq.run.count + 1
+  else
+    seq.run = { key = key, count = 1 }
+  end
+  return seq.run.count
+end
+
 local function handle_key(key)
   if current_mode ~= 'n' then
     seq.pending_f = nil
     seq.pending_op = nil
+    seq.run = {}
     return
   end
 
+  local suggest = require('tobira.core.suggest')
   local line = vim.fn.line('.')
 
-  -- Waiting for char after f/F
+  -- f/F: wait for the target character
   if key == 'f' or key == 'F' then
     seq.pending_f = key
     seq.pending_op = nil
+    seq.run = {}
     return
   end
 
@@ -69,39 +84,68 @@ local function handle_key(key)
     seq.pending_f = nil
     increment(f_op)
 
-    -- Same f{char} repeated on same line → user likely doesn't know ;
     if seq.last_f and seq.last_f.line == line and seq.last_f.char == key and seq.last_f.op == f_op then
-      require('tobira.core.suggest').queue('f_repeat', ';')
+      suggest.queue('f_repeat', ';')
     end
 
     seq.last_f = { char = key, line = line, op = f_op }
     return
   end
 
-  -- Reset last_f when moving to a different line
   if seq.last_f and seq.last_f.line ~= line then
     seq.last_f = nil
   end
 
-  -- Track d/c operators
+  -- d/c operators
   if key == 'd' or key == 'c' then
     seq.pending_op = key
+    seq.run = {}
     return
   end
 
   if seq.pending_op then
     local op = seq.pending_op
     seq.pending_op = nil
+
     if key == 'w' then
       local cmd = op .. 'w'
       increment(cmd)
       seq.last_op = cmd
+    elseif key == 'd' and op == 'd' then
+      increment('dd')
+      seq.last_op = 'dd'
     end
     return
   end
 
-  -- Track ; and , (f-repeat commands)
-  if key == ';' or key == ',' then
+  -- dd → p: swap lines
+  if key == 'p' and seq.last_op == 'dd' then
+    suggest.queue('dd_then_p', 'ddp')
+  end
+
+  -- 0 → w: suggest ^
+  if key == 'w' and seq.run.key == '0' then
+    suggest.queue('zero_then_w', '^')
+  end
+
+  -- Reset last_op unless we're chaining
+  if key ~= 'p' then
+    seq.last_op = nil
+  end
+
+  -- Consecutive-run patterns
+  local run_count = track_run(key)
+
+  if key == 'x' and run_count >= 3 then
+    suggest.queue('x_repeat', '{n}x')
+  elseif key == 'u' and run_count >= 3 then
+    suggest.queue('u_repeat', '<C-r>')
+  elseif key == 'j' and run_count >= 5 then
+    suggest.queue('j_repeat', '{n}j')
+  end
+
+  -- Track ; and , usage
+  if key == ';' or key == ',' or key == 'n' or key == '0' then
     increment(key)
   end
 end
@@ -109,7 +153,6 @@ end
 function M.setup(config)
   usage = load()
 
-  -- Cache mode to avoid calling vim.fn.mode() on every keystroke
   vim.api.nvim_create_autocmd('ModeChanged', {
     group = vim.api.nvim_create_augroup('tobira_mode', { clear = true }),
     callback = function()
@@ -126,7 +169,6 @@ function M.setup(config)
     handle_key(k)
   end, ns)
 
-  -- Detect dw → i pattern via ModeChanged
   vim.api.nvim_create_autocmd('ModeChanged', {
     group = vim.api.nvim_create_augroup('tobira_dw', { clear = true }),
     pattern = 'n:i',
@@ -141,6 +183,14 @@ function M.setup(config)
   vim.api.nvim_create_autocmd('VimLeave', {
     callback = save,
   })
+end
+
+-- Test helper: feed a sequence of keys directly into handle_key.
+-- Only available in test environments (plenary sets vim.env.PLENARY_TEST).
+function M.simulate_keys(keys)
+  for _, k in ipairs(keys) do
+    handle_key(k)
+  end
 end
 
 function M.get(cmd)
@@ -183,7 +233,7 @@ function M.stats()
   end)
   for _, item in ipairs(sorted) do
     local mark = item.data.adopted and '✅' or '  '
-    table.insert(lines, string.format('%s %-10s %d times', mark, item.cmd, item.data.count))
+    table.insert(lines, string.format('%s %-12s %d times', mark, item.cmd, item.data.count))
   end
   vim.notify(table.concat(lines, '\n'), vim.log.levels.INFO)
 end
