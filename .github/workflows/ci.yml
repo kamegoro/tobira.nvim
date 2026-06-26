@@ -8,30 +8,41 @@ on:
 
 jobs:
   lint:
-    name: Lint
+    name: Lint & Format
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install luacheck
-        run: sudo apt-get install -y luarocks && sudo luarocks install luacheck
+      - name: Check formatting (stylua)
+        uses: JohnnyMorganz/stylua-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          version: latest
+          args: --check lua/ plugin/
 
-      - name: Run luacheck
-        run: luacheck lua/ --globals vim --no-unused-args
+      - name: Lint (selene)
+        uses: AlejandroSuero/selene-linter-action@v1.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --display-style=quiet lua/ plugin/
 
   test:
-    name: Test
+    name: Test (Neovim ${{ matrix.neovim_version }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        neovim_version: [stable, nightly]
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Neovim
+      - name: Install Neovim ${{ matrix.neovim_version }}
         uses: rhysd/action-setup-vim@v1
         with:
           neovim: true
-          version: stable
+          version: ${{ matrix.neovim_version }}
 
       - name: Run tests
         run: |
-          nvim --headless -u tests/minimal_init.lua \
+          nvim --headless --noplugin -u tests/minimal_init.lua \
             -c "PlenaryBustedDirectory tests/spec/ {minimal_init = 'tests/minimal_init.lua'}"
