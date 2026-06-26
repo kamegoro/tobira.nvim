@@ -59,6 +59,51 @@ stylua --check lua/ plugin/
 selene lua/ plugin/
 ```
 
+## Test-Driven Development (TDD) — mandatory
+
+This project follows strict TDD. **No implementation code without a failing test first.**
+
+### The cycle
+
+```
+1. Red   — write a test that fails
+2. Green — write the minimum code to make it pass
+3. Refactor — clean up, keeping tests green
+```
+
+### Rules
+
+- **New detection pattern** → write the test in `tests/spec/unit/graph_spec.lua` before touching `graph.lua` or `logger.lua`
+- **Bug fix** → write a test that reproduces the bug first, then fix it
+- **PRs without tests for new behavior will not be merged**
+- Tests must pass on both Neovim stable and nightly before opening a PR
+
+### Test structure
+
+```
+tests/
+├── minimal_init.lua          # plenary bootstrap
+└── spec/
+    ├── unit/
+    │   └── graph_spec.lua    # pure Lua logic, no vim.* — fast
+    └── integration/
+        ├── logger_spec.lua   # vim.* APIs, runs inside Neovim
+        └── suggest_spec.lua  # session state, module interaction
+```
+
+**Unit tests** (`tests/spec/unit/`): pure Lua, no `vim.*`. Test logic in isolation.
+
+**Integration tests** (`tests/spec/integration/`): require Neovim. Test that modules interact correctly with the Neovim runtime.
+
+### What requires a test
+
+| Change | Required test |
+|---|---|
+| New entry in `graph.suggestions` | `graph_spec.lua`: verify required fields, scoring |
+| New pattern detection in `logger.lua` | `logger_spec.lua`: verify mark/get behavior |
+| Changes to suppression logic in `suggest.lua` | `suggest_spec.lua`: verify show/suppress behavior |
+| Bug fix | New test reproducing the bug |
+
 ## Submitting a PR
 
 1. Fork the repo and create a branch from `main`
