@@ -2,3 +2,5 @@
 *.swp
 *.swo
 /tests/coverage/
+CLAUDE.md
+PLAN.md
