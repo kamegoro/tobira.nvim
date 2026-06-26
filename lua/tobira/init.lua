@@ -1,10 +1,9 @@
 local M = {}
 
 M.defaults = {
-  frequency = "session", -- "session" | "save" | "manual"
-  level = "auto",        -- "auto" | "beginner" | "intermediate" | "advanced"
-  lang = "ja",           -- "ja" | "en"
-  max_per_session = 1,
+  idle_delay = 1500,   -- パターン検出後、何ms後に表示するか
+  max_shown = 3,       -- 同じ提案を最大何回まで表示するか
+  lang = "ja",         -- 将来の多言語対応用
 }
 
 function M.setup(opts)
