@@ -4,7 +4,7 @@ local _win = nil
 local _buf = nil
 local _ns = vim.api.nvim_create_namespace('tobira_progress')
 
-local WIDTH = 46
+local WIDTH = 56
 local COLS = 3
 local COL_W = 13 -- display columns per grid cell
 local ICON = '' -- nerd font (matches nvim-notify INFO)

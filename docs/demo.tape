@@ -1,19 +1,21 @@
 Output docs/demo.gif
 
-Set Shell "bash"
+Set Shell "zsh"
 Set FontSize 15
 Set Width 1200
 Set Height 680
-Set Theme "Catppuccin Mocha"
 Set Padding 20
 Set TypingSpeed 40ms
 Set CursorBlink false
 
-# ── Boot nvim ────────────────────────────────────────────────────────────────
+# ── Seed demo data and boot nvim with full personal config ────────────────────
 Hide
-Type "cd $(git -C ~/kame/tobira.nvim rev-parse --show-toplevel) && nvim -u docs/demo-init.lua docs/demo.lua"
+Type "bash ~/kame/tobira.nvim/docs/demo-seed.sh"
 Enter
-Sleep 3s
+Sleep 500ms
+Type "cd ~/kame/tobira.nvim && nvim docs/demo.lua"
+Enter
+Sleep 6s
 Show
 
 # ── User navigates the file with f (repeated search = inefficient pattern) ───
@@ -30,14 +32,17 @@ Sleep 400ms
 # ── :Tobira surfaces the suggestion as a toast ────────────────────────────────
 Type ":Tobira"
 Enter
-Sleep 5000ms
+Sleep 6500ms
 
-# ── Guide panel: shows ✓ for mastered commands and → for next-level hints ────
+# ── Guide panel: ✓ for mastered commands, → for next-level hints ─────────────
 Type ":TobiraGuide"
 Enter
 Sleep 4500ms
 
-# ── Progress tree: skill overview with level and next recommendation ──────────
+# ── Close guide, then show the skill progress tree alone ─────────────────────
+Type ":TobiraGuide"
+Enter
+Sleep 500ms
 Type ":TobiraProgress"
 Enter
 Sleep 4500ms
