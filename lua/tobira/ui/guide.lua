@@ -4,7 +4,7 @@ local _win = nil
 local _buf = nil
 local _ns = vim.api.nvim_create_namespace('tobira_guide')
 
-local WIDTH = 40
+local WIDTH = 46
 local ICON = '' -- nerd font fa-info-circle (matches nvim-notify INFO icon)
 
 -- Map filetypes to context keys defined in locale files
@@ -44,7 +44,22 @@ local function setup_hls()
   end
 
   vim.api.nvim_set_hl(0, 'TobiraGuideKey', { link = 'Special' })
+  vim.api.nvim_set_hl(0, 'TobiraGuideMastered', { link = 'DiagnosticOk' })
+  vim.api.nvim_set_hl(0, 'TobiraGuideUpgrade', { link = 'DiagnosticHint' })
   vim.api.nvim_set_hl(0, 'TobiraGuideHint', { link = 'Comment' })
+end
+
+-- Returns total usage count across all keys in the track list.
+local function mastery_count(item)
+  if not item.track then
+    return 0
+  end
+  local logger = require('tobira.core.logger')
+  local total = 0
+  for _, k in ipairs(item.track) do
+    total = total + logger.get(k).count
+  end
+  return total
 end
 
 local function build()
@@ -70,7 +85,16 @@ local function build()
     push('  ' .. section.title, 'TobiraGuideSection', 2, 2 + #section.title)
 
     for _, item in ipairs(section.items) do
-      push(string.format('  %-14s  %s', item.keys, item.desc), 'TobiraGuideKey', 2, 2 + #item.keys)
+      local mastered = item.threshold and mastery_count(item) >= item.threshold
+
+      if mastered then
+        push(string.format('✓  %-12s  %s', item.keys, item.desc), 'TobiraGuideMastered')
+        if item.upgrade then
+          push(string.format('→  %-12s  %s', item.upgrade.keys, item.upgrade.desc), 'TobiraGuideUpgrade')
+        end
+      else
+        push(string.format('   %-12s  %s', item.keys, item.desc), 'TobiraGuideKey', 3, 3 + #item.keys)
+      end
     end
   end
 
@@ -153,7 +177,7 @@ function M.open()
   vim.wo[_win].winhl = 'Normal:TobiraGuideNormal,FloatBorder:TobiraGuideBorder'
   vim.wo[_win].wrap = false
 
-  -- Auto-refresh when moving between windows (context may change)
+  -- Auto-refresh when moving between windows (context or mastery may change)
   vim.api.nvim_create_autocmd({ 'WinEnter', 'BufEnter' }, {
     group = vim.api.nvim_create_augroup('tobira_guide_ctx', { clear = true }),
     callback = function()

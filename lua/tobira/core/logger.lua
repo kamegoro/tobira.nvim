@@ -69,7 +69,25 @@ local function handle_key(key)
     M.on_pattern(result.pattern, result.cmd)
   end
 
-  if key == 'f' or key == 'F' or key == ';' or key == ',' or key == 'n' or key == '0' then
+  local TRACK = {
+    f = true,
+    F = true,
+    [';'] = true,
+    [','] = true,
+    n = true,
+    ['0'] = true,
+    h = true,
+    j = true,
+    k = true,
+    l = true,
+    w = true,
+    b = true,
+    x = true,
+    p = true,
+    u = true,
+    i = true,
+  }
+  if TRACK[key] then
     increment(key)
   end
 end
