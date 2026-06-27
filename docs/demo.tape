@@ -16,25 +16,28 @@ Enter
 Sleep 3s
 Show
 
-# ── User navigates the file with f ───────────────────────────────────────────
-Sleep 300ms
+# ── User navigates the file with f (repeated search = inefficient pattern) ───
+Sleep 400ms
 Type "jjjj"
 Sleep 200ms
 Type "fo"
-Sleep 250ms
+Sleep 350ms
 Type "fo"
-Sleep 250ms
+Sleep 350ms
 Type "fo"
-Sleep 300ms
+Sleep 400ms
 
-# ── :Tobira surfaces the suggestion ──────────────────────────────────────────
+# ── :Tobira surfaces the suggestion as a toast ────────────────────────────────
 Type ":Tobira"
 Enter
-Sleep 1200ms
+Sleep 5000ms
 
-# ── Float is visible: "; — repeat the last f" ────────────────────────────────
-Sleep 5s
+# ── Guide panel: shows ✓ for mastered commands and → for next-level hints ────
+Type ":TobiraGuide"
+Enter
+Sleep 4500ms
 
-# ── Dismiss ──────────────────────────────────────────────────────────────────
-Type "q"
-Sleep 600ms
+# ── Progress tree: skill overview with level and next recommendation ──────────
+Type ":TobiraProgress"
+Enter
+Sleep 4500ms
