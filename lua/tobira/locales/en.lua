@@ -1,5 +1,6 @@
 return {
   guide = {
+    title = 'tobira guide',
     hint = ':TobiraGuide  toggle guide',
     contexts = {
       default = {
@@ -104,6 +105,7 @@ return {
     },
   },
   progress = {
+    title = 'tobira — your vim journey',
     levels = {
       novice = 'novice',
       beginner = 'beginner',
@@ -117,5 +119,16 @@ return {
       edit = 'Edit',
       search = 'Search',
     },
+  },
+  notifications = {
+    reset = 'tobira: usage log reset',
+    no_suggestions = 'tobira: no new suggestions right now 🎉',
+  },
+  stats = {
+    title = 'tobira — usage stats',
+    times = 'times',
+  },
+  float = {
+    example_prefix = 'e.g. ',
   },
 }

@@ -56,6 +56,31 @@ local function increment(cmd)
   usage[cmd].count = usage[cmd].count + 1
 end
 
+local TRACK = {
+  f = true,
+  F = true,
+  [';'] = true,
+  [','] = true,
+  n = true,
+  ['0'] = true,
+  h = true,
+  j = true,
+  k = true,
+  l = true,
+  w = true,
+  b = true,
+  x = true,
+  p = true,
+  u = true,
+  i = true,
+  a = true,
+  o = true,
+  g = true,
+  G = true,
+  v = true,
+  ['*'] = true,
+}
+
 local function handle_key(key)
   if current_mode ~= 'n' then
     seq = patterns.new_seq()
@@ -69,30 +94,6 @@ local function handle_key(key)
     M.on_pattern(result.pattern, result.cmd)
   end
 
-  local TRACK = {
-    f = true,
-    F = true,
-    [';'] = true,
-    [','] = true,
-    n = true,
-    ['0'] = true,
-    h = true,
-    j = true,
-    k = true,
-    l = true,
-    w = true,
-    b = true,
-    x = true,
-    p = true,
-    u = true,
-    i = true,
-    a = true,
-    o = true,
-    g = true,
-    G = true,
-    v = true,
-    ['*'] = true,
-  }
   if TRACK[key] then
     increment(key)
   end
@@ -170,7 +171,8 @@ function M.reset()
   usage = {}
   seq = patterns.new_seq()
   _initialized = false
-  vim.notify('tobira: usage log reset', vim.log.levels.INFO)
+  local str = require('tobira.i18n').load()
+  vim.notify(str.notifications.reset, vim.log.levels.INFO)
 end
 
 function M.save()
@@ -187,7 +189,8 @@ function M.mark_guide_seen()
 end
 
 function M.stats()
-  local lines = { 'tobira — usage stats', string.rep('─', 28) }
+  local str = require('tobira.i18n').load()
+  local lines = { str.stats.title, string.rep('─', 28) }
   local sorted = {}
   for cmd, data in pairs(usage) do
     table.insert(sorted, { cmd = cmd, data = data })
@@ -197,7 +200,7 @@ function M.stats()
   end)
   for _, item in ipairs(sorted) do
     local mark = item.data.adopted and '✅' or '  '
-    table.insert(lines, string.format('%s %-12s %d times', mark, item.cmd, item.data.count))
+    table.insert(lines, string.format('%s %-12s %d %s', mark, item.cmd, item.data.count, str.stats.times))
   end
   vim.notify(table.concat(lines, '\n'), vim.log.levels.INFO)
 end

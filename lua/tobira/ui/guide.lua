@@ -27,27 +27,7 @@ local function load_strings()
   return strings.guide
 end
 
-local function setup_hls()
-  if vim.fn.hlexists('TobiraGuideBorder') == 1 then
-    return
-  end
-
-  local has_notify_hl = pcall(require, 'notify') and vim.fn.hlexists('NotifyINFOBorder') == 1
-  if has_notify_hl then
-    vim.api.nvim_set_hl(0, 'TobiraGuideBorder', { link = 'NotifyINFOBorder' })
-    vim.api.nvim_set_hl(0, 'TobiraGuideNormal', { link = 'NotifyINFOBody' })
-    vim.api.nvim_set_hl(0, 'TobiraGuideSection', { link = 'NotifyINFOTitle' })
-  else
-    vim.api.nvim_set_hl(0, 'TobiraGuideBorder', { link = 'FloatBorder' })
-    vim.api.nvim_set_hl(0, 'TobiraGuideNormal', { link = 'NormalFloat' })
-    vim.api.nvim_set_hl(0, 'TobiraGuideSection', { link = 'Title' })
-  end
-
-  vim.api.nvim_set_hl(0, 'TobiraGuideKey', { link = 'Special' })
-  vim.api.nvim_set_hl(0, 'TobiraGuideMastered', { link = 'DiagnosticOk' })
-  vim.api.nvim_set_hl(0, 'TobiraGuideUpgrade', { link = 'DiagnosticHint' })
-  vim.api.nvim_set_hl(0, 'TobiraGuideHint', { link = 'Comment' })
-end
+local setup_hls = require('tobira.ui.hls').setup
 
 -- Returns total usage count across all keys in the track list.
 local function mastery_count(item)
@@ -66,6 +46,7 @@ local function build()
   local strings = load_strings()
   local ctx = detect_context()
   local sections = strings.contexts[ctx] or strings.contexts.default
+  -- strings is returned alongside lines/hls so callers can access guide.title etc.
 
   local lines = {}
   local hls = {}
@@ -101,7 +82,7 @@ local function build()
   push('')
   push('  ' .. strings.hint, 'TobiraGuideHint')
 
-  return lines, hls
+  return lines, hls, strings
 end
 
 local function apply_content(lines, hls)
@@ -143,7 +124,7 @@ function M.open()
 
   setup_hls()
 
-  local lines, hls = build()
+  local lines, hls, strings = build()
 
   _buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_lines(_buf, 0, -1, false, lines)
@@ -168,7 +149,7 @@ function M.open()
     height = height,
     style = 'minimal',
     border = 'rounded',
-    title = ' ' .. ICON .. ' tobira guide ',
+    title = ' ' .. ICON .. ' ' .. strings.title .. ' ',
     title_pos = 'center',
     focusable = false,
     zindex = 40,

@@ -1,5 +1,6 @@
 return {
   guide = {
+    title = 'tobira ガイド',
     hint = ':TobiraGuide  ガイドを閉じる',
     contexts = {
       default = {
@@ -104,6 +105,7 @@ return {
     },
   },
   progress = {
+    title = 'tobira — vim の旅',
     levels = {
       novice = '初心者以前',
       beginner = '入門',
@@ -117,5 +119,16 @@ return {
       edit = '編集',
       search = '検索',
     },
+  },
+  notifications = {
+    reset = 'tobira: 使用ログをリセットしました',
+    no_suggestions = 'tobira: 新しい提案はありません 🎉',
+  },
+  stats = {
+    title = 'tobira — 使用統計',
+    times = '回',
+  },
+  float = {
+    example_prefix = '例: ',
   },
 }

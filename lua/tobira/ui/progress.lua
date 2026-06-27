@@ -18,24 +18,7 @@ local function load_strings()
   return loc.progress
 end
 
-local function setup_hls()
-  if vim.fn.hlexists('TobiraGuideBorder') == 1 then
-    return
-  end
-  local has_notify = pcall(require, 'notify') and vim.fn.hlexists('NotifyINFOBorder') == 1
-  if has_notify then
-    vim.api.nvim_set_hl(0, 'TobiraGuideBorder', { link = 'NotifyINFOBorder' })
-    vim.api.nvim_set_hl(0, 'TobiraGuideNormal', { link = 'NotifyINFOBody' })
-    vim.api.nvim_set_hl(0, 'TobiraGuideSection', { link = 'NotifyINFOTitle' })
-  else
-    vim.api.nvim_set_hl(0, 'TobiraGuideBorder', { link = 'FloatBorder' })
-    vim.api.nvim_set_hl(0, 'TobiraGuideNormal', { link = 'NormalFloat' })
-    vim.api.nvim_set_hl(0, 'TobiraGuideSection', { link = 'Title' })
-  end
-  vim.api.nvim_set_hl(0, 'TobiraGuideMastered', { link = 'DiagnosticOk' })
-  vim.api.nvim_set_hl(0, 'TobiraGuideUpgrade', { link = 'DiagnosticHint' })
-  vim.api.nvim_set_hl(0, 'TobiraGuideHint', { link = 'Comment' })
-end
+local setup_hls = require('tobira.ui.hls').setup
 
 local SYM_LEARNED = '✓' -- U+2713, 3 bytes, 1 display col
 local SYM_PENDING = '○' -- U+25CB, 3 bytes, 1 display col
@@ -123,7 +106,7 @@ local function build()
   push('')
   push('  ' .. (str.hint or '[q / Esc]  close'), 'TobiraGuideHint')
 
-  return lines, hls
+  return lines, hls, str
 end
 
 function M.is_open()
@@ -146,7 +129,7 @@ function M.open()
 
   setup_hls()
 
-  local lines, hls = build()
+  local lines, hls, str = build()
 
   _buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_lines(_buf, 0, -1, false, lines)
@@ -174,7 +157,7 @@ function M.open()
     height = height,
     style = 'minimal',
     border = 'rounded',
-    title = ' ' .. ICON .. ' tobira — your vim journey ',
+    title = ' ' .. ICON .. ' ' .. str.title .. ' ',
     title_pos = 'center',
     focusable = true,
     zindex = 50,

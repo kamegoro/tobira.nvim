@@ -84,7 +84,8 @@ end
 function M.manual()
   local best = graph.find_best(logger.get_all())
   if not best then
-    vim.notify('tobira: no new suggestions right now 🎉', vim.log.levels.INFO)
+    local str = require('tobira.i18n').load()
+    vim.notify(str.notifications.no_suggestions, vim.log.levels.INFO)
     return
   end
   session.shown = false
