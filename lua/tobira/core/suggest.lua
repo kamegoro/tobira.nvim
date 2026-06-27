@@ -24,9 +24,6 @@ local function cancel_timer()
 end
 
 local function watch_adoption(cmd)
-  if session.watching[cmd] then
-    return
-  end
   session.watching[cmd] = true
 
   local ns = vim.api.nvim_create_namespace('tobira_adopt_' .. cmd)

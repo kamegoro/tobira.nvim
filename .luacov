@@ -1,0 +1,7 @@
+return {
+  statsfile = 'luacov.stats.out',
+  reportfile = 'luacov.report.out',
+  -- Track tobira source only; exclude test files and third-party packages.
+  include = { 'tobira' },
+  exclude = { 'tests', 'plenary' },
+}

@@ -46,3 +46,68 @@ jobs:
         run: |
           nvim --headless --noplugin -u tests/minimal_init.lua \
             -c "PlenaryBustedDirectory tests/spec/ {sequential = true}"
+
+  coverage:
+    name: Coverage (core/ — 100%)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Neovim stable
+        uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: stable
+
+      - name: Install lua5.1 and luacov
+        run: |
+          sudo apt-get install -y lua5.1 luarocks
+          luarocks --lua-version=5.1 install luacov
+
+      - name: Run tests with coverage
+        run: |
+          export LUA_PATH="$(luarocks --lua-version=5.1 path --lr-path);;"
+          COVERAGE=1 nvim --headless --noplugin -u tests/minimal_init.lua \
+            -c "PlenaryBustedDirectory tests/spec/ {sequential = true}"
+          lua5.1 -e "require('luacov.reporter').report()"
+
+      - name: Print coverage report
+        if: always()
+        run: cat luacov.report.out 2>/dev/null || echo "(no report generated)"
+
+      - name: Enforce 100% coverage on core/ modules
+        run: |
+          python3 - << 'EOF'
+          import re, sys
+
+          try:
+              with open('luacov.report.out') as f:
+                  content = f.read()
+          except FileNotFoundError:
+              print('ERROR: luacov.report.out not found — was coverage collected?')
+              sys.exit(1)
+
+          failed = False
+          checked = []
+          for line in content.splitlines():
+              m = re.search(r'(tobira/core/\w+\.lua)\s+(\d+)\s+(\d+)\s+([\d.]+)%', line)
+              if m:
+                  path = m.group(1)
+                  missed = int(m.group(3))
+                  pct = float(m.group(4))
+                  checked.append(path)
+                  mark = 'OK  ' if pct >= 100.0 else 'FAIL'
+                  print(f'[{mark}] {path}: {pct:.2f}% ({missed} line(s) missed)')
+                  if pct < 100.0:
+                      failed = True
+
+          if not checked:
+              print('ERROR: No tobira/core/ entries found — check .luacov include patterns')
+              sys.exit(1)
+
+          if failed:
+              print('\nCoverage gate FAILED. Add tests for the missed lines above.')
+              sys.exit(1)
+          else:
+              print(f'\nAll {len(checked)} core module(s): 100% ✓')
+          EOF

@@ -2,5 +2,7 @@
 *.swp
 *.swo
 /tests/coverage/
+luacov.stats.out
+luacov.report.out
 CLAUDE.md
 PLAN.md

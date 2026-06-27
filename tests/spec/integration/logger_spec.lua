@@ -116,3 +116,22 @@ describe('when the guide is marked as seen', function()
     assert.is_true(logger.is_guide_seen())
   end)
 end)
+
+-- ── insert mode ─────────────────────────────────────────────────────────────
+
+describe('when keys are pressed outside normal mode', function()
+  before_each(function()
+    logger.reset()
+    logger.setup()
+  end)
+
+  it('resets the pattern state and does not accumulate patterns', function()
+    -- Enter insert mode then exit; the key pressed on exit fires the
+    -- non-normal-mode branch of handle_key, which resets the sequence.
+    local esc = vim.api.nvim_replace_termcodes('<Esc>', true, false, true)
+    assert.has_no_error(function()
+      vim.fn.feedkeys('i', 'x')
+      vim.fn.feedkeys(esc, 'x')
+    end)
+  end)
+end)
