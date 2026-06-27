@@ -4,6 +4,7 @@ local _win = nil
 local _buf = nil
 
 local WIDTH = 40
+local ICON = '' -- nerd font fa-info-circle (matches nvim-notify INFO icon)
 
 local sections = {
   {
@@ -45,11 +46,24 @@ local sections = {
 }
 
 local function setup_hls()
-  if vim.fn.hlexists('TobiraGuideSection') == 0 then
-    vim.api.nvim_set_hl(0, 'TobiraGuideSection', { link = 'Title' })
-    vim.api.nvim_set_hl(0, 'TobiraGuideKey', { link = 'Special' })
-    vim.api.nvim_set_hl(0, 'TobiraGuideHint', { link = 'Comment' })
+  if vim.fn.hlexists('TobiraGuideBorder') == 1 then
+    return
   end
+
+  -- Match nvim-notify INFO style when available; fall back to standard float
+  local has_notify_hl = pcall(require, 'notify') and vim.fn.hlexists('NotifyINFOBorder') == 1
+  if has_notify_hl then
+    vim.api.nvim_set_hl(0, 'TobiraGuideBorder', { link = 'NotifyINFOBorder' })
+    vim.api.nvim_set_hl(0, 'TobiraGuideNormal', { link = 'NotifyINFOBody' })
+    vim.api.nvim_set_hl(0, 'TobiraGuideSection', { link = 'NotifyINFOTitle' })
+  else
+    vim.api.nvim_set_hl(0, 'TobiraGuideBorder', { link = 'FloatBorder' })
+    vim.api.nvim_set_hl(0, 'TobiraGuideNormal', { link = 'NormalFloat' })
+    vim.api.nvim_set_hl(0, 'TobiraGuideSection', { link = 'Title' })
+  end
+
+  vim.api.nvim_set_hl(0, 'TobiraGuideKey', { link = 'Special' })
+  vim.api.nvim_set_hl(0, 'TobiraGuideHint', { link = 'Comment' })
 end
 
 local function build()
@@ -125,12 +139,13 @@ function M.open()
     height = height,
     style = 'minimal',
     border = 'rounded',
-    title = ' tobira guide ',
+    title = ' ' .. ICON .. ' tobira guide ',
     title_pos = 'center',
     focusable = false,
     zindex = 40,
   })
 
+  vim.wo[_win].winhl = 'Normal:TobiraGuideNormal,FloatBorder:TobiraGuideBorder'
   vim.wo[_win].wrap = false
 end
 
