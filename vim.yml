@@ -25,4 +25,4 @@ globals:
     args:
       - type: function
   assert:
-    required: false
+    any: true
