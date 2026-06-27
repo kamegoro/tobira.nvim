@@ -1,5 +1,9 @@
 -- Enable luacov coverage tracking when COVERAGE=1 is set.
 if os.getenv('COVERAGE') == '1' then
+  -- LuaJIT (used by Neovim) skips debug.sethook for JIT-compiled code, so
+  -- luacov's line hook never fires. Disabling JIT forces interpreter mode.
+  if jit then jit.off() end
+
   -- Neovim ignores the LUA_PATH env-var, so we patch package.path directly.
   local home = os.getenv('HOME') or ''
   local lr = home .. '/.luarocks/share/lua/5.1'
@@ -8,7 +12,7 @@ if os.getenv('COVERAGE') == '1' then
   local ok, runner = pcall(require, 'luacov.runner')
   if ok then
     runner.init()
-    print('[luacov] runner initialized OK')
+    print('[luacov] runner initialized (JIT off)')
 
     -- Hook os.exit so stats are written when plenary calls os.exit().
     local orig_exit = os.exit
