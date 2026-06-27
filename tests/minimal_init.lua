@@ -2,7 +2,18 @@
 if os.getenv('COVERAGE') == '1' then
   -- LuaJIT (used by Neovim) skips debug.sethook for JIT-compiled code, so
   -- luacov's line hook never fires. Disabling JIT forces interpreter mode.
-  if jit then jit.off() end
+  local jit_ok = false
+  if jit then
+    local ok = pcall(jit.off)
+    jit_ok = ok
+  end
+
+  -- Verify debug.sethook actually works in this Lua environment.
+  local hook_test = 0
+  debug.sethook(function() hook_test = hook_test + 1 end, 'l')
+  local _x = 1 + 1 -- should trigger the hook
+  debug.sethook() -- remove test hook
+  print('[luacov-debug] jit.off ok=' .. tostring(jit_ok) .. '  hook_test=' .. hook_test)
 
   -- Neovim ignores the LUA_PATH env-var, so we patch package.path directly.
   local home = os.getenv('HOME') or ''
@@ -28,6 +39,18 @@ if os.getenv('COVERAGE') == '1' then
       end
     end
 
+    -- Intercept vim.cmd "0cq" which newer plenary uses instead of os.exit().
+    local orig_cmd = vim.cmd
+    vim.cmd = function(...)
+      local arg = select(1, ...)
+      local cmd_str = type(arg) == 'string' and arg or (type(arg) == 'table' and (arg.cmd or '') or '')
+      if cmd_str:match('cq') or cmd_str:match('qall') then
+        pcall(runner.shutdown)
+        vim.cmd = orig_cmd
+      end
+      return orig_cmd(...)
+    end
+
     -- Hook os.exit so stats are written when plenary calls os.exit().
     local orig_exit = os.exit
     os.exit = function(code, ...)
@@ -35,7 +58,7 @@ if os.getenv('COVERAGE') == '1' then
       orig_exit(code, ...)
     end
 
-    -- Also flush on :qall! / VimLeave in case os.exit is not used.
+    -- Also flush on :qall! / VimLeave in case nothing else works.
     vim.api.nvim_create_autocmd('VimLeave', {
       callback = function()
         pcall(runner.shutdown)
