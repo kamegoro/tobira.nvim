@@ -8,7 +8,7 @@ describe('config.values', function()
   it('has correct defaults', function()
     assert.equals(1500, config.values.idle_delay)
     assert.equals(3, config.values.max_shown)
-    assert.equals('ja', config.values.lang)
+    assert.equals('en', config.values.lang)
   end)
 
   it('setup overrides individual values', function()

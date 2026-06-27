@@ -86,6 +86,12 @@ local function handle_key(key)
     p = true,
     u = true,
     i = true,
+    a = true,
+    o = true,
+    g = true,
+    G = true,
+    v = true,
+    ['*'] = true,
   }
   if TRACK[key] then
     increment(key)
