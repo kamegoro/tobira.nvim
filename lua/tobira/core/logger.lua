@@ -1,3 +1,5 @@
+local patterns = require('tobira.core.patterns')
+
 local M = {}
 
 local data_dir = vim.fn.stdpath('data') .. '/tobira'
@@ -5,20 +7,12 @@ local data_file = data_dir .. '/usage.json'
 
 local usage = {}
 local _initialized = false
+local seq = patterns.new_seq()
 
--- Callback wired by init.lua. logger has no direct dependency on suggest.
+-- Wired by init.lua — logger has no direct dependency on suggest.
 M.on_pattern = nil
 
--- Cache current mode via ModeChanged to avoid vim.fn.mode() on every keystroke
 local current_mode = 'n'
-
-local seq = {
-  pending_f = nil,
-  last_f = nil,
-  pending_op = nil,
-  last_op = nil,
-  run = {},
-}
 
 local function ensure_dir()
   vim.fn.mkdir(data_dir, 'p')
@@ -52,109 +46,25 @@ local function increment(cmd)
   usage[cmd].count = usage[cmd].count + 1
 end
 
-local function fire(pattern, cmd)
-  if M.on_pattern then
-    M.on_pattern(pattern, cmd)
-  end
-end
-
-local function track_run(key)
-  if seq.run.key == key then
-    seq.run.count = seq.run.count + 1
-  else
-    seq.run = { key = key, count = 1 }
-  end
-  return seq.run.count
-end
-
 local function handle_key(key)
   if current_mode ~= 'n' then
-    seq.pending_f = nil
-    seq.pending_op = nil
-    seq.run = {}
+    seq = patterns.new_seq()
     return
   end
 
   local line = vim.fn.line('.')
+  local result = patterns.feed(seq, key, line)
 
-  -- f/F: wait for the target character
-  if key == 'f' or key == 'F' then
-    seq.pending_f = key
-    seq.pending_op = nil
-    seq.run = {}
-    return
+  if result and M.on_pattern then
+    M.on_pattern(result.pattern, result.cmd)
   end
 
-  if seq.pending_f then
-    local f_op = seq.pending_f
-    seq.pending_f = nil
-    increment(f_op)
-
-    if seq.last_f and seq.last_f.line == line and seq.last_f.char == key and seq.last_f.op == f_op then
-      fire('f_repeat', ';')
-    end
-
-    seq.last_f = { char = key, line = line, op = f_op }
-    return
-  end
-
-  if seq.last_f and seq.last_f.line ~= line then
-    seq.last_f = nil
-  end
-
-  -- d/c operators
-  if key == 'd' or key == 'c' then
-    seq.pending_op = key
-    seq.run = {}
-    return
-  end
-
-  if seq.pending_op then
-    local op = seq.pending_op
-    seq.pending_op = nil
-
-    if key == 'w' then
-      local cmd = op .. 'w'
-      increment(cmd)
-      seq.last_op = cmd
-    elseif key == 'd' and op == 'd' then
-      increment('dd')
-      seq.last_op = 'dd'
-    end
-    return
-  end
-
-  -- dd → p: swap lines
-  if key == 'p' and seq.last_op == 'dd' then
-    fire('dd_then_p', 'ddp')
-  end
-
-  -- 0 → w: suggest ^
-  if key == 'w' and seq.run.key == '0' then
-    fire('zero_then_w', '^')
-  end
-
-  if key ~= 'p' then
-    seq.last_op = nil
-  end
-
-  -- Consecutive-run patterns
-  local run_count = track_run(key)
-
-  if key == 'x' and run_count >= 3 then
-    fire('x_repeat', '{n}x')
-  elseif key == 'u' and run_count >= 3 then
-    fire('u_repeat', '<C-r>')
-  elseif key == 'j' and run_count >= 5 then
-    fire('j_repeat', '{n}j')
-  end
-
-  if key == ';' or key == ',' or key == 'n' or key == '0' then
+  if key == 'f' or key == 'F' or key == ';' or key == ',' or key == 'n' or key == '0' then
     increment(key)
   end
 end
 
-function M.setup(config)
+function M.setup()
   if _initialized then
     return
   end
@@ -171,6 +81,19 @@ function M.setup(config)
     end,
   })
 
+  vim.api.nvim_create_autocmd('ModeChanged', {
+    group = vim.api.nvim_create_augroup('tobira_dw', { clear = true }),
+    pattern = 'n:i',
+    callback = function()
+      if seq.last_op == 'dw' then
+        if M.on_pattern then
+          M.on_pattern('dw_then_insert', 'cw')
+        end
+      end
+      seq = patterns.new_seq()
+    end,
+  })
+
   local ns = vim.api.nvim_create_namespace('tobira_logger')
   vim.on_key(function(key, typed)
     local k = (typed ~= nil and typed ~= '') and typed or key
@@ -180,28 +103,10 @@ function M.setup(config)
     handle_key(k)
   end, ns)
 
-  vim.api.nvim_create_autocmd('ModeChanged', {
-    group = vim.api.nvim_create_augroup('tobira_dw', { clear = true }),
-    pattern = 'n:i',
-    callback = function()
-      if seq.last_op == 'dw' then
-        fire('dw_then_insert', 'cw')
-      end
-      seq.last_op = nil
-    end,
-  })
-
   vim.api.nvim_create_autocmd('VimLeave', {
     group = mode_group,
     callback = save,
   })
-end
-
--- Test helper: feed keys directly into the state machine
-function M.simulate_keys(keys)
-  for _, k in ipairs(keys) do
-    handle_key(k)
-  end
 end
 
 function M.get(cmd)
@@ -229,9 +134,13 @@ end
 
 function M.reset()
   usage = {}
+  seq = patterns.new_seq()
   _initialized = false
-  save()
   vim.notify('tobira: usage log reset', vim.log.levels.INFO)
+end
+
+function M.save()
+  save()
 end
 
 function M.stats()

@@ -75,6 +75,12 @@ function M.show(cmd)
   require('tobira.ui.float').show(suggestion)
 end
 
+function M.reset_session()
+  cancel_timer()
+  session.shown = false
+  session.watching = {}
+end
+
 function M.manual()
   local best = graph.find_best(logger.get_all())
   if not best then

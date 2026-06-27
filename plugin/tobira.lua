@@ -12,5 +12,7 @@ vim.api.nvim_create_user_command('TobiraStats', function()
 end, { desc = 'Show command usage stats' })
 
 vim.api.nvim_create_user_command('TobiraReset', function()
-  require('tobira.core.logger').reset()
+  local logger = require('tobira.core.logger')
+  logger.reset()
+  logger.save()
 end, { desc = 'Reset usage log' })

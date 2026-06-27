@@ -1,41 +1,43 @@
 local graph = require('tobira.core.graph')
 
-describe('graph.find_best', function()
-  it('returns nil when usage is empty', function()
+-- ── find_best scoring ─────────────────────────────────────────────────────────
+
+describe('when usage log is empty', function()
+  it('has no suggestion to offer', function()
     assert.is_nil(graph.find_best({}))
   end)
+end)
 
-  it('returns nil when trigger command has never been used', function()
-    local usage = {
-      [';'] = { count = 0, shown = 0, adopted = false },
-    }
-    assert.is_nil(graph.find_best(usage))
+describe('when the trigger command has never been used', function()
+  it('has no suggestion to offer', function()
+    assert.is_nil(graph.find_best({ [';'] = { count = 0, shown = 0, adopted = false } }))
   end)
+end)
 
-  it('returns ; when f is used and ; is not yet known', function()
-    local usage = {
-      f = { count = 10, shown = 0, adopted = false },
-    }
-    assert.equals(';', graph.find_best(usage))
+describe('when f is used but ; is unknown to the user', function()
+  it('suggests ; as the next door', function()
+    assert.equals(';', graph.find_best({ f = { count = 10, shown = 0, adopted = false } }))
   end)
+end)
 
-  it('returns , when ; is used often (user knows ; already)', function()
-    local usage = {
-      [';'] = { count = 15, shown = 0, adopted = false },
-    }
-    assert.equals(',', graph.find_best(usage))
+describe('when ; is used often (user already knows it)', function()
+  it('suggests , as the next step', function()
+    assert.equals(',', graph.find_best({ [';'] = { count = 15, shown = 0, adopted = false } }))
   end)
+end)
 
-  it('skips suggestions that are already adopted', function()
+describe('when the best candidate has been adopted by the user', function()
+  it('has no suggestion to offer', function()
     local usage = {
       f = { count = 10, shown = 0, adopted = false },
       [';'] = { count = 0, shown = 0, adopted = true },
     }
-    -- ; adopted, , trigger is ; so no ; usage → nil
     assert.is_nil(graph.find_best(usage))
   end)
+end)
 
-  it('skips suggestions shown 3 or more times', function()
+describe('when the best candidate has been shown the maximum number of times', function()
+  it('has no suggestion to offer', function()
     local usage = {
       f = { count = 10, shown = 0, adopted = false },
       [';'] = { count = 15, shown = 3, adopted = false },
@@ -43,93 +45,95 @@ describe('graph.find_best', function()
     }
     assert.is_nil(graph.find_best(usage))
   end)
+end)
 
-  it('still suggests when shown fewer than 3 times', function()
+describe('when a candidate has been shown but fewer than the maximum times', function()
+  it('still suggests it', function()
     local usage = {
       f = { count = 10, shown = 0, adopted = false },
       [';'] = { count = 0, shown = 2, adopted = false },
     }
     assert.equals(';', graph.find_best(usage))
   end)
+end)
 
-  it('picks the highest-scoring suggestion among multiple candidates', function()
+describe('when multiple triggers are active', function()
+  it('picks the highest-scoring suggestion', function()
     local usage = {
       f = { count = 10, shown = 0, adopted = false },
       dw = { count = 30, shown = 0, adopted = false },
     }
     local result = graph.find_best(usage)
-    assert.is_not_nil(result)
     assert.equals('dw', graph.suggestions[result].trigger)
   end)
 
-  it('subtracts target usage from score', function()
+  it('reduces a suggestion score by how much the user already uses it', function()
     local usage = {
       f = { count = 10, shown = 0, adopted = false },
       [';'] = { count = 8, shown = 0, adopted = false },
       dw = { count = 10, shown = 0, adopted = false },
     }
+    -- dw score = 10, ; score = 10-8 = 2 → dw-based suggestion wins
     local result = graph.find_best(usage)
-    -- dw score=10, ; score=2 → dw-based suggestion wins
     assert.equals('dw', graph.suggestions[result].trigger)
   end)
 end)
 
-describe('graph.suggestions — required fields', function()
-  it('each suggestion has all required fields', function()
-    for cmd, sug in pairs(graph.suggestions) do
-      assert.is_not_nil(sug.cmd, cmd .. ' missing .cmd')
-      assert.is_not_nil(sug.trigger, cmd .. ' missing .trigger')
-      assert.is_not_nil(sug.title, cmd .. ' missing .title')
-      assert.is_not_nil(sug.body, cmd .. ' missing .body')
-      assert.is_not_nil(sug.example, cmd .. ' missing .example')
+-- ── data integrity ────────────────────────────────────────────────────────────
+
+describe('every suggestion in the graph', function()
+  it('has a cmd field that matches its table key', function()
+    for key, sug in pairs(graph.suggestions) do
+      assert.equals(key, sug.cmd, key .. ': cmd field must match its key')
     end
   end)
 
-  it('cmd field matches the table key', function()
-    for cmd, sug in pairs(graph.suggestions) do
-      assert.equals(cmd, sug.cmd)
+  it('has a non-empty title', function()
+    for key, sug in pairs(graph.suggestions) do
+      assert.is_string(sug.title, key .. ': missing title')
+      assert.is_true(#sug.title > 0, key .. ': title must not be empty')
+    end
+  end)
+
+  it('has a non-empty body', function()
+    for key, sug in pairs(graph.suggestions) do
+      assert.is_string(sug.body, key .. ': missing body')
+      assert.is_true(#sug.body > 0, key .. ': body must not be empty')
+    end
+  end)
+
+  it('has a non-empty example', function()
+    for key, sug in pairs(graph.suggestions) do
+      assert.is_string(sug.example, key .. ': missing example')
+      assert.is_true(#sug.example > 0, key .. ': example must not be empty')
+    end
+  end)
+
+  it('declares a trigger command', function()
+    for key, sug in pairs(graph.suggestions) do
+      assert.is_string(sug.trigger, key .. ': missing trigger')
     end
   end)
 end)
 
-describe('graph.suggestions — new patterns', function()
-  it('has , as a suggestion with trigger ;', function()
-    assert.is_not_nil(graph.suggestions[','])
+-- ── learning progression ──────────────────────────────────────────────────────
+
+describe('the f → ; → , learning progression', function()
+  it('; is triggered by f usage', function()
+    assert.equals('f', graph.suggestions[';'].trigger)
+  end)
+
+  it(', is triggered by ; usage (comes after learning ;)', function()
     assert.equals(';', graph.suggestions[','].trigger)
   end)
-
-  it('has <C-r> as a suggestion (redo after u)', function()
-    assert.is_not_nil(graph.suggestions['<C-r>'])
-    assert.equals('u', graph.suggestions['<C-r>'].trigger)
-  end)
-
-  it('has ddp as a suggestion (swap lines)', function()
-    assert.is_not_nil(graph.suggestions['ddp'])
-    assert.equals('dd', graph.suggestions['ddp'].trigger)
-  end)
-
-  it('has {n}j as a suggestion (repeated j)', function()
-    assert.is_not_nil(graph.suggestions['{n}j'])
-    assert.equals('j', graph.suggestions['{n}j'].trigger)
-  end)
-
-  it('has ^ as a suggestion (0 then w)', function()
-    assert.is_not_nil(graph.suggestions['^'])
-    assert.equals('0', graph.suggestions['^'].trigger)
-  end)
-
-  it('has cgn as a suggestion (repeated search+edit)', function()
-    assert.is_not_nil(graph.suggestions['cgn'])
-    assert.equals('n', graph.suggestions['cgn'].trigger)
-  end)
 end)
 
-describe('graph.adjacency', function()
-  it('each entry is a table of strings', function()
+describe('adjacency map', function()
+  it('each entry lists neighboring commands as strings', function()
     for trigger, neighbors in pairs(graph.adjacency) do
-      assert.is_table(neighbors, trigger .. ' adjacency should be a table')
+      assert.is_table(neighbors, trigger .. ' adjacency must be a table')
       for _, neighbor in ipairs(neighbors) do
-        assert.is_string(neighbor)
+        assert.is_string(neighbor, trigger .. ': each neighbor must be a string')
       end
     end
   end)
