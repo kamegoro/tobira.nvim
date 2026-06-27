@@ -18,7 +18,7 @@ jobs:
           release-type: simple
 
       # Force-move the `stable` tag to the latest release commit
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: ${{ steps.release.outputs.release_created }}
 
       - name: Move stable tag

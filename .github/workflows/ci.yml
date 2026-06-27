@@ -11,7 +11,7 @@ jobs:
     name: Lint & Format
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Check formatting (stylua)
         uses: JohnnyMorganz/stylua-action@v4
@@ -34,7 +34,7 @@ jobs:
       matrix:
         neovim_version: [stable, nightly]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Neovim ${{ matrix.neovim_version }}
         uses: rhysd/action-setup-vim@v1
