@@ -1,10 +1,10 @@
 local config = require('tobira.core.config')
 
-before_each(function()
-  config.reset()
-end)
-
 describe('config.values', function()
+  before_each(function()
+    config.reset()
+  end)
+
   it('has correct defaults', function()
     assert.equals(1500, config.values.idle_delay)
     assert.equals(3, config.values.max_shown)
@@ -32,11 +32,14 @@ describe('config.values', function()
 end)
 
 describe('config.setup validation', function()
-  it('rejects non-number idle_delay', function()
-    -- Should not error but should notify and keep previous values
+  before_each(function()
+    config.reset()
+  end)
+
+  it('rejects non-number idle_delay and keeps previous values', function()
     local notified = false
     local orig = vim.notify
-    vim.notify = function(msg, level)
+    vim.notify = function(msg, _)
       if msg:find('invalid config') then
         notified = true
       end
@@ -44,7 +47,6 @@ describe('config.setup validation', function()
     config.setup({ idle_delay = 'fast' })
     vim.notify = orig
     assert.is_true(notified)
-    -- Values should remain at defaults
     assert.equals(1500, config.values.idle_delay)
   end)
 end)
