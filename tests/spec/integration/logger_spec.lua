@@ -135,3 +135,106 @@ describe('when keys are pressed outside normal mode', function()
     end)
   end)
 end)
+
+-- ── pattern notification ─────────────────────────────────────────────────────
+
+describe('when a tracked inefficiency is detected', function()
+  before_each(function()
+    logger.reset()
+    logger.on_pattern = nil
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+  end)
+
+  it('notifies the wired callback with the detected pattern', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      fired = { pattern = pattern, cmd = cmd }
+    end
+    logger.setup()
+
+    -- Deleting a line then pasting it is the dd-then-p line-move inefficiency.
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'aaa', 'bbb' })
+    vim.fn.feedkeys('ddp', 'x')
+    vim.api.nvim_feedkeys('', 'x', false)
+
+    assert.equals('dd_then_p', fired.pattern)
+    assert.equals('ddp', fired.cmd)
+  end)
+end)
+
+describe('when the user deletes a word then enters insert mode', function()
+  before_each(function()
+    logger.reset()
+    logger.on_pattern = nil
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+    if vim.fn.mode() ~= 'n' then
+      vim.cmd('stopinsert')
+    end
+  end)
+
+  it('notifies the callback to suggest cw', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      fired = { pattern = pattern, cmd = cmd }
+    end
+    logger.setup()
+
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'hello world' })
+    -- on_key sees 'i' while still in normal mode, so patterns.feed detects
+    -- the dw-then-insert sequence before the mode actually changes.
+    vim.fn.feedkeys('dwi', 'x')
+    vim.api.nvim_feedkeys('', 'x', false)
+
+    assert.equals('dw_then_insert', fired.pattern)
+    assert.equals('cw', fired.cmd)
+  end)
+end)
+
+-- ── stats ────────────────────────────────────────────────────────────────────
+
+describe('when stats are displayed', function()
+  before_each(function()
+    logger.reset()
+  end)
+
+  it('notifies the user with a summary of recorded usage', function()
+    local usage = logger.get_all()
+    usage['dd'] = { count = 7, shown = 0, adopted = false }
+    usage['cw'] = { count = 3, shown = 1, adopted = true }
+
+    local message = nil
+    local orig = vim.notify
+    vim.notify = function(msg, _)
+      message = msg
+    end
+    local ok, err = pcall(logger.stats)
+    vim.notify = orig
+
+    assert.is_true(ok, err)
+    assert.is_not_nil(message)
+    assert.is_not_nil(message:find('dd'))
+  end)
+end)
+
+-- ── save ─────────────────────────────────────────────────────────────────────
+
+describe('when save is called explicitly', function()
+  before_each(function()
+    logger.reset()
+  end)
+
+  it('persists without error', function()
+    logger.mark_shown('f')
+    assert.has_no_error(function()
+      logger.save()
+    end)
+  end)
+end)

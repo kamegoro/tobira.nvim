@@ -165,3 +165,51 @@ describe('when the user switches search direction between two searches', functio
     assert.is_nil(result)
   end)
 end)
+
+describe('when the cursor leaves the line where an f-search happened', function()
+  it('forgets the search so a later identical search is not a repeat', function()
+    local s = seq()
+    -- Search for 'o' on line 1.
+    patterns.feed(s, 'f', 1)
+    patterns.feed(s, 'o', 1)
+    -- Move down to line 2 with a plain motion: this clears the f context.
+    patterns.feed(s, 'j', 2)
+    -- Repeat the same search on line 2 — must not count as a repeat.
+    patterns.feed(s, 'f', 2)
+    local result = patterns.feed(s, 'o', 2)
+    assert.is_nil(result)
+  end)
+end)
+
+-- ── dw / cw operator + word motion ───────────────────────────────────────────
+
+describe('when the user deletes a word then pastes', function()
+  it('does not suggest ddp because only dd-then-p swaps lines', function()
+    local s = seq()
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'w', 1)
+    local result = patterns.feed(s, 'p', 1)
+    assert.is_nil(result)
+  end)
+end)
+
+describe('when the user deletes a word then enters insert mode to retype it', function()
+  it('fires dw_then_insert suggesting cw', function()
+    local s = seq()
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'w', 1)
+    local result = patterns.feed(s, 'i', 1)
+    assert.is_not_nil(result)
+    assert.equals('dw_then_insert', result.pattern)
+    assert.equals('cw', result.cmd)
+  end)
+
+  it('also fires when the user appends with a instead of i', function()
+    local s = seq()
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'w', 1)
+    local result = patterns.feed(s, 'a', 1)
+    assert.is_not_nil(result)
+    assert.equals('dw_then_insert', result.pattern)
+  end)
+end)

@@ -4,7 +4,11 @@ local config = require('tobira.core.config')
 
 local function with_float_spy(fn)
   local called = false
-  package.loaded['tobira.ui.float'] = { show = function() called = true end }
+  package.loaded['tobira.ui.float'] = {
+    show = function()
+      called = true
+    end,
+  }
   local ok, err = pcall(fn)
   package.loaded['tobira.ui.float'] = nil
   assert.is_true(ok, err)
@@ -151,5 +155,99 @@ describe('when the user presses the suggested command after seeing it', function
     end)
     vim.fn.feedkeys(';', 'x')
     assert.is_true(logger.get(';').adopted)
+  end)
+end)
+
+describe('when a suggestion is already on screen', function()
+  before_each(function()
+    logger.reset()
+    config.reset()
+    suggest.reset_session()
+  end)
+
+  it('queueing another one does nothing', function()
+    config.setup({ idle_delay = 60000 })
+    with_float_spy(function()
+      suggest.show(';')
+    end)
+    -- session is now in the shown state; queue must bail out immediately.
+    assert.has_no_error(function()
+      suggest.queue('f_repeat', ',')
+    end)
+  end)
+end)
+
+describe('when queueing a command that should be suppressed', function()
+  before_each(function()
+    logger.reset()
+    config.reset()
+    suggest.reset_session()
+  end)
+
+  it('does not schedule a suggestion', function()
+    logger.mark_shown(';')
+    logger.mark_adopted(';')
+    assert.has_no_error(function()
+      suggest.queue('f_repeat', ';')
+    end)
+  end)
+end)
+
+describe('when a queued suggestion reaches the end of the idle delay', function()
+  before_each(function()
+    logger.reset()
+    config.reset()
+    suggest.reset_session()
+  end)
+
+  it('shows the suggestion', function()
+    config.setup({ idle_delay = 10 })
+    local shown = false
+    package.loaded['tobira.ui.float'] = {
+      show = function()
+        shown = true
+      end,
+    }
+    suggest.queue('f_repeat', ';')
+    vim.wait(500, function()
+      return shown
+    end, 10)
+    package.loaded['tobira.ui.float'] = nil
+    assert.is_true(shown)
+  end)
+end)
+
+describe('when showing a command that has no suggestion entry', function()
+  before_each(function()
+    logger.reset()
+    config.reset()
+    suggest.reset_session()
+  end)
+
+  it('does nothing', function()
+    local shown = with_float_spy(function()
+      suggest.show('this_command_does_not_exist')
+    end)
+    assert.is_false(shown)
+  end)
+end)
+
+describe('when :Tobira is called and a suggestion is available', function()
+  before_each(function()
+    logger.reset()
+    config.reset()
+    suggest.reset_session()
+  end)
+
+  it('shows the best suggestion', function()
+    -- Make 'f' a frequently used trigger so find_best returns ';'.
+    local usage = logger.get_all()
+    usage['f'] = { count = 5, shown = 0, adopted = false }
+
+    local shown = with_float_spy(function()
+      suggest.manual()
+    end)
+
+    assert.is_true(shown)
   end)
 end)

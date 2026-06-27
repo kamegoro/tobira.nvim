@@ -13,6 +13,19 @@ function M.new_seq()
   }
 end
 
+-- Keys that enter insert mode directly (no operator). Used to detect the
+-- "deleted a word, then retyped it" inefficiency where `cw` is faster.
+local INSERT_KEYS = {
+  i = true,
+  I = true,
+  a = true,
+  A = true,
+  o = true,
+  O = true,
+  s = true,
+  S = true,
+}
+
 local function track_run(seq, key)
   if seq.run.key == key then
     seq.run.count = seq.run.count + 1
@@ -77,6 +90,12 @@ function M.feed(seq, key, line)
   -- 0 → w
   if key == 'w' and seq.run.key == '0' then
     return { pattern = 'zero_then_w', cmd = '^' }
+  end
+
+  -- dw → i/a/o/s (entering insert to retype the word) → cw is faster
+  if seq.last_op == 'dw' and INSERT_KEYS[key] then
+    seq.last_op = nil
+    return { pattern = 'dw_then_insert', cmd = 'cw' }
   end
 
   if key ~= 'p' then
