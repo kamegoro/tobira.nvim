@@ -4,17 +4,20 @@ local data_dir = vim.fn.stdpath('data') .. '/tobira'
 local data_file = data_dir .. '/usage.json'
 
 local usage = {}
+local _initialized = false
+
+-- Callback wired by init.lua. logger has no direct dependency on suggest.
+M.on_pattern = nil
 
 -- Cache current mode via ModeChanged to avoid vim.fn.mode() on every keystroke
 local current_mode = 'n'
 
--- Key sequence tracking state
 local seq = {
-  pending_f = nil, -- "f" or "F" pressed, waiting for next char
-  last_f = nil, -- { char, line, op }
-  pending_op = nil, -- "d" or "c" waiting for motion
-  last_op = nil, -- last confirmed operator+motion (e.g. "dw", "dd")
-  run = {}, -- { key = count } consecutive run of the same key
+  pending_f = nil,
+  last_f = nil,
+  pending_op = nil,
+  last_op = nil,
+  run = {},
 }
 
 local function ensure_dir()
@@ -49,8 +52,12 @@ local function increment(cmd)
   usage[cmd].count = usage[cmd].count + 1
 end
 
--- Track consecutive runs of the same key.
--- Returns the new run count for that key.
+local function fire(pattern, cmd)
+  if M.on_pattern then
+    M.on_pattern(pattern, cmd)
+  end
+end
+
 local function track_run(key)
   if seq.run.key == key then
     seq.run.count = seq.run.count + 1
@@ -68,7 +75,6 @@ local function handle_key(key)
     return
   end
 
-  local suggest = require('tobira.core.suggest')
   local line = vim.fn.line('.')
 
   -- f/F: wait for the target character
@@ -85,7 +91,7 @@ local function handle_key(key)
     increment(f_op)
 
     if seq.last_f and seq.last_f.line == line and seq.last_f.char == key and seq.last_f.op == f_op then
-      suggest.queue('f_repeat', ';')
+      fire('f_repeat', ';')
     end
 
     seq.last_f = { char = key, line = line, op = f_op }
@@ -120,15 +126,14 @@ local function handle_key(key)
 
   -- dd → p: swap lines
   if key == 'p' and seq.last_op == 'dd' then
-    suggest.queue('dd_then_p', 'ddp')
+    fire('dd_then_p', 'ddp')
   end
 
   -- 0 → w: suggest ^
   if key == 'w' and seq.run.key == '0' then
-    suggest.queue('zero_then_w', '^')
+    fire('zero_then_w', '^')
   end
 
-  -- Reset last_op unless we're chaining
   if key ~= 'p' then
     seq.last_op = nil
   end
@@ -137,24 +142,30 @@ local function handle_key(key)
   local run_count = track_run(key)
 
   if key == 'x' and run_count >= 3 then
-    suggest.queue('x_repeat', '{n}x')
+    fire('x_repeat', '{n}x')
   elseif key == 'u' and run_count >= 3 then
-    suggest.queue('u_repeat', '<C-r>')
+    fire('u_repeat', '<C-r>')
   elseif key == 'j' and run_count >= 5 then
-    suggest.queue('j_repeat', '{n}j')
+    fire('j_repeat', '{n}j')
   end
 
-  -- Track ; and , usage
   if key == ';' or key == ',' or key == 'n' or key == '0' then
     increment(key)
   end
 end
 
 function M.setup(config)
+  if _initialized then
+    return
+  end
+  _initialized = true
+
   usage = load()
 
+  local mode_group = vim.api.nvim_create_augroup('tobira_mode', { clear = true })
+
   vim.api.nvim_create_autocmd('ModeChanged', {
-    group = vim.api.nvim_create_augroup('tobira_mode', { clear = true }),
+    group = mode_group,
     callback = function()
       current_mode = vim.fn.mode()
     end,
@@ -174,19 +185,19 @@ function M.setup(config)
     pattern = 'n:i',
     callback = function()
       if seq.last_op == 'dw' then
-        require('tobira.core.suggest').queue('dw_then_insert', 'cw')
+        fire('dw_then_insert', 'cw')
       end
       seq.last_op = nil
     end,
   })
 
   vim.api.nvim_create_autocmd('VimLeave', {
+    group = mode_group,
     callback = save,
   })
 end
 
--- Test helper: feed a sequence of keys directly into handle_key.
--- Only available in test environments (plenary sets vim.env.PLENARY_TEST).
+-- Test helper: feed keys directly into the state machine
 function M.simulate_keys(keys)
   for _, k in ipairs(keys) do
     handle_key(k)
@@ -218,6 +229,7 @@ end
 
 function M.reset()
   usage = {}
+  _initialized = false
   save()
   vim.notify('tobira: usage log reset', vim.log.levels.INFO)
 end

@@ -2,10 +2,12 @@ local logger = require('tobira.core.logger')
 
 before_each(function()
   logger.reset()
+  logger.on_pattern = nil
 end)
 
 after_each(function()
   logger.reset()
+  logger.on_pattern = nil
 end)
 
 describe('logger.get', function()
@@ -69,71 +71,76 @@ end)
 describe('logger.reset', function()
   it('clears all usage data', function()
     logger.mark_shown('f')
-    logger.mark_shown(';')
     logger.reset()
     assert.same({}, logger.get_all())
   end)
 end)
 
--- Pattern detection via simulate_keys (test helper)
-describe('logger pattern detection', function()
-  it('detects x_repeat after 3 consecutive x presses', function()
-    local queued = nil
-    local suggest = require('tobira.core.suggest')
-    local orig = suggest.queue
-    suggest.queue = function(pattern, cmd)
-      queued = { pattern = pattern, cmd = cmd }
+describe('logger.on_pattern callback', function()
+  it('is called when x_repeat pattern is detected', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
     end
 
     logger.simulate_keys({ 'x', 'x', 'x' })
 
-    suggest.queue = orig
-    assert.is_not_nil(queued)
-    assert.equals('x_repeat', queued.pattern)
+    assert.is_true(#fired > 0)
+    assert.equals('x_repeat', fired[1].pattern)
+    assert.equals('{n}x', fired[1].cmd)
   end)
 
-  it('detects u_repeat after 3 consecutive u presses', function()
-    local queued = nil
-    local suggest = require('tobira.core.suggest')
-    local orig = suggest.queue
-    suggest.queue = function(pattern, cmd)
-      queued = { pattern = pattern, cmd = cmd }
+  it('is called when u_repeat pattern is detected', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
     end
 
     logger.simulate_keys({ 'u', 'u', 'u' })
 
-    suggest.queue = orig
-    assert.is_not_nil(queued)
-    assert.equals('u_repeat', queued.pattern)
+    assert.is_true(#fired > 0)
+    assert.equals('u_repeat', fired[1].pattern)
+    assert.equals('<C-r>', fired[1].cmd)
   end)
 
-  it('detects j_repeat after 5 consecutive j presses', function()
-    local queued = nil
-    local suggest = require('tobira.core.suggest')
-    local orig = suggest.queue
-    suggest.queue = function(pattern, cmd)
-      queued = { pattern = pattern, cmd = cmd }
+  it('is called when j_repeat pattern is detected', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
     end
 
     logger.simulate_keys({ 'j', 'j', 'j', 'j', 'j' })
 
-    suggest.queue = orig
-    assert.is_not_nil(queued)
-    assert.equals('j_repeat', queued.pattern)
+    assert.is_true(#fired > 0)
+    assert.equals('j_repeat', fired[1].pattern)
   end)
 
-  it('detects zero_then_w pattern', function()
-    local queued = nil
-    local suggest = require('tobira.core.suggest')
-    local orig = suggest.queue
-    suggest.queue = function(pattern, cmd)
-      queued = { pattern = pattern, cmd = cmd }
+  it('is called when zero_then_w pattern is detected', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
     end
 
     logger.simulate_keys({ '0', 'w' })
 
-    suggest.queue = orig
-    assert.is_not_nil(queued)
-    assert.equals('zero_then_w', queued.pattern)
+    assert.is_true(#fired > 0)
+    assert.equals('zero_then_w', fired[1].pattern)
+    assert.equals('^', fired[1].cmd)
+  end)
+
+  it('is not called when on_pattern is nil', function()
+    logger.on_pattern = nil
+    assert.has_no_error(function()
+      logger.simulate_keys({ 'x', 'x', 'x' })
+    end)
+  end)
+end)
+
+describe('logger.setup guard', function()
+  it('can be called multiple times without error', function()
+    assert.has_no_error(function()
+      logger.setup({})
+      logger.setup({})
+    end)
   end)
 end)
