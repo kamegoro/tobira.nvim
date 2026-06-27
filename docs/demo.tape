@@ -11,50 +11,41 @@ Set CursorBlink false
 
 # ── Boot nvim ────────────────────────────────────────────────────────────────
 Hide
-Type "cd "
-Type "$(git rev-parse --show-toplevel)"
+Type "cd $(git -C ~/kame/tobira.nvim rev-parse --show-toplevel) && nvim -u docs/demo-init.lua docs/demo.lua"
 Enter
-Type "nvim -u docs/demo-init.lua docs/demo.lua"
-Enter
-Sleep 2s
+Sleep 3s
 Show
 
-# ── Scene 1: f_repeat — user searches 'f' twice on the same line ─────────────
-# Navigate to the line with 'first' and 'family'
-Type "/first"
-Enter
-Sleep 600ms
-Escape
-Sleep 300ms
-
-# Jump to 'f' in 'first' — tobira increments f count
-Type "ff"
+# ── Scene 1: user navigates the file naturally ───────────────────────────────
 Sleep 500ms
-
-# Same line, search 'f' again for 'family' — tobira detects f_repeat!
-Type "ff"
-Sleep 300ms
-
-# tobira debounces for idle_delay (800ms), then shows the float
-Sleep 1300ms
-
-# ── Float is now visible: "Learn ; — repeat f/F without retyping" ────────────
-Sleep 2500ms
-
-# Dismiss and continue editing to show adoption detection
-Type "q"
+Type "jjjj"
+Sleep 400ms
+Type "fo"
+Sleep 400ms
+Type "fo"
+Sleep 400ms
+Type "fo"
 Sleep 600ms
 
-# ── Scene 2: x_repeat — deleting chars one by one ───────────────────────────
-Type "G"
-Sleep 400ms
-Type "0"
-Sleep 300ms
-Type "xxxxx"
-Sleep 1300ms
+# ── Trigger :Tobira to show the suggestion float ─────────────────────────────
+Type ":Tobira"
+Enter
+Sleep 2s
 
-# Float appears: "Learn {n}x — delete N chars at once (e.g. 5x)"
-Sleep 2500ms
+# ── Float is visible — show it for 4 seconds ─────────────────────────────────
+Sleep 4s
 
+# ── User presses q to dismiss ────────────────────────────────────────────────
 Type "q"
+Sleep 800ms
+
+# ── Scene 2: x_repeat ────────────────────────────────────────────────────────
+Type "G0"
 Sleep 400ms
+Type "xxxxx"
+Sleep 1200ms
+
+# Float auto-appears from pattern detection
+Sleep 3500ms
+Type "q"
+Sleep 500ms
