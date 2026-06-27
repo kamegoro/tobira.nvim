@@ -12,3 +12,7 @@ end
 
 vim.opt.rtp:prepend(vim.fn.getcwd())
 vim.opt.rtp:prepend(plenary_path)
+
+-- With --noplugin, plugin/ files are not auto-sourced.
+-- Manually source plenary's plugin to register PlenaryBustedDirectory.
+vim.cmd('runtime plugin/plenary.vim')
