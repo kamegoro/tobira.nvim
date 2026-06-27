@@ -6,41 +6,87 @@ local _buf = nil
 local WIDTH = 40
 local ICON = '' -- nerd font fa-info-circle (matches nvim-notify INFO icon)
 
-local sections = {
-  {
-    title = '移動',
-    items = {
-      { keys = 'h j k l', desc = 'カーソル移動' },
-      { keys = 'w / b', desc = '単語単位で移動' },
-      { keys = '0 / $', desc = '行頭 / 行末' },
-      { keys = 'gg / G', desc = 'ファイル先頭 / 末尾' },
-      { keys = 'f{char}', desc = '文字へジャンプ' },
+local i18n = {
+  en = {
+    hint = ':TobiraGuide  toggle guide',
+    sections = {
+      {
+        title = 'Motion',
+        items = {
+          { keys = 'h j k l', desc = 'move cursor' },
+          { keys = 'w / b', desc = 'next / prev word' },
+          { keys = '0 / $', desc = 'line start / end' },
+          { keys = 'gg / G', desc = 'file top / bottom' },
+          { keys = 'f{char}', desc = 'jump to character' },
+        },
+      },
+      {
+        title = 'Edit',
+        items = {
+          { keys = 'i', desc = 'insert mode' },
+          { keys = 'Esc', desc = 'back to normal mode' },
+          { keys = 'x', desc = 'delete character' },
+          { keys = 'dd', desc = 'delete line' },
+          { keys = 'yy / p', desc = 'copy / paste line' },
+          { keys = 'u / <C-r>', desc = 'undo / redo' },
+        },
+      },
+      {
+        title = 'File',
+        items = {
+          { keys = ':w', desc = 'save' },
+          { keys = ':q', desc = 'quit' },
+          { keys = ':wq', desc = 'save and quit' },
+        },
+      },
+      {
+        title = 'Search',
+        items = {
+          { keys = '/{text}', desc = 'search' },
+          { keys = 'n / N', desc = 'next / prev match' },
+        },
+      },
     },
   },
-  {
-    title = '編集',
-    items = {
-      { keys = 'i', desc = 'インサートモード' },
-      { keys = 'Esc', desc = 'ノーマルモードへ戻る' },
-      { keys = 'x', desc = '1文字削除' },
-      { keys = 'dd', desc = '行を削除' },
-      { keys = 'yy / p', desc = 'コピー / 貼り付け' },
-      { keys = 'u / <C-r>', desc = 'undo / redo' },
-    },
-  },
-  {
-    title = 'ファイル',
-    items = {
-      { keys = ':w', desc = '保存' },
-      { keys = ':q', desc = '終了' },
-      { keys = ':wq', desc = '保存して終了' },
-    },
-  },
-  {
-    title = '検索',
-    items = {
-      { keys = '/{text}', desc = '検索' },
-      { keys = 'n / N', desc = '次 / 前の結果' },
+  ja = {
+    hint = ':TobiraGuide  ガイドを閉じる',
+    sections = {
+      {
+        title = '移動',
+        items = {
+          { keys = 'h j k l', desc = 'カーソル移動' },
+          { keys = 'w / b', desc = '単語単位で移動' },
+          { keys = '0 / $', desc = '行頭 / 行末' },
+          { keys = 'gg / G', desc = 'ファイル先頭 / 末尾' },
+          { keys = 'f{char}', desc = '文字へジャンプ' },
+        },
+      },
+      {
+        title = '編集',
+        items = {
+          { keys = 'i', desc = 'インサートモード' },
+          { keys = 'Esc', desc = 'ノーマルモードへ戻る' },
+          { keys = 'x', desc = '1文字削除' },
+          { keys = 'dd', desc = '行を削除' },
+          { keys = 'yy / p', desc = 'コピー / 貼り付け' },
+          { keys = 'u / <C-r>', desc = 'undo / redo' },
+        },
+      },
+      {
+        title = 'ファイル',
+        items = {
+          { keys = ':w', desc = '保存' },
+          { keys = ':q', desc = '終了' },
+          { keys = ':wq', desc = '保存して終了' },
+        },
+      },
+      {
+        title = '検索',
+        items = {
+          { keys = '/{text}', desc = '検索' },
+          { keys = 'n / N', desc = '次 / 前の結果' },
+        },
+      },
     },
   },
 }
@@ -50,7 +96,6 @@ local function setup_hls()
     return
   end
 
-  -- Match nvim-notify INFO style when available; fall back to standard float
   local has_notify_hl = pcall(require, 'notify') and vim.fn.hlexists('NotifyINFOBorder') == 1
   if has_notify_hl then
     vim.api.nvim_set_hl(0, 'TobiraGuideBorder', { link = 'NotifyINFOBorder' })
@@ -67,8 +112,11 @@ local function setup_hls()
 end
 
 local function build()
+  local cfg = require('tobira.core.config')
+  local strings = i18n[cfg.values.lang] or i18n.en
+
   local lines = {}
-  local hls = {} -- { lnum (0-based), cs, ce, group }
+  local hls = {}
 
   local function push(line, group, cs, ce)
     local lnum = #lines
@@ -80,7 +128,7 @@ local function build()
 
   push('')
 
-  for _, section in ipairs(sections) do
+  for _, section in ipairs(strings.sections) do
     push('')
     push('  ' .. section.title, 'TobiraGuideSection', 2, 2 + #section.title)
 
@@ -90,7 +138,7 @@ local function build()
   end
 
   push('')
-  push('  :TobiraGuide  ガイドを閉じる', 'TobiraGuideHint')
+  push('  ' .. strings.hint, 'TobiraGuideHint')
 
   return lines, hls
 end

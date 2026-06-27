@@ -123,6 +123,7 @@ use {
 require("tobira").setup({
   idle_delay  = 1500,  -- ms to wait after detecting a pattern (default: 1500)
   max_shown   = 3,     -- suppress after showing N times without adoption (default: 3)
+  lang        = 'en',  -- guide panel language: 'en' | 'ja' (default: 'en')
 })
 ```
 

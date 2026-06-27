@@ -3,7 +3,7 @@ local M = {}
 local _defaults = {
   idle_delay = 1500,
   max_shown = 3,
-  lang = 'ja',
+  lang = 'en',
 }
 
 M.values = vim.deepcopy(_defaults)
