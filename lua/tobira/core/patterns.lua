@@ -48,13 +48,8 @@ function M.feed(seq, key, line)
     seq.last_f = nil
   end
 
-  -- d / c operators: wait for the motion
-  if key == 'd' or key == 'c' then
-    seq.pending_op = key
-    seq.run = { key = nil, count = 0 }
-    return nil
-  end
-
+  -- Complete a pending operator before starting a new one.
+  -- Order matters: 'dd' needs the second d to land here, not restart the operator.
   if seq.pending_op then
     local op = seq.pending_op
     seq.pending_op = nil
@@ -64,6 +59,13 @@ function M.feed(seq, key, line)
     elseif key == 'd' and op == 'd' then
       seq.last_op = 'dd'
     end
+    return nil
+  end
+
+  -- d / c: start waiting for the motion character
+  if key == 'd' or key == 'c' then
+    seq.pending_op = key
+    seq.run = { key = nil, count = 0 }
     return nil
   end
 
