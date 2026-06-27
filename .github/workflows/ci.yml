@@ -62,11 +62,11 @@ jobs:
       - name: Install lua5.1 and luacov
         run: |
           sudo apt-get install -y lua5.1 luarocks
-          luarocks --lua-version=5.1 install luacov
+          sudo luarocks --lua-version=5.1 install luacov
 
       - name: Run tests with coverage
         run: |
-          export LUA_PATH="$(luarocks --lua-version=5.1 path --lr-path);;"
+          eval "$(luarocks --lua-version=5.1 path)"
           COVERAGE=1 nvim --headless --noplugin -u tests/minimal_init.lua \
             -c "PlenaryBustedDirectory tests/spec/ {sequential = true}"
           lua5.1 -e "require('luacov.reporter').report()"
