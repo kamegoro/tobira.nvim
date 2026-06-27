@@ -1,12 +1,12 @@
 Output docs/demo.gif
 
 Set Shell "bash"
-Set FontSize 14
-Set Width 900
-Set Height 520
+Set FontSize 15
+Set Width 1200
+Set Height 680
 Set Theme "Catppuccin Mocha"
 Set Padding 20
-Set TypingSpeed 80ms
+Set TypingSpeed 40ms
 Set CursorBlink false
 
 # ── Boot nvim ────────────────────────────────────────────────────────────────
@@ -16,36 +16,25 @@ Enter
 Sleep 3s
 Show
 
-# ── Scene 1: user navigates the file naturally ───────────────────────────────
-Sleep 500ms
+# ── User navigates the file with f ───────────────────────────────────────────
+Sleep 300ms
 Type "jjjj"
-Sleep 400ms
+Sleep 200ms
 Type "fo"
-Sleep 400ms
+Sleep 250ms
 Type "fo"
-Sleep 400ms
+Sleep 250ms
 Type "fo"
-Sleep 600ms
+Sleep 300ms
 
-# ── Trigger :Tobira to show the suggestion float ─────────────────────────────
+# ── :Tobira surfaces the suggestion ──────────────────────────────────────────
 Type ":Tobira"
 Enter
-Sleep 2s
-
-# ── Float is visible — show it for 4 seconds ─────────────────────────────────
-Sleep 4s
-
-# ── User presses q to dismiss ────────────────────────────────────────────────
-Type "q"
-Sleep 800ms
-
-# ── Scene 2: x_repeat ────────────────────────────────────────────────────────
-Type "G0"
-Sleep 400ms
-Type "xxxxx"
 Sleep 1200ms
 
-# Float auto-appears from pattern detection
-Sleep 3500ms
+# ── Float is visible: "; — repeat the last f" ────────────────────────────────
+Sleep 5s
+
+# ── Dismiss ──────────────────────────────────────────────────────────────────
 Type "q"
-Sleep 500ms
+Sleep 600ms

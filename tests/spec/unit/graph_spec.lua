@@ -12,26 +12,33 @@ describe('graph.find_best', function()
     assert.is_nil(graph.find_best(usage))
   end)
 
-  it('returns the suggestion when trigger is used and target is not', function()
+  it('returns ; when f is used and ; is not yet known', function()
     local usage = {
       f = { count = 10, shown = 0, adopted = false },
     }
     assert.equals(';', graph.find_best(usage))
   end)
 
+  it('returns , when ; is used often (user knows ; already)', function()
+    local usage = {
+      [';'] = { count = 15, shown = 0, adopted = false },
+    }
+    assert.equals(',', graph.find_best(usage))
+  end)
+
   it('skips suggestions that are already adopted', function()
     local usage = {
       f = { count = 10, shown = 0, adopted = false },
       [';'] = { count = 0, shown = 0, adopted = true },
-      [','] = { count = 0, shown = 0, adopted = true },
     }
+    -- ; adopted, , trigger is ; so no ; usage → nil
     assert.is_nil(graph.find_best(usage))
   end)
 
   it('skips suggestions shown 3 or more times', function()
     local usage = {
       f = { count = 10, shown = 0, adopted = false },
-      [';'] = { count = 0, shown = 3, adopted = false },
+      [';'] = { count = 15, shown = 3, adopted = false },
       [','] = { count = 0, shown = 3, adopted = false },
     }
     assert.is_nil(graph.find_best(usage))
@@ -86,9 +93,9 @@ describe('graph.suggestions — required fields', function()
 end)
 
 describe('graph.suggestions — new patterns', function()
-  it('has , as a suggestion (reverse f)', function()
+  it('has , as a suggestion with trigger ;', function()
     assert.is_not_nil(graph.suggestions[','])
-    assert.equals('f', graph.suggestions[','].trigger)
+    assert.equals(';', graph.suggestions[','].trigger)
   end)
 
   it('has <C-r> as a suggestion (redo after u)', function()

@@ -15,16 +15,19 @@ vim.opt.showmode = false
 -- Load tobira from this repo root
 vim.opt.rtp:prepend(vim.fn.fnamemodify(debug.getinfo(1, 'S').source:sub(2), ':h:h'))
 
+-- Wipe usage data so the demo always starts from a clean state
+os.remove(vim.fn.stdpath('data') .. '/tobira/usage.json')
+
 require('tobira').setup({
   idle_delay = 800,
   max_shown = 3,
 })
 
--- Pre-seed usage so :Tobira has something to show.
--- Simulates a user who has been pressing 'f' but not ';'.
+-- Pre-seed usage: simulate a user who has been pressing 'f' repeatedly.
+-- This gives find_best() enough signal to recommend ';'.
 vim.defer_fn(function()
   local logger = require('tobira.core.logger')
-  for _ = 1, 10 do
+  for _ = 1, 12 do
     logger.simulate_keys({ 'f', 'o' })
   end
-end, 200)
+end, 300)

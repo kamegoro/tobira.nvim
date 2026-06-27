@@ -11,7 +11,7 @@ M.suggestions = {
   },
   [','] = {
     cmd = ',',
-    trigger = 'f',
+    trigger = ';',
     title = ', — repeat f in reverse',
     body = 'The opposite of ; — jumps back to the previous f match\nUseful when you overshoot with ;',
     example = 'fa ;;; , → jump back one',
