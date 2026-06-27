@@ -1,17 +1,18 @@
 -- Enable luacov coverage tracking when COVERAGE=1 is set.
--- luacov must be findable via LUA_PATH (set by CI before invoking nvim).
 if os.getenv('COVERAGE') == '1' then
-  local ok, runner = pcall(require, 'luacov.runner')
-  if ok then
-    runner.init()
-    -- Flush stats on clean Neovim exit so the report file is complete.
-    vim.api.nvim_create_autocmd('VimLeave', {
-      callback = function()
-        runner.shutdown()
-      end,
-    })
-  else
-    io.stderr:write('[tobira-ci] luacov not loaded — check LUA_PATH\n  ' .. tostring(runner) .. '\n')
+  -- Neovim ignores the LUA_PATH env-var, so we patch package.path directly.
+  local home = os.getenv('HOME') or ''
+  local lr = home .. '/.luarocks/share/lua/5.1'
+  local lr_path = lr .. '/?.lua;' .. lr .. '/?/init.lua'
+  if not package.path:find(lr_path, 1, true) then
+    package.path = lr_path .. ';' .. package.path
+  end
+
+  -- require('luacov') (the main entry) hooks os.exit() so stats are flushed
+  -- even when plenary exits via os.exit() rather than triggering VimLeave.
+  local ok, err = pcall(require, 'luacov')
+  if not ok then
+    io.stderr:write('[tobira-ci] luacov not loaded: ' .. tostring(err) .. '\n')
   end
 end
 

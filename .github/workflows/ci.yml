@@ -66,10 +66,10 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          export LUA_PATH="$HOME/.luarocks/share/lua/5.1/?.lua;$HOME/.luarocks/share/lua/5.1/?/init.lua;;"
           COVERAGE=1 nvim --headless --noplugin -u tests/minimal_init.lua \
             -c "PlenaryBustedDirectory tests/spec/ {sequential = true}"
-          lua5.1 -e "require('luacov.reporter').report()"
+          LUA_PATH="$HOME/.luarocks/share/lua/5.1/?.lua;$HOME/.luarocks/share/lua/5.1/?/init.lua;;" \
+            lua5.1 -e "require('luacov.reporter').report()"
 
       - name: Print coverage report
         if: always()
