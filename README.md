@@ -44,33 +44,27 @@ Suggestions appear as notifications (compatible with [nvim-notify](https://githu
 On first launch, tobira shows a cheatsheet on the right side of the screen for new users:
 
 ```
-  ╭──────── ℹ tobira guide ────────╮
-  │                                │
-  │  移動                          │
-  │  h j k l   カーソル移動        │
-  │  w / b     単語単位で移動      │
-  │  0 / $     行頭 / 行末         │
-  │  gg / G    ファイル先頭 / 末尾 │
-  │  f{char}   文字へジャンプ      │
-  │                                │
-  │  編集                          │
-  │  i         インサートモード    │
-  │  Esc       ノーマルモードへ戻る│
-  │  dd        行を削除            │
-  │  yy / p    コピー / 貼り付け  │
-  │  u / <C-r> undo / redo        │
-  │                                │
-  │  ファイル                      │
-  │  :w        保存                │
-  │  :q        終了                │
-  │  :wq       保存して終了        │
-  │                                │
-  │  検索                          │
-  │  /{text}   検索                │
-  │  n / N     次 / 前の結果       │
-  │                                │
-  │  :TobiraGuide  ガイドを閉じる  │
-  ╰────────────────────────────────╯
+  ╭──────── ℹ tobira guide ────────────────────╮
+  │                                            │
+  │  Motion                                    │
+  │  ✓ h j k l   move cursor                  │
+  │     → <C-d> / <C-u>  scroll half page     │
+  │  ✓ f{char}   jump to character             │
+  │     → ;  repeat last f                     │
+  │     w / b    next / prev word              │
+  │     0 / $    line start / end              │
+  │     gg / G   file top / bottom             │
+  │                                            │
+  │  Edit                                      │
+  │  ✓ i         insert mode                   │
+  │     → a / o / O  append / new line         │
+  │     Esc       back to normal mode          │
+  │     dd        delete line                  │
+  │     yy / p    copy / paste line            │
+  │     u / <C-r> undo / redo                  │
+  │                                            │
+  │  :TobiraGuide  toggle guide                │
+  ╰────────────────────────────────────────────╯
 ```
 
 - Shown automatically on first launch only

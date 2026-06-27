@@ -17,6 +17,10 @@ Sleep 500ms
 Type "cd ~/kame/tobira.nvim && nvim docs/demo.lua"
 Enter
 Sleep 6s
+# Override lang to English after lazy.nvim finishes loading
+Type ":lua require('tobira.core.config').values.lang = 'en'"
+Enter
+Sleep 200ms
 Show
 
 # ── User navigates the file with f (repeated search = inefficient pattern) ───

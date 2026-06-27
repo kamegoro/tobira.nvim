@@ -9,15 +9,13 @@ local COLS = 3
 local COL_W = 13 -- display columns per grid cell
 local ICON = '' -- nerd font (matches nvim-notify INFO)
 
-local LEVEL_LABEL = {
-  novice = { en = 'novice', ja = '初心者以前' },
-  beginner = { en = 'beginner', ja = '入門' },
-  intermediate = { en = 'intermediate', ja = '中級者' },
-  advanced = { en = 'advanced', ja = '上級者' },
-}
-
-local function lang()
-  return require('tobira.core.config').values.lang
+local function load_strings()
+  local lang = require('tobira.core.config').values.lang
+  local ok, loc = pcall(require, 'tobira.locales.' .. lang)
+  if not ok then
+    loc = require('tobira.locales.en')
+  end
+  return loc.progress
 end
 
 local function setup_hls()
@@ -39,8 +37,6 @@ local function setup_hls()
   vim.api.nvim_set_hl(0, 'TobiraGuideHint', { link = 'Comment' })
 end
 
--- Build one grid cell: symbol + label padded to COL_W display columns.
--- Returns the string and a list of {byte_offset, group} pairs for highlighting.
 local SYM_LEARNED = '✓' -- U+2713, 3 bytes, 1 display col
 local SYM_PENDING = '○' -- U+25CB, 3 bytes, 1 display col
 
@@ -49,9 +45,9 @@ local function build()
   local logger = require('tobira.core.logger')
   local graph = require('tobira.core.graph')
   local level = require('tobira.core.level')
+  local str = load_strings()
 
   local usage = logger.get_all()
-  local l = lang()
 
   local lines = {}
   local hls = {}
@@ -68,13 +64,13 @@ local function build()
 
   -- Level banner
   local lv = level.get()
-  local lv_label = (LEVEL_LABEL[lv] and LEVEL_LABEL[lv][l]) or lv
+  local lv_label = (str.levels and str.levels[lv]) or lv
   push('  Level: ' .. lv_label, 'TobiraGuideSection', 2, -1)
 
   -- Skill tree grid
   for _, cat in ipairs(skills.tree) do
     push('')
-    local cat_label = cat[l] or cat.en
+    local cat_label = (str.categories and str.categories[cat.id]) or cat.id
     push('  ' .. cat_label, 'TobiraGuideSection', 2, 2 + #cat_label)
 
     -- Chunk items into rows of COLS
@@ -121,13 +117,11 @@ local function build()
   if next_cmd then
     local sug = graph.suggestions[next_cmd]
     push('')
-    local next_label = l == 'ja' and '次のおすすめ: ' or 'Next: '
-    push('  ' .. next_label .. sug.title, 'TobiraGuideUpgrade')
+    push('  ' .. (str.next or 'Next: ') .. sug.title, 'TobiraGuideUpgrade')
   end
 
   push('')
-  local hint = l == 'ja' and '  [q / Esc]  閉じる' or '  [q / Esc]  close'
-  push(hint, 'TobiraGuideHint')
+  push('  ' .. (str.hint or '[q / Esc]  close'), 'TobiraGuideHint')
 
   return lines, hls
 end

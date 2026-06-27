@@ -103,4 +103,19 @@ return {
       },
     },
   },
+  progress = {
+    levels = {
+      novice = 'novice',
+      beginner = 'beginner',
+      intermediate = 'intermediate',
+      advanced = 'advanced',
+    },
+    next = 'Next: ',
+    hint = '[q / Esc]  close',
+    categories = {
+      motion = 'Motion',
+      edit = 'Edit',
+      search = 'Search',
+    },
+  },
 }

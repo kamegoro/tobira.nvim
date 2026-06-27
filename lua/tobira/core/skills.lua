@@ -6,8 +6,6 @@ local M = {}
 M.tree = {
   {
     id = 'motion',
-    en = 'Motion',
-    ja = '移動',
     items = {
       { id = 'hjkl', keys = 'hjkl', track = { 'h', 'j', 'k', 'l' }, threshold = 10 },
       { id = 'wb', keys = 'w/b', track = { 'w', 'b' }, threshold = 5 },
@@ -19,8 +17,6 @@ M.tree = {
   },
   {
     id = 'edit',
-    en = 'Edit',
-    ja = '編集',
     items = {
       { id = 'insert', keys = 'i/a/o', track = { 'i', 'a', 'o' }, threshold = 5 },
       { id = 'delete', keys = 'x/dd', track = { 'x' }, threshold = 3 },
@@ -32,8 +28,6 @@ M.tree = {
   },
   {
     id = 'search',
-    en = 'Search',
-    ja = '検索',
     items = {
       { id = 'search', keys = '/+n', track = { 'n' }, threshold = 2 },
       { id = 'star', keys = '*/#', track = { '*' }, threshold = 1 },

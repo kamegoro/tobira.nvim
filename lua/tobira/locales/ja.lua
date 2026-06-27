@@ -103,4 +103,19 @@ return {
       },
     },
   },
+  progress = {
+    levels = {
+      novice = '初心者以前',
+      beginner = '入門',
+      intermediate = '中級者',
+      advanced = '上級者',
+    },
+    next = '次のおすすめ: ',
+    hint = '[q / Esc]  閉じる',
+    categories = {
+      motion = '移動',
+      edit = '編集',
+      search = '検索',
+    },
+  },
 }
