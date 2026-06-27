@@ -71,6 +71,13 @@ jobs:
           LUA_PATH="$HOME/.luarocks/share/lua/5.1/?.lua;$HOME/.luarocks/share/lua/5.1/?/init.lua;;" \
             lua5.1 -e "require('luacov.reporter').report()"
 
+      - name: Debug stats file
+        if: always()
+        run: |
+          echo "=== luacov.stats.out ==="
+          wc -l luacov.stats.out 2>/dev/null || echo "(stats file not found)"
+          head -20 luacov.stats.out 2>/dev/null || echo "(empty)"
+
       - name: Print coverage report
         if: always()
         run: cat luacov.report.out 2>/dev/null || echo "(no report generated)"
