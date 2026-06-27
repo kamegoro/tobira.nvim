@@ -45,6 +45,8 @@ if os.getenv('COVERAGE') == '1' then
       local arg = select(1, ...)
       local cmd_str = type(arg) == 'string' and arg or (type(arg) == 'table' and (arg.cmd or '') or '')
       if cmd_str:match('cq') or cmd_str:match('qall') then
+        local h = debug.gethook()
+        print('[luacov-exit] hook at exit: ' .. tostring(h ~= nil) .. '  cmd=' .. cmd_str)
         pcall(runner.shutdown)
         vim.cmd = orig_cmd
       end
@@ -54,6 +56,7 @@ if os.getenv('COVERAGE') == '1' then
     -- Hook os.exit so stats are written when plenary calls os.exit().
     local orig_exit = os.exit
     os.exit = function(code, ...)
+      print('[luacov-exit] os.exit called code=' .. tostring(code))
       pcall(runner.shutdown)
       orig_exit(code, ...)
     end
@@ -61,6 +64,7 @@ if os.getenv('COVERAGE') == '1' then
     -- Also flush on :qall! / VimLeave in case nothing else works.
     vim.api.nvim_create_autocmd('VimLeave', {
       callback = function()
+        print('[luacov-exit] VimLeave fired')
         pcall(runner.shutdown)
       end,
     })
