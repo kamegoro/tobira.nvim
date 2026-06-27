@@ -24,17 +24,11 @@ if os.getenv('COVERAGE') == '1' then
   if ok then
     runner.init()
 
-    -- Wrap the hook with a counter to verify it fires during test execution.
-    local original_hook, orig_mask = debug.gethook()
-    local hook_calls = 0
-    if original_hook then
-      debug.sethook(function(event, line)
-        hook_calls = hook_calls + 1
-        return original_hook(event, line)
-      end, orig_mask or 'l')
-    end
-
     -- Capture the hook right after init so we can propagate it.
+    -- DO NOT wrap the hook: wrapping shifts the call-stack depth, so
+    -- debug.getinfo(2,"S") inside runner.on_line would see the wrapper
+    -- (tests/minimal_init.lua) instead of the real source file, and
+    -- all events would be excluded by exclude = {'tests'}.
     local luacov_hook, luacov_mask, luacov_count = debug.gethook()
     print('[luacov] runner init OK; hook active: ' .. tostring(luacov_hook ~= nil))
 
@@ -56,7 +50,7 @@ if os.getenv('COVERAGE') == '1' then
       local cmd_str = type(arg) == 'string' and arg or (type(arg) == 'table' and (arg.cmd or '') or '')
       if cmd_str:match('cq') or cmd_str:match('qall') then
         local h = debug.gethook()
-        print('[luacov-exit] hook at exit: ' .. tostring(h ~= nil) .. '  cmd=' .. cmd_str .. '  hook_calls=' .. hook_calls)
+        print('[luacov-exit] hook at exit: ' .. tostring(h ~= nil) .. '  cmd=' .. cmd_str)
         pcall(runner.shutdown)
         vim.cmd = orig_cmd
       end
