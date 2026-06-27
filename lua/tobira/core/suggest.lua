@@ -60,6 +60,9 @@ function M.show(cmd)
   if session.shown then
     return
   end
+  if should_suppress(cmd) then
+    return
+  end
 
   local suggestion = graph.suggestions[cmd]
   if not suggestion then
