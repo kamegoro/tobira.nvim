@@ -10,8 +10,9 @@ end
 
 -- Returns 'novice' | 'beginner' | 'intermediate' | 'advanced'
 -- based on accumulated usage counts — no user input required.
-function M.get()
-  local usage = require('tobira.core.logger').get_all()
+-- Accepts an optional usage table; falls back to logger.get_all() if omitted.
+function M.get(usage)
+  usage = usage or require('tobira.core.logger').get_all()
 
   -- Advanced: knows ;/, or cgn (sophisticated repeat techniques)
   local semi_count = cnt(usage, { ';', ',' })

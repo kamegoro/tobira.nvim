@@ -138,3 +138,25 @@ describe('adjacency map', function()
     end
   end)
 end)
+
+-- ── max_shown parameter ────────────────────────────────────────────────────────
+
+describe('when max_shown is raised above the default', function()
+  it('still suggests a command shown fewer times than the new limit', function()
+    local usage = {
+      f = { count = 10, shown = 0, adopted = false },
+      [';'] = { count = 0, shown = 4, adopted = false },
+    }
+    assert.equals(';', graph.find_best(usage, 5))
+  end)
+end)
+
+describe('when max_shown is lowered below the default', function()
+  it('does not suggest a command that has reached the lower limit', function()
+    local usage = {
+      f = { count = 10, shown = 0, adopted = false },
+      [';'] = { count = 0, shown = 2, adopted = false },
+    }
+    assert.is_nil(graph.find_best(usage, 2))
+  end)
+end)

@@ -171,8 +171,6 @@ function M.reset()
   usage = {}
   seq = patterns.new_seq()
   _initialized = false
-  local str = require('tobira.i18n').load()
-  vim.notify(str.notifications.reset, vim.log.levels.INFO)
 end
 
 function M.save()

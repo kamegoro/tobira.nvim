@@ -93,14 +93,15 @@ M.adjacency = {
   ['x'] = { 's', 'r', '{n}x' },
 }
 
-function M.find_best(usage)
+function M.find_best(usage, max_shown)
+  max_shown = max_shown or 3
   local best_cmd = nil
   local best_score = -1
 
   for cmd, sug in pairs(M.suggestions) do
     local data = usage[cmd] or { count = 0, shown = 0, adopted = false }
 
-    if not data.adopted and data.shown < 3 then
+    if not data.adopted and data.shown < max_shown then
       local trigger_count = (usage[sug.trigger] and usage[sug.trigger].count) or 0
       local cmd_count = data.count
 

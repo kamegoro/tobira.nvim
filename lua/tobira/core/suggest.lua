@@ -82,7 +82,7 @@ function M.reset_session()
 end
 
 function M.manual()
-  local best = graph.find_best(logger.get_all())
+  local best = graph.find_best(logger.get_all(), config.values.max_shown)
   if not best then
     local str = require('tobira.i18n').load()
     vim.notify(str.notifications.no_suggestions, vim.log.levels.INFO)

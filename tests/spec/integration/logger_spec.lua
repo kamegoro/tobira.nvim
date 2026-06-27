@@ -92,3 +92,27 @@ describe('when setup is called more than once', function()
     end)
   end)
 end)
+-- ── reset side-effects ──────────────────────────────────────────────────────
+
+describe('when reset is called', function()
+  it('does not trigger a notification', function()
+    local notified = false
+    local orig = vim.notify
+    vim.notify = function()
+      notified = true
+    end
+    local ok, err = pcall(logger.reset)
+    vim.notify = orig
+    assert.is_true(ok, err)
+    assert.is_false(notified)
+  end)
+end)
+
+-- ── guide_seen ───────────────────────────────────────────────────────────────
+
+describe('when the guide is marked as seen', function()
+  it('reports it as seen immediately after', function()
+    logger.mark_guide_seen()
+    assert.is_true(logger.is_guide_seen())
+  end)
+end)
