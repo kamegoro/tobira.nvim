@@ -1,0 +1,27 @@
+name: Issue link
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  check:
+    name: Require linked issue
+    runs-on: ubuntu-latest
+    # Skip dependabot and release-please PRs
+    if: |
+      github.actor != 'dependabot[bot]' &&
+      !startsWith(github.head_ref, 'release-please--')
+    steps:
+      - name: Check for issue reference
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.pull_request.body || '';
+            const pattern = /(?:closes?|fixes?|resolves?)\s+#\d+/i;
+            if (!pattern.test(body)) {
+              core.setFailed(
+                'PR body must reference an issue.\n' +
+                'Add "Closes #<issue number>" to the PR description.'
+              );
+            }

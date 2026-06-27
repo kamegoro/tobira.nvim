@@ -106,6 +106,8 @@ tests/
 
 ## Submitting a PR
 
+> **Every PR must be linked to an issue.** Open an issue first if one doesn't exist.
+
 1. Fork the repo and create a branch from `main`
 2. Make your changes
 3. Run `stylua --check lua/ plugin/` and `selene lua/ plugin/` — both must pass

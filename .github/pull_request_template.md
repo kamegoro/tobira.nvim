@@ -1,20 +1,20 @@
-## Description
-
-<!-- Describe what this PR changes and why. -->
-
 Closes #
+
+## Summary
+
+<!-- What does this PR solve? -->
 
 ## Type of change
 
-- [ ] Bug fix (non-breaking change that fixes an issue)
-- [ ] New feature (non-breaking change that adds functionality)
-- [ ] Breaking change (fix or feature that changes existing behavior)
+- [ ] Bug fix
+- [ ] New feature
+- [ ] Breaking change
 - [ ] Documentation update
 
 ## Checklist
 
-- [ ] Code follows the style of this project (`stylua --check`)
+- [ ] This PR is linked to an issue (`Closes #` above is filled in)
+- [ ] Code is formatted with `stylua`
 - [ ] `selene` passes with no errors
 - [ ] Tested on Neovim stable
 - [ ] New detection patterns added to `graph.lua` (if applicable)
-- [ ] `:checkhealth tobira` still reports OK
