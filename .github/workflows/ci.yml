@@ -67,16 +67,9 @@ jobs:
       - name: Run tests with coverage
         run: |
           COVERAGE=1 nvim --headless --noplugin -u tests/minimal_init.lua \
-            -c "PlenaryBustedDirectory tests/spec/ {sequential = true}"
+            -c "PlenaryBustedDirectory tests/spec/ {minimal_init = 'tests/minimal_init.lua', sequential = true}"
           LUA_PATH="$HOME/.luarocks/share/lua/5.1/?.lua;$HOME/.luarocks/share/lua/5.1/?/init.lua;;" \
             lua5.1 -e "require('luacov.reporter').report()"
-
-      - name: Debug stats file
-        if: always()
-        run: |
-          echo "=== luacov.stats.out ==="
-          wc -l luacov.stats.out 2>/dev/null || echo "(stats file not found)"
-          head -20 luacov.stats.out 2>/dev/null || echo "(empty)"
 
       - name: Print coverage report
         if: always()
