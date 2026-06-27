@@ -75,7 +75,39 @@ On first launch, tobira shows a cheatsheet on the right side of the screen for n
 
 - Shown automatically on first launch only
 - Stays behind other windows — never interrupts your workflow
+- As you use commands, mastered items show **✓** and the next-level command appears below with **→**
 - `:TobiraGuide` to open / close at any time
+- Adapts to context: shows file-tree shortcuts when neo-tree is active
+
+---
+
+## Skill progress
+
+`:TobiraProgress` shows your current level and which commands you have learned:
+
+```
+╭──── ℹ  tobira — your vim journey ────╮
+│                                       │
+│  Level: intermediate                  │
+│                                       │
+│  Motion                               │
+│  ✓ hjkl    ✓ w/b     ○ gg/G          │
+│  ✓ f/t     ○ ;/,     ○ <C-d/u>       │
+│                                       │
+│  Edit                                 │
+│  ✓ i/a/o   ✓ x/dd    ✓ yy/p          │
+│  ✓ u/<C-r> ○ cw/ciw  ○ v/V           │
+│                                       │
+│  Search                               │
+│  ✓ /+n     ○ */#     ○ cgn           │
+│                                       │
+│  Next: ; — repeat the last f          │
+│                                       │
+│  [q / Esc]  close                     │
+╰───────────────────────────────────────╯
+```
+
+Level is detected automatically from your usage — no quizzes, no setup.
 
 ---
 
@@ -134,7 +166,8 @@ require("tobira").setup({
 | Command | Description |
 |---|---|
 | `:Tobira` | Show the next suggestion now |
-| `:TobiraGuide` | Toggle the vim cheatsheet panel |
+| `:TobiraGuide` | Toggle the cheatsheet panel (adapts to context + mastery) |
+| `:TobiraProgress` | Show skill tree with level and learned commands |
 | `:TobiraStats` | Show your command usage statistics |
 | `:TobiraReset` | Clear all usage data |
 | `:checkhealth tobira` | Verify the plugin is set up correctly |
