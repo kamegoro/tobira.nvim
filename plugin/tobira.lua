@@ -11,6 +11,10 @@ vim.api.nvim_create_user_command('TobiraStats', function()
   require('tobira.core.logger').stats()
 end, { desc = 'Show command usage stats' })
 
+vim.api.nvim_create_user_command('TobiraGuide', function()
+  require('tobira.ui.guide').toggle()
+end, { desc = 'Toggle vim guide panel' })
+
 vim.api.nvim_create_user_command('TobiraReset', function()
   local logger = require('tobira.core.logger')
   logger.reset()

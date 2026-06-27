@@ -18,6 +18,13 @@ function M.setup(opts)
   -- Wire the callback: logger fires patterns, suggest handles them.
   -- This is the only place either module knows about the other's role.
   logger.on_pattern = suggest.queue
+
+  if not logger.is_guide_seen() then
+    logger.mark_guide_seen()
+    vim.defer_fn(function()
+      require('tobira.ui.guide').open()
+    end, 300)
+  end
 end
 
 return M

@@ -6,6 +6,7 @@ local data_dir = vim.fn.stdpath('data') .. '/tobira'
 local data_file = data_dir .. '/usage.json'
 
 local usage = {}
+local meta = { guide_seen = false }
 local _initialized = false
 local seq = patterns.new_seq()
 
@@ -26,7 +27,14 @@ local function load()
   local content = f:read('*a')
   f:close()
   local ok, data = pcall(vim.json.decode, content)
-  return (ok and type(data) == 'table') and data or {}
+  if not (ok and type(data) == 'table') then
+    return {}
+  end
+  if data._meta then
+    meta = vim.tbl_extend('force', meta, data._meta)
+    data._meta = nil
+  end
+  return data
 end
 
 local function save()
@@ -35,7 +43,9 @@ local function save()
   if not f then
     return
   end
-  f:write(vim.json.encode(usage))
+  local payload = vim.deepcopy(usage)
+  payload._meta = meta
+  f:write(vim.json.encode(payload))
   f:close()
 end
 
@@ -140,6 +150,15 @@ function M.reset()
 end
 
 function M.save()
+  save()
+end
+
+function M.is_guide_seen()
+  return meta.guide_seen == true
+end
+
+function M.mark_guide_seen()
+  meta.guide_seen = true
   save()
 end
 
