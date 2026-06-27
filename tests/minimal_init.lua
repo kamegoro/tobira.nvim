@@ -10,6 +10,8 @@ if os.getenv('COVERAGE') == '1' then
         runner.shutdown()
       end,
     })
+  else
+    io.stderr:write('[tobira-ci] luacov not loaded — check LUA_PATH\n  ' .. tostring(runner) .. '\n')
   end
 end
 
