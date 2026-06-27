@@ -12,7 +12,21 @@ if os.getenv('COVERAGE') == '1' then
   local ok, runner = pcall(require, 'luacov.runner')
   if ok then
     runner.init()
-    print('[luacov] runner initialized (JIT off)')
+
+    -- Capture the hook right after init so we can propagate it.
+    local luacov_hook, luacov_mask, luacov_count = debug.gethook()
+    print('[luacov] runner init OK; hook active: ' .. tostring(luacov_hook ~= nil))
+
+    -- Plenary runs each it() in a fresh coroutine.  debug.sethook is
+    -- per-coroutine, so we must re-apply the hook to every new coroutine.
+    if luacov_hook then
+      local orig_create = coroutine.create
+      coroutine.create = function(f)
+        local co = orig_create(f)
+        debug.sethook(co, luacov_hook, luacov_mask or 'l', luacov_count or 0)
+        return co
+      end
+    end
 
     -- Hook os.exit so stats are written when plenary calls os.exit().
     local orig_exit = os.exit
