@@ -2,94 +2,30 @@ local M = {}
 
 local _win = nil
 local _buf = nil
+local _ns = vim.api.nvim_create_namespace('tobira_guide')
 
 local WIDTH = 40
 local ICON = '' -- nerd font fa-info-circle (matches nvim-notify INFO icon)
 
-local i18n = {
-  en = {
-    hint = ':TobiraGuide  toggle guide',
-    sections = {
-      {
-        title = 'Motion',
-        items = {
-          { keys = 'h j k l', desc = 'move cursor' },
-          { keys = 'w / b', desc = 'next / prev word' },
-          { keys = '0 / $', desc = 'line start / end' },
-          { keys = 'gg / G', desc = 'file top / bottom' },
-          { keys = 'f{char}', desc = 'jump to character' },
-        },
-      },
-      {
-        title = 'Edit',
-        items = {
-          { keys = 'i', desc = 'insert mode' },
-          { keys = 'Esc', desc = 'back to normal mode' },
-          { keys = 'x', desc = 'delete character' },
-          { keys = 'dd', desc = 'delete line' },
-          { keys = 'yy / p', desc = 'copy / paste line' },
-          { keys = 'u / <C-r>', desc = 'undo / redo' },
-        },
-      },
-      {
-        title = 'File',
-        items = {
-          { keys = ':w', desc = 'save' },
-          { keys = ':q', desc = 'quit' },
-          { keys = ':wq', desc = 'save and quit' },
-        },
-      },
-      {
-        title = 'Search',
-        items = {
-          { keys = '/{text}', desc = 'search' },
-          { keys = 'n / N', desc = 'next / prev match' },
-        },
-      },
-    },
-  },
-  ja = {
-    hint = ':TobiraGuide  ガイドを閉じる',
-    sections = {
-      {
-        title = '移動',
-        items = {
-          { keys = 'h j k l', desc = 'カーソル移動' },
-          { keys = 'w / b', desc = '単語単位で移動' },
-          { keys = '0 / $', desc = '行頭 / 行末' },
-          { keys = 'gg / G', desc = 'ファイル先頭 / 末尾' },
-          { keys = 'f{char}', desc = '文字へジャンプ' },
-        },
-      },
-      {
-        title = '編集',
-        items = {
-          { keys = 'i', desc = 'インサートモード' },
-          { keys = 'Esc', desc = 'ノーマルモードへ戻る' },
-          { keys = 'x', desc = '1文字削除' },
-          { keys = 'dd', desc = '行を削除' },
-          { keys = 'yy / p', desc = 'コピー / 貼り付け' },
-          { keys = 'u / <C-r>', desc = 'undo / redo' },
-        },
-      },
-      {
-        title = 'ファイル',
-        items = {
-          { keys = ':w', desc = '保存' },
-          { keys = ':q', desc = '終了' },
-          { keys = ':wq', desc = '保存して終了' },
-        },
-      },
-      {
-        title = '検索',
-        items = {
-          { keys = '/{text}', desc = '検索' },
-          { keys = 'n / N', desc = '次 / 前の結果' },
-        },
-      },
-    },
-  },
+-- Map filetypes to context keys defined in locale files
+local FILETYPE_CONTEXT = {
+  ['neo-tree'] = 'neo_tree',
+  ['NvimTree'] = 'neo_tree',
 }
+
+local function detect_context()
+  return FILETYPE_CONTEXT[vim.bo.filetype] or 'default'
+end
+
+local function load_strings()
+  local cfg = require('tobira.core.config')
+  local lang = cfg.values.lang
+  local ok, strings = pcall(require, 'tobira.locales.' .. lang)
+  if not ok then
+    strings = require('tobira.locales.en')
+  end
+  return strings.guide
+end
 
 local function setup_hls()
   if vim.fn.hlexists('TobiraGuideBorder') == 1 then
@@ -112,8 +48,9 @@ local function setup_hls()
 end
 
 local function build()
-  local cfg = require('tobira.core.config')
-  local strings = i18n[cfg.values.lang] or i18n.en
+  local strings = load_strings()
+  local ctx = detect_context()
+  local sections = strings.contexts[ctx] or strings.contexts.default
 
   local lines = {}
   local hls = {}
@@ -128,12 +65,12 @@ local function build()
 
   push('')
 
-  for _, section in ipairs(strings.sections) do
+  for _, section in ipairs(sections) do
     push('')
     push('  ' .. section.title, 'TobiraGuideSection', 2, 2 + #section.title)
 
     for _, item in ipairs(section.items) do
-      push(string.format('  %-10s  %s', item.keys, item.desc), 'TobiraGuideKey', 2, 2 + #item.keys)
+      push(string.format('  %-14s  %s', item.keys, item.desc), 'TobiraGuideKey', 2, 2 + #item.keys)
     end
   end
 
@@ -143,14 +80,34 @@ local function build()
   return lines, hls
 end
 
+local function apply_content(lines, hls)
+  vim.bo[_buf].modifiable = true
+  vim.api.nvim_buf_set_lines(_buf, 0, -1, false, lines)
+  vim.api.nvim_buf_clear_namespace(_buf, _ns, 0, -1)
+  for _, hl in ipairs(hls) do
+    vim.api.nvim_buf_add_highlight(_buf, _ns, hl.group, hl.lnum, hl.cs, hl.ce)
+  end
+  vim.bo[_buf].modifiable = false
+end
+
 function M.is_open()
   return _win ~= nil and vim.api.nvim_win_is_valid(_win)
+end
+
+function M.refresh()
+  if not M.is_open() then
+    return
+  end
+  local lines, hls = build()
+  apply_content(lines, hls)
+  vim.api.nvim_win_set_height(_win, #lines)
 end
 
 function M.close()
   if M.is_open() then
     vim.api.nvim_win_close(_win, true)
   end
+  pcall(vim.api.nvim_del_augroup_by_name, 'tobira_guide_ctx')
   _win = nil
   _buf = nil
 end
@@ -171,7 +128,7 @@ function M.open()
   vim.bo[_buf].filetype = 'tobira_guide'
 
   for _, hl in ipairs(hls) do
-    vim.api.nvim_buf_add_highlight(_buf, -1, hl.group, hl.lnum, hl.cs, hl.ce)
+    vim.api.nvim_buf_add_highlight(_buf, _ns, hl.group, hl.lnum, hl.cs, hl.ce)
   end
 
   local uis = vim.api.nvim_list_uis()
@@ -195,6 +152,17 @@ function M.open()
 
   vim.wo[_win].winhl = 'Normal:TobiraGuideNormal,FloatBorder:TobiraGuideBorder'
   vim.wo[_win].wrap = false
+
+  -- Auto-refresh when moving between windows (context may change)
+  vim.api.nvim_create_autocmd({ 'WinEnter', 'BufEnter' }, {
+    group = vim.api.nvim_create_augroup('tobira_guide_ctx', { clear = true }),
+    callback = function()
+      if vim.api.nvim_get_current_win() == _win then
+        return
+      end
+      vim.schedule(M.refresh)
+    end,
+  })
 end
 
 function M.toggle()
