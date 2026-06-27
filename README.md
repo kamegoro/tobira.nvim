@@ -4,6 +4,10 @@
 
 **tobira** (扉) means "door" in Japanese.
 
+<p align="center">
+  <img src="docs/demo.gif" alt="tobira.nvim demo" width="720" />
+</p>
+
 Once you're comfortable with Vim, you stop actively learning new commands — you just use the ones you already know. tobira watches how you actually work, and when it notices you're doing something the hard way, it quietly shows you the better path.
 
 No generic tip lists. No quizzes. Just _your_ habits, and the one command that would've helped you just now.
