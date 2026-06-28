@@ -7,7 +7,7 @@ local M = {}
 local session = {
   shown = false,
   timer = nil,
-  watching = {},
+  watching_ns = {},
 }
 
 local function should_suppress(cmd)
@@ -24,20 +24,19 @@ local function cancel_timer()
 end
 
 local function watch_adoption(cmd)
-  session.watching[cmd] = true
-
   local ns = vim.api.nvim_create_namespace('tobira_adopt_' .. cmd)
+  session.watching_ns[cmd] = ns
   vim.on_key(function(key, typed)
     local k = (typed ~= nil and typed ~= '') and typed or key
     if k == cmd then
       logger.mark_adopted(cmd)
-      session.watching[cmd] = nil
+      session.watching_ns[cmd] = nil
       vim.on_key(nil, ns)
     end
   end, ns)
 end
 
-function M.queue(pattern_id, cmd)
+function M.queue(_, cmd)
   if session.shown then
     return
   end
@@ -74,8 +73,12 @@ end
 
 function M.reset_session()
   cancel_timer()
+  for _, ns in pairs(session.watching_ns) do
+    vim.on_key(nil, ns)
+  end
   session.shown = false
   session.watching = {}
+  session.watching_ns = {}
 end
 
 function M.manual()

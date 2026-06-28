@@ -12,7 +12,7 @@ M.tree = {
       { id = 'gg', keys = 'gg/G', track = { 'g', 'G' }, threshold = 3 },
       { id = 'ft', keys = 'f/t', track = { 'f', 'F' }, threshold = 3 },
       { id = 'semi', keys = ';/,', track = { ';', ',' }, threshold = 2 },
-      { id = 'ctrldu', keys = '<C-d/u>', track = {}, threshold = 1 },
+      { id = 'ctrldu', keys = '<C-d>/<C-u>', adopted = '<C-d>' },
     },
   },
   {
