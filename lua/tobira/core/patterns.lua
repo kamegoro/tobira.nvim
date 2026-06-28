@@ -61,16 +61,37 @@ function M.feed(seq, key, line)
     seq.last_f = nil
   end
 
-  -- Complete a pending operator before starting a new one.
-  -- Order matters: 'dd' needs the second d to land here, not restart the operator.
+  -- Complete a pending text object (i/a + one more char → charwise).
+  if seq.pending_text_obj then
+    local op = seq.pending_text_obj
+    seq.pending_text_obj = nil
+    seq.last_op = op .. 'w'
+    return nil
+  end
+
+  -- Complete a pending operator.
   if seq.pending_op then
     local op = seq.pending_op
+
+    -- Count digits: keep waiting for the actual motion.
+    if key:match('^[1-9]$') then
+      return nil
+    end
+
     seq.pending_op = nil
 
-    if key == 'w' then
-      seq.last_op = op .. 'w'
-    elseif key == 'd' and op == 'd' then
+    if key == '\27' then
+      -- <Esc>: operator cancelled, nothing to record.
+      return nil
+    elseif key == op or key == 'j' or key == 'k' then
+      -- linewise: dd / cc / dj / dk
       seq.last_op = 'dd'
+    elseif key == 'i' or key == 'a' then
+      -- text object prefix: wait for the object character (diw, da", …)
+      seq.pending_text_obj = op
+    else
+      -- any other motion (w, b, e, $, ^, f, t, h, l, …): charwise
+      seq.last_op = op .. 'w'
     end
     return nil
   end
