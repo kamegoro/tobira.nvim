@@ -117,22 +117,81 @@ describe('when the guide is marked as seen', function()
   end)
 end)
 
--- ── insert mode ─────────────────────────────────────────────────────────────
+-- ── mode isolation ───────────────────────────────────────────────────────────
 
-describe('when keys are pressed outside normal mode', function()
+describe('when the user types while in insert mode', function()
+  local esc = vim.api.nvim_replace_termcodes('<Esc>', true, false, true)
+
   before_each(function()
     logger.reset()
+    logger.on_pattern = nil
     logger.setup()
   end)
 
-  it('resets the pattern state and does not accumulate patterns', function()
-    -- Enter insert mode then exit; the key pressed on exit fires the
-    -- non-normal-mode branch of handle_key, which resets the sequence.
-    local esc = vim.api.nvim_replace_termcodes('<Esc>', true, false, true)
-    assert.has_no_error(function()
-      vim.fn.feedkeys('i', 'x')
-      vim.fn.feedkeys(esc, 'x')
-    end)
+  after_each(function()
+    logger.on_pattern = nil
+    if vim.fn.mode() ~= 'n' then
+      vim.cmd('stopinsert')
+    end
+  end)
+
+  it('does not fire a pattern callback for keys typed in insert mode', function()
+    local fired = false
+    logger.on_pattern = function()
+      fired = true
+    end
+    -- 'i' enters insert mode; 'd', 'w' typed inside insert are plain text, not operators.
+    vim.fn.feedkeys('i', 'x')
+    vim.fn.feedkeys('dw', 'x')
+    vim.fn.feedkeys(esc, 'x')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_false(fired)
+  end)
+end)
+
+describe('when ModeChanged fires to operator-pending before the motion arrives', function()
+  before_each(function()
+    logger.reset()
+    logger.on_pattern = nil
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+    if vim.fn.mode() ~= 'n' then
+      vim.cmd('stopinsert')
+    end
+  end)
+
+  it('still detects dw_then_insert despite the mode being no between d and w', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      fired = { pattern = pattern, cmd = cmd }
+    end
+    logger.setup()
+
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'hello world' })
+
+    -- Simulate real interactive usage: ModeChanged (n→no) fires between
+    -- keystrokes, but feedkeys batches events so we inject it manually.
+    -- 1. 'd' sets seq.pending_op.
+    vim.fn.feedkeys('d', 'x')
+    -- 2. Force current_mode to 'no' via a synthetic ModeChanged.
+    --    vim.fn.mode() is stubbed to 'no' for just this call so the
+    --    ModeChanged callback (which calls vim.fn.mode()) writes 'no'
+    --    into current_mode exactly as it would in real interactive usage.
+    --    Old guard  (`~= 'n'`)            resets seq on 'w' → no pattern.
+    --    Fixed guard (`:sub(1,1) ~= 'n'`) 'no' passes     → pattern fires.
+    local real_mode = vim.fn.mode
+    vim.fn.mode = function() return 'no' end
+    vim.api.nvim_exec_autocmds('ModeChanged', { modeline = false })
+    vim.fn.mode = real_mode
+    -- 3. 'w' arrives while current_mode = 'no'.
+    vim.fn.feedkeys('wi', 'x')
+    vim.api.nvim_feedkeys('', 'x', false)
+
+    assert.equals('dw_then_insert', fired.pattern)
+    assert.equals('cw', fired.cmd)
   end)
 end)
 

@@ -1,4 +1,5 @@
 local patterns = require('tobira.core.patterns')
+local commands = require('tobira.commands')
 
 local M = {}
 
@@ -65,39 +66,57 @@ local function increment(cmd)
   usage[cmd].count = usage[cmd].count + 1
 end
 
-local TRACK = {
-  f = true,
-  F = true,
-  [';'] = true,
-  [','] = true,
-  n = true,
-  ['0'] = true,
-  h = true,
-  j = true,
-  k = true,
-  l = true,
-  w = true,
-  b = true,
-  x = true,
-  p = true,
-  u = true,
-  i = true,
-  a = true,
-  o = true,
-  g = true,
-  G = true,
-  v = true,
-  ['*'] = true,
-}
+-- Base single-char keys to track: prerequisites for suggestions + level detection.
+-- Registry entries with track = true are merged in below.
+local TRACK = (function()
+  local t = {
+    f = true,
+    F = true,
+    n = true,
+    ['0'] = true,
+    h = true,
+    j = true,
+    k = true,
+    l = true,
+    w = true,
+    b = true,
+    x = true,
+    p = true,
+    u = true,
+    i = true,
+    a = true,
+    o = true,
+    g = true,
+    G = true,
+    v = true,
+    ['*'] = true,
+  }
+  for cmd, entry in pairs(commands.registry) do
+    if entry.track and #cmd == 1 then
+      t[cmd] = true
+    end
+  end
+  return t
+end)()
 
 local function handle_key(key)
-  if current_mode ~= 'n' then
+  if current_mode:sub(1, 1) ~= 'n' then
     seq = patterns.new_seq()
     return
   end
 
   local line = vim.fn.line('.')
+  local prev_op = seq.last_op
   local result = patterns.feed(seq, key, line)
+
+  -- Track compound operators (dw, dd, cw …) the moment they complete.
+  -- Single-char keys are handled by the TRACK lookup below; compound ones
+  -- are only visible here through the change in seq.last_op.
+  -- luacov: disable
+  if seq.last_op ~= nil and seq.last_op ~= prev_op then
+    increment(seq.last_op)
+  end
+  -- luacov: enable
 
   if result and M.on_pattern then
     M.on_pattern(result.pattern, result.cmd)
