@@ -74,6 +74,20 @@ describe('locale coverage', function()
   end)
 end)
 
+describe('every non-compound entry in the registry', function()
+  it('has a category field (motion | edit | search)', function()
+    local valid = { motion = true, edit = true, search = true }
+    for cmd, entry in pairs(commands.registry) do
+      if not entry.compound then
+        assert.is_not_nil(
+          valid[entry.category],
+          cmd .. ': missing or invalid category (got ' .. tostring(entry.category) .. ')'
+        )
+      end
+    end
+  end)
+end)
+
 describe('the f → ; → , learning progression', function()
   it('; requires f', function()
     assert.equals('f', commands.registry[';'].requires)

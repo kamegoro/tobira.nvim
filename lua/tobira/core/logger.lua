@@ -68,7 +68,7 @@ end
 
 -- Base single-char keys to track: prerequisites for suggestions + level detection.
 -- Registry entries with track = true are merged in below.
-local TRACK = (function()
+local function build_track_table()
   local t = {
     f = true,
     F = true,
@@ -97,7 +97,8 @@ local TRACK = (function()
     end
   end
   return t
-end)()
+end
+local TRACK = build_track_table()
 
 local function handle_key(key)
   if current_mode:sub(1, 1) ~= 'n' then
