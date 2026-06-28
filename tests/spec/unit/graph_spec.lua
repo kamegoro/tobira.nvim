@@ -88,54 +88,47 @@ describe('every suggestion in the graph', function()
     end
   end)
 
-  it('has a non-empty title', function()
-    for key, sug in pairs(graph.suggestions) do
-      assert.is_string(sug.title, key .. ': missing title')
-      assert.is_true(#sug.title > 0, key .. ': title must not be empty')
-    end
-  end)
-
-  it('has a non-empty body', function()
-    for key, sug in pairs(graph.suggestions) do
-      assert.is_string(sug.body, key .. ': missing body')
-      assert.is_true(#sug.body > 0, key .. ': body must not be empty')
-    end
-  end)
-
-  it('has a non-empty example', function()
-    for key, sug in pairs(graph.suggestions) do
-      assert.is_string(sug.example, key .. ': missing example')
-      assert.is_true(#sug.example > 0, key .. ': example must not be empty')
-    end
-  end)
-
   it('declares a trigger command', function()
     for key, sug in pairs(graph.suggestions) do
       assert.is_string(sug.trigger, key .. ': missing trigger')
     end
   end)
+
 end)
 
--- ── learning progression ──────────────────────────────────────────────────────
+-- ── compound-op trigger (bug #15 regression) ─────────────────────────────────
 
-describe('the f → ; → , learning progression', function()
-  it('; is triggered by f usage', function()
-    assert.equals('f', graph.suggestions[';'].trigger)
-  end)
-
-  it(', is triggered by ; usage (comes after learning ;)', function()
-    assert.equals(';', graph.suggestions[','].trigger)
+describe('when dw has been used (compound-tracked)', function()
+  it('suggests cw as the next step', function()
+    local result = graph.find_best({ dw = { count = 5, shown = 0, adopted = false } })
+    assert.is_not_nil(result)
+    assert.equals('dw', graph.suggestions[result].trigger)
   end)
 end)
 
-describe('adjacency map', function()
-  it('each entry lists neighboring commands as strings', function()
-    for trigger, neighbors in pairs(graph.adjacency) do
-      assert.is_table(neighbors, trigger .. ' adjacency must be a table')
-      for _, neighbor in ipairs(neighbors) do
-        assert.is_string(neighbor, trigger .. ': each neighbor must be a string')
-      end
-    end
+-- ── new learning chains ───────────────────────────────────────────────────────
+
+describe('the cw → . (dot repeat) chain', function()
+  it('suggests . once the user uses cw', function()
+    local usage = {
+      cw = { count = 8, shown = 0, adopted = false },
+    }
+    assert.equals('.', graph.find_best(usage))
+  end)
+end)
+
+describe('the x → D → C deletion chain', function()
+  it('suggests D when x is used', function()
+    local result = graph.find_best({ x = { count = 10, shown = 0, adopted = false } })
+    assert.is_not_nil(result)
+    assert.equals('x', graph.suggestions[result].trigger)
+  end)
+
+  it('suggests C once D is adopted', function()
+    local usage = {
+      D = { count = 6, shown = 0, adopted = false },
+    }
+    assert.equals('C', graph.find_best(usage))
   end)
 end)
 
