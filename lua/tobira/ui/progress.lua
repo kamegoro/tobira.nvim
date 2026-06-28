@@ -9,15 +9,6 @@ local COLS = 3
 local COL_W = 13 -- display columns per grid cell
 local ICON = '' -- nerd font (matches nvim-notify INFO)
 
-local function load_strings()
-  local lang = require('tobira.core.config').values.lang
-  local ok, loc = pcall(require, 'tobira.locales.' .. lang)
-  if not ok then
-    loc = require('tobira.locales.en')
-  end
-  return loc.progress
-end
-
 local setup_hls = require('tobira.ui.hls').setup
 
 local SYM_LEARNED = '✓' -- U+2713, 3 bytes, 1 display col
@@ -28,7 +19,8 @@ local function build()
   local logger = require('tobira.core.logger')
   local graph = require('tobira.core.graph')
   local level = require('tobira.core.level')
-  local str = load_strings()
+  local loc = require('tobira.i18n').load()
+  local str = loc.progress
 
   local usage = logger.get_all()
 
@@ -47,13 +39,13 @@ local function build()
 
   -- Level banner
   local lv = level.get()
-  local lv_label = (str.levels and str.levels[lv]) or lv
-  push('  Level: ' .. lv_label, 'TobiraGuideSection', 2, -1)
+  local lv_label = str.levels[lv] or lv
+  push('  ' .. str.level_label .. lv_label, 'TobiraGuideSection', 2, -1)
 
   -- Skill tree grid
   for _, cat in ipairs(skills.tree) do
     push('')
-    local cat_label = (str.categories and str.categories[cat.id]) or cat.id
+    local cat_label = str.categories[cat.id] or cat.id
     push('  ' .. cat_label, 'TobiraGuideSection', 2, 2 + #cat_label)
 
     -- Chunk items into rows of COLS
@@ -98,13 +90,14 @@ local function build()
   -- Next recommendation
   local next_cmd = graph.find_best(usage)
   if next_cmd then
-    local sug = graph.suggestions[next_cmd]
+    local sug_str = loc.suggestions and loc.suggestions[next_cmd]
+    local title = sug_str and sug_str.title or next_cmd
     push('')
-    push('  ' .. (str.next or 'Next: ') .. sug.title, 'TobiraGuideUpgrade')
+    push('  ' .. str.next .. title, 'TobiraGuideUpgrade')
   end
 
   push('')
-  push('  ' .. (str.hint or '[q / Esc]  close'), 'TobiraGuideHint')
+  push('  ' .. str.hint, 'TobiraGuideHint')
 
   return lines, hls, str
 end

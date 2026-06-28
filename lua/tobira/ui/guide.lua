@@ -17,16 +17,6 @@ local function detect_context()
   return FILETYPE_CONTEXT[vim.bo.filetype] or 'default'
 end
 
-local function load_strings()
-  local cfg = require('tobira.core.config')
-  local lang = cfg.values.lang
-  local ok, strings = pcall(require, 'tobira.locales.' .. lang)
-  if not ok then
-    strings = require('tobira.locales.en')
-  end
-  return strings.guide
-end
-
 local setup_hls = require('tobira.ui.hls').setup
 
 -- Returns total usage count across all keys in the track list.
@@ -43,7 +33,7 @@ local function mastery_count(item)
 end
 
 local function build()
-  local strings = load_strings()
+  local strings = require('tobira.i18n').load().guide
   local ctx = detect_context()
   local sections = strings.contexts[ctx] or strings.contexts.default
   -- strings is returned alongside lines/hls so callers can access guide.title etc.
