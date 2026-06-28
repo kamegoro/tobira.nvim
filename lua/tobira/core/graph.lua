@@ -13,7 +13,7 @@ M.suggestions = {}
 for cmd, entry in pairs(commands.registry) do
   if not entry.compound then
     M.suggestions[cmd] = {
-      cmd     = cmd,
+      cmd = cmd,
       trigger = entry.requires,
     }
   end

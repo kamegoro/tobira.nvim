@@ -26,7 +26,7 @@ M.registry = {
   [','] = { requires = ';', track = true },
 
   -- ── dw → insert ───────────────────────────────────────────────────────────
-  ['cw']  = { requires = 'dw', track = false },
+  ['cw'] = { requires = 'dw', track = false },
   ['ciw'] = { requires = 'dw', track = false },
 
   -- ── u repeat → redo ───────────────────────────────────────────────────────
