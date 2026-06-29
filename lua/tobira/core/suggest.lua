@@ -67,17 +67,7 @@ local function watch_adoption(cmd)
   local buf = ''
   vim.on_key(function(key, typed)
     local raw = (typed ~= nil and typed ~= '') and typed or key
-    -- luacov: disable
-    if raw == '' then
-      return
-    end
-    -- luacov: enable
     local k = vim.fn.keytrans(raw)
-    -- luacov: disable
-    if k == '' then
-      return
-    end
-    -- luacov: enable
     buf = (buf .. k):sub(-KEY_BUF_MAX)
     if buf_matches(match_target, buf) then
       logger.mark_adopted(cmd)
