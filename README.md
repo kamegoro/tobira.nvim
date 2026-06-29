@@ -33,9 +33,10 @@ You press f  →  then f  again on the same line
 Suggestions appear as notifications (compatible with [nvim-notify](https://github.com/rcarriga/nvim-notify) — no dependency required).
 
 - Waits for a natural pause before showing — never interrupts your flow
-- Shows at most **once per session**
+- Shows up to **3 times per session**, with at least 30 minutes between each
+- `:Tobira` to get a suggestion on demand (doesn't count toward the session limit)
 - If you start using the suggested command → **learned**, never shown again
-- Shown 3 times with no adoption → **suppressed**, moves on to the next suggestion
+- Open `:TobiraProgress` and press `x` to permanently silence any suggestion you don't want
 
 ---
 
@@ -90,18 +91,20 @@ On first launch, tobira shows a cheatsheet on the right side of the screen for n
 │                                       │
 │  Edit                                 │
 │  ✓ i/a/o   ✓ x/dd    ✓ yy/p          │
-│  ✓ u/<C-r> ○ cw/ciw  ○ v/V           │
+│  ✓ u/<C-r> ○ cw/ciw  ✗ ddp           │
 │                                       │
 │  Search                               │
 │  ✓ /+n     ○ */#     ○ cgn           │
 │                                       │
 │  Next: ; — repeat the last f          │
 │                                       │
-│  [q / Esc]  close                     │
+│  [x]  suppress / unsuppress  [q / Esc]  close  │
 ╰───────────────────────────────────────╯
 ```
 
-Level is detected automatically from your usage — no quizzes, no setup.
+- `✓` learned  `○` not yet introduced  `✗` suppressed (press `x` to toggle)
+- Level is detected automatically from your usage — no quizzes, no setup.
+- `:Tobira` suggestions are filtered to your current level — no advanced commands until you're ready.
 
 ---
 
@@ -147,9 +150,11 @@ use {
 
 ```lua
 require("tobira").setup({
-  idle_delay  = 1500,  -- ms to wait after detecting a pattern (default: 1500)
-  max_shown   = 3,     -- suppress after showing N times without adoption (default: 3)
-  lang        = 'en',  -- guide panel language: 'en' | 'ja' (default: 'en')
+  lang             = 'en',      -- 'en' | 'ja' (default: 'en')
+  idle_delay       = 1500,      -- ms to wait after a pattern before showing (default: 1500)
+  max_shown        = 3,         -- max times to show a suggestion before moving on (default: 3)
+  max_per_session  = 3,         -- max auto-suggestions per session (default: 3)
+  min_interval_ms  = 1800000,   -- min ms between auto-suggestions, 30 min (default: 1800000)
 })
 ```
 
