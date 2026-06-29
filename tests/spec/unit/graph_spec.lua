@@ -20,9 +20,12 @@ describe('when the trigger command has never been used', function()
   end)
 end)
 
-describe('when f is used but ; is unknown to the user', function()
-  it('suggests ; as the next door', function()
-    assert.equals(';', graph.find_best({ f = usage_entry(10) }))
+describe('when f is used but its downstream commands are unknown to the user', function()
+  it('suggests an f-triggered command', function()
+    -- f has multiple downstreams (; and t) so we assert trigger, not specific cmd
+    local result = graph.find_best({ f = usage_entry(10) })
+    assert.is_not_nil(result)
+    assert.equals('f', graph.suggestions[result].trigger)
   end)
 end)
 
@@ -56,11 +59,12 @@ end)
 
 describe('when a candidate has been shown but fewer than the maximum times', function()
   it('still suggests it', function()
+    -- ; is the sole trigger for ,: no competing candidates
     local usage = {
-      f = usage_entry(10),
-      [';'] = usage_entry(0, {}, 2),
+      [';'] = usage_entry(10),
+      [','] = usage_entry(0, {}, 2),
     }
-    assert.equals(';', graph.find_best(usage))
+    assert.equals(',', graph.find_best(usage))
   end)
 end)
 
@@ -78,9 +82,10 @@ describe('when multiple triggers are active', function()
     local usage = {
       f = usage_entry(10),
       [';'] = usage_entry(8),
+      t = usage_entry(0, { 5, 6, 7 }),  -- adopted → out of suggestion pool
       dw = usage_entry(10),
     }
-    -- dw score = 10, ; score = 10-8 = 2 → dw-based suggestion wins
+    -- t: adopted; ; score = 10-8 = 2; cw/ciw score = 10 → dw-triggered wins
     local result = graph.find_best(usage)
     assert.equals('dw', graph.suggestions[result].trigger)
   end)
@@ -215,11 +220,12 @@ end)
 
 describe('when max_shown is raised above the default', function()
   it('still suggests a command shown fewer times than the new limit', function()
+    -- ; is the sole trigger for ,: no competing candidates
     local usage = {
-      f = usage_entry(10),
-      [';'] = usage_entry(0, {}, 4),
+      [';'] = usage_entry(10),
+      [','] = usage_entry(0, {}, 4),
     }
-    assert.equals(';', graph.find_best(usage, 5))
+    assert.equals(',', graph.find_best(usage, 5))
   end)
 end)
 
