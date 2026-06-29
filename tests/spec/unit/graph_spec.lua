@@ -83,9 +83,10 @@ describe('when multiple triggers are active', function()
       f = usage_entry(10),
       [';'] = usage_entry(8),
       t = usage_entry(0, { 5, 6, 7 }),  -- adopted → out of suggestion pool
+      F = usage_entry(0, { 5, 6, 7 }),  -- adopted → out (F also requires f)
       dw = usage_entry(10),
     }
-    -- t: adopted; ; score = 10-8 = 2; cw/ciw score = 10 → dw-triggered wins
+    -- t, F: adopted; ; score = 10-8 = 2; cw/ciw score = 10 → dw-triggered wins
     local result = graph.find_best(usage)
     assert.equals('dw', graph.suggestions[result].trigger)
   end)
