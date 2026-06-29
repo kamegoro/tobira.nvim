@@ -137,6 +137,9 @@ local function toggle_suppress()
   end
   local item = row_items[cell_idx]
   local cmd = item.adopted
+  if not cmd then
+    return
+  end
   local data = logger.get(cmd)
   logger.set_suppressed(cmd, not data.suppressed)
   refresh()

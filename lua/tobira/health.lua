@@ -3,10 +3,10 @@ local M = {}
 function M.check()
   vim.health.start('tobira.nvim')
 
-  if vim.fn.has('nvim-0.8') == 1 then
-    vim.health.ok('Neovim 0.8+ detected')
+  if vim.fn.has('nvim-0.9') == 1 then
+    vim.health.ok('Neovim 0.9+ detected')
   else
-    vim.health.error('Neovim 0.8+ is required')
+    vim.health.error('Neovim 0.9+ is required (float window titles require 0.9)')
   end
 
   local data_dir = vim.fn.stdpath('data') .. '/tobira'
