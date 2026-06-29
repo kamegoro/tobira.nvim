@@ -119,6 +119,7 @@ return {
       motion = 'Motion',
       edit = 'Edit',
       search = 'Search',
+      window = 'Window',
     },
   },
   notifications = {
@@ -436,6 +437,282 @@ return {
       title = '# — search backward for word under cursor',
       body = '* searches forward for the word under cursor; # searches backward\nInstantly locate all occurrences without typing the search term',
       example = 'cursor on "foo" → # → jumps to the previous occurrence of "foo"',
+    },
+
+    -- ── G → gg ───────────────────────────────────────────────────────────
+    ['gg'] = {
+      title = 'gg — jump to the first line of the file',
+      body = 'G jumps to the end of the file; gg jumps to the beginning\nPrefix with a number: 5gg jumps directly to line 5',
+      example = 'gg → cursor lands on line 1',
+    },
+
+    -- ── wrapped-line movement ─────────────────────────────────────────────
+    ['gj'] = {
+      title = 'gj — move down one visual (display) line',
+      body = 'When lines are wrapped, j skips the entire wrapped line; gj moves one display row\nEssential for editing long prose or markdown with wrapping enabled',
+      example = 'gj on a wrapped paragraph → cursor moves to the next screen row',
+    },
+    ['gk'] = {
+      title = 'gk — move up one visual (display) line',
+      body = 'The upward complement of gj — moves one display row when lines are wrapped\nPair gj / gk for natural movement through wrapped text',
+      example = 'gk on a wrapped paragraph → cursor moves to the previous screen row',
+    },
+
+    -- ── line-by-line scrolling ────────────────────────────────────────────
+    ['<C-e>'] = {
+      title = '<C-e> — scroll window up one line without moving cursor',
+      body = 'Shifts the visible area up by one line; the cursor stays on the same line\nPair with <C-y> to fine-tune your view without losing your editing position',
+      example = '<C-e><C-e> → text scrolls up 2 lines; cursor stays put',
+    },
+    ['<C-y>'] = {
+      title = '<C-y> — scroll window down one line without moving cursor',
+      body = 'The downward complement of <C-e> — reveals one more line at the top\nAdjust the visible area without moving your editing position',
+      example = '<C-y> → one line scrolls into view at the top of the window',
+    },
+
+    -- ── change list navigation ────────────────────────────────────────────
+    ['g;'] = {
+      title = 'g; — jump to older position in the change list',
+      body = 'Every edit you make is added to the change list; g; walks backward through it\nDifferent from the jump list — only positions where text was actually changed',
+      example = 'g; g; → jump back to the last two places you edited',
+    },
+    ['g,'] = {
+      title = 'g, — jump to newer position in the change list',
+      body = 'After g; takes you back in the change list, g, brings you forward again\nNavigate your editing history in both directions without leaving the file',
+      example = 'g; g, → step back to last edit, then step forward again',
+    },
+
+    -- ── return to last insert / alternate file / last jump ────────────────
+    ['gi'] = {
+      title = 'gi — go to last insert position and enter insert mode',
+      body = 'Returns the cursor to where you last left insert mode and immediately re-enters it\nSaves navigating back manually after reading another part of the file',
+      example = 'gi → cursor jumps to where you last stopped typing → insert mode',
+    },
+    ['<C-^>'] = {
+      title = '<C-^> — switch to the alternate (previously edited) file',
+      body = 'Toggles between the current file and the last one you had open\nThe quickest way to flip between two files you are actively working on',
+      example = '<C-^> → open last file → <C-^> → back to the first',
+    },
+    ["''"] = {
+      title = "'' — jump back to the line of the previous jump",
+      body = "A quick return to the line you were on before the last large navigation\n'' uses line-level precision; `` (backticks) also restores the exact column",
+      example = "G '' → jump to end of file, then return to original line",
+    },
+
+    -- ── definition / file under cursor ────────────────────────────────────
+    ['gd'] = {
+      title = 'gd — go to local definition',
+      body = 'Searches the current function scope for the first declaration of the word under cursor\nFaster than grepping — no need to leave the file or type a search pattern',
+      example = 'cursor on "myVar" → gd → jumps to where myVar is first declared',
+    },
+    ['gf'] = {
+      title = 'gf — edit the file whose name is under the cursor',
+      body = 'Opens the filename under the cursor as a new buffer in the current window\nWorks with relative paths, absolute paths, and filenames inside strings',
+      example = 'cursor on "utils/helpers.lua" → gf → opens that file',
+    },
+
+    -- ── reselect last visual ──────────────────────────────────────────────
+    ['gv'] = {
+      title = 'gv — reselect the previous visual selection',
+      body = 'Reactivates the exact same visual selection from the last time visual mode was used\nSaves time when you need to apply a second operation to the same region',
+      example = 'vip y gv d → yank a paragraph, then reselect and delete it',
+    },
+
+    -- ── WORD-end backward ─────────────────────────────────────────────────
+    ['gE'] = {
+      title = 'gE — move to end of the previous WORD',
+      body = 'ge moves to end of the previous word; gE does the same but skips all punctuation\nThe WORD-level complement of ge — jumps over "foo.bar.baz" as a single token',
+      example = 'gE on foo.bar → jumps to the end of the previous WORD token',
+    },
+
+    -- ── fold commands ─────────────────────────────────────────────────────
+    ['za'] = {
+      title = 'za — toggle fold at cursor',
+      body = 'Opens a closed fold or closes an open one under the cursor\nThe most convenient fold command — one key to peek or hide a section',
+      example = 'za → unfolds the collapsed block; za again → re-folds it',
+    },
+    ['zo'] = {
+      title = 'zo — open the fold at cursor',
+      body = 'Reveals the lines hidden inside a fold without affecting open folds nearby\nUnlike za, zo only opens — it never accidentally closes an already-open fold',
+      example = 'zo → hidden lines inside the fold become visible',
+    },
+    ['zc'] = {
+      title = 'zc — close the fold at cursor',
+      body = 'Collapses an open fold into a single summary line\nThe inverse of zo — only closes, never opens accidentally',
+      example = 'zc → the expanded block collapses to one summary line',
+    },
+    ['zM'] = {
+      title = 'zM — close all folds in the buffer',
+      body = 'Collapses every fold in the file at once — gives a full outline view\nUseful for navigating a large file by structure before drilling into a section',
+      example = 'zM → all functions collapse → only top-level structure is visible',
+    },
+    ['zR'] = {
+      title = 'zR — open all folds in the buffer',
+      body = 'Expands every fold in the file — the reverse of zM\nRestores the fully unfolded view after exploring with fold navigation',
+      example = 'zM zR → collapse all folds, then expand everything back',
+    },
+
+    -- ── delete before / replace mode / yank to EOL ────────────────────────
+    ['X'] = {
+      title = 'X — delete the character before the cursor',
+      body = 'Deletes one character to the left of the cursor without entering insert mode\nLike pressing Backspace while staying in Normal mode',
+      example = 'X → the character immediately left of the cursor is removed',
+    },
+    ['R'] = {
+      title = 'R — enter replace mode',
+      body = 'Overwrites existing text character by character as you type — no inserting or shifting\nIdeal for replacing a fixed-width section while keeping surrounding text intact',
+      example = 'Rhello → overwrites the next 5 characters with "hello"',
+    },
+    ['Y'] = {
+      title = 'Y — yank from cursor to end of line',
+      body = 'Copies the text from the cursor position to the end of the line (same as y$)\nComplements D (delete to EOL) and C (change to EOL) for consistent EOL operations',
+      example = 'Y p → copy the rest of the line then paste it below',
+    },
+
+    -- ── indent operators ──────────────────────────────────────────────────
+    ['>>'] = {
+      title = '>> — indent the current line',
+      body = 'Shifts the current line right by one shiftwidth level\nPrefix with a count: 3>> indents the next 3 lines at once',
+      example = '>> → current line indented by one level',
+    },
+    ['<<'] = {
+      title = '<< — unindent the current line',
+      body = 'Shifts the current line left by one shiftwidth level\nThe reverse of >> — use to fix over-indented code',
+      example = '<< → current line dedented by one level',
+    },
+    ['=='] = {
+      title = '== — auto-indent the current line',
+      body = 'Runs the built-in indenter on the current line according to filetype rules\nFaster than manually correcting with >> or << when indentation is complex',
+      example = '== → line snaps to the correct indentation level automatically',
+    },
+
+    -- ── case operators ────────────────────────────────────────────────────
+    ['gu'] = {
+      title = 'gu{motion} — lowercase a region',
+      body = 'Applies lowercase to the text covered by the motion\nguiw → lowercase the current word; gu$ → lowercase to end of line',
+      example = 'guiw → "Hello" becomes "hello"',
+    },
+    ['gU'] = {
+      title = 'gU{motion} — uppercase a region',
+      body = 'The uppercase complement of gu — converts the motion text to ALL CAPS\ngUiw → uppercase the inner word',
+      example = 'gUiw → "hello" becomes "HELLO"',
+    },
+    ['g~'] = {
+      title = 'g~{motion} — swap case of a region',
+      body = 'Inverts the case of every character in the motion — upper becomes lower and vice versa\nLike applying ~ to an entire motion at once instead of one character at a time',
+      example = 'g~iw → "Hello World" becomes "hELLO wORLD"',
+    },
+
+    -- ── format text ───────────────────────────────────────────────────────
+    ['gq'] = {
+      title = 'gq{motion} — reflow / format text to fit line width',
+      body = 'Reformats the text covered by the motion to wrap at textwidth\ngqip formats the current paragraph; gqq formats the current line',
+      example = 'gqip → current paragraph is reflowed to fit the configured line width',
+    },
+
+    -- ── join without space ────────────────────────────────────────────────
+    ['gJ'] = {
+      title = 'gJ — join lines without inserting a space',
+      body = 'Like J but does not add a space between the merged lines\nUseful for joining lines where extra whitespace would break the syntax',
+      example = 'gJ → "foo\\n  bar" becomes "foobar" (no space inserted)',
+    },
+
+    -- ── repeat last macro ─────────────────────────────────────────────────
+    ['@@'] = {
+      title = '@@ — repeat the last played macro',
+      body = 'Replays whatever macro was most recently run with @{reg}\nSaves typing the register name again when iterating with the same macro',
+      example = '@a → run macro a; @@ → run macro a again without specifying "a"',
+    },
+
+    -- ── text object chain ─────────────────────────────────────────────────
+    ['ci"'] = {
+      title = 'ci" — change inner double-quoted string',
+      body = 'Deletes the content between the nearest double quotes and enters insert mode\nThe text object i" works with any operator: c, d, y, v',
+      example = 'on "hello world" → ci" → content cleared → type replacement',
+    },
+    ["ci'"] = {
+      title = "ci' — change inner single-quoted string",
+      body = 'Like ci" but targets single quotes instead of double quotes\nWorks anywhere the cursor is inside a pair of single quotes',
+      example = "on 'hello' → ci' → content cleared → type replacement",
+    },
+    ['cib'] = {
+      title = 'cib — change inner parentheses block',
+      body = 'Deletes the content inside the nearest () and enters insert mode\nib is the "inner block" text object — same as i( — works inside function calls',
+      example = 'on foo(bar, baz) → cib → clears "bar, baz" → type new args',
+    },
+    ['ciB'] = {
+      title = 'ciB — change inner braces block',
+      body = 'Targets the content inside the nearest {} block\nB is the "big block" text object; useful for emptying or rewriting a function body',
+      example = 'inside a function body → ciB → clears the entire body → insert mode',
+    },
+    ['cit'] = {
+      title = 'cit — change inner HTML / XML tag content',
+      body = 'Deletes the text between the nearest matching open and close tags and enters insert mode\nit is the "inner tag" text object — works for any paired tag',
+      example = 'on <p>hello</p> → cit → clears "hello" → type new content',
+    },
+    ['cip'] = {
+      title = 'cip — change inner paragraph',
+      body = 'Replaces the entire current paragraph (contiguous block of non-blank lines)\nip selects up to but not including the surrounding blank lines',
+      example = 'cip → entire current paragraph cleared → insert mode',
+    },
+
+    -- ── partial word search ───────────────────────────────────────────────
+    ['g*'] = {
+      title = 'g* — search forward for partial word under cursor',
+      body = '* requires a whole-word match; g* also matches the word as a substring\nUseful when you want "foo" to find "foobar", "football", and "foo" alike',
+      example = 'g* on "foo" → matches "foo", "foobar", "fooResult"',
+    },
+    ['g#'] = {
+      title = 'g# — search backward for partial word under cursor',
+      body = 'The backward companion of g* — searches for the substring going up through the file\nFinds all occurrences including partial matches like g* but in reverse',
+      example = 'g# on "foo" → jumps back to the previous "foo" or "foobar"',
+    },
+
+    -- ── window management ─────────────────────────────────────────────────
+    ['<C-w>s'] = {
+      title = '<C-w>s — split window horizontally',
+      body = 'Opens a horizontal split so you can view two parts of a file simultaneously\n<C-w>v creates a vertical split side by side',
+      example = '<C-w>s → two horizontal panes; navigate independently in each',
+    },
+    ['<C-w>v'] = {
+      title = '<C-w>v — split window vertically',
+      body = 'Opens a vertical split — two panes side by side in the same tab\nPair with <C-w>h and <C-w>l to move between them',
+      example = '<C-w>v → two vertical panes; <C-w>l → move to right pane',
+    },
+    ['<C-w>w'] = {
+      title = '<C-w>w — cycle to the next window',
+      body = 'Moves focus to the next split in the layout without specifying a direction\nThe quickest way to jump between two panes',
+      example = '<C-w>w → focus switches to the next open split',
+    },
+    ['<C-w>h'] = {
+      title = '<C-w>h — move focus to the window on the left',
+      body = 'Directional window navigation — moves focus left, like h moves the cursor left\nUse h / j / k / l variants for precise split navigation',
+      example = '<C-w>h → cursor moves to the split immediately to the left',
+    },
+    ['<C-w>j'] = {
+      title = '<C-w>j — move focus to the window below',
+      body = 'Moves focus downward to the split below the current one\nWorks in both horizontal and mixed split layouts',
+      example = '<C-w>j → cursor moves to the split below',
+    },
+    ['<C-w>k'] = {
+      title = '<C-w>k — move focus to the window above',
+      body = 'Moves focus upward to the split above the current one\nThe upward complement of <C-w>j',
+      example = '<C-w>k → cursor moves to the split above',
+    },
+    ['<C-w>l'] = {
+      title = '<C-w>l — move focus to the window on the right',
+      body = 'Moves focus right to the split on the right\nPair with <C-w>h to flip between left and right panes',
+      example = '<C-w>l → cursor moves to the split on the right',
+    },
+    ['<C-w>q'] = {
+      title = '<C-w>q — close the current window',
+      body = 'Closes the focused split; the buffer itself remains open\nUse :bd to also delete the buffer; :qa to close all splits at once',
+      example = '<C-w>q → focused pane closes; remaining pane expands to fill the space',
+    },
+    ['<C-w>='] = {
+      title = '<C-w>= — equalize all window sizes',
+      body = 'Resizes all open splits to equal width and height\nA quick reset after splits become unbalanced from manual resizing',
+      example = '<C-w>= → all panes snap to equal dimensions',
     },
   },
 }

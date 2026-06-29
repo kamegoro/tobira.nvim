@@ -28,7 +28,7 @@ local COMPOSITE = {
 -- Build tree: composite milestones first, then one entry per commands.registry
 -- command that has a category and is not already covered by a composite item.
 local function build_tree()
-  local categories = { 'motion', 'edit', 'search' }
+  local categories = { 'motion', 'edit', 'search', 'window' }
   local result = {}
 
   for _, cat_id in ipairs(categories) do

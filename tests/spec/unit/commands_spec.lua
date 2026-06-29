@@ -75,8 +75,8 @@ describe('locale coverage', function()
 end)
 
 describe('every non-compound entry in the registry', function()
-  it('has a category field (motion | edit | search)', function()
-    local valid = { motion = true, edit = true, search = true }
+  it('has a category field (motion | edit | search | window)', function()
+    local valid = { motion = true, edit = true, search = true, window = true }
     for cmd, entry in pairs(commands.registry) do
       if not entry.compound then
         assert.is_not_nil(
@@ -204,6 +204,71 @@ local chain_cases = {
   -- search backward pair
   { 'N',     'n',     'n → N: search backward to previous match' },
   { '#',     '*',     '* → #: search backward for word under cursor' },
+  -- G → gg first line
+  { 'gg',    'G',     'G → gg: jump to first line of file' },
+  -- wrapped-line visual movement
+  { 'gj',    'j',     'j → gj: move down one visual line' },
+  { 'gk',    'k',     'k → gk: move up one visual line' },
+  -- line-by-line scrolling
+  { '<C-e>', 'zz',    'zz → <C-e>: scroll up one line without moving cursor' },
+  { '<C-y>', '<C-e>', '<C-e> → <C-y>: scroll down one line without moving cursor' },
+  -- change list navigation
+  { 'g;',    '<C-o>', '<C-o> → g;: jump to older position in change list' },
+  { 'g,',    'g;',    'g; → g,: jump to newer position in change list' },
+  -- return to last insert / jump positions
+  { 'gi',    'i',     'i → gi: go to last insert position and re-enter insert mode' },
+  { '<C-^>', '<C-o>', '<C-o> → <C-^>: switch to the alternate file' },
+  { "''",    '<C-o>', "<C-o> → '': jump back to position before last jump" },
+  -- definition / file navigation
+  { 'gd',    '*',     '* → gd: go to local definition' },
+  { 'gf',    'gd',    'gd → gf: edit file whose name is under cursor' },
+  -- reselect last visual
+  { 'gv',    'V',     'V → gv: reselect last visual selection' },
+  -- WORD-end backward
+  { 'gE',    'ge',    'ge → gE: move to end of previous WORD' },
+  -- fold commands
+  { 'za',    'zz',    'zz → za: toggle fold at cursor' },
+  { 'zo',    'za',    'za → zo: open fold at cursor' },
+  { 'zc',    'za',    'za → zc: close fold at cursor' },
+  { 'zM',    'za',    'za → zM: close all folds in buffer' },
+  { 'zR',    'zM',    'zM → zR: open all folds in buffer' },
+  -- delete before / replace mode / yank to EOL
+  { 'X',     'x',     'x → X: delete character before cursor' },
+  { 'R',     'r',     'r → R: enter replace mode' },
+  { 'Y',     'p',     'p → Y: yank to end of line' },
+  -- indent / unindent / auto-indent
+  { '>>',    'cc',    'cc → >>: indent current line' },
+  { '<<',    '>>',    '>> → <<: unindent current line' },
+  { '==',    '>>',    '>> → ==: auto-indent current line' },
+  -- case operators
+  { 'gu',    '~',     '~ → gu: lowercase a region' },
+  { 'gU',    'gu',    'gu → gU: uppercase a region' },
+  { 'g~',    '~',     '~ → g~: swap case of a region' },
+  -- format text / join without space
+  { 'gq',    '.',     '. → gq: reflow / format text' },
+  { 'gJ',    'J',     'J → gJ: join lines without inserting a space' },
+  -- repeat last macro
+  { '@@',    'q',     'q → @@: repeat the last played macro' },
+  -- text object chain
+  { 'ci"',   'ciw',   'ciw → ci": change inner double-quoted string' },
+  { "ci'",   'ci"',   'ci" → ci\': change inner single-quoted string' },
+  { 'cib',   'ci"',   'ci" → cib: change inner parentheses block' },
+  { 'ciB',   'cib',   'cib → ciB: change inner braces block' },
+  { 'cit',   'cib',   'cib → cit: change inner tag content' },
+  { 'cip',   'ciw',   'ciw → cip: change inner paragraph' },
+  -- partial word search
+  { 'g*',    '*',     '* → g*: partial word search forward' },
+  { 'g#',    '#',     '# → g#: partial word search backward' },
+  -- window management
+  { '<C-w>s', '<C-o>',  '<C-o> → <C-w>s: horizontal split' },
+  { '<C-w>v', '<C-w>s', '<C-w>s → <C-w>v: vertical split' },
+  { '<C-w>w', '<C-w>s', '<C-w>s → <C-w>w: cycle to next window' },
+  { '<C-w>h', '<C-w>w', '<C-w>w → <C-w>h: move to left window' },
+  { '<C-w>j', '<C-w>w', '<C-w>w → <C-w>j: move to window below' },
+  { '<C-w>k', '<C-w>w', '<C-w>w → <C-w>k: move to window above' },
+  { '<C-w>l', '<C-w>w', '<C-w>w → <C-w>l: move to right window' },
+  { '<C-w>q', '<C-w>w', '<C-w>w → <C-w>q: close current window' },
+  { '<C-w>=', '<C-w>w', '<C-w>w → <C-w>=: equalize all window sizes' },
 }
 
 describe('teaching chains', function()

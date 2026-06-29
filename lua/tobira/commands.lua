@@ -150,6 +150,94 @@ M.registry = {
   -- ── n → N backward search / * → # backward word search ──────────────────
   ['N'] = { requires = 'n', track = true, category = 'search', level = 'beginner' },
   ['#'] = { requires = '*', track = true, category = 'search', level = 'beginner' },
+
+  -- ── G → gg first line ─────────────────────────────────────────────────────
+  ['gg'] = { requires = 'G', track = false, category = 'motion', level = 'beginner' },
+
+  -- ── wrapped-line visual movement ──────────────────────────────────────────
+  ['gj'] = { requires = 'j', track = false, category = 'motion', level = 'intermediate' },
+  ['gk'] = { requires = 'k', track = false, category = 'motion', level = 'intermediate' },
+
+  -- ── line-by-line scrolling ────────────────────────────────────────────────
+  ['<C-e>'] = { requires = 'zz', track = false, category = 'motion', level = 'intermediate' },
+  ['<C-y>'] = { requires = '<C-e>', track = false, category = 'motion', level = 'intermediate' },
+
+  -- ── change list navigation ────────────────────────────────────────────────
+  ['g;'] = { requires = '<C-o>', track = false, category = 'motion', level = 'intermediate' },
+  ['g,'] = { requires = 'g;', track = false, category = 'motion', level = 'intermediate' },
+
+  -- ── return to last insert / jump positions ────────────────────────────────
+  ['gi'] = { requires = 'i', track = false, category = 'motion', level = 'intermediate' },
+  ['<C-^>'] = { requires = '<C-o>', track = false, category = 'motion', level = 'intermediate' },
+  ["''"] = { requires = '<C-o>', track = false, category = 'motion', level = 'intermediate' },
+
+  -- ── definition / file navigation ─────────────────────────────────────────
+  ['gd'] = { requires = '*', track = false, category = 'motion', level = 'intermediate' },
+  ['gf'] = { requires = 'gd', track = false, category = 'motion', level = 'intermediate' },
+
+  -- ── gv reselect last visual ───────────────────────────────────────────────
+  ['gv'] = { requires = 'V', track = false, category = 'motion', level = 'intermediate' },
+
+  -- ── ge → gE WORD-end backward ─────────────────────────────────────────────
+  ['gE'] = { requires = 'ge', track = false, category = 'motion', level = 'intermediate' },
+
+  -- ── fold commands ─────────────────────────────────────────────────────────
+  ['za'] = { requires = 'zz', track = false, category = 'motion', level = 'intermediate' },
+  ['zo'] = { requires = 'za', track = false, category = 'motion', level = 'intermediate' },
+  ['zc'] = { requires = 'za', track = false, category = 'motion', level = 'intermediate' },
+  ['zM'] = { requires = 'za', track = false, category = 'motion', level = 'advanced' },
+  ['zR'] = { requires = 'zM', track = false, category = 'motion', level = 'advanced' },
+
+  -- ── x → X delete before cursor ───────────────────────────────────────────
+  ['X'] = { requires = 'x', track = true, category = 'edit', level = 'intermediate' },
+
+  -- ── r → R replace mode ───────────────────────────────────────────────────
+  ['R'] = { requires = 'r', track = false, category = 'edit', level = 'advanced' },
+
+  -- ── p → Y yank to end of line ─────────────────────────────────────────────
+  ['Y'] = { requires = 'p', track = true, category = 'edit', level = 'beginner' },
+
+  -- ── cc → >> / << / == indent operators ────────────────────────────────────
+  ['>>'] = { requires = 'cc', track = false, category = 'edit', level = 'intermediate' },
+  ['<<'] = { requires = '>>', track = false, category = 'edit', level = 'intermediate' },
+  ['=='] = { requires = '>>', track = false, category = 'edit', level = 'intermediate' },
+
+  -- ── ~ → gu / gU / g~ case operators ──────────────────────────────────────
+  ['gu'] = { requires = '~', track = false, category = 'edit', level = 'intermediate' },
+  ['gU'] = { requires = 'gu', track = false, category = 'edit', level = 'intermediate' },
+  ['g~'] = { requires = '~', track = false, category = 'edit', level = 'intermediate' },
+
+  -- ── . → gq format text ────────────────────────────────────────────────────
+  ['gq'] = { requires = '.', track = false, category = 'edit', level = 'advanced' },
+
+  -- ── J → gJ join without space ─────────────────────────────────────────────
+  ['gJ'] = { requires = 'J', track = false, category = 'edit', level = 'advanced' },
+
+  -- ── q → @@ repeat last macro ──────────────────────────────────────────────
+  ['@@'] = { requires = 'q', track = false, category = 'edit', level = 'intermediate' },
+
+  -- ── ciw → text object chain ───────────────────────────────────────────────
+  ['ci"'] = { requires = 'ciw', track = false, category = 'edit', level = 'intermediate' },
+  ["ci'"] = { requires = 'ci"', track = false, category = 'edit', level = 'intermediate' },
+  ['cib'] = { requires = 'ci"', track = false, category = 'edit', level = 'intermediate' },
+  ['ciB'] = { requires = 'cib', track = false, category = 'edit', level = 'intermediate' },
+  ['cit'] = { requires = 'cib', track = false, category = 'edit', level = 'advanced' },
+  ['cip'] = { requires = 'ciw', track = false, category = 'edit', level = 'intermediate' },
+
+  -- ── * → g* / # → g# partial word search ─────────────────────────────────
+  ['g*'] = { requires = '*', track = false, category = 'search', level = 'intermediate' },
+  ['g#'] = { requires = '#', track = false, category = 'search', level = 'intermediate' },
+
+  -- ── window management ─────────────────────────────────────────────────────
+  ['<C-w>s'] = { requires = '<C-o>', track = false, category = 'window', level = 'intermediate' },
+  ['<C-w>v'] = { requires = '<C-w>s', track = false, category = 'window', level = 'intermediate' },
+  ['<C-w>w'] = { requires = '<C-w>s', track = false, category = 'window', level = 'beginner' },
+  ['<C-w>h'] = { requires = '<C-w>w', track = false, category = 'window', level = 'intermediate' },
+  ['<C-w>j'] = { requires = '<C-w>w', track = false, category = 'window', level = 'intermediate' },
+  ['<C-w>k'] = { requires = '<C-w>w', track = false, category = 'window', level = 'intermediate' },
+  ['<C-w>l'] = { requires = '<C-w>w', track = false, category = 'window', level = 'intermediate' },
+  ['<C-w>q'] = { requires = '<C-w>w', track = false, category = 'window', level = 'intermediate' },
+  ['<C-w>='] = { requires = '<C-w>w', track = false, category = 'window', level = 'intermediate' },
 }
 
 return M
