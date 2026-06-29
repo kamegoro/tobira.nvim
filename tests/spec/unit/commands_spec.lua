@@ -101,127 +101,73 @@ describe('every non-compound entry in the registry', function()
   end)
 end)
 
-describe('the f → ; → , learning progression', function()
-  it('; requires f', function()
-    assert.equals('f', commands.registry[';'].requires)
-  end)
+-- ── compound operators ────────────────────────────────────────────────────────
 
-  it(', requires ; (comes after learning ;)', function()
-    assert.equals(';', commands.registry[','].requires)
-  end)
+describe('compound operators', function()
+  for _, cmd in ipairs({ 'dw', 'dd' }) do
+    it(cmd .. ' is registered as a compound operator', function()
+      assert.is_not_nil(commands.registry[cmd])
+      assert.is_true(commands.registry[cmd].compound)
+    end)
+  end
 end)
 
-describe('the dw → cw / ciw teaching chain', function()
-  it('cw and ciw both require dw', function()
-    assert.equals('dw', commands.registry['cw'].requires)
-    assert.equals('dw', commands.registry['ciw'].requires)
-  end)
+-- ── teaching chains: requires fields ─────────────────────────────────────────
+-- One row per directed edge in the learning graph.
+-- Format: { cmd, requires, description }
 
-  it('dw is registered as a compound operator', function()
-    assert.is_not_nil(commands.registry['dw'])
-    assert.is_true(commands.registry['dw'].compound)
-  end)
-end)
+local chain_cases = {
+  -- f/F search repetition
+  { ';',     'f',     'f → ;: repeat last f-search' },
+  { ',',     ';',     '; → ,: reverse f-repeat' },
+  -- dw teaching chain
+  { 'cw',    'dw',    'dw → cw: change word in one motion' },
+  { 'ciw',   'dw',    'dw → ciw: change inner word' },
+  -- u → redo
+  { '<C-r>', 'u',     'u → <C-r>: redo last undone change' },
+  -- dd → swap lines
+  { 'ddp',   'dd',    'dd → ddp: swap current line with next' },
+  -- j/k count prefix pair
+  { '{n}j',  'j',     'j → {n}j: count-prefix line movement down' },
+  { '{n}k',  'k',     'k → {n}k: count-prefix line movement up' },
+  -- 0 → ^
+  { '^',     '0',     '0 → ^: jump to first non-blank character' },
+  -- cgn search-and-change
+  { 'cgn',   'n',     'n → cgn: change next search match' },
+  -- dot repeat
+  { '.',     'cw',    'cw → .: repeat last change' },
+  -- insert continuations
+  { 'A',     'a',     'a → A: append at end of line' },
+  { 'O',     'o',     'o → O: open new line above' },
+  -- deletion chain
+  { 'D',     'x',     'x → D: delete to end of line' },
+  { 'C',     'D',     'D → C: change to end of line' },
+  -- search chain
+  { 'gn',    '*',     '* → gn: select next search match in visual' },
+  { '*',     'n',     'n → *: search word under cursor' },
+  { '<C-o>', '*',     '* → <C-o>: jump back to previous position' },
+  -- word end
+  { 'e',     'w',     'w → e: move to end of word' },
+  -- line-edge insert
+  { 'I',     'i',     'i → I: insert at start of line' },
+  -- screen navigation chain
+  { 'H',     'G',     'G → H: jump to top of screen' },
+  { 'M',     'H',     'H → M: jump to middle of screen' },
+  { 'L',     'M',     'M → L: jump to bottom of screen' },
+  -- x count prefix
+  { '{n}x',  'x',     'x → {n}x: delete multiple chars at once' },
+  -- scroll chain
+  { '<C-d>', 'j',     'j → <C-d>: scroll half page down' },
+  { '<C-u>', '<C-d>', '<C-d> → <C-u>: scroll half page up' },
+  -- paste pair
+  { 'P',     'p',     'p → P: paste above current line' },
+}
 
-describe('the cw → . (dot repeat) teaching chain', function()
-  it('. requires cw (so dot-repeat is offered once the user knows cw)', function()
-    assert.equals('cw', commands.registry['.'].requires)
-  end)
-end)
-
-describe('the a / o insert continuations', function()
-  it('A requires a', function()
-    assert.equals('a', commands.registry['A'].requires)
-  end)
-
-  it('O requires o', function()
-    assert.equals('o', commands.registry['O'].requires)
-  end)
-end)
-
-describe('the x → D → C deletion chain', function()
-  it('D requires x', function()
-    assert.equals('x', commands.registry['D'].requires)
-  end)
-
-  it('C requires D (two-step chain: x → D → C)', function()
-    assert.equals('D', commands.registry['C'].requires)
-  end)
-
-  it('dd is registered as a compound operator', function()
-    assert.is_not_nil(commands.registry['dd'])
-    assert.is_true(commands.registry['dd'].compound)
-  end)
-end)
-
-describe('the * → gn search-and-change chain', function()
-  it('gn requires *', function()
-    assert.equals('*', commands.registry['gn'].requires)
-  end)
-end)
-
-describe('the w → e word-end chain', function()
-  it('e requires w (word-end forward is the next step after word-jump)', function()
-    assert.equals('w', commands.registry['e'].requires)
-  end)
-end)
-
-describe('the i → I / a → A line-edge insert chain', function()
-  it('I requires i (insert at line start, complement of A)', function()
-    assert.equals('i', commands.registry['I'].requires)
-  end)
-end)
-
-describe('the G → H → M → L screen-navigation chain', function()
-  it('H requires G (jump to screen top once the user knows file-end jumps)', function()
-    assert.equals('G', commands.registry['H'].requires)
-  end)
-
-  it('M requires H (screen middle once the user knows screen top)', function()
-    assert.equals('H', commands.registry['M'].requires)
-  end)
-
-  it('L requires M (screen bottom once the user knows screen middle)', function()
-    assert.equals('M', commands.registry['L'].requires)
-  end)
-end)
-
-describe('the x → {n}x count-prefix chain', function()
-  it('{n}x requires x (multi-delete once the user hammers x)', function()
-    assert.equals('x', commands.registry['{n}x'].requires)
-  end)
-end)
-
-describe('the j → {n}k symmetric count-prefix pair', function()
-  it('{n}k requires k (mirrors {n}j which requires j)', function()
-    assert.equals('k', commands.registry['{n}k'].requires)
-  end)
-end)
-
-describe('the n → * search progression', function()
-  it('* requires n (search word under cursor once the user knows n for navigating matches)', function()
-    assert.equals('n', commands.registry['*'].requires)
-  end)
-end)
-
-describe('the * → <C-o> jumplist progression', function()
-  it('<C-o> requires * (jump back after searching)', function()
-    assert.equals('*', commands.registry['<C-o>'].requires)
-  end)
-end)
-
-describe('the p → P paste pair', function()
-  it('P requires p (paste above once the user knows paste below)', function()
-    assert.equals('p', commands.registry['P'].requires)
-  end)
-end)
-
-describe('the j → <C-d> → <C-u> scroll chain', function()
-  it('<C-d> requires j (half-page scroll replaces many j presses)', function()
-    assert.equals('j', commands.registry['<C-d>'].requires)
-  end)
-
-  it('<C-u> requires <C-d> (scroll back once the user knows scroll forward)', function()
-    assert.equals('<C-d>', commands.registry['<C-u>'].requires)
-  end)
+describe('teaching chains', function()
+  for _, tc in ipairs(chain_cases) do
+    local cmd, requires, desc = tc[1], tc[2], tc[3]
+    it(desc, function()
+      assert.equals(requires, commands.registry[cmd].requires)
+    end)
+  end
 end)
