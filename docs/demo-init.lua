@@ -15,10 +15,22 @@ vim.opt.showmode = false
 -- tobira from repo root
 vim.opt.rtp:prepend(vim.fn.fnamemodify(debug.getinfo(1, 'S').source:sub(2), ':h:h'))
 
--- nvim-notify for toast-style suggestions (optional — shows best-case UX)
+-- catppuccin colorscheme
+vim.opt.rtp:prepend(vim.fn.expand('~/.local/share/nvim/lazy/catppuccin'))
+require('catppuccin').setup({ flavour = 'mocha' })
+vim.cmd.colorscheme('catppuccin')
+
+-- treesitter for proper syntax highlighting
+vim.opt.rtp:prepend(vim.fn.expand('~/.local/share/nvim/lazy/nvim-treesitter'))
+require('nvim-treesitter.configs').setup({
+  highlight = { enable = true },
+  ensure_installed = {},
+})
+
+-- nvim-notify for toast-style suggestions
 vim.opt.rtp:prepend(vim.fn.expand('~/.local/share/nvim/lazy/nvim-notify'))
 require('notify').setup({
-  background_colour = '#000000',
+  background_colour = '#1e1e2e',
   stages = 'fade_in_slide_out',
   timeout = 6000,
   render = 'wrapped-compact',
