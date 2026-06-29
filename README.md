@@ -126,8 +126,9 @@ On first launch, tobira shows a cheatsheet on the right side of the screen for n
 | `u` × 3 in a row | `<C-r>` (redo) |
 | `dd` → `p` | `ddp` (swap lines) |
 | `j` × 5 in a row | `{n}j` / `<C-d>` |
+| `k` × 5 in a row | `{n}k` (count prefix) |
 | `0` → `w` | `^` (first non-blank) |
-| `n` × 3 after search | `cgn` (change next match) |
+| `n` × 4 after search | `cgn` (change next match) |
 
 ---
 
