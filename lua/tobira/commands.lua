@@ -24,61 +24,61 @@ M.registry = {
   ['dd'] = { compound = true },
 
   -- ── f / F repeat ──────────────────────────────────────────────────────────
-  [';'] = { requires = 'f', track = true, category = 'motion' },
-  [','] = { requires = ';', track = true, category = 'motion' },
+  [';'] = { requires = 'f', track = true, category = 'motion', level = 'beginner' },
+  [','] = { requires = ';', track = true, category = 'motion', level = 'intermediate' },
 
   -- ── dw → insert ───────────────────────────────────────────────────────────
-  ['cw'] = { requires = 'dw', track = false, category = 'edit' },
-  ['ciw'] = { requires = 'dw', track = false, category = 'edit' },
+  ['cw'] = { requires = 'dw', track = false, category = 'edit', level = 'beginner' },
+  ['ciw'] = { requires = 'dw', track = false, category = 'edit', level = 'intermediate' },
 
   -- ── u repeat → redo ───────────────────────────────────────────────────────
-  ['<C-r>'] = { requires = 'u', track = false, category = 'edit' },
+  ['<C-r>'] = { requires = 'u', track = false, category = 'edit', level = 'beginner' },
 
   -- ── dd then p → swap lines ────────────────────────────────────────────────
-  ['ddp'] = { requires = 'dd', track = false, category = 'edit' },
+  ['ddp'] = { requires = 'dd', track = false, category = 'edit', level = 'intermediate' },
 
   -- ── j repeat → count prefix ───────────────────────────────────────────────
-  ['{n}j'] = { requires = 'j', track = false, category = 'motion' },
+  ['{n}j'] = { requires = 'j', track = false, category = 'motion', level = 'intermediate' },
 
   -- ── 0 then w → ^ ──────────────────────────────────────────────────────────
-  ['^'] = { requires = '0', track = false, category = 'motion' },
+  ['^'] = { requires = '0', track = false, category = 'motion', level = 'beginner' },
 
   -- ── n repeat after search → cgn ───────────────────────────────────────────
-  ['cgn'] = { requires = 'n', track = false, category = 'search' },
+  ['cgn'] = { requires = 'n', track = false, category = 'search', level = 'advanced' },
 
   -- ── cw → . (dot repeat) ───────────────────────────────────────────────────
-  ['.'] = { requires = 'cw', track = true, category = 'edit' },
+  ['.'] = { requires = 'cw', track = true, category = 'edit', level = 'intermediate' },
 
   -- ── a → A, o → O (insert continuations) ──────────────────────────────────
-  ['A'] = { requires = 'a', track = true, category = 'edit' },
-  ['O'] = { requires = 'o', track = true, category = 'edit' },
+  ['A'] = { requires = 'a', track = true, category = 'edit', level = 'beginner' },
+  ['O'] = { requires = 'o', track = true, category = 'edit', level = 'beginner' },
 
   -- ── x → D → C deletion chain ──────────────────────────────────────────────
-  ['D'] = { requires = 'x', track = true, category = 'edit' },
-  ['C'] = { requires = 'D', track = true, category = 'edit' },
+  ['D'] = { requires = 'x', track = true, category = 'edit', level = 'beginner' },
+  ['C'] = { requires = 'D', track = true, category = 'edit', level = 'intermediate' },
 
   -- ── * → gn → cgn search-and-change chain ─────────────────────────────────
-  ['gn'] = { requires = '*', track = false, category = 'search' },
+  ['gn'] = { requires = '*', track = false, category = 'search', level = 'intermediate' },
 
   -- ── w → e word-end ────────────────────────────────────────────────────────
-  ['e'] = { requires = 'w', track = true, category = 'motion' },
+  ['e'] = { requires = 'w', track = true, category = 'motion', level = 'beginner' },
 
   -- ── i → I / a → A line-edge insert ───────────────────────────────────────
-  ['I'] = { requires = 'i', track = true, category = 'edit' },
+  ['I'] = { requires = 'i', track = true, category = 'edit', level = 'intermediate' },
 
   -- ── G → H → M → L screen navigation ──────────────────────────────────────
-  ['H'] = { requires = 'G', track = true, category = 'motion' },
-  ['M'] = { requires = 'H', track = true, category = 'motion' },
-  ['L'] = { requires = 'M', track = true, category = 'motion' },
+  ['H'] = { requires = 'G', track = true, category = 'motion', level = 'intermediate' },
+  ['M'] = { requires = 'H', track = true, category = 'motion', level = 'intermediate' },
+  ['L'] = { requires = 'M', track = true, category = 'motion', level = 'intermediate' },
 
   -- ── x repeat → {n}x count prefix ─────────────────────────────────────────
   -- Detected via x_repeat pattern; needs a registry entry so suggest.show
   -- can look it up in graph.suggestions (without this entry it silently no-ops).
-  ['{n}x'] = { requires = 'x', track = false, category = 'edit' },
+  ['{n}x'] = { requires = 'x', track = false, category = 'edit', level = 'intermediate' },
 
   -- ── j → <C-d> → <C-u> half-page scroll ───────────────────────────────────
-  ['<C-d>'] = { requires = 'j', track = false, category = 'motion' },
-  ['<C-u>'] = { requires = '<C-d>', track = false, category = 'motion' },
+  ['<C-d>'] = { requires = 'j', track = false, category = 'motion', level = 'beginner' },
+  ['<C-u>'] = { requires = '<C-d>', track = false, category = 'motion', level = 'beginner' },
 }
 
 return M

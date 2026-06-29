@@ -15,9 +15,12 @@ for cmd, entry in pairs(commands.registry) do
     M.suggestions[cmd] = {
       cmd = cmd,
       trigger = entry.requires,
+      level = entry.level,
     }
   end
 end
+
+local LEVEL_ORDER = { beginner = 1, intermediate = 2, advanced = 3 }
 
 -- Average of the last n elements in sessions (or all if fewer than n).
 local function avg_last_n(sessions, n)
@@ -57,12 +60,19 @@ function M.is_forgotten(data)
   return false
 end
 
-function M.find_best(usage, max_shown)
+-- max_level: 'beginner' | 'intermediate' | 'advanced' | nil (no filter)
+function M.find_best(usage, max_shown, max_level)
   max_shown = max_shown or 3
+  local max_level_num = max_level and (LEVEL_ORDER[max_level] or 3) or 3
   local best_cmd = nil
   local best_score = -1
 
   for cmd, sug in pairs(M.suggestions) do
+    local cmd_level_num = LEVEL_ORDER[sug.level] or 1
+    if cmd_level_num > max_level_num then
+      goto continue
+    end
+
     local data = usage[cmd] or { count = 0, sessions = {}, shown = 0, suppressed = false }
 
     local suppressed = data.suppressed or false
@@ -80,6 +90,8 @@ function M.find_best(usage, max_shown)
         end
       end
     end
+
+    ::continue::
   end
 
   return best_cmd

@@ -1,3 +1,5 @@
+local graph = require('tobira.core.graph')
+
 local M = {}
 
 local function cnt(usage, keys)
@@ -16,7 +18,7 @@ function M.get(usage)
 
   -- Advanced: knows ;/, or cgn (sophisticated repeat techniques)
   local semi_count = cnt(usage, { ';', ',' })
-  local cgn_adopted = usage['cgn'] and usage['cgn'].adopted
+  local cgn_adopted = usage['cgn'] and graph.is_adopted(usage['cgn'])
   if semi_count >= 3 or cgn_adopted then
     return 'advanced'
   end

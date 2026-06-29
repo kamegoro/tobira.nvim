@@ -219,3 +219,27 @@ describe('when max_shown is lowered below the default', function()
     assert.is_nil(graph.find_best(usage, 2))
   end)
 end)
+
+-- ── level-based filtering ─────────────────────────────────────────────────────
+
+describe('when find_best has a max_level restriction', function()
+  it('excludes intermediate commands when max_level is beginner', function()
+    -- x triggers D (beginner) and {n}x (intermediate)
+    -- with beginner filter only D is eligible
+    local usage = { x = usage_entry(10) }
+    assert.equals('D', graph.find_best(usage, 3, 'beginner'))
+  end)
+
+  it('includes intermediate commands when max_level is intermediate', function()
+    local usage = {
+      x = usage_entry(10),
+      D = usage_entry(5),   -- D score = 10-5 = 5; {n}x score = 10-0 = 10
+    }
+    assert.equals('{n}x', graph.find_best(usage, 3, 'intermediate'))
+  end)
+
+  it('allows all commands when max_level is nil', function()
+    local usage = { x = usage_entry(10) }
+    assert.is_not_nil(graph.find_best(usage))
+  end)
+end)

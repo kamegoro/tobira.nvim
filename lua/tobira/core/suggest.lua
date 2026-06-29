@@ -96,8 +96,12 @@ function M.reset_session()
   session.watching_ns = {}
 end
 
+local LEVEL_UP = { novice = 'beginner', beginner = 'intermediate', intermediate = 'advanced', advanced = 'advanced' }
+
 function M.manual()
-  local best = graph.find_best(logger.get_all(), config.values.max_shown)
+  local level = require('tobira.core.level')
+  local max_lv = LEVEL_UP[level.get()] or 'advanced'
+  local best = graph.find_best(logger.get_all(), config.values.max_shown, max_lv)
   if not best then
     local str = require('tobira.i18n').load()
     vim.notify(str.notifications.no_suggestions, vim.log.levels.INFO)

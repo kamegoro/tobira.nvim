@@ -38,6 +38,7 @@ end)
 
 describe('when the user has adopted cgn', function()
   it('returns advanced', function()
-    assert.equals('advanced', level.get({ cgn = { adopted = true } }))
+    -- sessions=[10] → avg(last 3) = 10 ≥ 5 → is_adopted → advanced
+    assert.equals('advanced', level.get({ cgn = { count = 5, sessions = { 10 }, shown = 0, suppressed = false } }))
   end)
 end)

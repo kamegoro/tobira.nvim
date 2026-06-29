@@ -86,6 +86,19 @@ describe('every non-compound entry in the registry', function()
       end
     end
   end)
+
+  it('has a level field (beginner | intermediate | advanced) on every suggestable entry', function()
+    local valid_levels = { beginner = true, intermediate = true, advanced = true }
+    for cmd, entry in pairs(commands.registry) do
+      if entry.requires then
+        assert.is_not_nil(entry.level, cmd .. ': missing level field')
+        assert.is_true(
+          valid_levels[entry.level] == true,
+          cmd .. ': invalid level "' .. tostring(entry.level) .. '"'
+        )
+      end
+    end
+  end)
 end)
 
 describe('the f → ; → , learning progression', function()

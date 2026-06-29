@@ -313,7 +313,6 @@ describe('when :Tobira is called and a suggestion is available', function()
   end)
 
   it('shows the best suggestion', function()
-    -- Make 'f' a frequently used trigger so find_best returns ';'.
     local usage = logger.get_all()
     usage['f'] = { count = 5, shown = 0, sessions = {}, suppressed = false }
 
@@ -322,5 +321,28 @@ describe('when :Tobira is called and a suggestion is available', function()
     end)
 
     assert.is_true(shown)
+  end)
+end)
+
+describe('when manual is called and the user level limits the suggestion pool', function()
+  before_each(function()
+    logger.reset()
+    config.reset()
+    suggest.reset_session()
+  end)
+
+  it('only suggests commands appropriate for novice level', function()
+    local level_mod = require('tobira.core.level')
+    -- Only x is used → novice level → max_level = beginner
+    -- x triggers D (beginner) and {n}x (intermediate): only D is eligible
+    local usage = logger.get_all()
+    usage['x'] = { count = 10, sessions = {}, shown = 0, suppressed = false }
+    assert.equals('novice', level_mod.get())
+    local shown_cmd = nil
+    package.loaded['tobira.ui.float'] = { show = function(sug) shown_cmd = sug.cmd end }
+    local ok, err = pcall(suggest.manual)
+    package.loaded['tobira.ui.float'] = nil
+    assert.is_true(ok, err)
+    assert.equals('D', shown_cmd)
   end)
 end)
