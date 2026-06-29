@@ -714,5 +714,110 @@ return {
       body = 'Resizes all open splits to equal width and height\nA quick reset after splits become unbalanced from manual resizing',
       example = '<C-w>= → all panes snap to equal dimensions',
     },
+    ['$'] = {
+      title = '$ — jump to end of line',
+      body = 'Moves the cursor to the last character of the current line\nPair with ^ (first non-blank) to navigate line edges quickly',
+      example = '^ → go to start; $ → jump to end',
+    },
+    ['g_'] = {
+      title = 'g_ — last non-blank character of line',
+      body = '$ includes trailing spaces; g_ stops at the last non-blank character\nMore precise than $ when lines have trailing whitespace',
+      example = '$ → may land on a space; g_ → stops at last real character',
+    },
+    ['F'] = {
+      title = 'F — find character backward',
+      body = 'Like f{char} but searches left instead of right on the current line\n; and , still repeat the search, so you can navigate in both directions',
+      example = 'f, → forward to comma; F, → backward to comma',
+    },
+    ['('] = {
+      title = '( — jump to start of sentence',
+      body = 'Like { for paragraphs, ( jumps to the beginning of the current sentence\nUseful for navigating prose, comments, and documentation',
+      example = '{ → paragraph start; ( → sentence start',
+    },
+    [')'] = {
+      title = ') — jump to end of sentence',
+      body = 'Moves the cursor forward to the end of the current sentence\nPair with ( to hop through sentences without reaching for the mouse',
+      example = '( then ) → step forward and backward through sentences',
+    },
+    ['[['] = {
+      title = '[[ — previous function / section',
+      body = 'Jumps to the first line of the previous function or section boundary\nFaster than gg + search when navigating a file with many functions',
+      example = 'gg → top of file; [[ → previous function start',
+    },
+    [']]'] = {
+      title = ']] — next function / section',
+      body = 'Jumps to the first line of the next function or section boundary\nPair with [[ to hop between functions without leaving normal mode',
+      example = 'G → end of file; ]] → next function start',
+    },
+    ['[{'] = {
+      title = '[{ — jump to the enclosing {',
+      body = 'Jumps backward to the nearest unmatched opening brace\nEssential for quickly reaching the start of a block, function, or struct',
+      example = '% → matching bracket; [{ → enclosing block start',
+    },
+    [']}'] = {
+      title = ']} — jump to the enclosing }',
+      body = 'Jumps forward to the nearest unmatched closing brace\nPair with [{ to navigate in and out of nested blocks',
+      example = '[{ → block start; ]} → block end',
+    },
+    ['[('] = {
+      title = '[( — jump to the enclosing (',
+      body = 'Jumps backward to the nearest unmatched opening parenthesis\nUseful inside long function calls, conditions, or multi-line expressions',
+      example = '[{ → block; [( → enclosing parenthesis',
+    },
+    ['])'] = {
+      title = ']) — jump to the enclosing )',
+      body = 'Jumps forward to the nearest unmatched closing parenthesis\nPair with [( to navigate in and out of nested parentheses',
+      example = '[( → open paren; ]) → closing paren',
+    },
+    ['g0'] = {
+      title = 'g0 — first character of screen line',
+      body = 'When lines are wrapped, 0 goes to the real line start; g0 goes to the wrapped line start\nUseful when editing long lines with wrap enabled',
+      example = 'gj → next visual line; g0 → start of that visual line',
+    },
+    ['gx'] = {
+      title = 'gx — open file or URL under cursor',
+      body = 'Opens the file path or URL under the cursor using the system default application\nWorks with http/https URLs, local file paths, and more',
+      example = 'gf → edit file in Vim; gx → open in browser or Finder',
+    },
+    ['<C-]>'] = {
+      title = '<C-]> — jump to tag definition',
+      body = 'Follows the tag (ctags definition) under the cursor to its declaration\nRequires a tags file; <C-t> or <C-o> jumps back',
+      example = 'gd → local definition; <C-]> → ctags definition',
+    },
+    ['K'] = {
+      title = 'K — look up keyword under cursor',
+      body = 'Runs the program in keywordprg (default: man) on the word under the cursor\nIn many LSP setups K shows hover documentation instead',
+      example = 'gd → go to definition; K → show documentation',
+    },
+    ['gp'] = {
+      title = 'gp — paste and leave cursor after pasted text',
+      body = 'Like p but leaves the cursor positioned just after the pasted text\nHandy when you want to continue typing immediately after pasting',
+      example = 'p → cursor stays before paste; gp → cursor moves after paste',
+    },
+    ['gP'] = {
+      title = 'gP — paste before and leave cursor after pasted text',
+      body = 'Like P (paste before cursor) but moves the cursor to just after the pasted text\nThe uppercase complement of gp',
+      example = 'P → paste before, cursor before; gP → paste before, cursor after',
+    },
+    ['@:'] = {
+      title = '@: — repeat last command-line command',
+      body = 'Repeats the most recently executed : command without retyping it\nAfter @: you can use @@ to repeat it again',
+      example = ':s/foo/bar/ then @: → repeat the substitution',
+    },
+    ['zj'] = {
+      title = 'zj — move to start of next fold',
+      body = 'Moves the cursor downward to the beginning of the next closed or open fold\nFaster than scrolling past folds when navigating a heavily folded file',
+      example = 'za → toggle fold; zj → jump to next fold',
+    },
+    ['zk'] = {
+      title = 'zk — move to end of previous fold',
+      body = 'Moves the cursor upward to the end of the previous fold\nPair with zj to hop between folds in either direction',
+      example = 'zj → next fold; zk → previous fold',
+    },
+    ['zd'] = {
+      title = 'zd — delete fold at cursor',
+      body = 'Removes the fold definition under the cursor without affecting the text\nUseful for cleaning up manual folds created with zf',
+      example = 'zc → close fold; zd → delete that fold definition',
+    },
   },
 }

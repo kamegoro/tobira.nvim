@@ -228,6 +228,47 @@ M.registry = {
   ['g*'] = { requires = '*', track = false, category = 'search', level = 'intermediate' },
   ['g#'] = { requires = '#', track = false, category = 'search', level = 'intermediate' },
 
+  -- ── $ end of line / g_ last non-blank ────────────────────────────────────────
+  ['$'] = { requires = '^', track = false, category = 'motion', level = 'beginner' },
+  ['g_'] = { requires = '$', track = false, category = 'motion', level = 'intermediate' },
+
+  -- ── f → F backward find ───────────────────────────────────────────────────────
+  ['F'] = { requires = 'f', track = true, category = 'motion', level = 'intermediate' },
+
+  -- ── sentence motions ──────────────────────────────────────────────────────────
+  ['('] = { requires = '{', track = false, category = 'motion', level = 'intermediate' },
+  [')'] = { requires = '(', track = false, category = 'motion', level = 'intermediate' },
+
+  -- ── section / function jumps ──────────────────────────────────────────────────
+  ['[['] = { requires = 'gg', track = false, category = 'motion', level = 'intermediate' },
+  [']]'] = { requires = 'G', track = false, category = 'motion', level = 'intermediate' },
+
+  -- ── unmatched bracket navigation ─────────────────────────────────────────────
+  ['[{'] = { requires = '%', track = false, category = 'motion', level = 'intermediate' },
+  [']}'] = { requires = '%', track = false, category = 'motion', level = 'intermediate' },
+  ['[('] = { requires = '[{', track = false, category = 'motion', level = 'intermediate' },
+  ['])'] = { requires = ']}', track = false, category = 'motion', level = 'intermediate' },
+
+  -- ── screen-line first char ────────────────────────────────────────────────────
+  ['g0'] = { requires = 'gj', track = false, category = 'motion', level = 'intermediate' },
+
+  -- ── code navigation ───────────────────────────────────────────────────────────
+  ['gx'] = { requires = 'gf', track = false, category = 'motion', level = 'intermediate' },
+  ['<C-]>'] = { requires = 'gf', track = false, category = 'motion', level = 'intermediate' },
+  ['K'] = { requires = 'gd', track = false, category = 'motion', level = 'intermediate' },
+
+  -- ── paste without losing cursor ───────────────────────────────────────────────
+  ['gp'] = { requires = 'P', track = false, category = 'edit', level = 'intermediate' },
+  ['gP'] = { requires = 'gp', track = false, category = 'edit', level = 'advanced' },
+
+  -- ── repeat last ex command ────────────────────────────────────────────────────
+  ['@:'] = { requires = '@@', track = false, category = 'edit', level = 'intermediate' },
+
+  -- ── fold navigation ───────────────────────────────────────────────────────────
+  ['zj'] = { requires = 'za', track = false, category = 'motion', level = 'intermediate' },
+  ['zk'] = { requires = 'zj', track = false, category = 'motion', level = 'intermediate' },
+  ['zd'] = { requires = 'zc', track = false, category = 'motion', level = 'intermediate' },
+
   -- ── window management ─────────────────────────────────────────────────────
   ['<C-w>s'] = { requires = '<C-o>', track = false, category = 'window', level = 'intermediate' },
   ['<C-w>v'] = { requires = '<C-w>s', track = false, category = 'window', level = 'intermediate' },

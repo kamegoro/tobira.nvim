@@ -269,6 +269,37 @@ local chain_cases = {
   { '<C-w>l', '<C-w>w', '<C-w>w → <C-w>l: move to right window' },
   { '<C-w>q', '<C-w>w', '<C-w>w → <C-w>q: close current window' },
   { '<C-w>=', '<C-w>w', '<C-w>w → <C-w>=: equalize all window sizes' },
+  -- line-edge motions
+  { '$',    '^',    '^ → $: jump to end of line' },
+  { 'g_',   '$',    '$ → g_: last non-blank character of line' },
+  -- backward find char
+  { 'F',    'f',    'f → F: find character backward on line' },
+  -- sentence motions
+  { '(',    '{',    '{ → (: jump to start of sentence' },
+  { ')',    '(',    '( → ): jump to end of sentence' },
+  -- section / function navigation
+  { '[[',   'gg',   'gg → [[: jump to previous function / section' },
+  { ']]',   'G',    'G → ]]: jump to next function / section' },
+  -- unmatched bracket navigation
+  { '[{',   '%',    '% → [{: jump to enclosing { start' },
+  { ']}',   '%',    '% → ]}: jump to enclosing } end' },
+  { '[(',   '[{',   '[{ → [(: jump to enclosing ( start' },
+  { '])',   ']}',   ']} → ]): jump to enclosing ) end' },
+  -- screen-line first char
+  { 'g0',   'gj',   'gj → g0: first character of wrapped screen line' },
+  -- code navigation
+  { 'gx',   'gf',   'gf → gx: open file or URL under cursor' },
+  { '<C-]>', 'gf',   'gf → <C-]>: jump to tag definition' },
+  { 'K',    'gd',   'gd → K: look up keyword under cursor' },
+  -- paste without cursor jump
+  { 'gp',   'P',    'P → gp: paste and leave cursor after pasted text' },
+  { 'gP',   'gp',   'gp → gP: paste before and leave cursor after pasted text' },
+  -- repeat last ex command
+  { '@:',   '@@',   '@@ → @:: repeat last command-line command' },
+  -- fold navigation
+  { 'zj',   'za',   'za → zj: move to start of next fold' },
+  { 'zk',   'zj',   'zj → zk: move to end of previous fold' },
+  { 'zd',   'zc',   'zc → zd: delete fold at cursor' },
 }
 
 describe('teaching chains', function()
