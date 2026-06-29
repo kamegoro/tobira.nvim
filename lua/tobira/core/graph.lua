@@ -19,15 +19,58 @@ for cmd, entry in pairs(commands.registry) do
   end
 end
 
+-- Average of the last n elements in sessions (or all if fewer than n).
+local function avg_last_n(sessions, n)
+  local len = #sessions
+  if len == 0 then
+    return 0
+  end
+  local k = math.min(n, len)
+  local sum = 0
+  for i = len - k + 1, len do
+    sum = sum + sessions[i]
+  end
+  return sum / k
+end
+
+-- True when the user regularly uses this command (avg of last 3 sessions ≥ 5).
+function M.is_adopted(data)
+  return avg_last_n(data.sessions or {}, 3) >= 5
+end
+
+-- True when the command was once adopted but the last 2 sessions are 0 (forgot it).
+-- Requires at least 3 sessions in history to be meaningful.
+function M.is_forgotten(data)
+  local sessions = data.sessions or {}
+  local len = #sessions
+  if len < 3 then
+    return false
+  end
+  if sessions[len] ~= 0 or sessions[len - 1] ~= 0 then
+    return false
+  end
+  for i = 1, len - 2 do
+    if sessions[i] >= 5 then
+      return true
+    end
+  end
+  return false
+end
+
 function M.find_best(usage, max_shown)
   max_shown = max_shown or 3
   local best_cmd = nil
   local best_score = -1
 
   for cmd, sug in pairs(M.suggestions) do
-    local data = usage[cmd] or { count = 0, shown = 0, adopted = false }
+    local data = usage[cmd] or { count = 0, sessions = {}, shown = 0, suppressed = false }
 
-    if not data.adopted and data.shown < max_shown then
+    local suppressed = data.suppressed or false
+    local offered = (not M.is_adopted(data) or M.is_forgotten(data))
+      and not suppressed
+      and data.shown < max_shown
+
+    if offered then
       local trigger_count = (usage[sug.trigger] and usage[sug.trigger].count) or 0
       local cmd_count = data.count
 

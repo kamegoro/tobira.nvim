@@ -149,12 +149,14 @@ describe('when the user presses the suggested command after seeing it', function
     suggest.reset_session()
   end)
 
-  it('marks the command as adopted', function()
+  it('makes the command detectable as adopted', function()
+    local graph = require('tobira.core.graph')
     with_float_spy(function()
       suggest.show(';')
     end)
     vim.fn.feedkeys(';', 'x')
-    assert.is_true(logger.get(';').adopted)
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_true(graph.is_adopted(logger.get(';')))
   end)
 end)
 
@@ -242,7 +244,7 @@ describe('when :Tobira is called and a suggestion is available', function()
   it('shows the best suggestion', function()
     -- Make 'f' a frequently used trigger so find_best returns ';'.
     local usage = logger.get_all()
-    usage['f'] = { count = 5, shown = 0, adopted = false }
+    usage['f'] = { count = 5, shown = 0, sessions = {}, suppressed = false }
 
     local shown = with_float_spy(function()
       suggest.manual()

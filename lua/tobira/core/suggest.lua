@@ -12,7 +12,7 @@ local session = {
 
 local function should_suppress(cmd)
   local data = logger.get(cmd)
-  return data.adopted or data.shown >= config.values.max_shown
+  return graph.is_adopted(data) or data.suppressed or data.shown >= config.values.max_shown
 end
 
 local function cancel_timer()

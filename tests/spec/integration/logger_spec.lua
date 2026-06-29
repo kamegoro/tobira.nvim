@@ -11,7 +11,8 @@ describe('before any usage is recorded', function()
     local data = logger.get('unknown_cmd')
     assert.equals(0, data.count)
     assert.equals(0, data.shown)
-    assert.is_false(data.adopted)
+    assert.same({}, data.sessions)
+    assert.is_false(data.suppressed)
   end)
 
   it('returns an empty usage table', function()
@@ -42,7 +43,7 @@ describe('when a suggestion has been shown to the user', function()
     local data = logger.get('brand_new_cmd')
     assert.equals(1, data.shown)
     assert.equals(0, data.count)
-    assert.is_false(data.adopted)
+    assert.same({}, data.sessions)
   end)
 end)
 
@@ -53,10 +54,12 @@ describe('when the user adopts a suggested command', function()
     logger.reset()
   end)
 
-  it('marks it as adopted', function()
+  it('immediately makes it detectable as adopted via sessions', function()
+    local graph = require('tobira.core.graph')
     logger.mark_shown(';')
     logger.mark_adopted(';')
-    assert.is_true(logger.get(';').adopted)
+    -- mark_adopted flushes a strong session count so is_adopted is true immediately
+    assert.is_true(graph.is_adopted(logger.get(';')))
   end)
 end)
 
@@ -69,6 +72,76 @@ describe('when mark_adopted is called for an unknown command', function()
     assert.has_no_error(function()
       logger.mark_adopted('never_seen')
     end)
+  end)
+end)
+
+-- ── session tracking ──────────────────────────────────────────────────────────
+
+describe('session tracking', function()
+  before_each(function()
+    logger.reset()
+    logger.setup()
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'hello world test' })
+  end)
+
+  it('close_session appends the current-session count to usage.sessions', function()
+    vim.fn.feedkeys('e', 'x'); vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('e', 'x'); vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('e', 'x'); vim.api.nvim_feedkeys('', 'x', false)
+    logger.close_session()
+    assert.equals(3, logger.get('e').sessions[1])
+  end)
+
+  it('after close_session the next session starts fresh', function()
+    vim.fn.feedkeys('e', 'x'); vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('e', 'x'); vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('e', 'x'); vim.api.nvim_feedkeys('', 'x', false)
+    logger.close_session()
+    vim.fn.feedkeys('e', 'x'); vim.api.nvim_feedkeys('', 'x', false)
+    logger.close_session()
+    local sessions = logger.get('e').sessions
+    assert.equals(2, #sessions)
+    assert.equals(3, sessions[1])
+    assert.equals(1, sessions[2])
+  end)
+
+  it('sessions array is capped at 10 entries', function()
+    for _ = 1, 12 do
+      vim.fn.feedkeys('e', 'x'); vim.api.nvim_feedkeys('', 'x', false)
+      logger.close_session()
+    end
+    assert.equals(10, #logger.get('e').sessions)
+  end)
+end)
+
+-- ── old-format migration ──────────────────────────────────────────────────────
+
+describe('old-format migration', function()
+  before_each(function()
+    logger.reset()
+  end)
+
+  it('converts adopted=true entries to sessions=[10] on load', function()
+    -- Write old-format data to disk
+    local usage = logger.get_all()
+    usage['cw'] = { count = 5, shown = 2, adopted = true }
+    logger.save()
+    -- Re-read: migrate() runs inside load()
+    logger.load_from_disk()
+    local data = logger.get('cw')
+    assert.same({ 10 }, data.sessions)
+    assert.is_nil(data.adopted)
+  end)
+
+  it('leaves entries without adopted field unchanged except for defaults', function()
+    local usage = logger.get_all()
+    usage['e'] = { count = 3, shown = 0, sessions = { 2, 3 } }
+    logger.save()
+    logger.load_from_disk()
+    local data = logger.get('e')
+    assert.same({ 2, 3 }, data.sessions)
+    assert.is_false(data.suppressed)
   end)
 end)
 
@@ -266,8 +339,8 @@ describe('when stats are displayed', function()
 
   it('notifies the user with a summary of recorded usage', function()
     local usage = logger.get_all()
-    usage['dd'] = { count = 7, shown = 0, adopted = false }
-    usage['cw'] = { count = 3, shown = 1, adopted = true }
+    usage['dd'] = { count = 7, shown = 0, sessions = {}, suppressed = false }
+    usage['cw'] = { count = 3, shown = 1, sessions = { 8 }, suppressed = false }
 
     local message = nil
     local orig = vim.notify

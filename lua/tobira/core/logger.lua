@@ -10,14 +10,30 @@ local usage = {}
 local meta = { guide_seen = false }
 local _initialized = false
 local seq = patterns.new_seq()
+local session_counts = {}
 
 -- Wired by init.lua — logger has no direct dependency on suggest.
 M.on_pattern = nil
 
 local current_mode = 'n'
 
+local MAX_SESSIONS = 10
+
 local function ensure_dir()
   vim.fn.mkdir(data_dir, 'p')
+end
+
+-- Migrate a single entry from the old format (adopted field) to the new format
+-- (sessions array + suppressed). Returns the mutated entry.
+local function migrate_entry(entry)
+  if not entry.sessions then
+    entry.sessions = entry.adopted == true and { 10 } or {}
+  end
+  if entry.suppressed == nil then
+    entry.suppressed = false
+  end
+  entry.adopted = nil
+  return entry
 end
 
 local function load()
@@ -41,6 +57,12 @@ local function load()
     meta = vim.tbl_extend('force', meta, data._meta)
     data._meta = nil
   end
+  -- Migrate entries from old format on load
+  for _, entry in pairs(data) do
+    if type(entry) == 'table' then
+      migrate_entry(entry)
+    end
+  end
   return data
 end
 
@@ -61,9 +83,10 @@ end
 
 local function increment(cmd)
   if not usage[cmd] then
-    usage[cmd] = { count = 0, shown = 0, adopted = false }
+    usage[cmd] = { count = 0, sessions = {}, shown = 0, suppressed = false }
   end
   usage[cmd].count = usage[cmd].count + 1
+  session_counts[cmd] = (session_counts[cmd] or 0) + 1
 end
 
 -- Base single-char keys to track: prerequisites for suggestions + level detection.
@@ -159,12 +182,33 @@ function M.setup()
 
   vim.api.nvim_create_autocmd('VimLeave', {
     group = mode_group,
-    callback = save,
+    callback = M.close_session,
   })
 end
 
+-- Flush current-session key counts into usage.sessions, then save.
+-- Called on VimLeave and exposed for testing.
+function M.close_session()
+  for cmd, count in pairs(session_counts) do
+    if not usage[cmd] then
+      usage[cmd] = { count = 0, sessions = {}, shown = 0, suppressed = false }
+    end
+    table.insert(usage[cmd].sessions, count)
+    while #usage[cmd].sessions > MAX_SESSIONS do
+      table.remove(usage[cmd].sessions, 1)
+    end
+  end
+  session_counts = {}
+  save()
+end
+
 function M.get(cmd)
-  return usage[cmd] or { count = 0, shown = 0, adopted = false }
+  return usage[cmd] or { count = 0, sessions = {}, shown = 0, suppressed = false }
+end
+
+-- Exposed only for testing — lets specs verify in-session counts before close_session.
+function M.get_session_counts()
+  return session_counts
 end
 
 function M.get_all()
@@ -173,23 +217,42 @@ end
 
 function M.mark_shown(cmd)
   if not usage[cmd] then
-    usage[cmd] = { count = 0, shown = 0, adopted = false }
+    usage[cmd] = { count = 0, sessions = {}, shown = 0, suppressed = false }
   end
   usage[cmd].shown = usage[cmd].shown + 1
   save()
 end
 
+-- Treat an explicit in-session adoption as a strong session signal.
+-- Immediately flushes a boosted count to sessions so is_adopted() returns true
+-- without waiting for the next VimLeave.
 function M.mark_adopted(cmd)
-  if usage[cmd] then
-    usage[cmd].adopted = true
-    save()
+  local count = math.max(session_counts[cmd] or 0, 5)
+  session_counts[cmd] = nil
+  if not usage[cmd] then
+    usage[cmd] = { count = 0, sessions = {}, shown = 0, suppressed = false }
   end
+  table.insert(usage[cmd].sessions, count)
+  while #usage[cmd].sessions > MAX_SESSIONS do
+    table.remove(usage[cmd].sessions, 1)
+  end
+  save()
 end
 
 function M.reset()
   usage = {}
+  session_counts = {}
+  meta = { guide_seen = false }
   seq = patterns.new_seq()
+  current_mode = 'n'
   _initialized = false
+  pcall(os.remove, data_file)
+end
+
+-- Re-read usage from disk without resetting in-memory state.
+-- Used in tests to verify migration of old-format JSON.
+function M.load_from_disk()
+  usage = load()
 end
 
 function M.save()
@@ -216,7 +279,8 @@ function M.stats()
     return a.data.count > b.data.count
   end)
   for _, item in ipairs(sorted) do
-    local mark = item.data.adopted and '✅' or '  '
+    local graph = require('tobira.core.graph')
+    local mark = graph.is_adopted(item.data) and '✅' or '  '
     table.insert(lines, string.format('%s %-12s %d %s', mark, item.cmd, item.data.count, str.stats.times))
   end
   vim.notify(table.concat(lines, '\n'), vim.log.levels.INFO)
