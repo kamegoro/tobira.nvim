@@ -28,7 +28,7 @@ return {
               desc = '文字へジャンプ',
               track = { 'f' },
               threshold = 15,
-              upgrade = { keys = ';', desc = 'f を繰り返す' },
+              upgrade = { keys = ';', desc = 'f/t/F/T を繰り返す' },
             },
             { keys = '<C-o> / <C-i>', desc = '前/次の場所へジャンプ' },
           },
@@ -137,13 +137,13 @@ return {
   -- キーは commands.registry のキーと完全一致させること。
   suggestions = {
     [';'] = {
-      title = '; — f の繰り返し',
-      body = 'f{文字} の後で ; を押すと次の出現箇所にジャンプ\n, は逆方向に進む',
+      title = '; — f / t / F / T の繰り返し',
+      body = 'f/t/F/T のどの文字検索の後でも ; を押すと同じ方向の次の出現箇所にジャンプ\n, は逆方向に進む',
       example = 'fa ;; → 次の a、さらに次の a へ',
     },
     [','] = {
-      title = ', — f を逆方向に繰り返す',
-      body = '; の逆方向版 — 直前の f マッチに戻る\n; で行き過ぎたときに使える',
+      title = ', — f / t / F / T を逆方向に繰り返す',
+      body = '; の逆方向版 — 直前の f/t/F/T 検索を逆方向に繰り返す\n; で行き過ぎたときに使える',
       example = 'fa ;;; , → 一つ戻る',
     },
     ['cw'] = {

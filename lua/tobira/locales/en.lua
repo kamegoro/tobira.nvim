@@ -28,7 +28,7 @@ return {
               desc = 'jump to character',
               track = { 'f' },
               threshold = 15,
-              upgrade = { keys = ';', desc = 'repeat last f' },
+              upgrade = { keys = ';', desc = 'repeat last f/t/F/T' },
             },
             { keys = '<C-o> / <C-i>', desc = 'jump back / forward' },
           },
@@ -137,13 +137,13 @@ return {
   -- Keys match commands.registry keys exactly.
   suggestions = {
     [';'] = {
-      title = '; — repeat the last f',
-      body = 'After f{char}, press ; to jump to the next occurrence\n, goes in the reverse direction',
+      title = '; — repeat the last f / t / F / T',
+      body = 'After any f, t, F, or T search, ; jumps to the next occurrence in the same direction\n, goes in the reverse direction',
       example = 'fa ;; → next a, then the next',
     },
     [','] = {
-      title = ', — repeat f in reverse',
-      body = 'The opposite of ; — jumps back to the previous f match\nUseful when you overshoot with ;',
+      title = ', — repeat f / t / F / T in reverse',
+      body = 'The opposite of ; — repeats the last f/t/F/T search in the reverse direction\nUseful when you overshoot with ;',
       example = 'fa ;;; , → jump back one',
     },
     ['cw'] = {
