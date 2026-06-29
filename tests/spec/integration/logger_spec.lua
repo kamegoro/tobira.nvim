@@ -75,6 +75,38 @@ describe('when mark_adopted is called for an unknown command', function()
   end)
 end)
 
+describe('when mark_adopted is called after 10 sessions have already been stored', function()
+  before_each(function()
+    logger.reset()
+  end)
+
+  it('keeps the sessions array capped at 10', function()
+    -- Build up 10 sessions directly via mark_shown (creates the entry) + get_all manipulation
+    local all = logger.get_all()
+    all['cw'] = { count = 5, sessions = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 }, shown = 1, suppressed = false }
+    logger.mark_adopted('cw')
+    assert.equals(10, #logger.get('cw').sessions)
+  end)
+end)
+
+-- ── get_session_counts ────────────────────────────────────────────────────────
+
+describe('get_session_counts', function()
+  before_each(function()
+    logger.reset()
+    logger.setup()
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'hello world' })
+  end)
+
+  it('returns the in-session keystroke counts before close_session is called', function()
+    vim.fn.feedkeys('j', 'x'); vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('j', 'x'); vim.api.nvim_feedkeys('', 'x', false)
+    local counts = logger.get_session_counts()
+    assert.equals(2, counts['j'])
+  end)
+end)
+
 -- ── set_suppressed ───────────────────────────────────────────────────────────
 
 describe('when a command is explicitly suppressed', function()

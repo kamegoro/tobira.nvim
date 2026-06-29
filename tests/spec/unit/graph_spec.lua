@@ -131,6 +131,12 @@ describe('when a command was adopted but recently fell out of use', function()
     assert.is_false(graph.is_forgotten(data))
   end)
 
+  it('is not forgotten when it was never properly adopted', function()
+    -- last 2 are 0, but no early session reached ≥ 5 → was never adopted, not forgotten
+    local data = usage_entry(5, { 1, 2, 0, 0 })
+    assert.is_false(graph.is_forgotten(data))
+  end)
+
   it('returns to suggestion pool when forgotten', function()
     local usage = {
       f = usage_entry(20),

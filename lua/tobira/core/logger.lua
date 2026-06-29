@@ -190,9 +190,13 @@ end
 -- Called on VimLeave and exposed for testing.
 function M.close_session()
   for cmd, count in pairs(session_counts) do
+    -- increment() always creates usage[cmd] when setting session_counts[cmd],
+    -- so this guard is a defensive fallback that is not reachable in practice.
+    -- luacov: disable
     if not usage[cmd] then
       usage[cmd] = { count = 0, sessions = {}, shown = 0, suppressed = false }
     end
+    -- luacov: enable
     table.insert(usage[cmd].sessions, count)
     while #usage[cmd].sessions > MAX_SESSIONS do
       table.remove(usage[cmd].sessions, 1)
