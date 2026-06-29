@@ -3,16 +3,18 @@ local M = {}
 local _win = nil
 local _buf = nil
 local _ns = vim.api.nvim_create_namespace('tobira_progress')
+local _line_meta = {} -- lnum (0-indexed) → list of skill items on that line
 
 local WIDTH = 56
 local COLS = 3
-local COL_W = 13 -- display columns per grid cell
-local ICON = '' -- nerd font (matches nvim-notify INFO)
+local COL_W = 13
+local ICON = ''
 
 local setup_hls = require('tobira.ui.hls').setup
 
 local SYM_LEARNED = '✓' -- U+2713, 3 bytes, 1 display col
 local SYM_PENDING = '○' -- U+25CB, 3 bytes, 1 display col
+local SYM_SUPPRESSED = '✗' -- U+2717, 3 bytes, 1 display col
 
 local function build()
   local skills = require('tobira.core.skills')
@@ -26,6 +28,7 @@ local function build()
 
   local lines = {}
   local hls = {}
+  local line_meta = {}
 
   local function push(line, group, cs, ce)
     local lnum = #lines
@@ -37,18 +40,15 @@ local function build()
 
   push('')
 
-  -- Level banner
   local lv = level.get()
   local lv_label = str.levels[lv] or lv
   push('  ' .. str.level_label .. lv_label, 'TobiraGuideSection', 2, -1)
 
-  -- Skill tree grid
   for _, cat in ipairs(skills.tree) do
     push('')
     local cat_label = str.categories[cat.id] or cat.id
     push('  ' .. cat_label, 'TobiraGuideSection', 2, 2 + #cat_label)
 
-    -- Chunk items into rows of COLS
     local items = cat.items
     local row_start = 1
     while row_start <= #items do
@@ -57,19 +57,25 @@ local function build()
         table.insert(row_items, items[i])
       end
 
-      -- Build the grid row
       local line = '  '
-      local byte_pos = 2 -- after the indent
+      local byte_pos = 2
       local row_hls = {}
 
       for _, item in ipairs(row_items) do
-        local learned = skills.is_learned(item, usage)
-        local sym = learned and SYM_LEARNED or SYM_PENDING
-        local group = learned and 'TobiraGuideMastered' or 'TobiraGuideHint'
-        -- sym is 3 bytes but 1 display col
-        -- item.keys is ASCII
+        local data = logger.get(item.adopted)
+        local sym, group
+        if data.suppressed then
+          sym = SYM_SUPPRESSED
+          group = 'TobiraGuideSuppressed'
+        elseif skills.is_learned(item, usage) then
+          sym = SYM_LEARNED
+          group = 'TobiraGuideMastered'
+        else
+          sym = SYM_PENDING
+          group = 'TobiraGuideHint'
+        end
         local label = sym .. ' ' .. item.keys
-        local disp_w = 1 + 1 + #item.keys -- sym(1 disp) + space + key_bytes
+        local disp_w = 1 + 1 + #item.keys
         local pad = string.rep(' ', math.max(1, COL_W - disp_w))
 
         table.insert(row_hls, { cs = byte_pos, ce = byte_pos + #label, group = group })
@@ -78,6 +84,7 @@ local function build()
       end
 
       local lnum = #lines
+      line_meta[lnum] = row_items
       table.insert(lines, line)
       for _, hl in ipairs(row_hls) do
         table.insert(hls, { lnum = lnum, group = hl.group, cs = hl.cs, ce = hl.ce })
@@ -87,7 +94,6 @@ local function build()
     end
   end
 
-  -- Next recommendation
   local next_cmd = graph.find_best(usage)
   if next_cmd then
     local sug_str = loc.suggestions and loc.suggestions[next_cmd]
@@ -99,7 +105,41 @@ local function build()
   push('')
   push('  ' .. str.hint, 'TobiraGuideHint')
 
-  return lines, hls, str
+  return lines, hls, str, line_meta
+end
+
+local function refresh()
+  if not _buf or not vim.api.nvim_buf_is_valid(_buf) then
+    return
+  end
+  local lines, hls, _, line_meta = build()
+  _line_meta = line_meta
+  vim.bo[_buf].modifiable = true
+  vim.api.nvim_buf_set_lines(_buf, 0, -1, false, lines)
+  vim.bo[_buf].modifiable = false
+  vim.api.nvim_buf_clear_namespace(_buf, _ns, 0, -1)
+  for _, hl in ipairs(hls) do
+    vim.api.nvim_buf_add_highlight(_buf, _ns, hl.group, hl.lnum, hl.cs, hl.ce)
+  end
+end
+
+local function toggle_suppress()
+  local logger = require('tobira.core.logger')
+  local row, col = unpack(vim.api.nvim_win_get_cursor(0))
+  local lnum = row - 1
+  local row_items = _line_meta[lnum]
+  if not row_items then
+    return
+  end
+  local cell_idx = math.floor((col - 2) / COL_W) + 1
+  if cell_idx < 1 or cell_idx > #row_items then
+    return
+  end
+  local item = row_items[cell_idx]
+  local cmd = item.adopted
+  local data = logger.get(cmd)
+  logger.set_suppressed(cmd, not data.suppressed)
+  refresh()
 end
 
 function M.is_open()
@@ -122,7 +162,8 @@ function M.open()
 
   setup_hls()
 
-  local lines, hls, str = build()
+  local lines, hls, str, line_meta = build()
+  _line_meta = line_meta
 
   _buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_lines(_buf, 0, -1, false, lines)
@@ -136,6 +177,7 @@ function M.open()
 
   vim.keymap.set('n', 'q', M.close, { buffer = _buf, nowait = true, silent = true })
   vim.keymap.set('n', '<Esc>', M.close, { buffer = _buf, nowait = true, silent = true })
+  vim.keymap.set('n', 'x', toggle_suppress, { buffer = _buf, nowait = true, silent = true })
 
   local uis = vim.api.nvim_list_uis()
   local screen_w = (uis[1] and uis[1].width) or 120

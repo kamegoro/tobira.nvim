@@ -18,6 +18,7 @@ function M.setup()
   vim.api.nvim_set_hl(0, 'TobiraGuideMastered', { link = 'DiagnosticOk' })
   vim.api.nvim_set_hl(0, 'TobiraGuideUpgrade', { link = 'DiagnosticHint' })
   vim.api.nvim_set_hl(0, 'TobiraGuideHint', { link = 'Comment' })
+  vim.api.nvim_set_hl(0, 'TobiraGuideSuppressed', { link = 'Comment' })
 end
 
 return M

@@ -75,6 +75,25 @@ describe('when mark_adopted is called for an unknown command', function()
   end)
 end)
 
+-- ── set_suppressed ───────────────────────────────────────────────────────────
+
+describe('when a command is explicitly suppressed', function()
+  before_each(function()
+    logger.reset()
+  end)
+
+  it('marks it as suppressed', function()
+    logger.set_suppressed(';', true)
+    assert.is_true(logger.get(';').suppressed)
+  end)
+
+  it('can be un-suppressed', function()
+    logger.set_suppressed(';', true)
+    logger.set_suppressed(';', false)
+    assert.is_false(logger.get(';').suppressed)
+  end)
+end)
+
 -- ── session tracking ──────────────────────────────────────────────────────────
 
 describe('session tracking', function()

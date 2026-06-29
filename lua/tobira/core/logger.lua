@@ -239,6 +239,14 @@ function M.mark_adopted(cmd)
   save()
 end
 
+function M.set_suppressed(cmd, value)
+  if not usage[cmd] then
+    usage[cmd] = { count = 0, sessions = {}, shown = 0, suppressed = false }
+  end
+  usage[cmd].suppressed = value
+  save()
+end
+
 function M.reset()
   usage = {}
   session_counts = {}
