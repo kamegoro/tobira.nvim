@@ -12,9 +12,29 @@ local ICON = ''
 
 local setup_hls = require('tobira.ui.hls').setup
 
-local SYM_LEARNED = '✓' -- U+2713, 3 bytes, 1 display col
-local SYM_PENDING = '○' -- U+25CB, 3 bytes, 1 display col
+local SYM_FULL = '★' -- U+2605, 3 bytes, 1 display col
+local SYM_OPEN = '☆' -- U+2606, 3 bytes, 1 display col
 local SYM_SUPPRESSED = '✗' -- U+2717, 3 bytes, 1 display col
+
+-- Returns (sym_str, sym_bytes, sym_disp_cols, hl_group).
+-- sym area is always 3 display cols wide (padded with spaces).
+local function mastery_sym(data)
+  if data.suppressed then
+    return SYM_SUPPRESSED .. '  ', 5, 3, 'TobiraGuideSuppressed'
+  end
+  local level = require('tobira.core.graph').mastery_level(data)
+  if level == 4 then
+    return SYM_FULL .. SYM_FULL .. SYM_FULL, 9, 3, 'TobiraGuideMastered'
+  elseif level == 3 then
+    return SYM_FULL .. SYM_FULL .. ' ', 7, 3, 'TobiraGuideLearning'
+  elseif level == 2 then
+    return SYM_FULL .. '  ', 5, 3, 'TobiraGuideLearning'
+  elseif level == 1 then
+    return SYM_OPEN .. '  ', 5, 3, 'TobiraGuideHint'
+  else
+    return '   ', 3, 3, nil
+  end
+end
 
 local function build()
   local skills = require('tobira.core.skills')
@@ -63,24 +83,15 @@ local function build()
 
       for _, item in ipairs(row_items) do
         local data = logger.get(item.adopted)
-        local sym, group
-        if data.suppressed then
-          sym = SYM_SUPPRESSED
-          group = 'TobiraGuideSuppressed'
-        elseif skills.is_learned(item, usage) then
-          sym = SYM_LEARNED
-          group = 'TobiraGuideMastered'
-        else
-          sym = SYM_PENDING
-          group = 'TobiraGuideHint'
-        end
-        local label = sym .. ' ' .. item.keys
-        local disp_w = 1 + 1 + #item.keys
+        local sym, sym_bytes, sym_disp, group = mastery_sym(data)
+        local disp_w = sym_disp + 1 + #item.keys
         local pad = string.rep(' ', math.max(1, COL_W - disp_w))
 
-        table.insert(row_hls, { cs = byte_pos, ce = byte_pos + #label, group = group })
-        line = line .. label .. pad
-        byte_pos = byte_pos + #label + #pad
+        if group then
+          table.insert(row_hls, { cs = byte_pos, ce = byte_pos + sym_bytes, group = group })
+        end
+        line = line .. sym .. ' ' .. item.keys .. pad
+        byte_pos = byte_pos + sym_bytes + 1 + #item.keys + #pad
       end
 
       local lnum = #lines

@@ -251,3 +251,32 @@ describe('when find_best has a max_level restriction', function()
     assert.is_not_nil(graph.find_best(usage))
   end)
 end)
+
+-- ── mastery_level ─────────────────────────────────────────────────────────────
+
+describe('mastery_level', function()
+  it('returns 0 when the command has never been used', function()
+    assert.equals(0, graph.mastery_level({ count = 0, sessions = {} }))
+  end)
+
+  it('returns 1 (☆) when used in total but no recent sessions', function()
+    assert.equals(1, graph.mastery_level({ count = 5, sessions = {} }))
+  end)
+
+  it('returns 2 (★) when avg of last 3 sessions is between 1 and 2', function()
+    assert.equals(2, graph.mastery_level({ count = 10, sessions = { 1, 2, 1 } }))
+  end)
+
+  it('returns 3 (★★) when avg of last 3 sessions is between 3 and 4', function()
+    assert.equals(3, graph.mastery_level({ count = 20, sessions = { 3, 4, 2 } }))
+  end)
+
+  it('returns 4 (★★★) when avg of last 3 sessions is 5 or more', function()
+    assert.equals(4, graph.mastery_level({ count = 30, sessions = { 5, 6, 7 } }))
+  end)
+
+  it('uses only the last 3 sessions when history is longer', function()
+    -- old sessions are high but last 3 are low → level 2
+    assert.equals(2, graph.mastery_level({ count = 100, sessions = { 9, 8, 7, 2, 1, 2 } }))
+  end)
+end)

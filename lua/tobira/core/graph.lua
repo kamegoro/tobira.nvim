@@ -60,6 +60,25 @@ function M.is_forgotten(data)
   return false
 end
 
+-- Returns 0-4 mastery level based on recent session activity.
+-- 0 = never used, 1 = ☆ started, 2 = ★, 3 = ★★, 4 = ★★★ (adopted)
+function M.mastery_level(data)
+  if data.count == 0 then
+    return 0
+  end
+  local avg = avg_last_n(data.sessions or {}, 3)
+  if avg >= 5 then
+    return 4
+  end
+  if avg >= 3 then
+    return 3
+  end
+  if avg >= 1 then
+    return 2
+  end
+  return 1
+end
+
 -- max_level: 'beginner' | 'intermediate' | 'advanced' | nil (no filter)
 function M.find_best(usage, max_shown, max_level)
   max_shown = max_shown or 3
