@@ -1,138 +1,74 @@
 # tobira.nvim
 
 <p align="center">
-  <a href="https://github.com/kamegoro/tobira.nvim/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/kamegoro/tobira.nvim/ci.yml?branch=main&label=CI&logo=github"></a>
-  <a href="https://github.com/kamegoro/tobira.nvim/actions/workflows/ci.yml"><img alt="Coverage" src="https://img.shields.io/badge/coverage-100%25%20(core%2F)-brightgreen?logo=lua&logoColor=white"></a>
-  <a href="https://github.com/neovim/neovim/releases/tag/v0.9.0"><img alt="Neovim" src="https://img.shields.io/badge/Neovim-0.9%2B-57A143?logo=neovim&logoColor=white"></a>
-  <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/github/license/kamegoro/tobira.nvim?color=blue"></a>
-  <a href="https://github.com/kamegoro/tobira.nvim/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/kamegoro/tobira.nvim?style=flat&logo=github"></a>
+  <a href="https://github.com/kamegoro/tobira.nvim/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/kamegoro/tobira.nvim/ci.yml?branch=main&label=CI&logo=github&style=flat"></a>
+  <a href="https://github.com/kamegoro/tobira.nvim/actions/workflows/ci.yml"><img alt="Coverage" src="https://img.shields.io/badge/coverage-100%25%20(core%2F)-brightgreen?logo=lua&logoColor=white&style=flat"></a>
+  <a href="https://github.com/neovim/neovim/releases/tag/v0.9.0"><img alt="Neovim" src="https://img.shields.io/badge/Neovim-0.9%2B-57A143?logo=neovim&logoColor=white&style=flat"></a>
+  <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/github/license/kamegoro/tobira.nvim?color=blue&style=flat"></a>
 </p>
 
-> Open the next door in your Vim journey.
-
-**tobira** (扉) means "door" in Japanese.
+<p align="center"><b>Open the next door in your Vim journey.</b></p>
 
 <p align="center">
-  <img src="docs/demo.gif" alt="tobira.nvim demo" width="720" />
+  tobira watches how you actually edit.<br>
+  When it spots a pattern you could do better, it quietly shows you the one command that would have helped — right now, not someday.
 </p>
 
-Once you're comfortable with Vim, you stop actively learning new commands — you just use the ones you already know. tobira watches how you actually work, and when it notices you're doing something the hard way, it quietly shows you the better path.
+<p align="center">
+  <img src="docs/demo-suggest.gif" alt="tobira detects a repeated f-search and suggests ;" width="720" />
+</p>
 
-No generic tip lists. No quizzes. Just _your_ habits, and the one command that would've helped you just now.
-
----
-
-## How it works
-
-```
-You press f  →  then f  again on the same line
-                          ↓
-              tobira notices the repeated search
-                          ↓  (1.5 seconds later)
-
-  ╭─ tobira / ; — repeat the last f ──────── ℹ ─╮
-  │ After f{char}, press ; to jump to the next   │
-  │ occurrence. , goes in the reverse direction. │
-  │                                              │
-  │ e.g. fx;;                                    │
-  ╰──────────────────────────────────────────────╯
-```
-
-Suggestions appear as notifications (compatible with [nvim-notify](https://github.com/rcarriga/nvim-notify) — no dependency required).
-
-- Waits for a natural pause before showing — never interrupts your flow
-- Shows up to **3 times per session**, with at least 30 minutes between each
-- `:Tobira` to get a suggestion on demand (doesn't count toward the session limit)
-- If you start using the suggested command → **learned**, never shown again
-- Open `:TobiraProgress` and press `x` to permanently silence any suggestion you don't want
+No quizzes. No interruptions. Just your habits, and the better path.
 
 ---
 
-## Guide panel
+## ✨ How it works
 
-On first launch, tobira shows a cheatsheet on the right side of the screen for new users:
-
-```
-  ╭──────── ℹ tobira guide ────────────────────╮
-  │                                            │
-  │  Motion                                    │
-  │  ✓ h j k l   move cursor                  │
-  │     → <C-d> / <C-u>  scroll half page     │
-  │  ✓ f{char}   jump to character             │
-  │     → ;  repeat last f                     │
-  │     w / b    next / prev word              │
-  │     0 / $    line start / end              │
-  │     gg / G   file top / bottom             │
-  │                                            │
-  │  Edit                                      │
-  │  ✓ i         insert mode                   │
-  │     → a / o / O  append / new line         │
-  │     Esc       back to normal mode          │
-  │     dd        delete line                  │
-  │     yy / p    copy / paste line            │
-  │     u / <C-r> undo / redo                  │
-  │                                            │
-  │  :TobiraGuide  toggle guide                │
-  ╰────────────────────────────────────────────╯
-```
-
-- Shown automatically on first launch only
-- Stays behind other windows — never interrupts your workflow
-- As you use commands, mastered items show **✓** and the next-level command appears below with **→**
-- `:TobiraGuide` to open / close at any time
-- Adapts to context: shows file-tree shortcuts when neo-tree is active
+- **Watches your keystrokes passively** — no config required, zero impact on your mappings
+- **Detects inefficient patterns** — repeated `f`, hammering `j`, `dw`→`i` instead of `cw`, and more
+- **Suggests the one better command** — shown once after a natural pause, up to 3 times per session
+- **Tracks mastery by watching your behavior** — start using the suggestion and tobira notices, never shows it again
+- **Filters to your level** — beginner commands first, advanced ones once you're ready
 
 ---
 
-## Skill progress
+## 📺 Guide panel
 
-`:TobiraProgress` shows your current level and which commands you have learned:
+<p align="center">
+  <img src="docs/demo-guide.gif" alt=":TobiraGuide cheatsheet panel" width="720" />
+</p>
 
-```
-╭──── ℹ  tobira — your vim journey ────╮
-│                                       │
-│  Level: intermediate                  │
-│                                       │
-│  Motion                               │
-│  ✓ hjkl    ✓ w/b     ○ gg/G          │
-│  ✓ f/t     ○ ;/,     ○ <C-d/u>       │
-│                                       │
-│  Edit                                 │
-│  ✓ i/a/o   ✓ x/dd    ✓ yy/p          │
-│  ✓ u/<C-r> ○ cw/ciw  ✗ ddp           │
-│                                       │
-│  Search                               │
-│  ✓ /+n     ○ */#     ○ cgn           │
-│                                       │
-│  Next: ; — repeat the last f          │
-│                                       │
-│  [x]  suppress / unsuppress  [q / Esc]  close  │
-╰───────────────────────────────────────╯
-```
-
-- `✓` learned  `○` not yet introduced  `✗` suppressed (press `x` to toggle)
-- Level is detected automatically from your usage — no quizzes, no setup.
-- `:Tobira` suggestions are filtered to your current level — no advanced commands until you're ready.
+`:TobiraGuide` opens a cheatsheet on the right side of the screen. Commands you've mastered show **✓** and reveal the next step with **→**. Shown automatically on first launch; adapts to context (shows file-tree shortcuts when neo-tree is active).
 
 ---
 
-## Detected patterns
+## 📊 Skill progress
+
+<p align="center">
+  <img src="docs/demo-progress.gif" alt=":TobiraProgress skill tree" width="720" />
+</p>
+
+`:TobiraProgress` shows your current level and the full learning graph. Press `x` on any row to permanently silence a suggestion you don't want.
+
+---
+
+## 🎯 Detected patterns
 
 | You do this | tobira suggests |
 |---|---|
-| `fa` → `fa` on the same line | `;` (repeat last f) |
-| `dw` → `i` (delete then insert) | `cw` / `ciw` |
-| `x` × 3 in a row | `{n}x` (count prefix) |
-| `u` × 3 in a row | `<C-r>` (redo) |
-| `dd` → `p` | `ddp` (swap lines) |
+| `fa` → `fa` on the same line | `;` — repeat the last f |
+| `dw` → `i` (delete then retype) | `cw` / `ciw` |
+| `x` × 3 in a row | `{n}x` — count prefix |
+| `u` × 3 in a row | `<C-r>` — redo |
+| `dd` → `p` | `ddp` — swap lines in one motion |
 | `j` × 5 in a row | `{n}j` / `<C-d>` |
-| `k` × 5 in a row | `{n}k` (count prefix) |
-| `0` → `w` | `^` (first non-blank) |
-| `n` × 4 after search | `cgn` (change next match) |
+| `k` × 5 in a row | `{n}k` — count prefix |
+| `0` → `w` | `^` — first non-blank character |
+| `n` × 4 after a search | `cgn` — change next match |
 
 ---
 
-## Installation
+## ⚡️ Installation
 
 **lazy.nvim**
 ```lua
@@ -155,57 +91,59 @@ use {
 
 ---
 
-## Configuration
+## ⚙️ Configuration
+
+All options are optional — the defaults work out of the box.
 
 ```lua
 require("tobira").setup({
-  lang             = 'en',      -- 'en' | 'ja' (default: 'en')
-  idle_delay       = 1500,      -- ms to wait after a pattern before showing (default: 1500)
-  max_shown        = 3,         -- max times to show a suggestion before moving on (default: 3)
-  max_per_session  = 3,         -- max auto-suggestions per session (default: 3)
-  min_interval_ms  = 1800000,   -- min ms between auto-suggestions, 30 min (default: 1800000)
+  lang             = 'en',       -- 'en' | 'ja'
+  idle_delay       = 1500,       -- ms to wait after a pattern before showing
+  max_shown        = 3,          -- max times to suggest the same command
+  max_per_session  = 3,          -- max auto-suggestions per Neovim session
+  min_interval_ms  = 1800000,    -- min ms between auto-suggestions (default: 30 min)
 })
 ```
 
 ---
 
-## Commands
+## 🔧 Commands
 
 | Command | Description |
 |---|---|
-| `:Tobira` | Show the next suggestion now |
-| `:TobiraGuide` | Toggle the cheatsheet panel (adapts to context + mastery) |
-| `:TobiraProgress` | Show skill tree with level and learned commands |
+| `:Tobira` | Show the next suggestion now (doesn't count toward the session limit) |
+| `:TobiraGuide` | Toggle the cheatsheet panel |
+| `:TobiraProgress` | Show skill tree with level and mastered commands |
 | `:TobiraStats` | Show your command usage statistics |
 | `:TobiraReset` | Clear all usage data |
-| `:checkhealth tobira` | Verify the plugin is set up correctly |
+| `:checkhealth tobira` | Verify the plugin is working correctly |
 
 ---
 
-## Requirements
+## 🔍 Requirements
 
 - Neovim 0.9+
 - [nvim-notify](https://github.com/rcarriga/nvim-notify) _(optional — suggestions fall back to `vim.notify` without it)_
 
 ---
 
-## Similar plugins
+## 🆚 Similar plugins
 
 | Plugin | What it does | vs tobira |
 |---|---|---|
-| [hardtime.nvim](https://github.com/m4xshen/hardtime.nvim) | Blocks repeated keys, hints better motions | _Punishes_ bad habits — tobira _teaches_ the next command, never blocks input |
-| [precognition.nvim](https://github.com/tris203/precognition.nvim) | Shows available motions as virtual text | Always-on overlay — tobira appears only when **you** would have benefited |
-| [spamguard.nvim](https://github.com/timseriakov/spamguard.nvim) | Detects key spamming (jjjj/kkkk) | Spam detection only — tobira covers the full command graph and tracks mastery |
-| [pathfinder.vim](https://github.com/AlphaMycelium/pathfinder.vim) | Suggests more efficient cursor movement | Cursor movement only — tobira covers motion, edit, search |
-| [vim-be-good](https://github.com/ThePrimeagen/vim-be-good) | Game-based practice | Generic drills, not personalized to your habits |
+| [hardtime.nvim](https://github.com/m4xshen/hardtime.nvim) | Blocks repeated keys, hints better motions | _Punishes_ bad habits — tobira teaches without ever blocking input |
+| [precognition.nvim](https://github.com/tris203/precognition.nvim) | Shows available motions as virtual text | Always-on overlay — tobira appears only when _you_ would have benefited |
+| [spamguard.nvim](https://github.com/timseriakov/spamguard.nvim) | Detects key spamming | Spam detection only — tobira covers the full command graph and tracks mastery |
+| [pathfinder.vim](https://github.com/AlphaMycelium/pathfinder.vim) | Suggests more efficient cursor movement | Cursor movement only — tobira covers motion, edit, and search |
+| [vim-be-good](https://github.com/ThePrimeagen/vim-be-good) | Game-based practice | Generic drills — tobira personalizes to your actual usage |
 
-tobira is the only plugin that learns from **your actual usage** and surfaces the specific commands _you_ are missing — not a generic curriculum, and never an interruption.
+tobira is the only plugin that learns from **your actual usage** and shows you the specific commands _you_ are missing.
 
 ---
 
 ## Contributing
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md). This project follows strict TDD — tests are written before implementation.
+See [CONTRIBUTING.md](./CONTRIBUTING.md). This project follows strict TDD — tests before implementation, always.
 
 ## License
 

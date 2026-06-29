@@ -25,29 +25,28 @@ require('notify').setup({
 })
 vim.notify = require('notify')
 
--- Seed usage data so the demo shows realistic state:
---   - f=18 triggers the ';' suggestion immediately
---   - hjkl (173 total) / f (18) / i (45) / x (22) exceed guide thresholds → ✓ shown
---   - w/b (23 total) below threshold → ○ shown, contrast visible in guide
---   - enough counts for level.get() to return 'intermediate'
---   - guide_seen=true so the cheatsheet doesn't auto-open on startup
+-- Seed usage data so the demo shows a realistic intermediate-level state:
+--   f=18  → ';' suggestion fires immediately (trigger count > 0, ';' unused)
+--   hjkl (173 total) / f (18) / i (45) / x (22) exceed guide thresholds → ✓
+--   w/b (23 total) below threshold → ○ (contrast visible in :TobiraGuide)
+--   guide_seen=true so the cheatsheet doesn't auto-open on startup
 local data_dir = vim.fn.stdpath('data') .. '/tobira'
 vim.fn.mkdir(data_dir, 'p')
 local seed = io.open(data_dir .. '/usage.json', 'w')
 if seed then
   seed:write(vim.json.encode({
-    f = { count = 18, shown = 0, adopted = false },
-    h = { count = 45, shown = 0, adopted = false },
-    j = { count = 62, shown = 0, adopted = false },
-    k = { count = 28, shown = 0, adopted = false },
-    l = { count = 38, shown = 0, adopted = false },
-    w = { count = 15, shown = 0, adopted = false },
-    b = { count = 8, shown = 0, adopted = false },
-    i = { count = 45, shown = 0, adopted = false },
-    x = { count = 22, shown = 0, adopted = false },
-    p = { count = 8, shown = 0, adopted = false },
-    u = { count = 9, shown = 0, adopted = false },
-    n = { count = 15, shown = 0, adopted = false },
+    f = { count = 18, sessions = {}, shown = 0, suppressed = false },
+    h = { count = 45, sessions = { 10, 12, 8 }, shown = 0, suppressed = false },
+    j = { count = 62, sessions = { 12, 15, 10 }, shown = 0, suppressed = false },
+    k = { count = 28, sessions = { 6, 7, 5 }, shown = 0, suppressed = false },
+    l = { count = 38, sessions = { 8, 9, 7 }, shown = 0, suppressed = false },
+    w = { count = 15, sessions = { 2, 3, 1 }, shown = 0, suppressed = false },
+    b = { count = 8, sessions = { 1, 2, 1 }, shown = 0, suppressed = false },
+    i = { count = 45, sessions = { 8, 10, 7 }, shown = 0, suppressed = false },
+    x = { count = 22, sessions = { 4, 5, 3 }, shown = 0, suppressed = false },
+    p = { count = 8, sessions = { 1, 2, 1 }, shown = 0, suppressed = false },
+    u = { count = 9, sessions = { 2, 2, 1 }, shown = 0, suppressed = false },
+    n = { count = 15, sessions = { 3, 4, 3 }, shown = 0, suppressed = false },
     _meta = { guide_seen = true },
   }))
   seed:close()
