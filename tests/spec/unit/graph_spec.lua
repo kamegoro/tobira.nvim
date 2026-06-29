@@ -79,9 +79,9 @@ describe('when multiple triggers are active', function()
     local usage = {
       f = usage_entry(10),
       [';'] = usage_entry(8),
-      dw = usage_entry(10),
+      dw = usage_entry(20),  -- cw/ciw score 20 > F's 10, no tie needed
     }
-    -- ; score = 10-8 = 2; cw/ciw/F score = 10 → dw-triggered wins (cw < ciw < F alphabetically)
+    -- ; score = 10-8 = 2; F score = 10; cw/ciw score = 20 → dw-triggered wins
     local result = graph.find_best(usage)
     assert.equals('dw', graph.suggestions[result].trigger)
   end)
