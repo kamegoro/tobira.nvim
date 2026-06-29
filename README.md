@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/demo-suggest.gif" alt="tobira detects a repeated f-search and suggests ;" />
+  <img src="docs/demo-suggest.gif" alt="tobira detects a repeated f-search and suggests ;" width="720" />
 </p>
 
 No quizzes. No interruptions. Just your habits, and the better path.
@@ -35,7 +35,7 @@ No quizzes. No interruptions. Just your habits, and the better path.
 ## 📺 Guide panel
 
 <p align="center">
-  <img src="docs/demo-guide.gif" alt=":TobiraGuide cheatsheet panel" />
+  <img src="docs/demo-guide.gif" alt=":TobiraGuide cheatsheet panel" width="720" />
 </p>
 
 `:TobiraGuide` opens a cheatsheet on the right side of the screen. Commands you've mastered show **✓** and reveal the next step with **→**. Shown automatically on first launch; adapts to context (shows file-tree shortcuts when neo-tree is active).
@@ -45,7 +45,7 @@ No quizzes. No interruptions. Just your habits, and the better path.
 ## 📊 Skill progress
 
 <p align="center">
-  <img src="docs/demo-progress.gif" alt=":TobiraProgress skill tree" />
+  <img src="docs/demo-progress.gif" alt=":TobiraProgress skill tree" width="720" />
 </p>
 
 `:TobiraProgress` shows your current level and the full learning graph. Press `x` on any row to permanently silence a suggestion you don't want.
