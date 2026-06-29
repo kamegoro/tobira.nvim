@@ -21,14 +21,18 @@ jobs:
         run: |
           TAG=$(curl -sf https://api.github.com/repos/neovim/neovim/releases/latest \
             -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            | jq -r '.tag_name')
+            | jq -r '.tag_name // empty')
+          if [[ -z "$TAG" ]]; then
+            echo "::error::Neovim リリース情報を取得できませんでした"
+            exit 1
+          fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Read tracked version
         id: tracked
         run: |
           if [[ -f .github/neovim_version.txt ]]; then
-            echo "version=$(cat .github/neovim_version.txt | tr -d '[:space:]')" >> "$GITHUB_OUTPUT"
+            echo "version=$(tr -d '[:space:]' < .github/neovim_version.txt)" >> "$GITHUB_OUTPUT"
           else
             echo "version=" >> "$GITHUB_OUTPUT"
           fi
@@ -47,17 +51,24 @@ jobs:
 
       - name: Download index.txt files
         if: steps.gate.outputs.skip == 'false' && steps.tracked.outputs.version != ''
+        id: download
         run: |
           OLD="${{ steps.tracked.outputs.version }}"
           NEW="${{ steps.latest.outputs.tag }}"
-          curl -sf "https://raw.githubusercontent.com/neovim/neovim/${OLD}/runtime/doc/index.txt" \
-            -o old_index.txt \
-            || { echo "::warning::${OLD} の index.txt を取得できませんでした"; touch old_index.txt; }
+          if curl -sf "https://raw.githubusercontent.com/neovim/neovim/${OLD}/runtime/doc/index.txt" \
+               -o old_index.txt; then
+            echo "old_ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::${OLD} の index.txt を取得できませんでした。差分検出をスキップします。"
+            echo "old_ok=false" >> "$GITHUB_OUTPUT"
+          fi
           curl -sf "https://raw.githubusercontent.com/neovim/neovim/${NEW}/runtime/doc/index.txt" \
             -o new_index.txt
 
       - name: Diff index.txt
-        if: steps.gate.outputs.skip == 'false' && steps.tracked.outputs.version != ''
+        if: >-
+          steps.gate.outputs.skip == 'false' &&
+          steps.download.outputs.old_ok == 'true'
         id: diff
         run: |
           python3 .github/scripts/diff_index.py \
@@ -70,11 +81,23 @@ jobs:
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Check for existing issue
+        if: steps.diff.outputs.has_changes == 'true'
+        id: existing
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          OLD="${{ steps.tracked.outputs.version }}"
+          NEW="${{ steps.latest.outputs.tag }}"
+          TITLE="Neovim ${OLD} → ${NEW}: コマンド変更の確認"
+          COUNT=$(gh issue list --state all --limit 100 --json title \
+            --jq "[.[] | select(.title == \"${TITLE}\")] | length")
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+
       - name: Open issue
         if: >-
-          steps.gate.outputs.skip == 'false' &&
-          steps.tracked.outputs.version != '' &&
-          steps.diff.outputs.has_changes == 'true'
+          steps.diff.outputs.has_changes == 'true' &&
+          steps.existing.outputs.count == '0'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
