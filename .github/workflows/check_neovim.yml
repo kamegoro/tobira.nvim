@@ -1,0 +1,96 @@
+name: Check Neovim Updates
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'  # 毎週月曜 09:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch latest Neovim release tag
+        id: latest
+        run: |
+          TAG=$(curl -sf https://api.github.com/repos/neovim/neovim/releases/latest \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            | jq -r '.tag_name')
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Read tracked version
+        id: tracked
+        run: |
+          if [[ -f .github/neovim_version.txt ]]; then
+            echo "version=$(cat .github/neovim_version.txt | tr -d '[:space:]')" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check if already up to date
+        id: gate
+        run: |
+          LATEST="${{ steps.latest.outputs.tag }}"
+          TRACKED="${{ steps.tracked.outputs.version }}"
+          echo "latest=$LATEST  tracked=$TRACKED"
+          if [[ "$LATEST" == "$TRACKED" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download index.txt files
+        if: steps.gate.outputs.skip == 'false' && steps.tracked.outputs.version != ''
+        run: |
+          OLD="${{ steps.tracked.outputs.version }}"
+          NEW="${{ steps.latest.outputs.tag }}"
+          curl -sf "https://raw.githubusercontent.com/neovim/neovim/${OLD}/runtime/doc/index.txt" \
+            -o old_index.txt \
+            || { echo "::warning::${OLD} の index.txt を取得できませんでした"; touch old_index.txt; }
+          curl -sf "https://raw.githubusercontent.com/neovim/neovim/${NEW}/runtime/doc/index.txt" \
+            -o new_index.txt
+
+      - name: Diff index.txt
+        if: steps.gate.outputs.skip == 'false' && steps.tracked.outputs.version != ''
+        id: diff
+        run: |
+          python3 .github/scripts/diff_index.py \
+            "${{ steps.tracked.outputs.version }}" \
+            "${{ steps.latest.outputs.tag }}" \
+            old_index.txt new_index.txt > diff_result.md
+          if [[ -s diff_result.md ]]; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open issue
+        if: >-
+          steps.gate.outputs.skip == 'false' &&
+          steps.tracked.outputs.version != '' &&
+          steps.diff.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          OLD="${{ steps.tracked.outputs.version }}"
+          NEW="${{ steps.latest.outputs.tag }}"
+          gh issue create \
+            --title "Neovim ${OLD} → ${NEW}: コマンド変更の確認" \
+            --body-file diff_result.md
+
+      - name: Update tracked version
+        if: steps.gate.outputs.skip == 'false'
+        run: |
+          NEW="${{ steps.latest.outputs.tag }}"
+          echo "$NEW" > .github/neovim_version.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .github/neovim_version.txt
+          git diff --staged --quiet || git commit -m "chore: track Neovim ${NEW}"
+          git push
