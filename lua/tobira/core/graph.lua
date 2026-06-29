@@ -66,9 +66,7 @@ function M.find_best(usage, max_shown)
     local data = usage[cmd] or { count = 0, sessions = {}, shown = 0, suppressed = false }
 
     local suppressed = data.suppressed or false
-    local offered = (not M.is_adopted(data) or M.is_forgotten(data))
-      and not suppressed
-      and data.shown < max_shown
+    local offered = (not M.is_adopted(data) or M.is_forgotten(data)) and not suppressed and data.shown < max_shown
 
     if offered then
       local trigger_count = (usage[sug.trigger] and usage[sug.trigger].count) or 0
