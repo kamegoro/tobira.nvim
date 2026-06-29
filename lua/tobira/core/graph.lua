@@ -69,29 +69,25 @@ function M.find_best(usage, max_shown, max_level)
 
   for cmd, sug in pairs(M.suggestions) do
     local cmd_level_num = LEVEL_ORDER[sug.level] or 1
-    if cmd_level_num > max_level_num then
-      goto continue
-    end
+    if cmd_level_num <= max_level_num then
+      local data = usage[cmd] or { count = 0, sessions = {}, shown = 0, suppressed = false }
 
-    local data = usage[cmd] or { count = 0, sessions = {}, shown = 0, suppressed = false }
+      local suppressed = data.suppressed or false
+      local offered = (not M.is_adopted(data) or M.is_forgotten(data)) and not suppressed and data.shown < max_shown
 
-    local suppressed = data.suppressed or false
-    local offered = (not M.is_adopted(data) or M.is_forgotten(data)) and not suppressed and data.shown < max_shown
+      if offered then
+        local trigger_count = (usage[sug.trigger] and usage[sug.trigger].count) or 0
+        local cmd_count = data.count
 
-    if offered then
-      local trigger_count = (usage[sug.trigger] and usage[sug.trigger].count) or 0
-      local cmd_count = data.count
-
-      if trigger_count > 0 then
-        local score = trigger_count - cmd_count
-        if score > best_score then
-          best_score = score
-          best_cmd = cmd
+        if trigger_count > 0 then
+          local score = trigger_count - cmd_count
+          if score > best_score then
+            best_score = score
+            best_cmd = cmd
+          end
         end
       end
     end
-
-    ::continue::
   end
 
   return best_cmd
