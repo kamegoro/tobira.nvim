@@ -81,7 +81,7 @@ function M.find_best(usage, max_shown, max_level)
 
         if trigger_count > 0 then
           local score = trigger_count - cmd_count
-          if score > best_score then
+          if score > best_score or (score == best_score and cmd < best_cmd) then
             best_score = score
             best_cmd = cmd
           end
