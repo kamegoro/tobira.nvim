@@ -5,6 +5,7 @@
   <a href="https://github.com/kamegoro/tobira.nvim/actions/workflows/ci.yml"><img alt="Coverage" src="https://img.shields.io/badge/coverage-100%25%20(core%2F)-brightgreen?logo=lua&logoColor=white&style=flat"></a>
   <a href="https://github.com/neovim/neovim/releases/tag/v0.9.0"><img alt="Neovim" src="https://img.shields.io/badge/Neovim-0.9%2B-57A143?logo=neovim&logoColor=white&style=flat"></a>
   <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/github/license/kamegoro/tobira.nvim?color=blue&style=flat"></a>
+  <a href="https://github.com/kamegoro/tobira.nvim/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/kamegoro/tobira.nvim?style=flat&logo=github&color=yellow"></a>
 </p>
 
 <p align="center"><b>Open the next door in your Vim journey.</b></p>
@@ -29,6 +30,7 @@ No quizzes. No interruptions. Just your habits, and the better path.
 - **Suggests the one better command** — shown once after a natural pause, up to 3 times per session
 - **Tracks mastery by watching your behavior** — start using the suggestion and tobira notices, never shows it again
 - **Filters to your level** — beginner commands first, advanced ones once you're ready
+- **128 commands in the learning graph** — motion, edit, search, and window commands from the full Neovim index
 
 ---
 
@@ -56,7 +58,7 @@ No quizzes. No interruptions. Just your habits, and the better path.
 
 | You do this | tobira suggests |
 |---|---|
-| `fa` → `fa` on the same line | `;` — repeat the last f |
+| `fa` → `fa` on the same line | `;` — repeat the last f/t/F/T |
 | `dw` → `i` (delete then retype) | `cw` / `ciw` |
 | `x` × 3 in a row | `{n}x` — count prefix |
 | `u` × 3 in a row | `<C-r>` — redo |
