@@ -132,7 +132,6 @@ function M.reset_session()
   end
   session.auto_count = 0
   session.last_auto_at = nil
-  session.watching = {}
   session.watching_ns = {}
 end
 

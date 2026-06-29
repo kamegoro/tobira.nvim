@@ -64,7 +64,7 @@ M.tree = build_tree()
 function M.is_learned(item, usage)
   if item.adopted then
     local d = usage[item.adopted]
-    return d ~= nil and (d.adopted == true or d.count > 0)
+    return d ~= nil and d.count > 0
   end
   if not item.track or not item.threshold then
     return false

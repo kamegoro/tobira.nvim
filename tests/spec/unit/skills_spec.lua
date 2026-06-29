@@ -20,19 +20,19 @@ end)
 
 -- ── adopted items ─────────────────────────────────────────────────────────────
 
-describe('when an item is learned by adopting a specific command', function()
+describe('when an item is learned by using a specific command', function()
   local item = { adopted = 'cw' }
 
-  it('is false when the command has not been adopted and never used', function()
-    assert.is_false(skills.is_learned(item, { cw = { count = 0, adopted = false } }))
+  it('is false when the command has never been used', function()
+    assert.is_false(skills.is_learned(item, { cw = { count = 0, sessions = {}, suppressed = false } }))
   end)
 
-  it('is true when the command has been adopted', function()
-    assert.is_true(skills.is_learned(item, { cw = { count = 5, adopted = true } }))
+  it('is true when the command has been used at least once', function()
+    assert.is_true(skills.is_learned(item, { cw = { count = 1, sessions = {}, suppressed = false } }))
   end)
 
-  it('is true when the command has been used even without explicit adoption', function()
-    assert.is_true(skills.is_learned(item, { cw = { count = 3, adopted = false } }))
+  it('is true regardless of how many times it has been used', function()
+    assert.is_true(skills.is_learned(item, { cw = { count = 99, sessions = { 5 }, suppressed = false } }))
   end)
 
   it('is false when there is no usage data for the command', function()

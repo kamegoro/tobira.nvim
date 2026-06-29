@@ -38,21 +38,15 @@ end
 
 local function load()
   local f = io.open(data_file, 'r')
-  -- first-run guard, not exercised once a stats file exists
-  -- luacov: disable
   if not f then
     return {}
   end
-  -- luacov: enable
   local content = f:read('*a')
   f:close()
   local ok, data = pcall(vim.json.decode, content)
-  -- corrupt/invalid JSON guard, not reachable with valid data
-  -- luacov: disable
   if not (ok and type(data) == 'table') then
     return {}
   end
-  -- luacov: enable
   if data._meta then
     meta = vim.tbl_extend('force', meta, data._meta)
     data._meta = nil
@@ -69,12 +63,6 @@ end
 local function save()
   ensure_dir()
   local f = io.open(data_file, 'w')
-  -- open-for-write failure guard, not reachable in tests
-  -- luacov: disable
-  if not f then
-    return
-  end
-  -- luacov: enable
   local payload = vim.deepcopy(usage)
   payload._meta = meta
   f:write(vim.json.encode(payload))
@@ -136,11 +124,9 @@ local function handle_key(key)
   -- Track compound operators (dw, dd, cw …) the moment they complete.
   -- Single-char keys are handled by the TRACK lookup below; compound ones
   -- are only visible here through the change in seq.last_op.
-  -- luacov: disable
   if seq.last_op ~= nil and seq.last_op ~= prev_op then
     increment(seq.last_op)
   end
-  -- luacov: enable
 
   if result and M.on_pattern then
     M.on_pattern(result.pattern, result.cmd)

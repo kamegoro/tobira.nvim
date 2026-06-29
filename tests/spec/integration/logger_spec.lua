@@ -421,3 +421,60 @@ describe('when save is called explicitly', function()
     end)
   end)
 end)
+
+-- ── load: first-run (no file) ─────────────────────────────────────────────────
+
+describe('when no usage file exists yet', function()
+  it('loads without error and returns empty usage', function()
+    logger.reset()
+    assert.has_no_error(function()
+      logger.load_from_disk()
+    end)
+    assert.same({}, logger.get_all())
+  end)
+end)
+
+-- ── load: corrupt JSON ────────────────────────────────────────────────────────
+
+describe('when the usage file contains invalid JSON', function()
+  it('loads without error and returns empty usage', function()
+    logger.reset()
+    local data_dir = vim.fn.stdpath('data') .. '/tobira'
+    vim.fn.mkdir(data_dir, 'p')
+    local f = io.open(data_dir .. '/usage.json', 'w')
+    f:write('not valid { json ][')
+    f:close()
+    assert.has_no_error(function()
+      logger.load_from_disk()
+    end)
+    assert.same({}, logger.get_all())
+  end)
+end)
+
+-- ── compound operator tracking ────────────────────────────────────────────────
+
+describe('when a compound operator completes', function()
+  before_each(function()
+    logger.reset()
+    logger.on_pattern = nil
+    logger.setup()
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'hello world' })
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+  end)
+
+  it('increments the usage count for dw', function()
+    vim.fn.feedkeys('dw', 'x')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_true(logger.get('dw').count > 0)
+  end)
+
+  it('increments the usage count for dd', function()
+    vim.fn.feedkeys('dd', 'x')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_true(logger.get('dd').count > 0)
+  end)
+end)
