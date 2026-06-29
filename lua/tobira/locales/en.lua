@@ -267,8 +267,8 @@ return {
       example = '* <C-o> → jump to match, then return to start',
     },
     ['P'] = {
-      title = 'P — paste above the current line',
-      body = 'p pastes below the cursor line; P pastes above it\nUseful when you need to insert copied text before the current line',
+      title = 'P — paste before the cursor',
+      body = 'p pastes after the cursor; P pastes before it\nFor linewise yanks: p pastes below the line, P pastes above it',
       example = 'yy P → copy the current line and paste it above',
     },
 
@@ -735,8 +735,8 @@ return {
       example = '{ → paragraph start; ( → sentence start',
     },
     [')'] = {
-      title = ') — jump to end of sentence',
-      body = 'Moves the cursor forward to the end of the current sentence\nPair with ( to hop through sentences without reaching for the mouse',
+      title = ') — jump to start of next sentence',
+      body = 'Moves the cursor forward to the beginning of the next sentence\nPair with ( to hop through sentences in both directions',
       example = '( then ) → step forward and backward through sentences',
     },
     ['[['] = {
