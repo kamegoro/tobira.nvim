@@ -351,8 +351,9 @@ describe('when manual is called and the user level limits the suggestion pool', 
 
   it('only suggests commands appropriate for novice level', function()
     local level_mod = require('tobira.core.level')
+    local commands = require('tobira.commands')
     -- Only x is used → novice level → max_level = beginner
-    -- x triggers D (beginner) and {n}x (intermediate): only D is eligible
+    -- x has multiple beginner-level downstreams (D, r, s, …); all intermediate/advanced excluded
     local usage = logger.get_all()
     usage['x'] = { count = 10, sessions = {}, shown = 0, suppressed = false }
     assert.equals('novice', level_mod.get())
@@ -365,7 +366,8 @@ describe('when manual is called and the user level limits the suggestion pool', 
     local ok, err = pcall(suggest.manual)
     package.loaded['tobira.ui.float'] = nil
     assert.is_true(ok, err)
-    assert.equals('D', shown_cmd)
+    assert.is_not_nil(shown_cmd, 'expected a suggestion to be shown')
+    assert.equals('beginner', commands.registry[shown_cmd].level)
   end)
 end)
 

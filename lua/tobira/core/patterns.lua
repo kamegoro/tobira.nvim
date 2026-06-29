@@ -36,8 +36,8 @@ local function track_run(seq, key)
 end
 
 function M.feed(seq, key, line)
-  -- f / F: pend until the target character arrives
-  if key == 'f' or key == 'F' then
+  -- f / F / t / T: pend until the target character arrives
+  if key == 'f' or key == 'F' or key == 't' or key == 'T' then
     seq.pending_f = key
     seq.pending_op = nil
     seq.run = { key = nil, count = 0 }

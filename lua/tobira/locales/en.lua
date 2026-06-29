@@ -270,5 +270,172 @@ return {
       body = 'p pastes below the cursor line; P pastes above it\nUseful when you need to insert copied text before the current line',
       example = 'yy P → copy the current line and paste it above',
     },
+
+    -- ── f → t stop-before-char chain ─────────────────────────────────────
+    ['t'] = {
+      title = 't — move to just before a character',
+      body = 'Like f but stops one character before the target\nIdeal for operators: ct; changes text up to (not including) the next ;',
+      example = 'ct; → change everything up to the next semicolon',
+    },
+    ['T'] = {
+      title = 'T — move to just after a character (backward)',
+      body = 'Searches backward like F but stops just after the character\nRepeat with ; and , like any f/t search',
+      example = 'T, → move back to just after the previous comma',
+    },
+
+    -- ── jumplist bidirectional ─────────────────────────────────────────────
+    ['<C-i>'] = {
+      title = '<C-i> — jump forward in the jump list',
+      body = 'After <C-o> takes you back, <C-i> brings you forward again\nNavigate your editing history in both directions',
+      example = '<C-o> <C-o> <C-i> → go back twice, then forward once',
+    },
+
+    -- ── full-page scroll chain ─────────────────────────────────────────────
+    ['<C-f>'] = {
+      title = '<C-f> — scroll a full page down',
+      body = '<C-d> scrolls half a page; <C-f> scrolls a full page\nFaster for jumping over large sections of a file',
+      example = '<C-f> → scroll down one full window height',
+    },
+    ['<C-b>'] = {
+      title = '<C-b> — scroll a full page up',
+      body = 'The upward complement of <C-f>\nPair with <C-f> to scan a large file quickly in both directions',
+      example = '<C-f> <C-b> → scroll down a full page then back up',
+    },
+
+    -- ── paragraph motions ─────────────────────────────────────────────────
+    ['}'] = {
+      title = '} — jump to end of paragraph',
+      body = 'Moves down to the next blank line — skips entire blocks at once\nFaster than j when moving between functions or text sections',
+      example = '} → cursor jumps to the blank line after the current block',
+    },
+    ['{'] = {
+      title = '{ — jump to start of paragraph',
+      body = 'The upward complement of } — moves up to the blank line above\nQuickly navigate between code blocks or paragraphs',
+      example = '{ → cursor jumps to the blank line before the current block',
+    },
+
+    -- ── screen centering chain ─────────────────────────────────────────────
+    ['zz'] = {
+      title = 'zz — center the screen on the cursor',
+      body = 'Scrolls the view so the cursor line sits in the middle of the window\nCursor does not move — only the visible area shifts',
+      example = 'zz → current line scrolls to the center of the window',
+    },
+    ['zt'] = {
+      title = 'zt — scroll cursor line to top of screen',
+      body = 'Like zz but places the cursor line at the top of the window\nzt / zz / zb give you top / center / bottom control',
+      example = 'zt → current line scrolls to the top of the window',
+    },
+    ['zb'] = {
+      title = 'zb — scroll cursor line to bottom of screen',
+      body = 'Scrolls so the cursor line appears at the bottom of the window\nPair with zt and zz to position exactly what you see',
+      example = 'zb → current line scrolls to the bottom of the window',
+    },
+
+    -- ── WORD motions ──────────────────────────────────────────────────────
+    ['W'] = {
+      title = 'W — move forward by WORD',
+      body = 'Like w but only stops at whitespace, ignoring punctuation\nUseful when w stops too often inside things like "foo.bar(baz)"',
+      example = 'W on "foo.bar.baz" → jumps over the whole token at once',
+    },
+    ['B'] = {
+      title = 'B — move backward by WORD',
+      body = 'Like b but treats punctuation-connected text as one WORD\nThe backward complement of W',
+      example = 'B on "foo.bar.baz" → jumps back over the whole token',
+    },
+
+    -- ── word-end backward ─────────────────────────────────────────────────
+    ['ge'] = {
+      title = 'ge — move to end of previous word',
+      body = 'e moves forward to word end; ge moves backward to the end of the previous word\nUseful when you need to append to the word behind the cursor',
+      example = 'gea → move to end of previous word then append text',
+    },
+
+    -- ── bracket matching ──────────────────────────────────────────────────
+    ['%'] = {
+      title = '% — jump to matching bracket',
+      body = 'Jumps between matching (, [, {, and their closing counterparts\nAlso works with /* */ and #if/#endif in many filetypes',
+      example = '% on ( → cursor jumps to the matching )',
+    },
+
+    -- ── single-char edit shortcuts ────────────────────────────────────────
+    ['r'] = {
+      title = 'r — replace a single character',
+      body = 'Replaces the character under the cursor without entering insert mode\nFaster than x + i + char for single-character typo fixes',
+      example = 'ra → replace the character under the cursor with a',
+    },
+    ['s'] = {
+      title = 's — substitute character and insert',
+      body = 'Deletes the character under the cursor and immediately enters insert mode\nOne keystroke instead of x + i',
+      example = 's → deletes current character → insert mode begins',
+    },
+    ['cc'] = {
+      title = 'cc — change the entire current line',
+      body = 'Clears the line content and enters insert mode in one motion\nFaster than going to line start, pressing D, then entering insert',
+      example = 'cc → line is cleared → insert mode',
+    },
+
+    -- ── join lines ───────────────────────────────────────────────────────
+    ['J'] = {
+      title = 'J — join the next line onto the current one',
+      body = 'Appends the line below to the current line with a single space\nNo need to go to end of line, delete the newline, and add a space',
+      example = 'J → "foo\\n  bar" becomes "foo bar" (indentation stripped)',
+    },
+
+    -- ── case toggle ───────────────────────────────────────────────────────
+    ['~'] = {
+      title = '~ — toggle case of the character under cursor',
+      body = 'Flips lowercase to uppercase and vice versa, then advances one character\nPrefix with a count: 3~ toggles the next 3 characters at once',
+      example = '~ on "hello" → "Hello" → cursor advances',
+    },
+
+    -- ── number increment / decrement ──────────────────────────────────────
+    ['<C-a>'] = {
+      title = '<C-a> — increment the number under the cursor',
+      body = 'Finds the next number on the line and adds one to it\nPrefix with a count to add more: 5<C-a> adds 5',
+      example = '<C-a> on "padding: 8px" → "padding: 9px"',
+    },
+    ['<C-x>'] = {
+      title = '<C-x> — decrement the number under the cursor',
+      body = 'The downward complement of <C-a> — subtracts one from the next number\nUseful for adjusting numeric values without manual retyping',
+      example = '<C-x> on "z-index: 10" → "z-index: 9"',
+    },
+
+    -- ── visual mode chain ─────────────────────────────────────────────────
+    ['V'] = {
+      title = 'V — start line-wise visual selection',
+      body = 'Selects entire lines rather than individual characters\nIdeal for moving, copying, or deleting whole lines with visual feedback',
+      example = 'Vjjd → visually select 3 lines then delete them',
+    },
+    ['<C-v>'] = {
+      title = '<C-v> — start block (column) visual selection',
+      body = 'Selects a rectangular block across multiple lines\nPowerful for editing aligned columns — prepend text, change values in bulk',
+      example = '<C-v>3jI// <Esc> → prepend // to 4 lines at once',
+    },
+
+    -- ── yank text object ──────────────────────────────────────────────────
+    ['yiw'] = {
+      title = 'yiw — yank the inner word',
+      body = 'Copies the whole word under the cursor regardless of cursor position within it\nPair with ciw (change) and diw (delete) for consistent word-level editing',
+      example = 'yiw then move to target word then ciw p → replace word',
+    },
+
+    -- ── macros ────────────────────────────────────────────────────────────
+    ['q'] = {
+      title = 'q — record a macro',
+      body = 'q{a} starts recording into register a; press q again to stop\n@{a} replays it; @@ repeats the last macro — automate repetitive edits',
+      example = 'qaIhello<Esc>q then @a → insert "hello" at line start on replay',
+    },
+
+    -- ── backward search pair ──────────────────────────────────────────────
+    ['N'] = {
+      title = 'N — jump to previous search match',
+      body = 'n jumps forward to the next match; N jumps backward to the previous one\nChange direction at any time without retyping the search pattern',
+      example = '/foo → nnn N → forward 3 matches then back one',
+    },
+    ['#'] = {
+      title = '# — search backward for word under cursor',
+      body = '* searches forward for the word under cursor; # searches backward\nInstantly locate all occurrences without typing the search term',
+      example = 'cursor on "foo" → # → jumps to the previous occurrence of "foo"',
+    },
   },
 }

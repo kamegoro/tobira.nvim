@@ -34,9 +34,10 @@ end)
 
 describe('when the best candidate has been adopted by the user', function()
   it('has no suggestion to offer', function()
+    -- u is the sole trigger for <C-r>: no competing candidates
     local usage = {
-      f = usage_entry(10),
-      [';'] = usage_entry(0, { 5, 6, 7 }),  -- avg 6 ≥ 5 → adopted
+      u = usage_entry(10),
+      ['<C-r>'] = usage_entry(0, { 5, 6, 7 }),  -- avg 6 ≥ 5 → adopted
     }
     assert.is_nil(graph.find_best(usage))
   end)
@@ -44,10 +45,10 @@ end)
 
 describe('when the best candidate has been shown the maximum number of times', function()
   it('has no suggestion to offer', function()
+    -- u is the sole trigger for <C-r>: no competing candidates
     local usage = {
-      f = usage_entry(10),
-      [';'] = usage_entry(15, {}, 3),
-      [','] = usage_entry(0, {}, 3),
+      u = usage_entry(10),
+      ['<C-r>'] = usage_entry(5, {}, 3),  -- shown 3 times (default max)
     }
     assert.is_nil(graph.find_best(usage))
   end)
@@ -138,19 +139,21 @@ describe('when a command was adopted but recently fell out of use', function()
   end)
 
   it('returns to suggestion pool when forgotten', function()
+    -- u is the sole trigger for <C-r>: no competing candidates
     local usage = {
-      f = usage_entry(20),
-      [';'] = usage_entry(3, { 8, 9, 0, 0 }),  -- forgotten (used less than trigger → positive score)
+      u = usage_entry(20),
+      ['<C-r>'] = usage_entry(3, { 8, 9, 0, 0 }),  -- forgotten (used less than trigger → positive score)
     }
-    assert.equals(';', graph.find_best(usage))
+    assert.equals('<C-r>', graph.find_best(usage))
   end)
 end)
 
 describe('when a command is explicitly suppressed', function()
   it('is never suggested even with low session usage', function()
+    -- u is the sole trigger for <C-r>: no competing candidates
     local usage = {
-      f = usage_entry(10),
-      [';'] = usage_entry(0, {}, 0, true),  -- suppressed
+      u = usage_entry(10),
+      ['<C-r>'] = usage_entry(0, {}, 0, true),  -- suppressed
     }
     assert.is_nil(graph.find_best(usage))
   end)
@@ -186,7 +189,11 @@ end)
 
 describe('the cw → . (dot repeat) chain', function()
   it('suggests . once the user uses cw', function()
-    local usage = { cw = usage_entry(8) }
+    -- cw triggers both . and yiw; mark yiw as adopted so . wins
+    local usage = {
+      cw = usage_entry(8),
+      yiw = usage_entry(0, { 6, 7, 8 }),  -- adopted → only . remains eligible
+    }
     assert.equals('.', graph.find_best(usage))
   end)
 end)
@@ -218,9 +225,10 @@ end)
 
 describe('when max_shown is lowered below the default', function()
   it('does not suggest a command that has reached the lower limit', function()
+    -- u is the sole trigger for <C-r>: no competing candidates
     local usage = {
-      f = usage_entry(10),
-      [';'] = usage_entry(0, {}, 2),
+      u = usage_entry(10),
+      ['<C-r>'] = usage_entry(0, {}, 2),  -- shown 2 times
     }
     assert.is_nil(graph.find_best(usage, 2))
   end)
@@ -230,18 +238,15 @@ end)
 
 describe('when find_best has a max_level restriction', function()
   it('excludes intermediate commands when max_level is beginner', function()
-    -- x triggers D (beginner) and {n}x (intermediate)
-    -- with beginner filter only D is eligible
-    local usage = { x = usage_entry(10) }
-    assert.equals('D', graph.find_best(usage, 3, 'beginner'))
+    -- b is the sole trigger for B (intermediate): with beginner filter nothing is eligible
+    local usage = { b = usage_entry(10) }
+    assert.is_nil(graph.find_best(usage, 3, 'beginner'))
   end)
 
   it('includes intermediate commands when max_level is intermediate', function()
-    local usage = {
-      x = usage_entry(10),
-      D = usage_entry(5),   -- D score = 10-5 = 5; {n}x score = 10-0 = 10
-    }
-    assert.equals('{n}x', graph.find_best(usage, 3, 'intermediate'))
+    -- b is the sole trigger for B (intermediate): with intermediate filter B is eligible
+    local usage = { b = usage_entry(10) }
+    assert.equals('B', graph.find_best(usage, 3, 'intermediate'))
   end)
 
   it('allows all commands when max_level is nil', function()

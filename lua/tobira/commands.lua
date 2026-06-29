@@ -91,6 +91,65 @@ M.registry = {
 
   -- ── p → P paste above ────────────────────────────────────────────────────
   ['P'] = { requires = 'p', track = true, category = 'edit', level = 'intermediate' },
+
+  -- ── f → t stop-before-char chain ─────────────────────────────────────────
+  ['t'] = { requires = 'f', track = true, category = 'motion', level = 'beginner' },
+  ['T'] = { requires = 't', track = false, category = 'motion', level = 'intermediate' },
+
+  -- ── <C-o> / <C-i> jumplist navigation ────────────────────────────────────
+  ['<C-i>'] = { requires = '<C-o>', track = false, category = 'motion', level = 'beginner' },
+
+  -- ── full-page scroll chain ────────────────────────────────────────────────
+  ['<C-f>'] = { requires = '<C-d>', track = false, category = 'motion', level = 'intermediate' },
+  ['<C-b>'] = { requires = '<C-u>', track = false, category = 'motion', level = 'intermediate' },
+
+  -- ── j → } / { paragraph motions ──────────────────────────────────────────
+  ['}'] = { requires = 'j', track = false, category = 'motion', level = 'intermediate' },
+  ['{'] = { requires = '}', track = false, category = 'motion', level = 'intermediate' },
+
+  -- ── j → zz / zt / zb screen centering ────────────────────────────────────
+  ['zz'] = { requires = 'j', track = false, category = 'motion', level = 'beginner' },
+  ['zt'] = { requires = 'zz', track = false, category = 'motion', level = 'intermediate' },
+  ['zb'] = { requires = 'zz', track = false, category = 'motion', level = 'intermediate' },
+
+  -- ── w / b → W / B WORD motions ───────────────────────────────────────────
+  ['W'] = { requires = 'w', track = false, category = 'motion', level = 'intermediate' },
+  ['B'] = { requires = 'b', track = false, category = 'motion', level = 'intermediate' },
+
+  -- ── e → ge word-end backward ─────────────────────────────────────────────
+  ['ge'] = { requires = 'e', track = false, category = 'motion', level = 'intermediate' },
+
+  -- ── 0 → % bracket matching ───────────────────────────────────────────────
+  ['%'] = { requires = '0', track = false, category = 'motion', level = 'intermediate' },
+
+  -- ── x → r / s single-char edit shortcuts ─────────────────────────────────
+  ['r'] = { requires = 'x', track = true, category = 'edit', level = 'beginner' },
+  ['s'] = { requires = 'x', track = true, category = 'edit', level = 'beginner' },
+
+  -- ── dd → cc change-line / J join-lines ───────────────────────────────────
+  ['cc'] = { requires = 'dd', track = false, category = 'edit', level = 'beginner' },
+  ['J'] = { requires = 'dd', track = true, category = 'edit', level = 'intermediate' },
+
+  -- ── x → ~ case toggle ────────────────────────────────────────────────────
+  ['~'] = { requires = 'x', track = true, category = 'edit', level = 'intermediate' },
+
+  -- ── x → <C-a> / <C-x> number increment / decrement ──────────────────────
+  ['<C-a>'] = { requires = 'x', track = false, category = 'edit', level = 'intermediate' },
+  ['<C-x>'] = { requires = '<C-a>', track = false, category = 'edit', level = 'intermediate' },
+
+  -- ── v → V → <C-v> visual mode chain ─────────────────────────────────────
+  ['V'] = { requires = 'v', track = true, category = 'edit', level = 'beginner' },
+  ['<C-v>'] = { requires = 'V', track = false, category = 'edit', level = 'intermediate' },
+
+  -- ── cw → yiw yank text object ────────────────────────────────────────────
+  ['yiw'] = { requires = 'cw', track = false, category = 'edit', level = 'intermediate' },
+
+  -- ── . → q macros ─────────────────────────────────────────────────────────
+  ['q'] = { requires = '.', track = false, category = 'edit', level = 'advanced' },
+
+  -- ── n → N backward search / * → # backward word search ──────────────────
+  ['N'] = { requires = 'n', track = true, category = 'search', level = 'beginner' },
+  ['#'] = { requires = '*', track = true, category = 'search', level = 'beginner' },
 }
 
 return M

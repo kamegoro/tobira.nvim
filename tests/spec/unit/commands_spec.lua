@@ -161,6 +161,49 @@ local chain_cases = {
   { '<C-u>', '<C-d>', '<C-d> → <C-u>: scroll half page up' },
   -- paste pair
   { 'P',     'p',     'p → P: paste above current line' },
+  -- t / T stop-before-char
+  { 't',     'f',     'f → t: stop before character (for operators)' },
+  { 'T',     't',     't → T: stop before character backward' },
+  -- jumplist bidirectional
+  { '<C-i>', '<C-o>', '<C-o> → <C-i>: jump forward in jump list' },
+  -- full-page scroll
+  { '<C-f>', '<C-d>', '<C-d> → <C-f>: scroll full page down' },
+  { '<C-b>', '<C-u>', '<C-u> → <C-b>: scroll full page up' },
+  -- paragraph motions
+  { '}',     'j',     'j → }: jump to end of paragraph' },
+  { '{',     '}',     '} → {: jump to start of paragraph' },
+  -- scroll-lock  zz / zt / zb
+  { 'zz',    'j',     'j → zz: center cursor on screen' },
+  { 'zt',    'zz',   'zz → zt: scroll cursor to top of screen' },
+  { 'zb',    'zz',   'zz → zb: scroll cursor to bottom of screen' },
+  -- WORD motions
+  { 'W',     'w',     'w → W: move forward by WORD' },
+  { 'B',     'b',     'b → B: move backward by WORD' },
+  -- word-end backward
+  { 'ge',    'e',     'e → ge: move to end of previous word' },
+  -- bracket matching
+  { '%',     '0',     '0 → %: jump to matching bracket' },
+  -- single-char edit shortcuts
+  { 'r',     'x',     'x → r: replace character without insert mode' },
+  { 's',     'x',     'x → s: substitute character and insert' },
+  { 'cc',    'dd',    'dd → cc: change entire current line' },
+  -- join lines
+  { 'J',     'dd',    'dd → J: join next line onto current' },
+  -- case toggle
+  { '~',     'x',     'x → ~: toggle case of character' },
+  -- number increment / decrement
+  { '<C-a>', 'x',     'x → <C-a>: increment number under cursor' },
+  { '<C-x>', '<C-a>', '<C-a> → <C-x>: decrement number under cursor' },
+  -- visual mode chain
+  { 'V',     'v',     'v → V: line-wise visual selection' },
+  { '<C-v>', 'V',     'V → <C-v>: block visual selection' },
+  -- yank text object
+  { 'yiw',   'cw',    'cw → yiw: yank inner word' },
+  -- macros
+  { 'q',     '.',     '. → q: record a macro' },
+  -- search backward pair
+  { 'N',     'n',     'n → N: search backward to previous match' },
+  { '#',     '*',     '* → #: search backward for word under cursor' },
 }
 
 describe('teaching chains', function()
