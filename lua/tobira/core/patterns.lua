@@ -132,6 +132,10 @@ function M.feed(seq, key, line)
     return { pattern = 'u_repeat', cmd = '<C-r>' }
   elseif key == 'j' and count >= 5 then
     return { pattern = 'j_repeat', cmd = '{n}j' }
+  elseif key == 'k' and count >= 5 then
+    return { pattern = 'k_repeat', cmd = '{n}k' }
+  elseif key == 'n' and count >= 4 then
+    return { pattern = 'n_repeat', cmd = 'cgn' }
   end
 
   return nil

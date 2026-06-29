@@ -267,6 +267,46 @@ describe('when the user deletes a line downward (dj) then pastes', function()
   end)
 end)
 
+-- ── k consecutive (line movement up) ────────────────────────────────────────
+
+describe('when the user presses k five or more times in a row', function()
+  it('fires k_repeat suggesting {n}k', function()
+    local s = seq()
+    feed(s, { 'k', 'k', 'k', 'k' }, 1)
+    local result = patterns.feed(s, 'k', 1)
+    assert.is_not_nil(result)
+    assert.equals('k_repeat', result.pattern)
+    assert.equals('{n}k', result.cmd)
+  end)
+
+  it('does not fire after only four k presses', function()
+    local s = seq()
+    feed(s, { 'k', 'k', 'k' }, 1)
+    local result = patterns.feed(s, 'k', 1)
+    assert.is_nil(result)
+  end)
+end)
+
+-- ── n consecutive (search navigation) ────────────────────────────────────────
+
+describe('when the user presses n four or more times in a row', function()
+  it('fires n_repeat suggesting cgn', function()
+    local s = seq()
+    feed(s, { 'n', 'n', 'n' }, 1)
+    local result = patterns.feed(s, 'n', 1)
+    assert.is_not_nil(result)
+    assert.equals('n_repeat', result.pattern)
+    assert.equals('cgn', result.cmd)
+  end)
+
+  it('does not fire after only three n presses', function()
+    local s = seq()
+    feed(s, { 'n', 'n' }, 1)
+    local result = patterns.feed(s, 'n', 1)
+    assert.is_nil(result)
+  end)
+end)
+
 -- ── operator cancel ───────────────────────────────────────────────────────────
 
 describe('when the user cancels a pending operator with Escape', function()

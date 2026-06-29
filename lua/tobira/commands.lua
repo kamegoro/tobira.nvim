@@ -79,6 +79,18 @@ M.registry = {
   -- ── j → <C-d> → <C-u> half-page scroll ───────────────────────────────────
   ['<C-d>'] = { requires = 'j', track = false, category = 'motion', level = 'beginner' },
   ['<C-u>'] = { requires = '<C-d>', track = false, category = 'motion', level = 'beginner' },
+
+  -- ── k repeat → count prefix ───────────────────────────────────────────────
+  ['{n}k'] = { requires = 'k', track = false, category = 'motion', level = 'intermediate' },
+
+  -- ── n → * search word under cursor ───────────────────────────────────────
+  ['*'] = { requires = 'n', track = true, category = 'search', level = 'beginner' },
+
+  -- ── * → <C-o> jump back in jumplist ──────────────────────────────────────
+  ['<C-o>'] = { requires = '*', track = false, category = 'motion', level = 'intermediate' },
+
+  -- ── p → P paste above ────────────────────────────────────────────────────
+  ['P'] = { requires = 'p', track = true, category = 'edit', level = 'intermediate' },
 }
 
 return M

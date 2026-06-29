@@ -250,5 +250,25 @@ return {
       body = 'The upward complement of <C-d>\nPair them to navigate large files efficiently',
       example = '<C-d> then <C-u> → scroll down and back up',
     },
+    ['{n}k'] = {
+      title = '{n}k — jump multiple lines up at once',
+      body = 'Prefix k with a count to move up several lines in one go\nWorks with any motion: 5k, 3w, 2b, etc.',
+      example = '5k → moves up 5 lines',
+    },
+    ['*'] = {
+      title = '* — search the word under the cursor',
+      body = 'Puts the word under the cursor into the search register and jumps to the next match\nFaster than typing /word<Enter> — no need to type anything',
+      example = 'cursor on "foo" → * → jumps to the next "foo"',
+    },
+    ['<C-o>'] = {
+      title = '<C-o> — jump back to where you were',
+      body = 'After a large jump (* / G gg /) <C-o> takes you back to the previous position\n<C-i> goes forward again through the jump list',
+      example = '* <C-o> → jump to match, then return to start',
+    },
+    ['P'] = {
+      title = 'P — paste above the current line',
+      body = 'p pastes below the cursor line; P pastes above it\nUseful when you need to insert copied text before the current line',
+      example = 'yy P → copy the current line and paste it above',
+    },
   },
 }
