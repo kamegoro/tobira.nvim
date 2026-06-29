@@ -25,5 +25,3 @@ jobs:
             refactor
             test
             revert
-          ignoreLabels: |
-            autorelease: pending

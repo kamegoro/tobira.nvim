@@ -157,12 +157,6 @@ function M.setup()
   local ns = vim.api.nvim_create_namespace('tobira_logger')
   vim.on_key(function(key, typed)
     local k = (typed ~= nil and typed ~= '') and typed or key
-    -- empty-keystroke guard, not reproducible via feedkeys
-    -- luacov: disable
-    if #k == 0 then
-      return
-    end
-    -- luacov: enable
     handle_key(k)
   end, ns)
 

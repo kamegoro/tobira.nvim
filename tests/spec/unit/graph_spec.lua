@@ -35,10 +35,10 @@ end)
 
 describe('when the best candidate has been adopted by the user', function()
   it('has no suggestion to offer', function()
-    -- u is the sole trigger for <C-r>: no competing candidates
     local usage = {
       u = usage_entry(10),
       ['<C-r>'] = usage_entry(0, { 5, 6, 7 }),  -- avg 6 ≥ 5 → adopted
+      U = usage_entry(0, { 5, 6, 7 }),           -- also adopted → excluded
     }
     assert.is_nil(graph.find_best(usage))
   end)
@@ -46,10 +46,10 @@ end)
 
 describe('when the best candidate has been shown the maximum number of times', function()
   it('has no suggestion to offer', function()
-    -- u is the sole trigger for <C-r>: no competing candidates
     local usage = {
       u = usage_entry(10),
       ['<C-r>'] = usage_entry(5, {}, 3),  -- shown 3 times (default max)
+      U = usage_entry(0, { 5, 6, 7 }),    -- adopted → excluded
     }
     assert.is_nil(graph.find_best(usage))
   end)
@@ -140,10 +140,10 @@ describe('when a command was adopted but recently fell out of use', function()
   end)
 
   it('returns to suggestion pool when forgotten', function()
-    -- u is the sole trigger for <C-r>: no competing candidates
     local usage = {
       u = usage_entry(20),
       ['<C-r>'] = usage_entry(3, { 8, 9, 0, 0 }),  -- forgotten (used less than trigger → positive score)
+      U = usage_entry(0, { 5, 6, 7 }),               -- adopted → excluded
     }
     assert.equals('<C-r>', graph.find_best(usage))
   end)
@@ -151,10 +151,10 @@ end)
 
 describe('when a command is explicitly suppressed', function()
   it('is never suggested even with low session usage', function()
-    -- u is the sole trigger for <C-r>: no competing candidates
     local usage = {
       u = usage_entry(10),
       ['<C-r>'] = usage_entry(0, {}, 0, true),  -- suppressed
+      U = usage_entry(0, { 5, 6, 7 }),           -- adopted → excluded
     }
     assert.is_nil(graph.find_best(usage))
   end)
@@ -222,10 +222,10 @@ end)
 
 describe('when max_shown is lowered below the default', function()
   it('does not suggest a command that has reached the lower limit', function()
-    -- u is the sole trigger for <C-r>: no competing candidates
     local usage = {
       u = usage_entry(10),
       ['<C-r>'] = usage_entry(0, {}, 2),  -- shown 2 times
+      U = usage_entry(0, { 5, 6, 7 }),    -- adopted → excluded
     }
     assert.is_nil(graph.find_best(usage, 2))
   end)
