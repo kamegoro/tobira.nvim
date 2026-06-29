@@ -300,6 +300,19 @@ local chain_cases = {
   { 'zj',   'za',   'za → zj: move to start of next fold' },
   { 'zk',   'zj',   'zj → zk: move to end of previous fold' },
   { 'zd',   'zc',   'zc → zd: delete fold at cursor' },
+  -- WORD-level motion
+  { 'E',    'e',    'e → E: forward to end of WORD' },
+  -- undo full line
+  { 'U',    'u',    'u → U: undo all changes on current line' },
+  -- quit shortcuts
+  { 'ZZ',   'q',    'q → ZZ: write if changed and quit' },
+  { 'ZQ',   'ZZ',   'ZZ → ZQ: quit without writing' },
+  -- command-line window
+  { 'q:',   'q',    'q → q:: open command-line window' },
+  -- column motion
+  { '|',    '0',    '0 → |: move to column N' },
+  -- first non-blank (current line)
+  { '_',    '^',    '^ → _: first non-blank (N-1 lines lower)' },
 }
 
 describe('teaching chains', function()

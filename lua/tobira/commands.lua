@@ -269,6 +269,25 @@ M.registry = {
   ['zk'] = { requires = 'zj', track = false, category = 'motion', level = 'intermediate' },
   ['zd'] = { requires = 'zc', track = false, category = 'motion', level = 'intermediate' },
 
+  -- ── e → E WORD-end forward ────────────────────────────────────────────────────
+  ['E'] = { requires = 'e', track = false, category = 'motion', level = 'intermediate' },
+
+  -- ── u → U undo whole line ─────────────────────────────────────────────────────
+  ['U'] = { requires = 'u', track = false, category = 'edit', level = 'intermediate' },
+
+  -- ── q → ZZ / ZQ quit shortcuts ───────────────────────────────────────────────
+  ['ZZ'] = { requires = 'q', track = false, category = 'edit', level = 'beginner' },
+  ['ZQ'] = { requires = 'ZZ', track = false, category = 'edit', level = 'beginner' },
+
+  -- ── q → q: command-line window ───────────────────────────────────────────────
+  ['q:'] = { requires = 'q', track = false, category = 'edit', level = 'advanced' },
+
+  -- ── 0 → | go to column ───────────────────────────────────────────────────────
+  ['|'] = { requires = '0', track = false, category = 'motion', level = 'intermediate' },
+
+  -- ── ^ → _ first non-blank (relative) ─────────────────────────────────────────
+  ['_'] = { requires = '^', track = false, category = 'motion', level = 'intermediate' },
+
   -- ── window management ─────────────────────────────────────────────────────
   ['<C-w>s'] = { requires = '<C-o>', track = false, category = 'window', level = 'intermediate' },
   ['<C-w>v'] = { requires = '<C-w>s', track = false, category = 'window', level = 'intermediate' },

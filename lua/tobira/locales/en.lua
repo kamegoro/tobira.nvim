@@ -819,5 +819,40 @@ return {
       body = 'Removes the fold definition under the cursor without affecting the text\nUseful for cleaning up manual folds created with zf',
       example = 'zc → close fold; zd → delete that fold definition',
     },
+    ['E'] = {
+      title = 'E — forward to end of WORD',
+      body = 'Like e but jumps to the end of the next WORD (any non-whitespace sequence)\nIgnores punctuation boundaries that e would stop at',
+      example = 'e → end of word; E → end of WORD (skips punctuation)',
+    },
+    ['U'] = {
+      title = 'U — undo all changes on current line',
+      body = 'Restores the current line to how it was when you moved onto it\nDifferent from u: U undoes all edits on one line in one shot',
+      example = 'u → undo last change; U → restore entire line',
+    },
+    ['ZZ'] = {
+      title = 'ZZ — write and quit',
+      body = 'Saves the file and closes the window in one keystroke\nEquivalent to :wq but faster to type',
+      example = ':wq  or  ZZ — same result, ZZ saves two keystrokes',
+    },
+    ['ZQ'] = {
+      title = 'ZQ — quit without writing',
+      body = 'Closes the window and discards changes without a confirmation prompt\nEquivalent to :q! but faster to type',
+      example = 'ZZ → save and quit; ZQ → quit and discard changes',
+    },
+    ['q:'] = {
+      title = 'q: — open command-line window',
+      body = 'Opens a buffer containing your Ex command history\nYou can edit and re-run any previous command with Enter',
+      example = 'q → record macro; q: → browse & edit command history',
+    },
+    ['|'] = {
+      title = '| — move to column N',
+      body = 'Jumps the cursor to column N in the current line\nUseful for aligning text or navigating to a known column position',
+      example = '0 → column 1; 40| → column 40',
+    },
+    ['_'] = {
+      title = '_ — first non-blank of line (relative)',
+      body = 'Moves to the first non-blank character of the current line\nWith a count N, moves N-1 lines down then goes to first non-blank',
+      example = '^ → first non-blank; 3_ → first non-blank 2 lines down',
+    },
   },
 }
