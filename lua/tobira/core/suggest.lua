@@ -5,7 +5,8 @@ local graph = require('tobira.core.graph')
 local M = {}
 
 local session = {
-  shown = false,
+  auto_count = 0,
+  last_auto_at = nil,
   timer = nil,
   watching_ns = {},
 }
@@ -36,16 +37,38 @@ local function watch_adoption(cmd)
   end, ns)
 end
 
+local function do_show(cmd)
+  if should_suppress(cmd) then
+    return false
+  end
+  local suggestion = graph.suggestions[cmd]
+  if not suggestion then
+    return false
+  end
+  logger.mark_shown(cmd)
+  watch_adoption(cmd)
+  require('tobira.ui.float').show(suggestion)
+  return true
+end
+
+local function over_auto_limit()
+  if session.auto_count >= config.values.max_per_session then
+    return true
+  end
+  if session.last_auto_at and (vim.loop.now() - session.last_auto_at) < config.values.min_interval_ms then
+    return true
+  end
+  return false
+end
+
 function M.queue(_, cmd)
-  if session.shown then
+  if over_auto_limit() then
     return
   end
   if should_suppress(cmd) then
     return
   end
-
   cancel_timer()
-
   session.timer = vim.defer_fn(function()
     session.timer = nil
     M.show(cmd)
@@ -53,22 +76,13 @@ function M.queue(_, cmd)
 end
 
 function M.show(cmd)
-  if session.shown then
+  if over_auto_limit() then
     return
   end
-  if should_suppress(cmd) then
-    return
+  if do_show(cmd) then
+    session.auto_count = session.auto_count + 1
+    session.last_auto_at = vim.loop.now()
   end
-
-  local suggestion = graph.suggestions[cmd]
-  if not suggestion then
-    return
-  end
-
-  logger.mark_shown(cmd)
-  session.shown = true
-  watch_adoption(cmd)
-  require('tobira.ui.float').show(suggestion)
 end
 
 function M.reset_session()
@@ -76,7 +90,8 @@ function M.reset_session()
   for _, ns in pairs(session.watching_ns) do
     vim.on_key(nil, ns)
   end
-  session.shown = false
+  session.auto_count = 0
+  session.last_auto_at = nil
   session.watching = {}
   session.watching_ns = {}
 end
@@ -88,8 +103,7 @@ function M.manual()
     vim.notify(str.notifications.no_suggestions, vim.log.levels.INFO)
     return
   end
-  session.shown = false
-  M.show(best)
+  do_show(best)
 end
 
 return M
