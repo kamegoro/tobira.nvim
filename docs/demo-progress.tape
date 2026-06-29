@@ -1,19 +1,19 @@
 Output docs/demo-progress.gif
 
 Set Shell "zsh"
-Set FontSize 18
-Set Width 1920
-Set Height 720
+Set FontSize 14
+Set Width 1000
+Set Height 540
 Set Theme "Catppuccin Mocha"
 Set Padding 20
 Set TypingSpeed 60ms
 Set CursorBlink false
 
-# ── Boot ──────────────────────────────────────────────────────────────────────
+# ── Boot: seed data and open nvim with real config (hidden) ───────────────────
 Hide
-Type "cd ~/kame/tobira.nvim && nvim -u docs/demo-init.lua docs/demo.lua"
+Type "cd ~/kame/tobira.nvim && bash docs/demo-seed.sh && nvim -u ~/.config/nvim/init.lua docs/demo.lua"
 Enter
-Sleep 3s
+Sleep 6s
 Show
 
 # ── Open progress tree ────────────────────────────────────────────────────────
