@@ -2,6 +2,7 @@ return {
   guide = {
     title = 'tobira ガイド',
     hint = ':TobiraGuide  ガイドを閉じる',
+    all_mastered = 'このレベルのコマンドをすべてマスターしました！',
     contexts = {
       default = {
         {

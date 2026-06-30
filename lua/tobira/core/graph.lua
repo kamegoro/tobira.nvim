@@ -79,6 +79,53 @@ function M.mastery_level(data)
   return 0
 end
 
+-- Returns unmastered commands grouped by category for the Guide panel.
+-- Ceiling level = lowest level that still has commands with mastery_level < 2.
+-- Commands within each category are sorted alphabetically for determinism.
+function M.guide_commands(usage)
+  local cmds = require('tobira.commands')
+
+  local unmastered = { beginner = 0, intermediate = 0, advanced = 0 }
+  for cmd, entry in pairs(cmds.registry) do
+    if not entry.compound then
+      local lv = entry.level or 'beginner'
+      local data = usage[cmd] or { count = 0 }
+      if M.mastery_level(data) < 2 then
+        unmastered[lv] = (unmastered[lv] or 0) + 1
+      end
+    end
+  end
+
+  local ceiling
+  if unmastered.beginner > 0 then
+    ceiling = 1
+  elseif unmastered.intermediate > 0 then
+    ceiling = 2
+  else
+    ceiling = 3
+  end
+
+  local by_cat = {}
+  for cmd, entry in pairs(cmds.registry) do
+    if not entry.compound and (LEVEL_ORDER[entry.level] or 1) <= ceiling then
+      local data = usage[cmd] or { count = 0 }
+      if M.mastery_level(data) < 2 then
+        local cat = entry.category or 'motion'
+        if not by_cat[cat] then
+          by_cat[cat] = {}
+        end
+        table.insert(by_cat[cat], cmd)
+      end
+    end
+  end
+
+  for _, list in pairs(by_cat) do
+    table.sort(list)
+  end
+
+  return by_cat
+end
+
 -- max_level: 'beginner' | 'intermediate' | 'advanced' | nil (no filter)
 function M.find_best(usage, max_shown, max_level)
   max_shown = max_shown or 3

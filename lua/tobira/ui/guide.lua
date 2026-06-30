@@ -7,36 +7,18 @@ local _ns = vim.api.nvim_create_namespace('tobira_guide')
 local WIDTH = 46
 local ICON = '' -- nerd font fa-info-circle (matches nvim-notify INFO icon)
 
--- Map filetypes to context keys defined in locale files
-local FILETYPE_CONTEXT = {
-  ['neo-tree'] = 'neo_tree',
-  ['NvimTree'] = 'neo_tree',
-}
-
-local function detect_context()
-  return FILETYPE_CONTEXT[vim.bo.filetype] or 'default'
-end
+local CATEGORY_ORDER = { 'motion', 'edit', 'search', 'window' }
 
 local setup_hls = require('tobira.ui.hls').setup
 
--- Returns total usage count across all keys in the track list.
-local function mastery_count(item)
-  if not item.track then
-    return 0
-  end
-  local logger = require('tobira.core.logger')
-  local total = 0
-  for _, k in ipairs(item.track) do
-    total = total + logger.get(k).count
-  end
-  return total
-end
-
 local function build()
-  local strings = require('tobira.i18n').load().guide
-  local ctx = detect_context()
-  local sections = strings.contexts[ctx] or strings.contexts.default
-  -- strings is returned alongside lines/hls so callers can access guide.title etc.
+  local loc = require('tobira.i18n').load()
+  local strings = loc.guide
+  local suggestions = loc.suggestions or {}
+  local cat_labels = loc.progress and loc.progress.categories or {}
+
+  local usage = require('tobira.core.logger').get_all()
+  local by_cat = require('tobira.core.graph').guide_commands(usage)
 
   local lines = {}
   local hls = {}
@@ -51,22 +33,25 @@ local function build()
 
   push('')
 
-  for _, section in ipairs(sections) do
-    push('')
-    push('  ' .. section.title, 'TobiraGuideSection', 2, 2 + #section.title)
-
-    for _, item in ipairs(section.items) do
-      local mastered = item.threshold and mastery_count(item) >= item.threshold
-
-      if mastered then
-        push(string.format('✓  %-12s  %s', item.keys, item.desc), 'TobiraGuideMastered')
-        if item.upgrade then
-          push(string.format('→  %-12s  %s', item.upgrade.keys, item.upgrade.desc), 'TobiraGuideUpgrade')
-        end
-      else
-        push(string.format('   %-12s  %s', item.keys, item.desc), 'TobiraGuideKey', 3, 3 + #item.keys)
+  local any = false
+  for _, cat in ipairs(CATEGORY_ORDER) do
+    local cmds = by_cat[cat]
+    if cmds and #cmds > 0 then
+      any = true
+      push('')
+      local label = cat_labels[cat] or cat
+      push('  ' .. label, 'TobiraGuideSection', 2, 2 + #label)
+      for _, cmd in ipairs(cmds) do
+        local sug = suggestions[cmd]
+        local title = (sug and sug.title) or cmd
+        push(string.format('   %-12s  %s', cmd, title), 'TobiraGuideKey', 3, 3 + #cmd)
       end
     end
+  end
+
+  if not any then
+    push('')
+    push('  ' .. (strings.all_mastered or ''), 'TobiraGuideMastered')
   end
 
   push('')

@@ -287,3 +287,58 @@ describe('mastery_level', function()
     assert.equals(4, graph.mastery_level({ count = 5000, sessions = {} }))
   end)
 end)
+
+-- ── guide_commands ────────────────────────────────────────────────────────────
+
+describe('guide_commands', function()
+  local commands = require('tobira.commands')
+
+  local function mastered()
+    return { count = 100, sessions = {} }
+  end
+
+  it('returns only beginner commands when no usage', function()
+    local result = graph.guide_commands({})
+    for _, cmds in pairs(result) do
+      for _, cmd in ipairs(cmds) do
+        local entry = commands.registry[cmd]
+        assert.equals('beginner', entry.level, cmd .. ' should be beginner level')
+      end
+    end
+  end)
+
+  it('excludes a command that has reached mastery (count >= 100)', function()
+    local result = graph.guide_commands({ [';'] = mastered() })
+    for _, cmd in ipairs(result.motion or {}) do
+      assert.not_equals(';', cmd, '; is mastered and should not appear')
+    end
+  end)
+
+  it('shows intermediate commands when all beginner commands are mastered', function()
+    local usage = {}
+    for cmd, entry in pairs(commands.registry) do
+      if not entry.compound and entry.level == 'beginner' then
+        usage[cmd] = mastered()
+      end
+    end
+    local result = graph.guide_commands(usage)
+    local found_intermediate = false
+    for _, cmds in pairs(result) do
+      for _, cmd in ipairs(cmds) do
+        if commands.registry[cmd].level == 'intermediate' then
+          found_intermediate = true
+        end
+      end
+    end
+    assert.is_true(found_intermediate, 'should include intermediate commands')
+  end)
+
+  it('sorts commands alphabetically within each category', function()
+    local result = graph.guide_commands({})
+    for _, cmds in pairs(result) do
+      for i = 2, #cmds do
+        assert.is_true(cmds[i - 1] <= cmds[i], cmds[i - 1] .. ' should come before ' .. cmds[i])
+      end
+    end
+  end)
+end)
