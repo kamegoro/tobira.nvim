@@ -701,7 +701,16 @@ describe('when the user selects an inner text object visually then operates', fu
     patterns.feed(s, 'v', 1)
     patterns.feed(s, 'j', 1)  -- visual line-select, not a text object
     local result = patterns.feed(s, 'c', 1)
-    -- c after v j is a normal visual change, not a text object suggestion
+    assert.is_nil(result)
+  end)
+
+  it('cancels when a non-operator key follows v i w', function()
+    local s = seq()
+    patterns.feed(s, 'v', 1)
+    patterns.feed(s, 'i', 1)
+    patterns.feed(s, 'w', 1)  -- visual_obj is now set
+    patterns.feed(s, 'j', 1)  -- not c/d/y → cancel
+    local result = patterns.feed(s, 'c', 1)
     assert.is_nil(result)
   end)
 end)
