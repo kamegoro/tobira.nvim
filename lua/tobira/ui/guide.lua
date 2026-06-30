@@ -11,6 +11,11 @@ local CATEGORY_ORDER = { 'motion', 'edit', 'search', 'window' }
 
 local setup_hls = require('tobira.ui.hls').setup
 
+-- Extract only the description part from a title like "cmd — description".
+local function short_desc(title)
+  return title:match(' — (.+)$') or title
+end
+
 local function build()
   local loc = require('tobira.i18n').load()
   local strings = loc.guide
@@ -64,8 +69,8 @@ local function build()
     push('  ' .. pin_label, 'TobiraGuidePinned', 2, 2 + #pin_label)
     for _, cmd in ipairs(pinned_cmds) do
       local sug = suggestions[cmd]
-      local title = (sug and sug.title) or cmd
-      push(string.format('   %-12s  %s', cmd, title), 'TobiraGuideKey', 3, 3 + #cmd)
+      local desc = short_desc((sug and sug.title) or cmd)
+      push(string.format('   %-12s  %s', cmd, desc), 'TobiraGuideKey', 3, 3 + #cmd)
     end
   end
 
@@ -80,8 +85,8 @@ local function build()
       push('  ' .. label, 'TobiraGuideSection', 2, 2 + #label)
       for _, cmd in ipairs(cmds) do
         local sug = suggestions[cmd]
-        local title = (sug and sug.title) or cmd
-        push(string.format('   %-12s  %s', cmd, title), 'TobiraGuideKey', 3, 3 + #cmd)
+        local desc = short_desc((sug and sug.title) or cmd)
+        push(string.format('   %-12s  %s', cmd, desc), 'TobiraGuideKey', 3, 3 + #cmd)
       end
     end
   end
