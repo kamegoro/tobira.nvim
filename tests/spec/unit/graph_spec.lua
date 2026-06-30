@@ -259,24 +259,31 @@ describe('mastery_level', function()
     assert.equals(0, graph.mastery_level({ count = 0, sessions = {} }))
   end)
 
-  it('returns 1 (☆) when used in total but no recent sessions', function()
-    assert.equals(1, graph.mastery_level({ count = 5, sessions = {} }))
+  it('returns 1 (☆) when used at least once', function()
+    assert.equals(1, graph.mastery_level({ count = 1, sessions = {} }))
   end)
 
-  it('returns 2 (★) when avg of last 3 sessions is between 1 and 2', function()
-    assert.equals(2, graph.mastery_level({ count = 10, sessions = { 1, 2, 1 } }))
+  it('returns 1 (☆) when count is below 100', function()
+    assert.equals(1, graph.mastery_level({ count = 99, sessions = {} }))
   end)
 
-  it('returns 3 (★★) when avg of last 3 sessions is between 3 and 4', function()
-    assert.equals(3, graph.mastery_level({ count = 20, sessions = { 3, 4, 2 } }))
+  it('returns 2 (★) at count 100', function()
+    assert.equals(2, graph.mastery_level({ count = 100, sessions = {} }))
   end)
 
-  it('returns 4 (★★★) when avg of last 3 sessions is 5 or more', function()
-    assert.equals(4, graph.mastery_level({ count = 30, sessions = { 5, 6, 7 } }))
+  it('returns 2 (★) when count is below 1000', function()
+    assert.equals(2, graph.mastery_level({ count = 999, sessions = {} }))
   end)
 
-  it('uses only the last 3 sessions when history is longer', function()
-    -- old sessions are high but last 3 are low → level 2
-    assert.equals(2, graph.mastery_level({ count = 100, sessions = { 9, 8, 7, 2, 1, 2 } }))
+  it('returns 3 (★★) at count 1000', function()
+    assert.equals(3, graph.mastery_level({ count = 1000, sessions = {} }))
+  end)
+
+  it('returns 3 (★★) when count is below 5000', function()
+    assert.equals(3, graph.mastery_level({ count = 4999, sessions = {} }))
+  end)
+
+  it('returns 4 (★★★) at count 5000', function()
+    assert.equals(4, graph.mastery_level({ count = 5000, sessions = {} }))
   end)
 end)

@@ -60,23 +60,23 @@ function M.is_forgotten(data)
   return false
 end
 
--- Returns 0-4 mastery level based on recent session activity.
--- 0 = never used, 1 = ☆ started, 2 = ★, 3 = ★★, 4 = ★★★ (adopted)
+-- Returns 0-4 mastery level based on cumulative usage count.
+-- 0 = never used, 1 = ☆ (≥1), 2 = ★ (≥100), 3 = ★★ (≥1000), 4 = ★★★ (≥5000)
 function M.mastery_level(data)
-  if data.count == 0 then
-    return 0
-  end
-  local avg = avg_last_n(data.sessions or {}, 3)
-  if avg >= 5 then
+  local c = data.count or 0
+  if c >= 5000 then
     return 4
   end
-  if avg >= 3 then
+  if c >= 1000 then
     return 3
   end
-  if avg >= 1 then
+  if c >= 100 then
     return 2
   end
-  return 1
+  if c > 0 then
+    return 1
+  end
+  return 0
 end
 
 -- max_level: 'beginner' | 'intermediate' | 'advanced' | nil (no filter)
