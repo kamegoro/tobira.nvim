@@ -16,9 +16,33 @@ local function build()
   local strings = loc.guide
   local suggestions = loc.suggestions or {}
   local cat_labels = loc.progress and loc.progress.categories or {}
+  local commands = require('tobira.commands')
 
   local usage = require('tobira.core.logger').get_all()
+
+  -- Collect pinned commands (sorted for determinism)
+  local pinned_cmds = {}
+  local pinned_set = {}
+  for cmd, data in pairs(usage) do
+    if data.pinned and commands.registry[cmd] then
+      table.insert(pinned_cmds, cmd)
+      pinned_set[cmd] = true
+    end
+  end
+  table.sort(pinned_cmds)
+
   local by_cat = require('tobira.core.graph').guide_commands(usage)
+
+  -- Remove pinned commands from auto section to avoid duplication
+  for cat, cmds in pairs(by_cat) do
+    local filtered = {}
+    for _, cmd in ipairs(cmds) do
+      if not pinned_set[cmd] then
+        table.insert(filtered, cmd)
+      end
+    end
+    by_cat[cat] = filtered
+  end
 
   local lines = {}
   local hls = {}
@@ -33,6 +57,19 @@ local function build()
 
   push('')
 
+  -- Pinned section
+  if #pinned_cmds > 0 then
+    push('')
+    local pin_label = strings.pinned or 'Pinned'
+    push('  ' .. pin_label, 'TobiraGuidePinned', 2, 2 + #pin_label)
+    for _, cmd in ipairs(pinned_cmds) do
+      local sug = suggestions[cmd]
+      local title = (sug and sug.title) or cmd
+      push(string.format('   %-12s  %s', cmd, title), 'TobiraGuideKey', 3, 3 + #cmd)
+    end
+  end
+
+  -- Auto section
   local any = false
   for _, cat in ipairs(CATEGORY_ORDER) do
     local cmds = by_cat[cat]
@@ -49,7 +86,7 @@ local function build()
     end
   end
 
-  if not any then
+  if not any and #pinned_cmds == 0 then
     push('')
     push('  ' .. (strings.all_mastered or ''), 'TobiraGuideMastered')
   end

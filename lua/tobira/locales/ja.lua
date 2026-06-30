@@ -3,6 +3,7 @@ return {
     title = 'tobira ガイド',
     hint = ':TobiraGuide  ガイドを閉じる',
     all_mastered = 'このレベルのコマンドをすべてマスターしました！',
+    pinned = 'ピン留め',
     contexts = {
       default = {
         {

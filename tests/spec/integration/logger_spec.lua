@@ -126,6 +126,29 @@ describe('when a command is explicitly suppressed', function()
   end)
 end)
 
+-- ── set_pinned ───────────────────────────────────────────────────────────────
+
+describe('when a command is pinned to the guide', function()
+  before_each(function()
+    logger.reset()
+  end)
+
+  it('marks it as pinned', function()
+    logger.set_pinned(';', true)
+    assert.is_true(logger.get(';').pinned)
+  end)
+
+  it('can be un-pinned', function()
+    logger.set_pinned(';', true)
+    logger.set_pinned(';', false)
+    assert.is_false(logger.get(';').pinned)
+  end)
+
+  it('is not pinned by default', function()
+    assert.is_false(logger.get(';').pinned)
+  end)
+end)
+
 -- ── session tracking ──────────────────────────────────────────────────────────
 
 describe('session tracking', function()

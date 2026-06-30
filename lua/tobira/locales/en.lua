@@ -3,6 +3,7 @@ return {
     title = 'tobira guide',
     hint = ':TobiraGuide  toggle guide',
     all_mastered = 'All commands at this level mastered!',
+    pinned = 'Pinned',
     contexts = {
       default = {
         {

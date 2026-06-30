@@ -84,14 +84,19 @@ local function build()
       for _, item in ipairs(row_items) do
         local data = logger.get(item.adopted)
         local sym, sym_bytes, sym_disp, group = mastery_sym(data)
-        local disp_w = sym_disp + 1 + #item.keys
+        local pin_mark = data.pinned and '*' or ''
+        local disp_w = sym_disp + 1 + #item.keys + #pin_mark
         local pad = string.rep(' ', math.max(1, COL_W - disp_w))
 
         if group then
           table.insert(row_hls, { cs = byte_pos, ce = byte_pos + sym_bytes, group = group })
         end
-        line = line .. sym .. ' ' .. item.keys .. pad
-        byte_pos = byte_pos + sym_bytes + 1 + #item.keys + #pad
+        if data.pinned then
+          local pin_cs = byte_pos + sym_bytes + 1 + #item.keys
+          table.insert(row_hls, { cs = pin_cs, ce = pin_cs + 1, group = 'TobiraGuidePinned' })
+        end
+        line = line .. sym .. ' ' .. item.keys .. pin_mark .. pad
+        byte_pos = byte_pos + sym_bytes + 1 + #item.keys + #pin_mark + #pad
       end
 
       local lnum = #lines
@@ -134,25 +139,39 @@ local function refresh()
   end
 end
 
-local function toggle_suppress()
-  local logger = require('tobira.core.logger')
+local function item_at_cursor()
   local row, col = unpack(vim.api.nvim_win_get_cursor(0))
   local lnum = row - 1
   local row_items = _line_meta[lnum]
   if not row_items then
-    return
+    return nil
   end
   local cell_idx = math.floor((col - 2) / COL_W) + 1
   if cell_idx < 1 or cell_idx > #row_items then
+    return nil
+  end
+  return row_items[cell_idx]
+end
+
+local function toggle_suppress()
+  local logger = require('tobira.core.logger')
+  local item = item_at_cursor()
+  if not item or not item.adopted then
     return
   end
-  local item = row_items[cell_idx]
-  local cmd = item.adopted
-  if not cmd then
+  local data = logger.get(item.adopted)
+  logger.set_suppressed(item.adopted, not data.suppressed)
+  refresh()
+end
+
+local function toggle_pin()
+  local logger = require('tobira.core.logger')
+  local item = item_at_cursor()
+  if not item or not item.adopted then
     return
   end
-  local data = logger.get(cmd)
-  logger.set_suppressed(cmd, not data.suppressed)
+  local data = logger.get(item.adopted)
+  logger.set_pinned(item.adopted, not data.pinned)
   refresh()
 end
 
@@ -192,6 +211,7 @@ function M.open()
   vim.keymap.set('n', 'q', M.close, { buffer = _buf, nowait = true, silent = true })
   vim.keymap.set('n', '<Esc>', M.close, { buffer = _buf, nowait = true, silent = true })
   vim.keymap.set('n', 'x', toggle_suppress, { buffer = _buf, nowait = true, silent = true })
+  vim.keymap.set('n', 'p', toggle_pin, { buffer = _buf, nowait = true, silent = true })
 
   local uis = vim.api.nvim_list_uis()
   local screen_w = (uis[1] and uis[1].width) or 120
