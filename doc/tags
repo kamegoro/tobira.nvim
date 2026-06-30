@@ -1,0 +1,17 @@
+:Tobira	tobira.txt	/*:Tobira*
+:TobiraGuide	tobira.txt	/*:TobiraGuide*
+:TobiraProgress	tobira.txt	/*:TobiraProgress*
+:TobiraReset	tobira.txt	/*:TobiraReset*
+:TobiraStats	tobira.txt	/*:TobiraStats*
+tobira-commands	tobira.txt	/*tobira-commands*
+tobira-config	tobira.txt	/*tobira-config*
+tobira-config-idle_delay	tobira.txt	/*tobira-config-idle_delay*
+tobira-config-idle_suggestions	tobira.txt	/*tobira-config-idle_suggestions*
+tobira-config-lang	tobira.txt	/*tobira-config-lang*
+tobira-config-max_shown	tobira.txt	/*tobira-config-max_shown*
+tobira-config-suggestion_cooldown	tobira.txt	/*tobira-config-suggestion_cooldown*
+tobira-contents	tobira.txt	/*tobira-contents*
+tobira-introduction	tobira.txt	/*tobira-introduction*
+tobira-setup	tobira.txt	/*tobira-setup*
+tobira-usage	tobira.txt	/*tobira-usage*
+tobira.txt	tobira.txt	/*tobira.txt*

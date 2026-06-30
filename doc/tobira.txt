@@ -1,0 +1,163 @@
+*tobira.txt*  Personalized command discovery based on your actual usage
+
+==============================================================================
+CONTENTS                                                        *tobira-contents*
+
+  1. Introduction .......................... |tobira-introduction|
+  2. Setup ................................. |tobira-setup|
+  3. Commands .............................. |tobira-commands|
+  4. Configuration ......................... |tobira-config|
+  5. Usage ................................. |tobira-usage|
+
+==============================================================================
+1. INTRODUCTION                                             *tobira-introduction*
+
+tobira.nvim watches your keystrokes and suggests the one command you are
+missing, based on your actual usage patterns.
+
+It runs silently in the background, tracks which commands you use, and when
+it notices an inefficient pattern — like doing `dw` + `i` repeatedly when
+`cw` exists — it waits until you are idle and quietly surfaces the better
+path.
+
+"Open the next door in your Vim journey."
+
+==============================================================================
+2. SETUP                                                           *tobira-setup*
+
+Install with lazy.nvim: >lua
+
+  {
+    "kamegoro/tobira.nvim",
+    event = "VeryLazy",
+    opts = {},
+  }
+<
+Call `setup()` explicitly if not using lazy.nvim opts shorthand: >lua
+
+  require("tobira").setup({
+    lang = "en",
+  })
+<
+==============================================================================
+3. COMMANDS                                                     *tobira-commands*
+
+                                                                       *:Tobira*
+:Tobira
+  Show the next command suggestion immediately. Does not count toward the
+  automatic suggestion cooldown.
+
+                                                                 *:TobiraStats*
+:TobiraStats
+  Show a usage statistics panel. Displays how many commands you have used,
+  your mastery distribution, and efficiency gaps (commands you use heavily
+  whose neighbors you have not yet discovered).
+
+                                                                 *:TobiraGuide*
+:TobiraGuide
+  Toggle a dynamic cheatsheet panel. Content adapts to your current mastery
+  level — commands you have already mastered are hidden, and pinned commands
+  are always shown at the top.
+
+  Inside the guide panel:
+    `p`   Toggle pin on the command under the cursor
+    `x`   Toggle suppress on the command under the cursor
+    `q`   Close the panel
+
+                                                              *:TobiraProgress*
+:TobiraProgress
+  Open the skill tree panel. Displays mastery levels for all tracked
+  commands, organized by category (motion, edit, search, fold, mark, macro,
+  window).
+
+  Mastery levels:
+    `✗`     Suppressed (will not be suggested)
+    (none)  Never used
+    `☆`     Used at least once
+    `★`     Used 100+ times
+    `★★`    Used 1000+ times
+    `★★★`   Used 5000+ times
+
+  Inside the progress panel:
+    `x`   Toggle suppress on the command under the cursor
+    `p`   Toggle pin on the command under the cursor
+    `q`   Close the panel
+
+                                                                 *:TobiraReset*
+:TobiraReset
+  Reset all usage data. This clears the usage log stored at
+  `~/.local/share/nvim/tobira/usage.json`.
+
+==============================================================================
+4. CONFIGURATION                                                  *tobira-config*
+
+Pass options to `setup()` or via the `opts` table in lazy.nvim.
+
+Default configuration: >lua
+
+  require("tobira").setup({
+    lang               = "en",
+    idle_delay         = 1500,
+    idle_suggestions   = true,
+    suggestion_cooldown = 300,
+    max_shown          = 2,
+  })
+<
+
+                                                              *tobira-config-lang*
+`lang` (string, default: `"en"`)
+  Display language. Supported values: `"en"`, `"ja"`.
+
+                                                       *tobira-config-idle_delay*
+`idle_delay` (number, default: `1500`)
+  Milliseconds of keyboard inactivity before an automatic suggestion may
+  appear. Increase this value if suggestions feel intrusive.
+
+                                                  *tobira-config-idle_suggestions*
+`idle_suggestions` (boolean, default: `true`)
+  Whether to show suggestions automatically after idle. Set to `false` to
+  disable automatic suggestions and use only |:Tobira| for manual triggering.
+
+                                                *tobira-config-suggestion_cooldown*
+`suggestion_cooldown` (number, default: `300`)
+  Minimum seconds between automatic suggestions. Prevents repeated
+  interruptions within a short period.
+
+                                                       *tobira-config-max_shown*
+`max_shown` (number, default: `2`)
+  Maximum number of times the same command suggestion is shown per session.
+  Resets to 0 on each Neovim startup.
+
+==============================================================================
+5. USAGE                                                           *tobira-usage*
+
+AUTOMATIC SUGGESTIONS ~
+
+tobira monitors your keystrokes using |vim.on_key()|. It detects patterns
+such as:
+
+  - Repeating `f` without using `;` to repeat the motion
+  - Using `dw` followed immediately by `i` instead of `cw`
+  - Pressing `x` multiple times instead of `{n}x`
+  - Using `0` then `w w w` instead of `^`
+
+When a pattern is detected and you are idle for `idle_delay` milliseconds,
+a suggestion appears via |vim.notify()|. If nvim-notify is installed, it
+appears as a floating notification in the lower right corner.
+
+SUPPRESSION ~
+
+If a suggestion is not relevant to you, open |:TobiraProgress| and press
+`x` on the command to suppress it permanently. Suppressed commands are
+marked with `✗` and will never be suggested again unless you unsuppress them.
+
+DATA STORAGE ~
+
+Usage data is stored locally at: >
+
+  ~/.local/share/nvim/tobira/usage.json
+<
+No data is sent externally.
+
+==============================================================================
+vim:tw=78:ts=8:ft=help:norl:
