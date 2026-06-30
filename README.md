@@ -119,6 +119,8 @@ require("tobira").setup({
 | `:TobiraStats` | Show usage stats: command distribution (never/tried/familiar/mastered) and efficiency gap suggestions |
 | `:TobiraReset` | Clear all usage data |
 
+Full documentation is available in Neovim via `:help tobira`.
+
 ---
 
 ## 🔍 Requirements
