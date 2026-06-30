@@ -59,11 +59,11 @@ No quizzes. No interruptions. Just your habits, and the better path.
 | You do this | tobira suggests |
 |---|---|
 | `fa` → `fa` on the same line | `;` — repeat the last f/t/F/T |
-| `dw` → `i` (delete then retype) | `cw` / `ciw` |
+| `dw` → `i` (delete then retype) | `cw` — change word directly |
 | `x` × 3 in a row | `{n}x` — count prefix |
 | `u` × 3 in a row | `<C-r>` — redo |
 | `dd` → `p` | `ddp` — swap lines in one motion |
-| `j` × 5 in a row | `{n}j` / `<C-d>` |
+| `j` × 5 in a row | `{n}j` — count prefix |
 | `k` × 5 in a row | `{n}k` — count prefix |
 | `0` → `w` | `^` — first non-blank character |
 | `n` × 4 after a search | `cgn` — change next match |
