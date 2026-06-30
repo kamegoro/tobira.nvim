@@ -359,6 +359,176 @@ describe('when manual is called and the user level limits the suggestion pool', 
   end)
 end)
 
+-- ── Ambient idle timer (setup_idle / teardown_idle / fire_ambient) ─────────
+
+describe('when setup_idle is called with idle_suggestions disabled', function()
+  before_each(function()
+    logger.reset()
+    config.reset()
+    suggest.reset_session()
+  end)
+
+  it('does not register the idle watcher', function()
+    config.setup({ idle_suggestions = false })
+    assert.has_no_error(function()
+      suggest.setup_idle()
+      suggest.teardown_idle()
+    end)
+  end)
+end)
+
+describe('when setup_idle is called multiple times', function()
+  before_each(function()
+    logger.reset()
+    config.reset()
+    suggest.reset_session()
+  end)
+  after_each(function()
+    suggest.teardown_idle()
+  end)
+
+  it('registers only once without error', function()
+    config.setup({ idle_suggestions = true, idle_delay = 60000 })
+    assert.has_no_error(function()
+      suggest.setup_idle()
+      suggest.setup_idle()
+    end)
+  end)
+end)
+
+describe('when teardown_idle is called without prior setup', function()
+  before_each(function()
+    logger.reset()
+    config.reset()
+    suggest.reset_session()
+  end)
+
+  it('does nothing without error', function()
+    assert.has_no_error(function()
+      suggest.teardown_idle()
+    end)
+  end)
+end)
+
+describe('when teardown_idle is called after setup_idle', function()
+  before_each(function()
+    logger.reset()
+    config.reset()
+    suggest.reset_session()
+  end)
+
+  it('cleans up without error', function()
+    config.setup({ idle_suggestions = true, idle_delay = 60000 })
+    assert.has_no_error(function()
+      suggest.setup_idle()
+      suggest.teardown_idle()
+    end)
+  end)
+end)
+
+describe('when the idle timer fires in normal mode with a suggestion available', function()
+  before_each(function()
+    logger.reset()
+    config.reset()
+    suggest.reset_session()
+  end)
+  after_each(function()
+    suggest.teardown_idle()
+  end)
+
+  it('shows the best suggestion', function()
+    config.setup({ idle_suggestions = true, idle_delay = 10, suggestion_cooldown = 0 })
+    local usage = logger.get_all()
+    usage['f'] = { count = 5, shown = 0, sessions = {}, suppressed = false }
+    local shown = false
+    package.loaded['tobira.ui.float'] = { show = function() shown = true end }
+    suggest.setup_idle()
+    vim.fn.feedkeys('j', 'x')
+    vim.wait(500, function() return shown end, 10)
+    package.loaded['tobira.ui.float'] = nil
+    assert.is_true(shown)
+  end)
+end)
+
+describe('when the idle timer fires but the cooldown is still active', function()
+  before_each(function()
+    logger.reset()
+    config.reset()
+    suggest.reset_session()
+  end)
+  after_each(function()
+    suggest.teardown_idle()
+  end)
+
+  it('does not show another suggestion', function()
+    config.setup({ idle_suggestions = true, idle_delay = 10, suggestion_cooldown = 3600 })
+    local usage = logger.get_all()
+    usage['f'] = { count = 5, shown = 0, sessions = {}, suppressed = false }
+    -- First suggestion triggers the cooldown clock.
+    with_float_spy(function() suggest.show(';') end)
+    local shown = false
+    package.loaded['tobira.ui.float'] = { show = function() shown = true end }
+    suggest.setup_idle()
+    vim.fn.feedkeys('j', 'x')
+    vim.wait(300, function() return shown end, 10)
+    package.loaded['tobira.ui.float'] = nil
+    assert.is_false(shown)
+  end)
+end)
+
+describe('when the idle timer fires with no suggestion available', function()
+  before_each(function()
+    logger.reset()
+    config.reset()
+    suggest.reset_session()
+  end)
+  after_each(function()
+    suggest.teardown_idle()
+  end)
+
+  it('does not show anything', function()
+    config.setup({ idle_suggestions = true, idle_delay = 10, suggestion_cooldown = 0 })
+    local shown = false
+    package.loaded['tobira.ui.float'] = { show = function() shown = true end }
+    suggest.setup_idle()
+    vim.fn.feedkeys('j', 'x')
+    vim.wait(300, function() return shown end, 10)
+    package.loaded['tobira.ui.float'] = nil
+    assert.is_false(shown)
+  end)
+end)
+
+describe('when the idle timer fires while not in normal mode', function()
+  before_each(function()
+    logger.reset()
+    config.reset()
+    suggest.reset_session()
+  end)
+  after_each(function()
+    suggest.teardown_idle()
+  end)
+
+  it('does not show a suggestion', function()
+    config.setup({ idle_suggestions = true, idle_delay = 10, suggestion_cooldown = 0 })
+    local usage = logger.get_all()
+    usage['f'] = { count = 5, shown = 0, sessions = {}, suppressed = false }
+    -- Patch vim.fn.mode so fire_ambient sees a non-normal mode when the timer fires.
+    local orig_mode = vim.fn.mode
+    local ok, err = pcall(function()
+      vim.fn.mode = function() return 'i' end
+      local shown = false
+      package.loaded['tobira.ui.float'] = { show = function() shown = true end }
+      suggest.setup_idle()
+      vim.fn.feedkeys('j', 'x')
+      vim.wait(300, function() return shown end, 10)
+      package.loaded['tobira.ui.float'] = nil
+      assert.is_false(shown)
+    end)
+    vim.fn.mode = orig_mode
+    assert.is_true(ok, err)
+  end)
+end)
+
 -- ── Multi-char adoption detection (#25) ────────────────────────────────────
 
 local ESC = vim.api.nvim_replace_termcodes('<Esc>', true, false, true)

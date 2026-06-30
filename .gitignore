@@ -7,3 +7,4 @@ luacov.report.out
 CLAUDE.md
 PLAN.md
 .agent/
+.github/copilot-instructions.md

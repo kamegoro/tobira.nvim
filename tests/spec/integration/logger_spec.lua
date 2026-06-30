@@ -428,6 +428,24 @@ describe('when stats are displayed', function()
     assert.is_not_nil(message)
     assert.is_not_nil(message:find('cw'))
   end)
+
+  it('includes the efficiency gap section when a high-ratio pair exists', function()
+    local usage = logger.get_all()
+    -- f is the trigger for ; (which starts at 0). ratio = 100/1 = 100 >= 5.
+    usage['f'] = { count = 100, shown = 0, sessions = {}, suppressed = false }
+
+    local message = nil
+    local orig = vim.notify
+    vim.notify = function(msg, _)
+      message = msg
+    end
+    local ok, err = pcall(logger.stats)
+    vim.notify = orig
+
+    assert.is_true(ok, err)
+    assert.is_not_nil(message)
+    assert.is_not_nil(message:find('→', 1, true), 'expected efficiency gap arrows in stats output')
+  end)
 end)
 
 -- ── save ─────────────────────────────────────────────────────────────────────
