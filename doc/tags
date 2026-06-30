@@ -12,6 +12,7 @@ tobira-config-max_shown	tobira.txt	/*tobira-config-max_shown*
 tobira-config-suggestion_cooldown	tobira.txt	/*tobira-config-suggestion_cooldown*
 tobira-contents	tobira.txt	/*tobira-contents*
 tobira-introduction	tobira.txt	/*tobira-introduction*
+tobira-patterns	tobira.txt	/*tobira-patterns*
 tobira-setup	tobira.txt	/*tobira-setup*
 tobira-usage	tobira.txt	/*tobira-usage*
 tobira.txt	tobira.txt	/*tobira.txt*
