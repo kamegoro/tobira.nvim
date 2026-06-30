@@ -12,6 +12,30 @@ local ICON = ''
 
 local setup_hls = require('tobira.ui.hls').setup
 
+-- Returns usage data for a skills item.
+-- Composite items (track array) use the minimum count across tracked keys.
+-- Single-key items use the logger entry directly.
+local function item_data(item)
+  local logger = require('tobira.core.logger')
+  if item.adopted then
+    return logger.get(item.adopted)
+  end
+  if item.track then
+    local min_count = math.huge
+    for _, k in ipairs(item.track) do
+      min_count = math.min(min_count, logger.get(k).count)
+    end
+    return {
+      count = min_count == math.huge and 0 or min_count,
+      sessions = {},
+      shown = 0,
+      suppressed = false,
+      pinned = false,
+    }
+  end
+  return { count = 0, sessions = {}, shown = 0, suppressed = false, pinned = false }
+end
+
 local SYM_FULL = '★' -- U+2605, 3 bytes, 1 display col
 local SYM_OPEN = '☆' -- U+2606, 3 bytes, 1 display col
 local SYM_SUPPRESSED = '✗' -- U+2717, 3 bytes, 1 display col
@@ -82,7 +106,7 @@ local function build()
       local row_hls = {}
 
       for _, item in ipairs(row_items) do
-        local data = logger.get(item.adopted)
+        local data = item_data(item)
         local sym, sym_bytes, sym_disp, group = mastery_sym(data)
         local pin_mark = data.pinned and '*' or ''
         local disp_w = sym_disp + 1 + #item.keys + #pin_mark

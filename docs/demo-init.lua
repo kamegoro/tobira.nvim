@@ -37,29 +37,36 @@ require('notify').setup({
 })
 vim.notify = require('notify')
 
--- Seed usage data so the demo shows a realistic intermediate-level state:
---   f=18  → ';' suggestion fires immediately (trigger count > 0, ';' unused)
---   hjkl (173 total) / f (18) / i (45) / x (22) exceed guide thresholds → ✓
---   w/b (23 total) below threshold → ○ (contrast visible in :TobiraGuide)
+-- Seed usage data showcasing the new mastery-star and pin system:
+--   ★★★ ciw (5200) / cw (1500) / dw (1200)  — max mastery
+--   ★★  u (1100)                              — high
+--   ★   h/j/k/l/w/b/i (100-200)              — learned, excluded from guide
+--   ☆   f (42) / x (28) / n (35)             — seen but not mastered
+--   ✗   dd (88)                               — suppressed by user
+--   ⊙   <C-r> pinned=true                     — appears in Pinned section
 --   guide_seen=true so the cheatsheet doesn't auto-open on startup
 local data_dir = vim.fn.stdpath('data') .. '/tobira'
 vim.fn.mkdir(data_dir, 'p')
 local seed = io.open(data_dir .. '/usage.json', 'w')
 if seed then
   seed:write(vim.json.encode({
-    f = { count = 18, sessions = {}, shown = 0, suppressed = false },
-    h = { count = 45, sessions = { 10, 12, 8 }, shown = 0, suppressed = false },
-    j = { count = 62, sessions = { 12, 15, 10 }, shown = 0, suppressed = false },
-    k = { count = 28, sessions = { 6, 7, 5 }, shown = 0, suppressed = false },
-    l = { count = 38, sessions = { 8, 9, 7 }, shown = 0, suppressed = false },
-    w = { count = 15, sessions = { 2, 3, 1 }, shown = 0, suppressed = false },
-    b = { count = 8, sessions = { 1, 2, 1 }, shown = 0, suppressed = false },
-    i = { count = 45, sessions = { 8, 10, 7 }, shown = 0, suppressed = false },
-    x = { count = 22, sessions = { 4, 5, 3 }, shown = 0, suppressed = false },
-    p = { count = 8, sessions = { 1, 2, 1 }, shown = 0, suppressed = false },
-    u = { count = 9, sessions = { 2, 2, 1 }, shown = 0, suppressed = false },
-    n = { count = 15, sessions = { 3, 4, 3 }, shown = 0, suppressed = false },
-    _meta = { guide_seen = true },
+    h      = { count = 180, sessions = { 8,  9, 11 }, shown = 0, suppressed = false, pinned = false },
+    j      = { count = 240, sessions = { 12,14, 10 }, shown = 0, suppressed = false, pinned = false },
+    k      = { count = 130, sessions = { 6,  7,  8 }, shown = 0, suppressed = false, pinned = false },
+    l      = { count = 160, sessions = { 9, 10,  8 }, shown = 0, suppressed = false, pinned = false },
+    w      = { count = 110, sessions = { 5,  6,  7 }, shown = 0, suppressed = false, pinned = false },
+    b      = { count = 105, sessions = { 4,  5,  6 }, shown = 0, suppressed = false, pinned = false },
+    i      = { count = 200, sessions = { 10,11,  9 }, shown = 0, suppressed = false, pinned = false },
+    u      = { count = 1100,sessions = { 15,18, 20 }, shown = 0, suppressed = false, pinned = false },
+    dw     = { count = 1200,sessions = { 15,18, 20 }, shown = 0, suppressed = false, pinned = false },
+    cw     = { count = 1500,sessions = { 18,20, 22 }, shown = 0, suppressed = false, pinned = false },
+    ciw    = { count = 5200,sessions = { 25,28, 30 }, shown = 0, suppressed = false, pinned = false },
+    f      = { count = 42,  sessions = { 2,  3,  4 }, shown = 1, suppressed = false, pinned = false },
+    x      = { count = 28,  sessions = { 1,  2,  3 }, shown = 0, suppressed = false, pinned = false },
+    n      = { count = 35,  sessions = { 2,  2,  3 }, shown = 0, suppressed = false, pinned = false },
+    dd     = { count = 88,  sessions = { 4,  5,  3 }, shown = 0, suppressed = true,  pinned = false },
+    ['<C-r>'] = { count = 12, sessions = { 1, 1, 2 }, shown = 0, suppressed = false, pinned = true },
+    _meta  = { guide_seen = true },
   }))
   seed:close()
 end
