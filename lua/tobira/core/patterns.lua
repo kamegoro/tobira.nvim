@@ -12,11 +12,16 @@ function M.new_seq()
     run = { key = nil, count = 0 },
     prev_key = nil,
     dd_streak = 0,
+    -- r-replacement tracking: r{char} l r{char} l r{char} → R
+    pending_r = false,
+    r_streak = 0,
+    -- visual text-object tracking: v i {obj} c/d/y → c/d/yiw etc.
+    pending_visual = false,
+    visual_inner = nil,
+    visual_obj = nil,
   }
 end
 
--- Keys that enter insert mode directly (no operator). Used to detect the
--- "deleted a word, then retyped it" inefficiency where `cw` is faster.
 local INSERT_KEYS = {
   i = true,
   I = true,
@@ -38,23 +43,25 @@ local function track_run(seq, key)
 end
 
 local function inner_feed(seq, key, line)
-  -- f / F / t / T: pend until the target character arrives
+  -- ── f / F / t / T ────────────────────────────────────────────────────────
   if key == 'f' or key == 'F' or key == 't' or key == 'T' then
     seq.pending_f = key
     seq.pending_op = nil
     seq.run = { key = nil, count = 0 }
+    seq.r_streak = 0
+    seq.visual_obj = nil
+    seq.visual_inner = nil
+    seq.pending_visual = false
     return nil
   end
 
   if seq.pending_f then
     local op = seq.pending_f
     seq.pending_f = nil
-
     local fired = nil
     if seq.last_f and seq.last_f.line == line and seq.last_f.char == key and seq.last_f.op == op then
       fired = { pattern = 'f_repeat', cmd = ';' }
     end
-
     seq.last_f = { char = key, line = line, op = op }
     return fired
   end
@@ -63,7 +70,46 @@ local function inner_feed(seq, key, line)
     seq.last_f = nil
   end
 
-  -- Complete a pending text object (i/a + one more char → charwise).
+  -- ── pending_r: consume replacement character ──────────────────────────────
+  if seq.pending_r then
+    seq.pending_r = false
+    seq.r_streak = seq.r_streak + 1
+    if seq.r_streak >= 3 then
+      seq.r_streak = 0
+      return { pattern = 'r_run', cmd = 'R' }
+    end
+    return nil
+  end
+
+  -- ── visual text-object tracking ───────────────────────────────────────────
+  -- State: pending_visual → visual_inner → visual_obj → operator
+  if seq.visual_obj then
+    if key == 'c' or key == 'd' or key == 'y' then
+      local cmd = key .. seq.visual_inner .. seq.visual_obj
+      seq.visual_obj = nil
+      seq.visual_inner = nil
+      return { pattern = 'visual_textobj', cmd = cmd }
+    end
+    -- Non-operator: cancel and fall through
+    seq.visual_obj = nil
+    seq.visual_inner = nil
+  end
+
+  if seq.visual_inner then
+    seq.visual_obj = key
+    return nil
+  end
+
+  if seq.pending_visual then
+    seq.pending_visual = false
+    if key == 'i' or key == 'a' then
+      seq.visual_inner = key
+    end
+    -- Whether accepted or cancelled, consume and return
+    return nil
+  end
+
+  -- ── pending_text_obj ──────────────────────────────────────────────────────
   if seq.pending_text_obj then
     local op = seq.pending_text_obj
     seq.pending_text_obj = nil
@@ -71,23 +117,17 @@ local function inner_feed(seq, key, line)
     return nil
   end
 
-  -- Complete a pending operator.
+  -- ── pending_op ────────────────────────────────────────────────────────────
   if seq.pending_op then
     local op = seq.pending_op
-
-    -- Count digits: keep waiting for the actual motion.
     if key:match('^[1-9]$') then
       return nil
     end
-
     seq.pending_op = nil
-
     if key == '\27' then
       return nil
     elseif key == op or key == 'j' or key == 'k' then
-      -- linewise: dd / cc / dj / dk
       seq.last_op = 'dd'
-      -- Track consecutive dd for dd_run detection.
       if key == op then
         seq.dd_streak = seq.dd_streak + 1
         if seq.dd_streak >= 3 then
@@ -105,47 +145,76 @@ local function inner_feed(seq, key, line)
     return nil
   end
 
-  -- d / c: start waiting for the motion character
+  -- ── d / c operator start ──────────────────────────────────────────────────
   if key == 'd' or key == 'c' then
     seq.pending_op = key
     seq.run = { key = nil, count = 0 }
     return nil
   end
 
-  -- dd → p (swap lines)
+  -- ── r: single-char replace ────────────────────────────────────────────────
+  if key == 'r' then
+    seq.pending_r = true
+    return nil
+  end
+
+  -- ── v: start visual text-object tracking ─────────────────────────────────
+  if key == 'v' then
+    seq.pending_visual = true
+    return nil
+  end
+
+  -- ── r_streak reset for keys that break the r-replacement flow ────────────
+  -- h and l are safe navigation between replacements; everything else resets.
+  if key ~= 'h' and key ~= 'l' then
+    seq.r_streak = 0
+  end
+
+  -- ── dd → p (swap lines) ──────────────────────────────────────────────────
   if key == 'p' and seq.last_op == 'dd' then
     seq.last_op = nil
     seq.dd_streak = 0
     return { pattern = 'dd_then_p', cmd = 'ddp' }
   end
 
-  -- 0 → w: first non-blank is faster
+  -- ── dd → insert: suggest cc ──────────────────────────────────────────────
+  if seq.last_op == 'dd' and INSERT_KEYS[key] then
+    seq.last_op = nil
+    seq.dd_streak = 0
+    return { pattern = 'dd_then_insert', cmd = 'cc' }
+  end
+
+  -- ── 0 → w: first non-blank ───────────────────────────────────────────────
   if key == 'w' and seq.run.key == '0' then
     return { pattern = 'zero_then_w', cmd = '^' }
   end
 
-  -- 0 or ^ → i: suggest I.
-  -- run.key check guards against d^ followed by i (pending_op path doesn't update run).
+  -- ── 0 / ^ → i: suggest I ────────────────────────────────────────────────
   if key == 'i' and (seq.run.key == '0' or seq.run.key == '^') then
     return { pattern = 'zero_then_insert', cmd = 'I' }
   end
 
-  -- $ → a: suggest A.
+  -- ── $ → a: suggest A ─────────────────────────────────────────────────────
   if key == 'a' and seq.run.key == '$' then
     return { pattern = 'dollar_then_append', cmd = 'A' }
   end
 
-  -- k → o (exactly one k preceding): suggest O (open line above).
+  -- ── k (exactly once) → o: suggest O ─────────────────────────────────────
   if key == 'o' and seq.run.key == 'k' and seq.run.count == 1 then
     return { pattern = 'k_then_o', cmd = 'O' }
   end
 
-  -- D → insert: suggest C (change to end of line).
+  -- ── x (exactly once) → insert: suggest s ─────────────────────────────────
+  if INSERT_KEYS[key] and seq.run.key == 'x' and seq.run.count == 1 then
+    return { pattern = 'x_then_insert', cmd = 's' }
+  end
+
+  -- ── D → insert: suggest C ────────────────────────────────────────────────
   if INSERT_KEYS[key] and seq.run.key == 'D' then
     return { pattern = 'D_then_insert', cmd = 'C' }
   end
 
-  -- dw → insert: suggest cw (change word directly instead of delete-then-retype).
+  -- ── dw → insert: suggest cw ──────────────────────────────────────────────
   if seq.last_op == 'dw' and INSERT_KEYS[key] then
     seq.last_op = nil
     return { pattern = 'dw_then_insert', cmd = 'cw' }
@@ -156,9 +225,9 @@ local function inner_feed(seq, key, line)
     seq.dd_streak = 0
   end
 
-  -- Consecutive-run patterns.
-  -- Use == (not >=) so each threshold fires exactly once; higher thresholds
-  -- for the same key can coexist (e.g., j_repeat at 5 and j_many at 10).
+  -- ── consecutive-run patterns ──────────────────────────────────────────────
+  -- == (not >=): each threshold fires exactly once, enabling multi-threshold
+  -- patterns like j_repeat(5) and j_many(10) for the same key.
   local count = track_run(seq, key)
 
   if key == 'x' and count == 3 then

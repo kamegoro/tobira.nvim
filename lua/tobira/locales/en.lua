@@ -897,5 +897,46 @@ return {
       body = "Moves the cursor to the line where mark 'a' was set\nUse backtick `a for column-precise jumps; combine with ma for navigation anchors",
       example = "ma → mark; dd → edit elsewhere; 'a → return to marked line",
     },
+
+    -- ── l → w / h → b word motion (detected by l_repeat / h_repeat) ──────────
+    ['w'] = {
+      title = 'w — move to the start of the next word',
+      body = 'Jumps forward one word at a time rather than one character at a time\nFaster than pressing l repeatedly — use w to move by word, l to fine-tune position',
+      example = 'w w w → advance three words forward',
+    },
+    ['b'] = {
+      title = 'b — move to the start of the previous word',
+      body = 'Jumps backward one word at a time — the complement of w\nFaster than pressing h repeatedly when moving left several words',
+      example = 'b b b → move back three words',
+    },
+
+    -- ── count prefix variants ─────────────────────────────────────────────────
+    ['{n}dd'] = {
+      title = '{n}dd — delete multiple lines at once',
+      body = 'Prefix dd with a count to delete that many lines in one command\n3dd deletes 3 lines starting from the cursor — no need to repeat dd',
+      example = '3dd → deletes 3 lines at once',
+    },
+    ['{n}p'] = {
+      title = '{n}p — paste multiple times at once',
+      body = 'Prefix p with a count to paste the same content N times in a row\n3p pastes the yanked text 3 times — faster than pressing p repeatedly',
+      example = '3p → paste the same content 3 times',
+    },
+    ['{n}P'] = {
+      title = '{n}P — paste above the cursor multiple times',
+      body = 'P pastes before the cursor; prefix with a count to repeat it\n3P pastes the yanked text 3 times above the current line',
+      example = '3P → paste 3 times above the cursor',
+    },
+    ['{n}~'] = {
+      title = '{n}~ — toggle case of multiple characters',
+      body = '~ toggles one character and advances; prefix with a count to toggle several at once\n3~ toggles the next 3 characters — saves repeating ~ multiple times',
+      example = '3~ on "hello" → "HEllo"',
+    },
+
+    -- ── diw (detected by visual_textobj v i w d) ─────────────────────────────
+    ['diw'] = {
+      title = 'diw — delete inner word',
+      body = 'Deletes the entire word under the cursor regardless of where the cursor sits within it\nciw changes the word; diw deletes it — no need to visually select first',
+      example = 'he|llo → diw → word deleted, cursor stays in place',
+    },
   },
 }

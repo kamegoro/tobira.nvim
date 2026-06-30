@@ -62,7 +62,13 @@ No quizzes. No interruptions. Just your habits, and the better path.
 | `dw` → `i` (delete then retype) | `cw` — change word directly |
 | `x` × 3 in a row | `{n}x` — count prefix |
 | `u` × 3 in a row | `<C-r>` — redo |
+| `fa` → `fa` on the same line | `;` — repeat the last f/t |
+| `dw` → `i` (delete then retype) | `cw` — change word directly |
+| `x` → `i` (delete char, enter insert) | `s` — substitute in one key |
+| `x` × 3 in a row | `{n}x` — count prefix |
+| `u` × 3 in a row | `<C-r>` — redo |
 | `dd` → `p` | `ddp` — swap lines in one motion |
+| `dd` → `i` (delete line, re-enter insert) | `cc` — change whole line |
 | `dd` × 3 in a row | `{n}dd` — count prefix |
 | `j` × 5 in a row | `{n}j` — count prefix |
 | `j` × 10 in a row | `}` — jump by paragraph |
@@ -81,6 +87,8 @@ No quizzes. No interruptions. Just your habits, and the better path.
 | `p` × 3 in a row | `{n}p` — count prefix |
 | `P` × 3 in a row | `{n}P` — count prefix |
 | `~` × 3 in a row | `{n}~` — toggle case of N chars |
+| `r{x}` × 3 in a row | `R` — enter replace mode |
+| `v` `i` `w` `c` / `d` / `y` | `ciw` / `diw` / `yiw` — text object shortcut |
 
 ---
 

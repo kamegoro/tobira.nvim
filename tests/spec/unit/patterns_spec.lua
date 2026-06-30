@@ -553,6 +553,159 @@ describe('when the user goes up one line then opens a line below', function()
   end)
 end)
 
+-- ── x (once) → i: suggest s (substitute = delete char + enter insert) ────────
+
+describe('when the user deletes one character then enters insert mode', function()
+  it('fires x_then_insert suggesting s', function()
+    local s = seq()
+    patterns.feed(s, 'x', 1)
+    local result = patterns.feed(s, 'i', 1)
+    assert.is_not_nil(result)
+    assert.equals('x_then_insert', result.pattern)
+    assert.equals('s', result.cmd)
+  end)
+
+  it('also fires for a / o after x', function()
+    local s = seq()
+    patterns.feed(s, 'x', 1)
+    local result = patterns.feed(s, 'a', 1)
+    assert.is_not_nil(result)
+    assert.equals('x_then_insert', result.pattern)
+  end)
+
+  it('does not fire after x x x (x_repeat territory)', function()
+    local s = seq()
+    patterns.feed(s, 'x', 1)
+    patterns.feed(s, 'x', 1)
+    patterns.feed(s, 'x', 1)  -- x_repeat fires here
+    local result = patterns.feed(s, 'i', 1)
+    assert.is_nil(result)
+  end)
+
+  it('does not fire when another key comes between x and insert', function()
+    local s = seq()
+    patterns.feed(s, 'x', 1)
+    patterns.feed(s, 'l', 1)
+    local result = patterns.feed(s, 'i', 1)
+    assert.is_nil(result)
+  end)
+end)
+
+-- ── dd → insert: suggest cc (change line instead of delete + re-enter) ────────
+
+describe('when the user deletes a line then enters insert mode', function()
+  it('fires dd_then_insert suggesting cc', function()
+    local s = seq()
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'd', 1)
+    local result = patterns.feed(s, 'i', 1)
+    assert.is_not_nil(result)
+    assert.equals('dd_then_insert', result.pattern)
+    assert.equals('cc', result.cmd)
+  end)
+
+  it('also fires for a and o after dd', function()
+    local s = seq()
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'd', 1)
+    local result = patterns.feed(s, 'o', 1)
+    assert.is_not_nil(result)
+    assert.equals('dd_then_insert', result.pattern)
+  end)
+end)
+
+-- ── r × 3: suggest R (replace mode) ──────────────────────────────────────────
+
+describe('when the user replaces individual characters 3 or more times', function()
+  it('fires r_run suggesting R after r{char} × 3', function()
+    local s = seq()
+    patterns.feed(s, 'r', 1) ; patterns.feed(s, 'a', 1)  -- 1st replacement
+    patterns.feed(s, 'l', 1)                               -- navigate
+    patterns.feed(s, 'r', 1) ; patterns.feed(s, 'b', 1)  -- 2nd replacement
+    patterns.feed(s, 'l', 1)
+    patterns.feed(s, 'r', 1)                               -- 3rd r
+    local result = patterns.feed(s, 'c', 1)               -- replacement char → fires
+    assert.is_not_nil(result)
+    assert.equals('r_run', result.pattern)
+    assert.equals('R', result.cmd)
+  end)
+
+  it('does not fire after only 2 replacements', function()
+    local s = seq()
+    patterns.feed(s, 'r', 1) ; patterns.feed(s, 'a', 1)
+    patterns.feed(s, 'l', 1)
+    patterns.feed(s, 'r', 1)
+    local result = patterns.feed(s, 'b', 1)
+    assert.is_nil(result)
+  end)
+
+  it('resets the streak when a non-navigation key appears between replacements', function()
+    local s = seq()
+    patterns.feed(s, 'r', 1) ; patterns.feed(s, 'a', 1)  -- streak=1
+    patterns.feed(s, 'r', 1) ; patterns.feed(s, 'b', 1)  -- streak=2
+    patterns.feed(s, 'j', 1)  -- j resets streak to 0
+    -- Only 2 more replacements after the reset: not enough to fire
+    patterns.feed(s, 'r', 1) ; patterns.feed(s, 'c', 1)  -- streak=1
+    patterns.feed(s, 'r', 1)
+    local result = patterns.feed(s, 'd', 1)               -- streak=2, still below threshold
+    assert.is_nil(result)
+  end)
+end)
+
+-- ── v i {obj} c/d/y → c/d/y + i + {obj} text object shortcut ────────────────
+
+describe('when the user selects an inner text object visually then operates', function()
+  it('fires visual_textobj ciw for v i w c', function()
+    local s = seq()
+    patterns.feed(s, 'v', 1)
+    patterns.feed(s, 'i', 1)
+    patterns.feed(s, 'w', 1)
+    local result = patterns.feed(s, 'c', 1)
+    assert.is_not_nil(result)
+    assert.equals('visual_textobj', result.pattern)
+    assert.equals('ciw', result.cmd)
+  end)
+
+  it('fires visual_textobj yiw for v i w y', function()
+    local s = seq()
+    patterns.feed(s, 'v', 1)
+    patterns.feed(s, 'i', 1)
+    patterns.feed(s, 'w', 1)
+    local result = patterns.feed(s, 'y', 1)
+    assert.is_not_nil(result)
+    assert.equals('yiw', result.cmd)
+  end)
+
+  it('fires visual_textobj diw for v i w d', function()
+    local s = seq()
+    patterns.feed(s, 'v', 1)
+    patterns.feed(s, 'i', 1)
+    patterns.feed(s, 'w', 1)
+    local result = patterns.feed(s, 'd', 1)
+    assert.is_not_nil(result)
+    assert.equals('diw', result.cmd)
+  end)
+
+  it('fires ci" for v i " c', function()
+    local s = seq()
+    patterns.feed(s, 'v', 1)
+    patterns.feed(s, 'i', 1)
+    patterns.feed(s, '"', 1)
+    local result = patterns.feed(s, 'c', 1)
+    assert.is_not_nil(result)
+    assert.equals('ci"', result.cmd)
+  end)
+
+  it('cancels when a non-i/a key follows v', function()
+    local s = seq()
+    patterns.feed(s, 'v', 1)
+    patterns.feed(s, 'j', 1)  -- visual line-select, not a text object
+    local result = patterns.feed(s, 'c', 1)
+    -- c after v j is a normal visual change, not a text object suggestion
+    assert.is_nil(result)
+  end)
+end)
+
 -- ── operator cancel ───────────────────────────────────────────────────────────
 
 describe('when the user cancels a pending operator with Escape', function()

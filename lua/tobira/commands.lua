@@ -306,6 +306,19 @@ M.registry = {
   ['<C-w>l'] = { requires = '<C-w>w', track = false, category = 'window', level = 'intermediate' },
   ['<C-w>q'] = { requires = '<C-w>w', track = false, category = 'window', level = 'intermediate' },
   ['<C-w>='] = { requires = '<C-w>w', track = false, category = 'window', level = 'intermediate' },
+
+  -- ── l → w / h → b basic word motion (suggested by l_repeat / h_repeat) ───────
+  ['w'] = { requires = 'l', track = true, category = 'motion', level = 'beginner' },
+  ['b'] = { requires = 'h', track = true, category = 'motion', level = 'beginner' },
+
+  -- ── count prefix variants (suggested by run patterns) ────────────────────────
+  ['{n}dd'] = { requires = 'dd', track = false, category = 'edit', level = 'intermediate' },
+  ['{n}p'] = { requires = 'p', track = false, category = 'edit', level = 'intermediate' },
+  ['{n}P'] = { requires = 'P', track = false, category = 'edit', level = 'intermediate' },
+  ['{n}~'] = { requires = '~', track = false, category = 'edit', level = 'intermediate' },
+
+  -- ── diw (suggested by v i w d) ───────────────────────────────────────────────
+  ['diw'] = { requires = 'ciw', track = false, category = 'edit', level = 'intermediate' },
 }
 
 return M
