@@ -5,13 +5,17 @@ local graph = require('tobira.core.graph')
 local M = {}
 
 local session = {
-  auto_count = 0,
   last_auto_at = nil,
   timer = nil,
   watching_ns = {},
 }
 
+local _idle_timer = nil
+local _idle_ns = nil
+
 local KEY_BUF_MAX = 20
+
+local LEVEL_UP = { novice = 'beginner', beginner = 'intermediate', intermediate = 'advanced', advanced = 'advanced' }
 
 -- Normalise <C-x> / <M-x> style command strings to the form keytrans() returns,
 -- so suffix matching works regardless of capitalisation in commands.lua.
@@ -92,13 +96,58 @@ local function do_show(cmd)
 end
 
 local function over_auto_limit()
-  if session.auto_count >= config.values.max_per_session then
-    return true
+  if not session.last_auto_at then
+    return false
   end
-  if session.last_auto_at and (vim.loop.now() - session.last_auto_at) < config.values.min_interval_ms then
-    return true
+  local elapsed_s = (vim.loop.now() - session.last_auto_at) / 1000
+  return elapsed_s < config.values.suggestion_cooldown
+end
+
+local function fire_ambient()
+  if vim.fn.mode():sub(1, 1) ~= 'n' then
+    return
   end
-  return false
+  if over_auto_limit() then
+    return
+  end
+  local level = require('tobira.core.level')
+  local max_lv = LEVEL_UP[level.get()] or 'advanced'
+  local best = graph.find_best(logger.get_all(), config.values.max_shown, max_lv)
+  if best then
+    M.show(best)
+  end
+end
+
+-- Start the ambient idle watcher. Called once from init.lua after config is set.
+-- Each keypress resets the idle timer; when it fires, show the best suggestion.
+function M.setup_idle()
+  if not config.values.idle_suggestions then
+    return
+  end
+  if _idle_ns then
+    return
+  end
+  _idle_timer = vim.loop.new_timer()
+  _idle_ns = vim.api.nvim_create_namespace('tobira_idle')
+  vim.on_key(function()
+    if not _idle_timer then
+      return
+    end
+    _idle_timer:stop()
+    _idle_timer:start(config.values.idle_delay, 0, vim.schedule_wrap(fire_ambient))
+  end, _idle_ns)
+end
+
+function M.teardown_idle()
+  if _idle_timer then
+    _idle_timer:stop()
+    _idle_timer:close()
+    _idle_timer = nil
+  end
+  if _idle_ns then
+    vim.on_key(nil, _idle_ns)
+    _idle_ns = nil
+  end
 end
 
 function M.queue(_, cmd)
@@ -120,7 +169,6 @@ function M.show(cmd)
     return
   end
   if do_show(cmd) then
-    session.auto_count = session.auto_count + 1
     session.last_auto_at = vim.loop.now()
   end
 end
@@ -130,12 +178,9 @@ function M.reset_session()
   for _, ns in pairs(session.watching_ns) do
     vim.on_key(nil, ns)
   end
-  session.auto_count = 0
   session.last_auto_at = nil
   session.watching_ns = {}
 end
-
-local LEVEL_UP = { novice = 'beginner', beginner = 'intermediate', intermediate = 'advanced', advanced = 'advanced' }
 
 function M.manual()
   local level = require('tobira.core.level')
