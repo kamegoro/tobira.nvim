@@ -413,8 +413,9 @@ describe('when stats are displayed', function()
 
   it('notifies the user with a summary of recorded usage', function()
     local usage = logger.get_all()
-    usage['dd'] = { count = 7, shown = 0, sessions = {}, suppressed = false }
     usage['cw'] = { count = 3, shown = 1, sessions = { 8 }, suppressed = false }
+    -- ';' is non-compound with a different count → sort comparator fires (count branch)
+    usage[';'] = { count = 5, shown = 0, sessions = {}, suppressed = false }
 
     local message = nil
     local orig = vim.notify
@@ -426,7 +427,26 @@ describe('when stats are displayed', function()
 
     assert.is_true(ok, err)
     assert.is_not_nil(message)
-    assert.is_not_nil(message:find('cw'))
+    assert.is_not_nil(message:find('cw', 1, true))
+  end)
+
+  it('sorts commands with equal counts alphabetically in the summary', function()
+    local usage = logger.get_all()
+    usage['cw'] = { count = 3, shown = 0, sessions = {}, suppressed = false }
+    usage[';'] = { count = 3, shown = 0, sessions = {}, suppressed = false }
+
+    local message = nil
+    local orig = vim.notify
+    vim.notify = function(msg, _)
+      message = msg
+    end
+    local ok, err = pcall(logger.stats)
+    vim.notify = orig
+
+    assert.is_true(ok, err)
+    assert.is_not_nil(message)
+    -- ';' < 'cw' alphabetically → ';' must appear before 'cw'
+    assert.is_true(message:find(';', 1, true) < message:find('cw', 1, true))
   end)
 
   it('includes the efficiency gap section when a high-ratio pair exists', function()
