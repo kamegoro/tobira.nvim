@@ -333,6 +333,25 @@ describe('guide_commands', function()
     assert.is_true(found_intermediate, 'should include intermediate commands')
   end)
 
+  it('shows advanced commands when all beginner and intermediate commands are mastered', function()
+    local usage = {}
+    for cmd, entry in pairs(commands.registry) do
+      if not entry.compound and (entry.level == 'beginner' or entry.level == 'intermediate') then
+        usage[cmd] = mastered()
+      end
+    end
+    local result = graph.guide_commands(usage)
+    local found_advanced = false
+    for _, cmds in pairs(result) do
+      for _, cmd in ipairs(cmds) do
+        if commands.registry[cmd].level == 'advanced' then
+          found_advanced = true
+        end
+      end
+    end
+    assert.is_true(found_advanced, 'should include advanced commands')
+  end)
+
   it('sorts commands alphabetically within each category', function()
     local result = graph.guide_commands({})
     for _, cmds in pairs(result) do
