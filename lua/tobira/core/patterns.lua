@@ -10,6 +10,7 @@ function M.new_seq()
     pending_op = nil,
     last_op = nil,
     run = { key = nil, count = 0 },
+    prev_key = nil,
   }
 end
 
@@ -35,7 +36,7 @@ local function track_run(seq, key)
   return seq.run.count
 end
 
-function M.feed(seq, key, line)
+local function inner_feed(seq, key, line)
   -- f / F / t / T: pend until the target character arrives
   if key == 'f' or key == 'F' or key == 't' or key == 'T' then
     seq.pending_f = key
@@ -113,6 +114,24 @@ function M.feed(seq, key, line)
     return { pattern = 'zero_then_w', cmd = '^' }
   end
 
+  -- 0 or ^ → i: suggest I (insert at first non-blank of line).
+  -- Uses seq.run.key so that d^ followed by i does not false-fire
+  -- (d resets the run; ^ inside pending_op returns early without updating run).
+  if key == 'i' and (seq.run.key == '0' or seq.run.key == '^') then
+    return { pattern = 'zero_then_insert', cmd = 'I' }
+  end
+
+  -- $ → a: suggest A (append at end of line).
+  -- Same guard: d$ returns early from pending_op without updating run.
+  if key == 'a' and seq.run.key == '$' then
+    return { pattern = 'dollar_then_append', cmd = 'A' }
+  end
+
+  -- k → o (exactly one k): suggest O (open line above current position).
+  if key == 'o' and seq.run.key == 'k' and seq.run.count == 1 then
+    return { pattern = 'k_then_o', cmd = 'O' }
+  end
+
   -- dw → i/a/o/s (entering insert to retype the word) → cw is faster
   if seq.last_op == 'dw' and INSERT_KEYS[key] then
     seq.last_op = nil
@@ -136,9 +155,21 @@ function M.feed(seq, key, line)
     return { pattern = 'k_repeat', cmd = '{n}k' }
   elseif key == 'n' and count >= 4 then
     return { pattern = 'n_repeat', cmd = 'cgn' }
+  elseif key == 'l' and count >= 5 then
+    return { pattern = 'l_repeat', cmd = 'w' }
+  elseif key == 'h' and count >= 5 then
+    return { pattern = 'h_repeat', cmd = 'b' }
+  elseif key == 'p' and count >= 3 then
+    return { pattern = 'p_repeat', cmd = '{n}p' }
   end
 
   return nil
+end
+
+function M.feed(seq, key, line)
+  local result = inner_feed(seq, key, line)
+  seq.prev_key = key
+  return result
 end
 
 return M

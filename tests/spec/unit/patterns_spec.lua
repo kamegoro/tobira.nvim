@@ -277,6 +277,154 @@ describe('when the user deletes a word then enters insert mode to retype it', fu
   end)
 end)
 
+-- ── l / h repeat (move by character instead of word) ─────────────────────────
+
+local lh_cases = {
+  { key = 'l', threshold = 5, pattern = 'l_repeat', cmd = 'w' },
+  { key = 'h', threshold = 5, pattern = 'h_repeat', cmd = 'b' },
+}
+
+for _, tc in ipairs(lh_cases) do
+  describe('when ' .. tc.key .. ' is pressed ' .. tc.threshold .. ' or more times in a row', function()
+    it('fires ' .. tc.pattern .. ' suggesting ' .. tc.cmd, function()
+      local s = seq()
+      for _ = 1, tc.threshold - 1 do
+        patterns.feed(s, tc.key, 1)
+      end
+      local result = patterns.feed(s, tc.key, 1)
+      assert.is_not_nil(result)
+      assert.equals(tc.pattern, result.pattern)
+      assert.equals(tc.cmd, result.cmd)
+    end)
+
+    it('does not fire after only ' .. (tc.threshold - 1) .. ' presses', function()
+      local s = seq()
+      for _ = 1, tc.threshold - 2 do
+        patterns.feed(s, tc.key, 1)
+      end
+      local result = patterns.feed(s, tc.key, 1)
+      assert.is_nil(result)
+    end)
+  end)
+end
+
+-- ── p repeat (paste multiple times) ──────────────────────────────────────────
+
+describe('when p is pressed 3 or more times in a row without a preceding dd', function()
+  it('fires p_repeat suggesting {n}p', function()
+    local s = seq()
+    patterns.feed(s, 'p', 1)
+    patterns.feed(s, 'p', 1)
+    local result = patterns.feed(s, 'p', 1)
+    assert.is_not_nil(result)
+    assert.equals('p_repeat', result.pattern)
+    assert.equals('{n}p', result.cmd)
+  end)
+
+  it('does not fire after only 2 presses', function()
+    local s = seq()
+    patterns.feed(s, 'p', 1)
+    local result = patterns.feed(s, 'p', 1)
+    assert.is_nil(result)
+  end)
+end)
+
+-- ── $ → a (append at end of line) ────────────────────────────────────────────
+
+describe('when the user moves to end of line then appends', function()
+  it('fires dollar_then_append suggesting A', function()
+    local s = seq()
+    patterns.feed(s, '$', 1)
+    local result = patterns.feed(s, 'a', 1)
+    assert.is_not_nil(result)
+    assert.equals('dollar_then_append', result.pattern)
+    assert.equals('A', result.cmd)
+  end)
+
+  it('does not fire dollar_then_append when $ is used as a d motion (d$)', function()
+    local s = seq()
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, '$', 1)
+    local result = patterns.feed(s, 'a', 1)
+    -- dw_then_insert may fire, but dollar_then_append must not
+    if result then
+      assert.is_not_equal('dollar_then_append', result.pattern)
+    end
+  end)
+
+  it('does not fire when another key comes between $ and a', function()
+    local s = seq()
+    patterns.feed(s, '$', 1)
+    patterns.feed(s, 'l', 1)
+    local result = patterns.feed(s, 'a', 1)
+    assert.is_nil(result)
+  end)
+end)
+
+-- ── 0 / ^ → i (insert at beginning of line) ──────────────────────────────────
+
+describe('when the user goes to column 0 then enters insert mode', function()
+  it('fires zero_then_insert suggesting I', function()
+    local s = seq()
+    patterns.feed(s, '0', 1)
+    local result = patterns.feed(s, 'i', 1)
+    assert.is_not_nil(result)
+    assert.equals('zero_then_insert', result.pattern)
+    assert.equals('I', result.cmd)
+  end)
+end)
+
+describe('when the user goes to first non-blank then enters insert mode', function()
+  it('fires zero_then_insert suggesting I', function()
+    local s = seq()
+    patterns.feed(s, '^', 1)
+    local result = patterns.feed(s, 'i', 1)
+    assert.is_not_nil(result)
+    assert.equals('zero_then_insert', result.pattern)
+    assert.equals('I', result.cmd)
+  end)
+
+  it('does not fire zero_then_insert when ^ is used as a d motion (d^)', function()
+    local s = seq()
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, '^', 1)
+    local result = patterns.feed(s, 'i', 1)
+    -- dw_then_insert may fire, but zero_then_insert must not
+    if result then
+      assert.is_not_equal('zero_then_insert', result.pattern)
+    end
+  end)
+end)
+
+-- ── k → o (open line above current position) ─────────────────────────────────
+
+describe('when the user goes up one line then opens a line below', function()
+  it('fires k_then_o suggesting O', function()
+    local s = seq()
+    patterns.feed(s, 'k', 1)
+    local result = patterns.feed(s, 'o', 1)
+    assert.is_not_nil(result)
+    assert.equals('k_then_o', result.pattern)
+    assert.equals('O', result.cmd)
+  end)
+
+  it('does not fire when k is pressed more than once (deliberate navigation)', function()
+    local s = seq()
+    patterns.feed(s, 'k', 1)
+    patterns.feed(s, 'k', 1)
+    local result = patterns.feed(s, 'o', 1)
+    assert.is_nil(result)
+  end)
+
+  it('does not fire when another key separates k and o', function()
+    local s = seq()
+    patterns.feed(s, 'k', 1)
+    patterns.feed(s, 'w', 1)
+    local result = patterns.feed(s, 'o', 1)
+    assert.is_nil(result)
+  end)
+end)
+
 -- ── operator cancel ───────────────────────────────────────────────────────────
 
 describe('when the user cancels a pending operator with Escape', function()
