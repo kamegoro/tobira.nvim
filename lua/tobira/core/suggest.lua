@@ -48,7 +48,8 @@ end
 
 local function should_suppress(cmd)
   local data = logger.get(cmd)
-  return graph.is_adopted(data) or data.suppressed or data.shown >= config.values.max_shown
+  local mastered = graph.mastery_level(data) >= 2 and not graph.is_forgotten(data)
+  return mastered or data.suppressed or data.shown >= config.values.max_shown
 end
 
 local function cancel_timer()

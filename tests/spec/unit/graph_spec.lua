@@ -33,12 +33,12 @@ describe('when ; is used often (user already knows it)', function()
   end)
 end)
 
-describe('when the best candidate has been adopted by the user', function()
+describe('when the best candidate has reached mastery level (count >= 100)', function()
   it('has no suggestion to offer', function()
     local usage = {
       u = usage_entry(10),
-      ['<C-r>'] = usage_entry(0, { 5, 6, 7 }),  -- avg 6 ≥ 5 → adopted
-      U = usage_entry(0, { 5, 6, 7 }),           -- also adopted → excluded
+      ['<C-r>'] = usage_entry(100, {}),  -- mastery_level 2 → excluded
+      U = usage_entry(100, {}),           -- mastery_level 2 → excluded
     }
     assert.is_nil(graph.find_best(usage))
   end)
@@ -49,7 +49,7 @@ describe('when the best candidate has been shown the maximum number of times', f
     local usage = {
       u = usage_entry(10),
       ['<C-r>'] = usage_entry(5, {}, 3),  -- shown 3 times (default max)
-      U = usage_entry(0, { 5, 6, 7 }),    -- adopted → excluded
+      U = usage_entry(100, {}),            -- mastered → excluded
     }
     assert.is_nil(graph.find_best(usage))
   end)
@@ -141,20 +141,20 @@ describe('when a command was adopted but recently fell out of use', function()
 
   it('returns to suggestion pool when forgotten', function()
     local usage = {
-      u = usage_entry(20),
-      ['<C-r>'] = usage_entry(3, { 8, 9, 0, 0 }),  -- forgotten (used less than trigger → positive score)
-      U = usage_entry(0, { 5, 6, 7 }),               -- adopted → excluded
+      u = usage_entry(500),
+      ['<C-r>'] = usage_entry(120, { 8, 9, 0, 0 }),  -- mastered but forgotten → back in pool (score 500-120=380)
+      U = usage_entry(100, {}),                        -- mastered and not forgotten → excluded
     }
     assert.equals('<C-r>', graph.find_best(usage))
   end)
 end)
 
 describe('when a command is explicitly suppressed', function()
-  it('is never suggested even with low session usage', function()
+  it('is never suggested even with low usage', function()
     local usage = {
       u = usage_entry(10),
       ['<C-r>'] = usage_entry(0, {}, 0, true),  -- suppressed
-      U = usage_entry(0, { 5, 6, 7 }),           -- adopted → excluded
+      U = usage_entry(100, {}),                  -- mastered → excluded
     }
     assert.is_nil(graph.find_best(usage))
   end)
@@ -225,7 +225,7 @@ describe('when max_shown is lowered below the default', function()
     local usage = {
       u = usage_entry(10),
       ['<C-r>'] = usage_entry(0, {}, 2),  -- shown 2 times
-      U = usage_entry(0, { 5, 6, 7 }),    -- adopted → excluded
+      U = usage_entry(100, {}),            -- mastered → excluded
     }
     assert.is_nil(graph.find_best(usage, 2))
   end)

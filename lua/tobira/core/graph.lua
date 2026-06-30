@@ -203,8 +203,8 @@ function M.find_best(usage, max_shown, max_level)
     if cmd_level_num <= max_level_num then
       local data = usage[cmd] or { count = 0, sessions = {}, shown = 0, suppressed = false }
 
-      local suppressed = data.suppressed or false
-      local offered = (not M.is_adopted(data) or M.is_forgotten(data)) and not suppressed and data.shown < max_shown
+      local mastered = M.mastery_level(data) >= 2 and not M.is_forgotten(data)
+      local offered = not mastered and not data.suppressed and data.shown < max_shown
 
       if offered then
         local trigger_count = (usage[sug.trigger] and usage[sug.trigger].count) or 0

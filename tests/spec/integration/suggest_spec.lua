@@ -15,7 +15,7 @@ local function with_float_spy(fn)
   return called
 end
 
-describe('when a command has been adopted by the user', function()
+describe('when a command has reached mastery level (count >= 100)', function()
   before_each(function()
     logger.reset()
     config.reset()
@@ -23,8 +23,8 @@ describe('when a command has been adopted by the user', function()
   end)
 
   it('never shows it again', function()
-    logger.mark_shown(';')
-    logger.mark_adopted(';')
+    local usage = logger.get_all()
+    usage[';'] = { count = 100, sessions = {}, shown = 0, suppressed = false, pinned = false }
 
     local shown = with_float_spy(function()
       suggest.show(';')
@@ -239,8 +239,8 @@ describe('when queueing a command that should be suppressed', function()
   end)
 
   it('does not schedule a suggestion', function()
-    logger.mark_shown(';')
-    logger.mark_adopted(';')
+    local usage = logger.get_all()
+    usage[';'] = { count = 100, sessions = {}, shown = 0, suppressed = false, pinned = false }
     assert.has_no_error(function()
       suggest.queue('f_repeat', ';')
     end)
