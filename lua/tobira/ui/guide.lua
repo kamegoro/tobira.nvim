@@ -7,7 +7,7 @@ local _ns = vim.api.nvim_create_namespace('tobira_guide')
 local WIDTH = 54
 local ICON = '' -- nerd font fa-info-circle (matches nvim-notify INFO icon)
 
-local CATEGORY_ORDER = { 'motion', 'edit', 'search', 'window' }
+local CATEGORY_ORDER = { 'motion', 'edit', 'search', 'window', 'fold', 'mark', 'macro' }
 
 local setup_hls = require('tobira.ui.hls').setup
 

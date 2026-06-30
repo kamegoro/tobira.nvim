@@ -54,10 +54,11 @@ local function load()
     meta = vim.tbl_extend('force', meta, data._meta)
     data._meta = nil
   end
-  -- Migrate entries from old format on load
+  -- Migrate entries from old format on load; reset shown so max_shown is per-session
   for _, entry in pairs(data) do
     if type(entry) == 'table' then
       migrate_entry(entry)
+      entry.shown = 0
     end
   end
   return data
@@ -266,19 +267,53 @@ end
 
 function M.stats()
   local str = require('tobira.i18n').load()
-  local lines = { str.stats.title, string.rep('─', 28) }
+  local graph = require('tobira.core.graph')
+  local cmds = require('tobira.commands')
+
+  local dist = graph.knowledge_dist(usage)
+  local gaps = graph.efficiency_gaps(usage, 3)
+
+  local SEP = string.rep('─', 32)
+  local dist_line =
+    string.format('Never:%-3d  ☆:%-3d  ★:%-3d  ★★+:%-3d', dist.never, dist.tried, dist.familiar, dist.mastered)
+  local lines = { str.stats.title, SEP, dist_line }
+
+  if #gaps > 0 then
+    table.insert(lines, SEP)
+    table.insert(lines, '⚡ Try these next:')
+    for _, g in ipairs(gaps) do
+      table.insert(
+        lines,
+        string.format('  %-8s (%d×)  →  %-8s (%d×)', g.parent, g.parent_count, g.child, g.child_count)
+      )
+    end
+  end
+
+  table.insert(lines, SEP)
+
   local sorted = {}
   for cmd, data in pairs(usage) do
-    table.insert(sorted, { cmd = cmd, data = data })
+    if cmd ~= '_meta' and cmds.registry[cmd] and not cmds.registry[cmd].compound then
+      table.insert(sorted, { cmd = cmd, data = data })
+    end
   end
   table.sort(sorted, function(a, b)
-    return a.data.count > b.data.count
+    if a.data.count ~= b.data.count then
+      return a.data.count > b.data.count
+    end
+    return a.cmd < b.cmd
   end)
-  for _, item in ipairs(sorted) do
-    local graph = require('tobira.core.graph')
-    local mark = graph.is_adopted(item.data) and '✅' or '  '
-    table.insert(lines, string.format('%s %-12s %d %s', mark, item.cmd, item.data.count, str.stats.times))
+
+  local star_lv = { [0] = '', [1] = '☆', [2] = '★', [3] = '★★', [4] = '★★★' }
+  local function rpad(s, n)
+    return s .. string.rep(' ', math.max(0, n - vim.fn.strdisplaywidth(s)))
   end
+  for _, item in ipairs(sorted) do
+    local lv = graph.mastery_level(item.data)
+    local line = rpad(star_lv[lv], 5) .. rpad(item.cmd, 14) .. item.data.count .. ' ' .. str.stats.times
+    table.insert(lines, line)
+  end
+
   vim.notify(table.concat(lines, '\n'), vim.log.levels.INFO)
 end
 

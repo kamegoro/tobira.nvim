@@ -426,7 +426,7 @@ describe('when stats are displayed', function()
 
     assert.is_true(ok, err)
     assert.is_not_nil(message)
-    assert.is_not_nil(message:find('dd'))
+    assert.is_not_nil(message:find('cw'))
   end)
 end)
 

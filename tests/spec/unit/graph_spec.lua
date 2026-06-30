@@ -361,3 +361,99 @@ describe('guide_commands', function()
     end
   end)
 end)
+
+-- ── knowledge_dist ────────────────────────────────────────────────────────────
+
+describe('knowledge_dist', function()
+  it('counts every non-compound command as never when usage is empty', function()
+    local dist = graph.knowledge_dist({})
+    local commands = require('tobira.commands')
+    local total_non_compound = 0
+    for _, entry in pairs(commands.registry) do
+      if not entry.compound then
+        total_non_compound = total_non_compound + 1
+      end
+    end
+    assert.equals(total_non_compound, dist.never)
+    assert.equals(0, dist.tried)
+    assert.equals(0, dist.familiar)
+    assert.equals(0, dist.mastered)
+  end)
+
+  it('classifies a command with count=1 as tried', function()
+    local dist = graph.knowledge_dist({ [';'] = { count = 1, sessions = {} } })
+    assert.equals(1, dist.tried)
+  end)
+
+  it('classifies a command with count=100 as familiar', function()
+    local dist = graph.knowledge_dist({ [';'] = { count = 100, sessions = {} } })
+    assert.equals(1, dist.familiar)
+  end)
+
+  it('classifies a command with count=1000 as mastered', function()
+    local dist = graph.knowledge_dist({ [';'] = { count = 1000, sessions = {} } })
+    assert.equals(1, dist.mastered)
+  end)
+end)
+
+-- ── efficiency_gaps ───────────────────────────────────────────────────────────
+
+describe('efficiency_gaps', function()
+  it('returns empty list when usage is empty', function()
+    local gaps = graph.efficiency_gaps({})
+    assert.equals(0, #gaps)
+  end)
+
+  it('returns a gap when parent is used heavily and child is untouched', function()
+    local gaps = graph.efficiency_gaps({ f = { count = 200, sessions = {} } })
+    local found = false
+    for _, g in ipairs(gaps) do
+      if g.parent == 'f' and g.child == ';' then
+        found = true
+        assert.equals(200, g.parent_count)
+        assert.equals(0, g.child_count)
+      end
+    end
+    assert.is_true(found, 'should find f → ; gap')
+  end)
+
+  it('omits pairs where parent count is below the threshold', function()
+    local gaps = graph.efficiency_gaps({ f = { count = 10, sessions = {} } })
+    for _, g in ipairs(gaps) do
+      assert.not_equals('f', g.parent, 'f with only 10 uses should not generate a gap')
+    end
+  end)
+
+  it('omits pairs where the child is already mastered (count >= 100)', function()
+    local usage = {
+      f = { count = 500, sessions = {} },
+      [';'] = { count = 200, sessions = {} },
+    }
+    local gaps = graph.efficiency_gaps(usage)
+    for _, g in ipairs(gaps) do
+      assert.not_equals(';', g.child, '; is mastered and should not appear in gaps')
+    end
+  end)
+
+  it('returns at most limit results when limit is specified', function()
+    local usage = {}
+    local commands = require('tobira.commands')
+    for cmd, entry in pairs(commands.registry) do
+      if not entry.compound and entry.requires then
+        usage[entry.requires] = { count = 500, sessions = {} }
+      end
+    end
+    local gaps = graph.efficiency_gaps(usage, 3)
+    assert.is_true(#gaps <= 3)
+  end)
+
+  it('sorts results by ratio descending', function()
+    local gaps = graph.efficiency_gaps({
+      f = { count = 500, sessions = {} },
+      j = { count = 200, sessions = {} },
+    })
+    for i = 2, #gaps do
+      assert.is_true(gaps[i - 1].ratio >= gaps[i].ratio, 'gaps should be sorted by ratio desc')
+    end
+  end)
+end)

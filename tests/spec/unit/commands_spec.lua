@@ -75,8 +75,8 @@ describe('locale coverage', function()
 end)
 
 describe('every non-compound entry in the registry', function()
-  it('has a category field (motion | edit | search | window)', function()
-    local valid = { motion = true, edit = true, search = true, window = true }
+  it('has a category field (motion | edit | search | window | fold | mark | macro)', function()
+    local valid = { motion = true, edit = true, search = true, window = true, fold = true, mark = true, macro = true }
     for cmd, entry in pairs(commands.registry) do
       if not entry.compound then
         assert.is_not_nil(

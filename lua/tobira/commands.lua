@@ -145,7 +145,7 @@ M.registry = {
   ['yiw'] = { requires = 'cw', track = false, category = 'edit', level = 'intermediate' },
 
   -- ── . → q macros ─────────────────────────────────────────────────────────
-  ['q'] = { requires = '.', track = false, category = 'edit', level = 'advanced' },
+  ['q'] = { requires = '.', track = false, category = 'macro', level = 'beginner' },
 
   -- ── n → N backward search / * → # backward word search ──────────────────
   ['N'] = { requires = 'n', track = true, category = 'search', level = 'beginner' },
@@ -169,7 +169,13 @@ M.registry = {
   -- ── return to last insert / jump positions ────────────────────────────────
   ['gi'] = { requires = 'i', track = false, category = 'motion', level = 'intermediate' },
   ['<C-^>'] = { requires = '<C-o>', track = false, category = 'motion', level = 'intermediate' },
-  ["''"] = { requires = '<C-o>', track = false, category = 'motion', level = 'intermediate' },
+
+  -- ── marks ─────────────────────────────────────────────────────────────────
+  ["''"] = { requires = '<C-o>', track = false, category = 'mark', level = 'beginner' },
+  ["'."] = { requires = "''", track = false, category = 'mark', level = 'beginner' },
+  ["'^"] = { requires = "'.", track = false, category = 'mark', level = 'intermediate' },
+  ['ma'] = { requires = 'gd', track = false, category = 'mark', level = 'intermediate' },
+  ["'a"] = { requires = 'ma', track = false, category = 'mark', level = 'intermediate' },
 
   -- ── definition / file navigation ─────────────────────────────────────────
   ['gd'] = { requires = '*', track = false, category = 'motion', level = 'intermediate' },
@@ -182,11 +188,12 @@ M.registry = {
   ['gE'] = { requires = 'ge', track = false, category = 'motion', level = 'intermediate' },
 
   -- ── fold commands ─────────────────────────────────────────────────────────
-  ['za'] = { requires = 'zz', track = false, category = 'motion', level = 'intermediate' },
-  ['zo'] = { requires = 'za', track = false, category = 'motion', level = 'intermediate' },
-  ['zc'] = { requires = 'za', track = false, category = 'motion', level = 'intermediate' },
-  ['zM'] = { requires = 'za', track = false, category = 'motion', level = 'advanced' },
-  ['zR'] = { requires = 'zM', track = false, category = 'motion', level = 'advanced' },
+  ['za'] = { requires = 'zz', track = false, category = 'fold', level = 'beginner' },
+  ['zo'] = { requires = 'za', track = false, category = 'fold', level = 'intermediate' },
+  ['zc'] = { requires = 'za', track = false, category = 'fold', level = 'intermediate' },
+  ['zM'] = { requires = 'za', track = false, category = 'fold', level = 'intermediate' },
+  ['zR'] = { requires = 'zM', track = false, category = 'fold', level = 'intermediate' },
+  ['zf'] = { requires = 'zc', track = false, category = 'fold', level = 'advanced' },
 
   -- ── x → X delete before cursor ───────────────────────────────────────────
   ['X'] = { requires = 'x', track = true, category = 'edit', level = 'intermediate' },
@@ -214,7 +221,8 @@ M.registry = {
   ['gJ'] = { requires = 'J', track = false, category = 'edit', level = 'advanced' },
 
   -- ── q → @@ repeat last macro ──────────────────────────────────────────────
-  ['@@'] = { requires = 'q', track = false, category = 'edit', level = 'intermediate' },
+  ['@@'] = { requires = 'q', track = false, category = 'macro', level = 'beginner' },
+  ['@q'] = { requires = '@@', track = false, category = 'macro', level = 'intermediate' },
 
   -- ── ciw → text object chain ───────────────────────────────────────────────
   ['ci"'] = { requires = 'ciw', track = false, category = 'edit', level = 'intermediate' },
@@ -262,12 +270,12 @@ M.registry = {
   ['gP'] = { requires = 'gp', track = false, category = 'edit', level = 'advanced' },
 
   -- ── repeat last ex command ────────────────────────────────────────────────────
-  ['@:'] = { requires = '@@', track = false, category = 'edit', level = 'intermediate' },
+  ['@:'] = { requires = '@@', track = false, category = 'macro', level = 'intermediate' },
 
   -- ── fold navigation ───────────────────────────────────────────────────────────
-  ['zj'] = { requires = 'za', track = false, category = 'motion', level = 'intermediate' },
-  ['zk'] = { requires = 'zj', track = false, category = 'motion', level = 'intermediate' },
-  ['zd'] = { requires = 'zc', track = false, category = 'motion', level = 'intermediate' },
+  ['zj'] = { requires = 'za', track = false, category = 'fold', level = 'intermediate' },
+  ['zk'] = { requires = 'zj', track = false, category = 'fold', level = 'intermediate' },
+  ['zd'] = { requires = 'zc', track = false, category = 'fold', level = 'advanced' },
 
   -- ── e → E WORD-end forward ────────────────────────────────────────────────────
   ['E'] = { requires = 'e', track = false, category = 'motion', level = 'intermediate' },
@@ -280,7 +288,7 @@ M.registry = {
   ['ZQ'] = { requires = 'ZZ', track = false, category = 'edit', level = 'beginner' },
 
   -- ── q → q: command-line window ───────────────────────────────────────────────
-  ['q:'] = { requires = 'q', track = false, category = 'edit', level = 'advanced' },
+  ['q:'] = { requires = 'q', track = false, category = 'macro', level = 'advanced' },
 
   -- ── 0 → | go to column ───────────────────────────────────────────────────────
   ['|'] = { requires = '0', track = false, category = 'motion', level = 'intermediate' },

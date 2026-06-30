@@ -126,6 +126,71 @@ function M.guide_commands(usage)
   return by_cat
 end
 
+-- Returns knowledge distribution across all non-compound commands.
+-- Buckets: never (level 0), tried (1), familiar (2), mastered (3-4).
+function M.knowledge_dist(usage)
+  local cmds = require('tobira.commands')
+  local dist = { never = 0, tried = 0, familiar = 0, mastered = 0 }
+  for cmd, entry in pairs(cmds.registry) do
+    if not entry.compound then
+      local data = usage[cmd] or { count = 0 }
+      local lv = M.mastery_level(data)
+      if lv == 0 then
+        dist.never = dist.never + 1
+      elseif lv == 1 then
+        dist.tried = dist.tried + 1
+      elseif lv == 2 then
+        dist.familiar = dist.familiar + 1
+      else
+        dist.mastered = dist.mastered + 1
+      end
+    end
+  end
+  return dist
+end
+
+-- Returns pairs where the trigger (requires) is used heavily but the suggestion
+-- is rarely or never used, sorted by ratio descending.
+-- Only includes pairs where trigger count >= 50 and child mastery_level < 2.
+-- limit: optional cap on returned results.
+function M.efficiency_gaps(usage, limit)
+  local cmds = require('tobira.commands')
+  local gaps = {}
+  for cmd, entry in pairs(cmds.registry) do
+    if not entry.compound and entry.requires then
+      local parent = entry.requires
+      local parent_data = usage[parent] or { count = 0 }
+      local child_data = usage[cmd] or { count = 0 }
+      if parent_data.count >= 50 and M.mastery_level(child_data) < 2 then
+        local ratio = math.floor(parent_data.count / math.max(child_data.count, 1))
+        if ratio >= 5 then
+          table.insert(gaps, {
+            parent = parent,
+            child = cmd,
+            parent_count = parent_data.count,
+            child_count = child_data.count,
+            ratio = ratio,
+          })
+        end
+      end
+    end
+  end
+  table.sort(gaps, function(a, b)
+    if a.ratio ~= b.ratio then
+      return a.ratio > b.ratio
+    end
+    return a.child < b.child
+  end)
+  if limit then
+    local trimmed = {}
+    for i = 1, math.min(limit, #gaps) do
+      trimmed[i] = gaps[i]
+    end
+    return trimmed
+  end
+  return gaps
+end
+
 -- max_level: 'beginner' | 'intermediate' | 'advanced' | nil (no filter)
 function M.find_best(usage, max_shown, max_level)
   max_shown = max_shown or 3

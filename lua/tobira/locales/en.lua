@@ -122,6 +122,9 @@ return {
       edit = 'Edit',
       search = 'Search',
       window = 'Window',
+      fold = 'Fold',
+      mark = 'Mark',
+      macro = 'Macro',
     },
   },
   notifications = {
@@ -855,6 +858,42 @@ return {
       title = '_ — first non-blank of line (relative)',
       body = 'Moves to the first non-blank character of the current line\nWith a count N, moves N-1 lines down then goes to first non-blank',
       example = '^ → first non-blank; 3_ → first non-blank 2 lines down',
+    },
+
+    -- ── fold: additional commands ─────────────────────────────────────────
+    ['zf'] = {
+      title = 'zf — create a fold manually',
+      body = 'Creates a fold over a motion or visual selection (requires foldmethod=manual)\nUse zd to delete it; zf{motion} folds whatever the motion covers',
+      example = 'zfip → fold current paragraph; zd → delete that fold',
+    },
+
+    -- ── macro: play specific register ────────────────────────────────────
+    ['@q'] = {
+      title = '@q — play macro from register q',
+      body = 'Replays the sequence of keystrokes recorded in register q\nReplace q with any letter a-z to play from a different register',
+      example = 'qq → start recording; q → stop; @q → replay',
+    },
+
+    -- ── marks ─────────────────────────────────────────────────────────────
+    ["'."] = {
+      title = "'. — jump to last change position",
+      body = 'Moves the cursor to the exact position of the most recent edit\nFaster than using Ctrl-O repeatedly when you need to return to your last change',
+      example = "G then '. → jump to end, return to where you last edited",
+    },
+    ["'^"] = {
+      title = "'^ — jump to last insert position",
+      body = "Returns the cursor to the position where you last left insert mode\nDifferent from '. — tracks where you exited insert, not the last text change",
+      example = "A then <Esc> then '^ → jump back to end-of-line insert point",
+    },
+    ['ma'] = {
+      title = 'ma — set mark a at cursor',
+      body = "Sets a named mark 'a' at the current position\nUse any lowercase letter a-z; retrieve it with 'a (line) or `a (exact column)",
+      example = "ma → mark here; G → go somewhere; 'a → jump back to marked line",
+    },
+    ["'a"] = {
+      title = "'a — jump to mark a",
+      body = "Moves the cursor to the line where mark 'a' was set\nUse backtick `a for column-precise jumps; combine with ma for navigation anchors",
+      example = "ma → mark; dd → edit elsewhere; 'a → return to marked line",
     },
   },
 }
