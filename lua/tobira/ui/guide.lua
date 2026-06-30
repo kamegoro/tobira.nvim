@@ -4,7 +4,7 @@ local _win = nil
 local _buf = nil
 local _ns = vim.api.nvim_create_namespace('tobira_guide')
 
-local WIDTH = 46
+local WIDTH = 54
 local ICON = '' -- nerd font fa-info-circle (matches nvim-notify INFO icon)
 
 local CATEGORY_ORDER = { 'motion', 'edit', 'search', 'window' }
@@ -102,6 +102,15 @@ local function build()
   return lines, hls, strings
 end
 
+-- Returns the number of terminal rows the lines will occupy after wrapping.
+local function wrapped_height(lines)
+  local h = 0
+  for _, line in ipairs(lines) do
+    h = h + math.max(1, math.ceil(vim.fn.strdisplaywidth(line) / WIDTH))
+  end
+  return h
+end
+
 local function apply_content(lines, hls)
   vim.bo[_buf].modifiable = true
   vim.api.nvim_buf_set_lines(_buf, 0, -1, false, lines)
@@ -122,7 +131,7 @@ function M.refresh()
   end
   local lines, hls = build()
   apply_content(lines, hls)
-  vim.api.nvim_win_set_height(_win, #lines)
+  vim.api.nvim_win_set_height(_win, wrapped_height(lines))
 end
 
 function M.close()
@@ -156,7 +165,7 @@ function M.open()
   local uis = vim.api.nvim_list_uis()
   local screen_w = (uis[1] and uis[1].width) or 120
   local screen_h = (uis[1] and uis[1].height) or 40
-  local height = #lines
+  local height = math.min(wrapped_height(lines), screen_h - 4)
 
   _win = vim.api.nvim_open_win(_buf, false, {
     relative = 'editor',
@@ -173,7 +182,9 @@ function M.open()
   })
 
   vim.wo[_win].winhl = 'Normal:TobiraGuideNormal,FloatBorder:TobiraGuideBorder'
-  vim.wo[_win].wrap = false
+  vim.wo[_win].wrap = true
+  vim.wo[_win].linebreak = true
+  vim.wo[_win].breakindent = true
 
   -- Auto-refresh when moving between windows (context or mastery may change)
   vim.api.nvim_create_autocmd({ 'WinEnter', 'BufEnter' }, {
