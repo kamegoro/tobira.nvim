@@ -63,10 +63,24 @@ No quizzes. No interruptions. Just your habits, and the better path.
 | `x` × 3 in a row | `{n}x` — count prefix |
 | `u` × 3 in a row | `<C-r>` — redo |
 | `dd` → `p` | `ddp` — swap lines in one motion |
+| `dd` × 3 in a row | `{n}dd` — count prefix |
 | `j` × 5 in a row | `{n}j` — count prefix |
+| `j` × 10 in a row | `}` — jump by paragraph |
 | `k` × 5 in a row | `{n}k` — count prefix |
+| `k` × 10 in a row | `{` — jump by paragraph backward |
 | `0` → `w` | `^` — first non-blank character |
+| `0` or `^` → `i` | `I` — insert at first non-blank |
+| `$` → `a` | `A` — append at end of line |
+| `D` → `i` (delete EOL then re-enter insert) | `C` — change to end of line |
 | `n` × 4 after a search | `cgn` — change next match |
+| `l` × 5 in a row | `w` — jump by word |
+| `h` × 5 in a row | `b` — jump word backward |
+| `w` × 5 in a row | `W` — jump by WORD |
+| `b` × 5 in a row | `B` — jump WORD backward |
+| `k` (once) → `o` | `O` — open line above |
+| `p` × 3 in a row | `{n}p` — count prefix |
+| `P` × 3 in a row | `{n}P` — count prefix |
+| `~` × 3 in a row | `{n}~` — toggle case of N chars |
 
 ---
 

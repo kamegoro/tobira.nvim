@@ -123,11 +123,15 @@ end)
 -- x, u, j, k, n all share the same "fire after N presses" structure.
 
 local run_cases = {
-  { key = 'x', threshold = 3, pattern = 'x_repeat', cmd = '{n}x' },
-  { key = 'u', threshold = 3, pattern = 'u_repeat', cmd = '<C-r>' },
-  { key = 'j', threshold = 5, pattern = 'j_repeat', cmd = '{n}j' },
-  { key = 'k', threshold = 5, pattern = 'k_repeat', cmd = '{n}k' },
-  { key = 'n', threshold = 4, pattern = 'n_repeat', cmd = 'cgn' },
+  { key = 'x', threshold = 3, pattern = 'x_repeat',     cmd = '{n}x'  },
+  { key = 'u', threshold = 3, pattern = 'u_repeat',     cmd = '<C-r>' },
+  { key = 'j', threshold = 5, pattern = 'j_repeat',     cmd = '{n}j'  },
+  { key = 'k', threshold = 5, pattern = 'k_repeat',     cmd = '{n}k'  },
+  { key = 'n', threshold = 4, pattern = 'n_repeat',     cmd = 'cgn'   },
+  { key = 'w', threshold = 5, pattern = 'w_repeat',     cmd = 'W'     },
+  { key = 'b', threshold = 5, pattern = 'b_repeat',     cmd = 'B'     },
+  { key = 'P', threshold = 3, pattern = 'P_repeat',     cmd = '{n}P'  },
+  { key = '~', threshold = 3, pattern = 'tilde_repeat', cmd = '{n}~'  },
 }
 
 for _, tc in ipairs(run_cases) do
@@ -153,6 +157,130 @@ for _, tc in ipairs(run_cases) do
     end)
   end)
 end
+
+-- ── j / k higher-threshold: paragraph jump ────────────────────────────────────
+
+describe('when j is pressed 10 times in a row', function()
+  it('fires j_repeat at 5 and then j_many at 10 suggesting }', function()
+    local s = seq()
+    for _ = 1, 4 do patterns.feed(s, 'j', 1) end
+    local at5 = patterns.feed(s, 'j', 1)
+    assert.is_not_nil(at5)
+    assert.equals('j_repeat', at5.pattern)
+    for _ = 1, 4 do patterns.feed(s, 'j', 1) end
+    local at10 = patterns.feed(s, 'j', 1)
+    assert.is_not_nil(at10)
+    assert.equals('j_many', at10.pattern)
+    assert.equals('}', at10.cmd)
+  end)
+
+  it('does not fire j_many at 9 presses', function()
+    local s = seq()
+    for _ = 1, 9 do patterns.feed(s, 'j', 1) end
+    -- press 9: nothing fires (j_repeat already fired at 5)
+    -- just verify j_many hasn't fired (result may be nil, that's fine)
+    -- re-feed 9th to capture return value
+    local s2 = seq()
+    for _ = 1, 8 do patterns.feed(s2, 'j', 1) end
+    local result = patterns.feed(s2, 'j', 1)
+    if result then
+      assert.is_not_equal('j_many', result.pattern)
+    end
+  end)
+end)
+
+describe('when k is pressed 10 times in a row', function()
+  it('fires k_repeat at 5 and then k_many at 10 suggesting {', function()
+    local s = seq()
+    for _ = 1, 4 do patterns.feed(s, 'k', 1) end
+    local at5 = patterns.feed(s, 'k', 1)
+    assert.is_not_nil(at5)
+    assert.equals('k_repeat', at5.pattern)
+    for _ = 1, 4 do patterns.feed(s, 'k', 1) end
+    local at10 = patterns.feed(s, 'k', 1)
+    assert.is_not_nil(at10)
+    assert.equals('k_many', at10.pattern)
+    assert.equals('{', at10.cmd)
+  end)
+end)
+
+-- ── D → insert (delete to EOL then re-enter insert) ──────────────────────────
+
+describe('when the user deletes to end of line then enters insert mode', function()
+  it('fires D_then_insert suggesting C', function()
+    local s = seq()
+    patterns.feed(s, 'D', 1)
+    local result = patterns.feed(s, 'i', 1)
+    assert.is_not_nil(result)
+    assert.equals('D_then_insert', result.pattern)
+    assert.equals('C', result.cmd)
+  end)
+
+  it('also fires for A after D', function()
+    local s = seq()
+    patterns.feed(s, 'D', 1)
+    local result = patterns.feed(s, 'a', 1)
+    assert.is_not_nil(result)
+    assert.equals('D_then_insert', result.pattern)
+  end)
+
+  it('does not fire when another key separates D and the insert key', function()
+    local s = seq()
+    patterns.feed(s, 'D', 1)
+    patterns.feed(s, 'l', 1)
+    local result = patterns.feed(s, 'i', 1)
+    assert.is_nil(result)
+  end)
+end)
+
+-- ── dd × 3 (delete multiple lines) → {n}dd ────────────────────────────────────
+
+describe('when the user presses dd 3 or more times in a row', function()
+  it('fires dd_run suggesting {n}dd', function()
+    local s = seq()
+    -- 1st dd
+    patterns.feed(s, 'd', 1) ; patterns.feed(s, 'd', 1)
+    -- 2nd dd
+    patterns.feed(s, 'd', 1) ; patterns.feed(s, 'd', 1)
+    -- 3rd dd
+    patterns.feed(s, 'd', 1)
+    local result = patterns.feed(s, 'd', 1)
+    assert.is_not_nil(result)
+    assert.equals('dd_run', result.pattern)
+    assert.equals('{n}dd', result.cmd)
+  end)
+
+  it('does not fire after only 2 consecutive dd', function()
+    local s = seq()
+    patterns.feed(s, 'd', 1) ; patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'd', 1)
+    local result = patterns.feed(s, 'd', 1)
+    assert.is_nil(result)
+  end)
+
+  it('resets the streak when interrupted by a non-delete key', function()
+    local s = seq()
+    patterns.feed(s, 'd', 1) ; patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'd', 1) ; patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'j', 1)  -- interrupt
+    patterns.feed(s, 'd', 1) ; patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'd', 1)
+    local result = patterns.feed(s, 'd', 1)
+    assert.is_nil(result)
+  end)
+
+  it('resets the streak when dd is followed by p (dd→p pattern)', function()
+    local s = seq()
+    -- dd → p: swap lines, not a deletion streak
+    patterns.feed(s, 'd', 1) ; patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'p', 1)
+    -- Now two more dd: not enough for dd_run
+    patterns.feed(s, 'd', 1) ; patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'd', 1)
+    local result = patterns.feed(s, 'd', 1)
+    assert.is_nil(result)
+  end)
+end)
 
 describe('when x is interrupted by a different key', function()
   it('resets the run so subsequent x presses start fresh', function()

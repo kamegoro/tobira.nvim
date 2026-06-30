@@ -11,6 +11,7 @@ function M.new_seq()
     last_op = nil,
     run = { key = nil, count = 0 },
     prev_key = nil,
+    dd_streak = 0,
   }
 end
 
@@ -82,16 +83,23 @@ local function inner_feed(seq, key, line)
     seq.pending_op = nil
 
     if key == '\27' then
-      -- <Esc>: operator cancelled, nothing to record.
       return nil
     elseif key == op or key == 'j' or key == 'k' then
       -- linewise: dd / cc / dj / dk
       seq.last_op = 'dd'
+      -- Track consecutive dd for dd_run detection.
+      if key == op then
+        seq.dd_streak = seq.dd_streak + 1
+        if seq.dd_streak >= 3 then
+          seq.dd_streak = 0
+          return { pattern = 'dd_run', cmd = '{n}dd' }
+        end
+      else
+        seq.dd_streak = 0
+      end
     elseif key == 'i' or key == 'a' then
-      -- text object prefix: wait for the object character (diw, da", …)
       seq.pending_text_obj = op
     else
-      -- any other motion (w, b, e, $, ^, f, t, h, l, …): charwise
       seq.last_op = op .. 'w'
     end
     return nil
@@ -104,35 +112,40 @@ local function inner_feed(seq, key, line)
     return nil
   end
 
-  -- dd → p
+  -- dd → p (swap lines)
   if key == 'p' and seq.last_op == 'dd' then
+    seq.last_op = nil
+    seq.dd_streak = 0
     return { pattern = 'dd_then_p', cmd = 'ddp' }
   end
 
-  -- 0 → w
+  -- 0 → w: first non-blank is faster
   if key == 'w' and seq.run.key == '0' then
     return { pattern = 'zero_then_w', cmd = '^' }
   end
 
-  -- 0 or ^ → i: suggest I (insert at first non-blank of line).
-  -- Uses seq.run.key so that d^ followed by i does not false-fire
-  -- (d resets the run; ^ inside pending_op returns early without updating run).
+  -- 0 or ^ → i: suggest I.
+  -- run.key check guards against d^ followed by i (pending_op path doesn't update run).
   if key == 'i' and (seq.run.key == '0' or seq.run.key == '^') then
     return { pattern = 'zero_then_insert', cmd = 'I' }
   end
 
-  -- $ → a: suggest A (append at end of line).
-  -- Same guard: d$ returns early from pending_op without updating run.
+  -- $ → a: suggest A.
   if key == 'a' and seq.run.key == '$' then
     return { pattern = 'dollar_then_append', cmd = 'A' }
   end
 
-  -- k → o (exactly one k): suggest O (open line above current position).
+  -- k → o (exactly one k preceding): suggest O (open line above).
   if key == 'o' and seq.run.key == 'k' and seq.run.count == 1 then
     return { pattern = 'k_then_o', cmd = 'O' }
   end
 
-  -- dw → i/a/o/s (entering insert to retype the word) → cw is faster
+  -- D → insert: suggest C (change to end of line).
+  if INSERT_KEYS[key] and seq.run.key == 'D' then
+    return { pattern = 'D_then_insert', cmd = 'C' }
+  end
+
+  -- dw → insert: suggest cw (change word directly instead of delete-then-retype).
   if seq.last_op == 'dw' and INSERT_KEYS[key] then
     seq.last_op = nil
     return { pattern = 'dw_then_insert', cmd = 'cw' }
@@ -140,27 +153,42 @@ local function inner_feed(seq, key, line)
 
   if key ~= 'p' then
     seq.last_op = nil
+    seq.dd_streak = 0
   end
 
-  -- Consecutive-run patterns
+  -- Consecutive-run patterns.
+  -- Use == (not >=) so each threshold fires exactly once; higher thresholds
+  -- for the same key can coexist (e.g., j_repeat at 5 and j_many at 10).
   local count = track_run(seq, key)
 
-  if key == 'x' and count >= 3 then
+  if key == 'x' and count == 3 then
     return { pattern = 'x_repeat', cmd = '{n}x' }
-  elseif key == 'u' and count >= 3 then
+  elseif key == 'u' and count == 3 then
     return { pattern = 'u_repeat', cmd = '<C-r>' }
-  elseif key == 'j' and count >= 5 then
+  elseif key == 'j' and count == 5 then
     return { pattern = 'j_repeat', cmd = '{n}j' }
-  elseif key == 'k' and count >= 5 then
+  elseif key == 'j' and count == 10 then
+    return { pattern = 'j_many', cmd = '}' }
+  elseif key == 'k' and count == 5 then
     return { pattern = 'k_repeat', cmd = '{n}k' }
-  elseif key == 'n' and count >= 4 then
+  elseif key == 'k' and count == 10 then
+    return { pattern = 'k_many', cmd = '{' }
+  elseif key == 'n' and count == 4 then
     return { pattern = 'n_repeat', cmd = 'cgn' }
-  elseif key == 'l' and count >= 5 then
+  elseif key == 'l' and count == 5 then
     return { pattern = 'l_repeat', cmd = 'w' }
-  elseif key == 'h' and count >= 5 then
+  elseif key == 'h' and count == 5 then
     return { pattern = 'h_repeat', cmd = 'b' }
-  elseif key == 'p' and count >= 3 then
+  elseif key == 'w' and count == 5 then
+    return { pattern = 'w_repeat', cmd = 'W' }
+  elseif key == 'b' and count == 5 then
+    return { pattern = 'b_repeat', cmd = 'B' }
+  elseif key == 'p' and count == 3 then
     return { pattern = 'p_repeat', cmd = '{n}p' }
+  elseif key == 'P' and count == 3 then
+    return { pattern = 'P_repeat', cmd = '{n}P' }
+  elseif key == '~' and count == 3 then
+    return { pattern = 'tilde_repeat', cmd = '{n}~' }
   end
 
   return nil
