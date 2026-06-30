@@ -27,10 +27,10 @@ No quizzes. No interruptions. Just your habits, and the better path.
 
 - **Watches your keystrokes passively** — no config required, zero impact on your mappings
 - **Detects inefficient patterns** — repeated `f`, hammering `j`, `dw`→`i` instead of `cw`, and more
-- **Suggests the one better command** — shown once after a natural pause, up to 3 times per session
-- **Tracks mastery by watching your behavior** — start using the suggestion and tobira notices, never shows it again
+- **Suggests the one better command** — shown after a natural pause, up to `max_shown` times per session, with a cooldown between auto-suggestions
+- **Tracks mastery by watching your behavior** — once you've used a command ~100 times, tobira stops suggesting it
 - **Filters to your level** — beginner commands first, advanced ones once you're ready
-- **128 commands in the learning graph** — motion, edit, search, and window commands from the full Neovim index
+- **136 commands in the learning graph** — motion, edit, search, window, fold, mark, and macro commands from the full Neovim index
 
 ---
 
@@ -40,7 +40,7 @@ No quizzes. No interruptions. Just your habits, and the better path.
   <img src="docs/demo-guide.gif" alt=":TobiraGuide cheatsheet panel" width="720" />
 </p>
 
-`:TobiraGuide` opens a cheatsheet on the right side of the screen. Commands you've mastered show **✓** and reveal the next step with **→**. Shown automatically on first launch; adapts to context (shows file-tree shortcuts when neo-tree is active).
+`:TobiraGuide` opens a cheatsheet on the right side of the screen. Commands you've mastered show **✓** and reveal the next step with **→**. Covers all 7 categories: motion, edit, search, window, fold, mark, and macro. Shown automatically on first launch.
 
 ---
 
@@ -50,7 +50,7 @@ No quizzes. No interruptions. Just your habits, and the better path.
   <img src="docs/demo-progress.gif" alt=":TobiraProgress skill tree" width="720" />
 </p>
 
-`:TobiraProgress` shows your current level and the full learning graph. Press `x` on any row to permanently silence a suggestion you don't want.
+`:TobiraProgress` shows your current level and the full learning graph. Press `x` on any row to suppress a suggestion you don't want; press `x` again to restore it. Press `p` to pin a command so it always appears at the top of `:TobiraGuide`.
 
 ---
 
@@ -99,11 +99,11 @@ All options are optional — the defaults work out of the box.
 
 ```lua
 require("tobira").setup({
-  lang             = 'en',       -- 'en' | 'ja'
-  idle_delay       = 1500,       -- ms to wait after a pattern before showing
-  max_shown        = 3,          -- max times to suggest the same command
-  max_per_session  = 3,          -- max auto-suggestions per Neovim session
-  min_interval_ms  = 1800000,    -- min ms between auto-suggestions (default: 30 min)
+  lang                = 'en',    -- 'en' | 'ja'
+  idle_delay          = 1500,    -- ms of inactivity before showing an ambient suggestion
+  idle_suggestions    = true,    -- enable ambient idle suggestions
+  suggestion_cooldown = 300,     -- s between automatic suggestions (default: 5 min)
+  max_shown           = 2,       -- max times to suggest the same command per session
 })
 ```
 
@@ -113,12 +113,11 @@ require("tobira").setup({
 
 | Command | Description |
 |---|---|
-| `:Tobira` | Show the next suggestion now (doesn't count toward the session limit) |
+| `:Tobira` | Show the next suggestion now (ignores cooldown) |
 | `:TobiraGuide` | Toggle the cheatsheet panel |
 | `:TobiraProgress` | Show skill tree with level and mastered commands |
-| `:TobiraStats` | Show your command usage statistics |
+| `:TobiraStats` | Show usage stats: command distribution (never/tried/familiar/mastered) and efficiency gap suggestions |
 | `:TobiraReset` | Clear all usage data |
-| `:checkhealth tobira` | Verify the plugin is working correctly |
 
 ---
 

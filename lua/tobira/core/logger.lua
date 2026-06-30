@@ -274,13 +274,12 @@ function M.stats()
   local gaps = graph.efficiency_gaps(usage, 3)
 
   local SEP = string.rep('─', 32)
-  local dist_line =
-    string.format('Never:%-3d  ☆:%-3d  ★:%-3d  ★★+:%-3d', dist.never, dist.tried, dist.familiar, dist.mastered)
+  local dist_line = string.format(str.stats.dist_fmt, dist.never, dist.tried, dist.familiar, dist.mastered)
   local lines = { str.stats.title, SEP, dist_line }
 
   if #gaps > 0 then
     table.insert(lines, SEP)
-    table.insert(lines, '⚡ Try these next:')
+    table.insert(lines, str.stats.try_next)
     for _, g in ipairs(gaps) do
       table.insert(
         lines,

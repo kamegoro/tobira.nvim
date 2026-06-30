@@ -134,6 +134,8 @@ return {
   stats = {
     title = 'tobira — 使用統計',
     times = '回',
+    dist_fmt = '未使用:%-3d  ☆:%-3d  ★:%-3d  ★★+:%-3d',
+    try_next = '⚡ 次はこれを試してみよう:',
   },
   float = {
     example_prefix = '例: ',

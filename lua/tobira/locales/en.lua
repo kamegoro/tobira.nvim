@@ -134,6 +134,8 @@ return {
   stats = {
     title = 'tobira — usage stats',
     times = 'times',
+    dist_fmt = 'Never:%-3d  ☆:%-3d  ★:%-3d  ★★+:%-3d',
+    try_next = '⚡ Try these next:',
   },
   float = {
     example_prefix = 'e.g. ',
