@@ -54,7 +54,7 @@ jobs:
       - name: Run tests
         run: |
           nvim --headless --noplugin -u tests/minimal_init.lua \
-            -c "PlenaryBustedDirectory tests/spec/ {sequential = true}"
+            -c "PlenaryBustedDirectory tests/spec/ {minimal_init = 'tests/minimal_init.lua', sequential = true}"
 
   coverage:
     name: Coverage (core/ — 100%)

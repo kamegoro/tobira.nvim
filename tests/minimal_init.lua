@@ -1,3 +1,15 @@
+-- ── Isolate tests from the user's real data ─────────────────────────────────
+--
+-- tobira.core.logger reads/writes ~/.local/share/nvim/tobira/usage.json and
+-- logger.reset() (called in before_each of many specs) unlinks that file.
+-- Running the suite must NOT wipe the developer's real usage history.
+--
+-- We redirect vim.fn.stdpath('data') to a per-process temp directory. The
+-- override is installed AFTER plenary is located (plenary lives under the real
+-- data dir) but BEFORE any spec requires tobira.core.logger, which captures
+-- data_dir at require time.
+local _tobira_real_stdpath = vim.fn.stdpath
+
 -- Enable luacov coverage tracking when COVERAGE=1 is set.
 --
 -- PlenaryBustedDirectory spawns one child Neovim process per spec file, so the
@@ -62,3 +74,15 @@ vim.opt.rtp:prepend(plenary_path)
 -- With --noplugin, plugin/ files are not auto-sourced.
 -- Manually source plenary's plugin to register PlenaryBustedDirectory.
 vim.cmd('runtime plugin/plenary.vim')
+
+-- Now that plenary has been located under the REAL data dir, redirect
+-- stdpath('data') to a per-process temp dir so tobira.core.logger reads and
+-- writes an isolated usage.json for the duration of this test run.
+local _tobira_test_data = vim.fn.tempname()
+vim.fn.mkdir(_tobira_test_data, 'p')
+vim.fn.stdpath = function(what)
+  if what == 'data' then
+    return _tobira_test_data
+  end
+  return _tobira_real_stdpath(what)
+end
