@@ -38,15 +38,13 @@ end
 
 -- True when buf ends with the literal command string (post-normalisation), or
 -- when cmd is a count-prefix meta-command ({n}j / {n}x) and buf ends with
--- [1-9]\d*<effective-base>.  The effective base is resolved through
--- vim.fn.maparg so that user remaps like j→gj are handled transparently.
+-- [1-9]\d*<base>.  buf is built from typed (pre-mapping) keys, so we match
+-- against the raw base key, not the post-mapping expansion.
 -- Inspired by hardtime.nvim's rolling-buffer approach (MIT).
 local function buf_matches(cmd, buf)
   local base = cmd:match('^{n}(.+)$')
   if base then
-    local mapped = vim.fn.maparg(base, 'n')
-    local target = (mapped ~= '') and mapped or base
-    return buf:match('[1-9]%d*' .. vim.pesc(target) .. '$') ~= nil
+    return buf:match('[1-9]%d*' .. vim.pesc(base) .. '$') ~= nil
   end
   return #buf >= #cmd and buf:sub(-#cmd) == cmd
 end
