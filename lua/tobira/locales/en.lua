@@ -938,5 +938,38 @@ return {
       body = 'Deletes the entire word under the cursor regardless of where the cursor sits within it\nciw changes the word; diw deletes it — no need to visually select first',
       example = 'he|llo → diw → word deleted, cursor stays in place',
     },
+
+    -- ── yyp (detected by yy_then_p) ───────────────────────────────────────────
+    ['yyp'] = {
+      title = 'yyp — duplicate the current line',
+      body = 'Yanks the whole line and pastes it below — the idiomatic way to duplicate a line\nDoing yy then p is the same keystrokes, but thinking of it as yyp makes it a single intent',
+      example = 'yyp on "local x = 1" → duplicates that line below',
+    },
+
+    -- ── {n}. (detected by dot_repeat × 3) ────────────────────────────────────
+    ['{n}.'] = {
+      title = '{n}. — repeat the last change N times',
+      body = 'Prefix . with a count to repeat the last change that many times at once\n3. repeats three times in one command instead of pressing . three separate times',
+      example = '3. → repeat last change 3 times',
+    },
+
+    -- ── {n}J (detected by J_repeat × 3) ──────────────────────────────────────
+    ['{n}J'] = {
+      title = '{n}J — join multiple lines at once',
+      body = 'Prefix J with a count to join that many lines in one command\n3J joins the current line and the two lines below it — no need to press J repeatedly',
+      example = '3J → join current line with the next 2 lines',
+    },
+
+    -- ── {n}>> / {n}<< (detected by indent_run / dedent_run × 3) ─────────────
+    ['{n}>>'] = {
+      title = '{n}>> — indent multiple lines at once',
+      body = 'Prefix >> with a count to indent that many lines in one command\n3>> indents 3 lines starting from the cursor — faster than pressing >> repeatedly',
+      example = '3>> → indent 3 lines at once',
+    },
+    ['{n}<<'] = {
+      title = '{n}<< — dedent multiple lines at once',
+      body = 'Prefix << with a count to dedent that many lines in one command\n3<< removes one level of indentation from 3 lines starting from the cursor',
+      example = '3<< → dedent 3 lines at once',
+    },
   },
 }

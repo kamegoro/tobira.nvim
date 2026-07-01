@@ -132,6 +132,8 @@ local run_cases = {
   { key = 'b', threshold = 5, pattern = 'b_repeat',     cmd = 'B'     },
   { key = 'P', threshold = 3, pattern = 'P_repeat',     cmd = '{n}P'  },
   { key = '~', threshold = 3, pattern = 'tilde_repeat', cmd = '{n}~'  },
+  { key = '.', threshold = 3, pattern = 'dot_repeat',   cmd = '{n}.'  },
+  { key = 'J', threshold = 3, pattern = 'J_repeat',     cmd = '{n}J'  },
 }
 
 for _, tc in ipairs(run_cases) do
@@ -711,6 +713,136 @@ describe('when the user selects an inner text object visually then operates', fu
     patterns.feed(s, 'w', 1)  -- visual_obj is now set
     patterns.feed(s, 'j', 1)  -- not c/d/y → cancel
     local result = patterns.feed(s, 'c', 1)
+    assert.is_nil(result)
+  end)
+end)
+
+-- ── c$ → C (change to end of line) ──────────────────────────────────────────
+
+describe('when the user changes to end of line with c$', function()
+  it('fires c_dollar suggesting C', function()
+    local s = seq()
+    patterns.feed(s, 'c', 1)
+    local result = patterns.feed(s, '$', 1)
+    assert.is_not_nil(result)
+    assert.equals('c_dollar', result.pattern)
+    assert.equals('C', result.cmd)
+  end)
+
+  it('does not fire when c is followed by a word motion', function()
+    local s = seq()
+    patterns.feed(s, 'c', 1)
+    local result = patterns.feed(s, 'w', 1)
+    assert.is_nil(result)
+  end)
+end)
+
+-- ── d$ → D (delete to end of line) ──────────────────────────────────────────
+
+describe('when the user deletes to end of line with d$', function()
+  it('fires d_dollar suggesting D', function()
+    local s = seq()
+    patterns.feed(s, 'd', 1)
+    local result = patterns.feed(s, '$', 1)
+    assert.is_not_nil(result)
+    assert.equals('d_dollar', result.pattern)
+    assert.equals('D', result.cmd)
+  end)
+
+  it('does not fire dollar_then_append when $ follows an insert after d$', function()
+    local s = seq()
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, '$', 1)  -- fires d_dollar, clears last_op
+    local result = patterns.feed(s, 'a', 1)
+    if result then
+      assert.is_not_equal('dollar_then_append', result.pattern)
+    end
+  end)
+end)
+
+-- ── yy → p (duplicate line) ──────────────────────────────────────────────────
+
+describe('when the user yanks a whole line then pastes it', function()
+  it('fires yy_then_p suggesting yyp', function()
+    local s = seq()
+    patterns.feed(s, 'y', 1)
+    patterns.feed(s, 'y', 1)
+    local result = patterns.feed(s, 'p', 1)
+    assert.is_not_nil(result)
+    assert.equals('yy_then_p', result.pattern)
+    assert.equals('yyp', result.cmd)
+  end)
+
+  it('does not fire when yy is followed by a non-paste key', function()
+    local s = seq()
+    patterns.feed(s, 'y', 1)
+    patterns.feed(s, 'y', 1)
+    local result = patterns.feed(s, 'j', 1)
+    assert.is_nil(result)
+  end)
+
+  it('does not fire for yw → p (only whole-line yank qualifies)', function()
+    local s = seq()
+    patterns.feed(s, 'y', 1)
+    patterns.feed(s, 'w', 1)
+    local result = patterns.feed(s, 'p', 1)
+    assert.is_nil(result)
+  end)
+end)
+
+-- ── >> × 3: suggest {n}>> ────────────────────────────────────────────────────
+
+describe('when the user indents the current line 3 or more times in a row', function()
+  it('fires indent_run suggesting {n}>>', function()
+    local s = seq()
+    patterns.feed(s, '>', 1) ; patterns.feed(s, '>', 1)
+    patterns.feed(s, '>', 1) ; patterns.feed(s, '>', 1)
+    patterns.feed(s, '>', 1)
+    local result = patterns.feed(s, '>', 1)
+    assert.is_not_nil(result)
+    assert.equals('indent_run', result.pattern)
+    assert.equals('{n}>>', result.cmd)
+  end)
+
+  it('does not fire after only 2 consecutive >>', function()
+    local s = seq()
+    patterns.feed(s, '>', 1) ; patterns.feed(s, '>', 1)
+    patterns.feed(s, '>', 1)
+    local result = patterns.feed(s, '>', 1)
+    assert.is_nil(result)
+  end)
+
+  it('resets the streak when interrupted by a non-indent key', function()
+    local s = seq()
+    patterns.feed(s, '>', 1) ; patterns.feed(s, '>', 1)
+    patterns.feed(s, '>', 1) ; patterns.feed(s, '>', 1)
+    patterns.feed(s, 'j', 1)
+    patterns.feed(s, '>', 1) ; patterns.feed(s, '>', 1)
+    patterns.feed(s, '>', 1)
+    local result = patterns.feed(s, '>', 1)
+    assert.is_nil(result)
+  end)
+end)
+
+-- ── << × 3: suggest {n}<< ────────────────────────────────────────────────────
+
+describe('when the user dedents the current line 3 or more times in a row', function()
+  it('fires dedent_run suggesting {n}<<', function()
+    local s = seq()
+    patterns.feed(s, '<', 1) ; patterns.feed(s, '<', 1)
+    patterns.feed(s, '<', 1) ; patterns.feed(s, '<', 1)
+    patterns.feed(s, '<', 1)
+    local result = patterns.feed(s, '<', 1)
+    assert.is_not_nil(result)
+    assert.equals('dedent_run', result.pattern)
+    assert.equals('{n}<<', result.cmd)
+  end)
+
+  it('does not fire after only 2 consecutive <<', function()
+    local s = seq()
+    patterns.feed(s, '<', 1) ; patterns.feed(s, '<', 1)
+    patterns.feed(s, '<', 1)
+    local result = patterns.feed(s, '<', 1)
     assert.is_nil(result)
   end)
 end)

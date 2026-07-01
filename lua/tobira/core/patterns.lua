@@ -12,6 +12,8 @@ function M.new_seq()
     run = { key = nil, count = 0 },
     prev_key = nil,
     dd_streak = 0,
+    indent_streak = 0,
+    dedent_streak = 0,
     -- r-replacement tracking: r{char} l r{char} l r{char} → R
     pending_r = false,
     r_streak = 0,
@@ -49,6 +51,8 @@ local function inner_feed(seq, key, line)
     seq.pending_op = nil
     seq.run = { key = nil, count = 0 }
     seq.r_streak = 0
+    seq.indent_streak = 0
+    seq.dedent_streak = 0
     seq.visual_obj = nil
     seq.visual_inner = nil
     seq.pending_visual = false
@@ -126,6 +130,46 @@ local function inner_feed(seq, key, line)
     seq.pending_op = nil
     if key == '\27' then
       return nil
+    end
+
+    -- ── >> / << indent/dedent streak ─────────────────────────────────────
+    if op == '>' or op == '<' then
+      if key == op then
+        if op == '>' then
+          seq.indent_streak = seq.indent_streak + 1
+          if seq.indent_streak == 3 then
+            seq.indent_streak = 0
+            return { pattern = 'indent_run', cmd = '{n}>>' }
+          end
+        else
+          seq.dedent_streak = seq.dedent_streak + 1
+          if seq.dedent_streak == 3 then
+            seq.dedent_streak = 0
+            return { pattern = 'dedent_run', cmd = '{n}<<' }
+          end
+        end
+      else
+        seq.indent_streak = 0
+        seq.dedent_streak = 0
+      end
+      return nil
+    end
+
+    -- ── y: track yy for yy_then_p ────────────────────────────────────────
+    if op == 'y' then
+      if key == 'y' then
+        seq.last_op = 'yy'
+      end
+      return nil
+    end
+
+    -- ── d / c operators ──────────────────────────────────────────────────
+    if key == '$' then
+      if op == 'c' then
+        return { pattern = 'c_dollar', cmd = 'C' }
+      elseif op == 'd' then
+        return { pattern = 'd_dollar', cmd = 'D' }
+      end
     elseif key == op or key == 'j' or key == 'k' then
       seq.last_op = 'dd'
       if key == op then
@@ -145,8 +189,8 @@ local function inner_feed(seq, key, line)
     return nil
   end
 
-  -- ── d / c operator start ──────────────────────────────────────────────────
-  if key == 'd' or key == 'c' then
+  -- ── d / c / y / > / < operator start ─────────────────────────────────────
+  if key == 'd' or key == 'c' or key == 'y' or key == '>' or key == '<' then
     seq.pending_op = key
     seq.run = { key = nil, count = 0 }
     return nil
@@ -168,6 +212,12 @@ local function inner_feed(seq, key, line)
   -- h and l are safe navigation between replacements; everything else resets.
   if key ~= 'h' and key ~= 'l' then
     seq.r_streak = 0
+  end
+
+  -- ── yy → p (duplicate line) ──────────────────────────────────────────────
+  if key == 'p' and seq.last_op == 'yy' then
+    seq.last_op = nil
+    return { pattern = 'yy_then_p', cmd = 'yyp' }
   end
 
   -- ── dd → p (swap lines) ──────────────────────────────────────────────────
@@ -223,6 +273,8 @@ local function inner_feed(seq, key, line)
   if key ~= 'p' then
     seq.last_op = nil
     seq.dd_streak = 0
+    seq.indent_streak = 0
+    seq.dedent_streak = 0
   end
 
   -- ── consecutive-run patterns ──────────────────────────────────────────────
@@ -258,6 +310,10 @@ local function inner_feed(seq, key, line)
     return { pattern = 'P_repeat', cmd = '{n}P' }
   elseif key == '~' and count == 3 then
     return { pattern = 'tilde_repeat', cmd = '{n}~' }
+  elseif key == '.' and count == 3 then
+    return { pattern = 'dot_repeat', cmd = '{n}.' }
+  elseif key == 'J' and count == 3 then
+    return { pattern = 'J_repeat', cmd = '{n}J' }
   end
 
   return nil

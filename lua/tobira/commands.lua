@@ -319,6 +319,21 @@ M.registry = {
 
   -- ── diw (suggested by v i w d) ───────────────────────────────────────────────
   ['diw'] = { requires = 'ciw', track = false, category = 'edit', level = 'intermediate' },
+
+  -- ── c$ → C / d$ → D (end-of-line shortcuts) ──────────────────────────────────
+  -- C and D already exist in registry; these require entries are in the main list.
+  -- (no new entries needed — C requires D, D requires x, both are already there)
+
+  -- ── yy → p (duplicate line) ──────────────────────────────────────────────────
+  ['yyp'] = { requires = 'p', track = false, category = 'edit', level = 'beginner' },
+
+  -- ── . × 3 / J × 3 count prefix variants ─────────────────────────────────────
+  ['{n}.'] = { requires = '.', track = false, category = 'edit', level = 'intermediate' },
+  ['{n}J'] = { requires = 'J', track = false, category = 'edit', level = 'intermediate' },
+
+  -- ── >> × 3 / << × 3 indent count prefix ─────────────────────────────────────
+  ['{n}>>'] = { requires = '>>', track = false, category = 'edit', level = 'intermediate' },
+  ['{n}<<'] = { requires = '<<', track = false, category = 'edit', level = 'intermediate' },
 }
 
 return M
