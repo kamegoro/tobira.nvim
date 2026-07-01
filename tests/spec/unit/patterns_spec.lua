@@ -822,6 +822,20 @@ describe('when the user indents the current line 3 or more times in a row', func
     local result = patterns.feed(s, '>', 1)
     assert.is_nil(result)
   end)
+
+  it('resets the streak when > is followed by a non-> motion (e.g. >j)', function()
+    local s = seq()
+    -- Build up a streak of 2
+    patterns.feed(s, '>', 1) ; patterns.feed(s, '>', 1)
+    patterns.feed(s, '>', 1) ; patterns.feed(s, '>', 1)
+    -- >j: operator > but motion j, not >>  → resets streak
+    patterns.feed(s, '>', 1) ; patterns.feed(s, 'j', 1)
+    -- Two more >>: only 2, not enough for threshold
+    patterns.feed(s, '>', 1) ; patterns.feed(s, '>', 1)
+    patterns.feed(s, '>', 1)
+    local result = patterns.feed(s, '>', 1)
+    assert.is_nil(result)
+  end)
 end)
 
 -- ── << × 3: suggest {n}<< ────────────────────────────────────────────────────
