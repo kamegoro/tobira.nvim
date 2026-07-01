@@ -16,7 +16,7 @@
 | Suppression or cooldown change in `suggest.lua` | `suggest_spec.lua`: show / suppress boundary conditions |
 | Bug fix | Write a test that reproduces the bug before fixing it |
 
-## Running tests locally (run all three before every push)
+## Running tests locally (all four steps required before every push)
 
 ```bash
 # 1. format check
@@ -31,7 +31,20 @@ selene --display-style=quiet lua/ plugin/
 #   and tests would read/write the real ~/.local/share/nvim/tobira/usage.json
 nvim --headless --noplugin -u tests/minimal_init.lua \
   -c "PlenaryBustedDirectory tests/spec/ {minimal_init = 'tests/minimal_init.lua', sequential = true}" 2>&1
+
+# 4. coverage — every module must reach 100%
+rm -f luacov.stats.out luacov.report.out
+COVERAGE=1 nvim --headless --noplugin -u tests/minimal_init.lua \
+  -c "PlenaryBustedDirectory tests/spec/ {minimal_init = 'tests/minimal_init.lua', sequential = true}" 2>&1
+~/.luarocks/bin/luacov
+grep 'Total' luacov.report.out   # must be 100.00%
 ```
+
+**Coverage below 100% means one of two things — fix whichever applies:**
+- Lines are reachable but have no test → write the test
+- Lines are unreachable (dead code) → delete the code
+
+Using `-- luacov: disable` is prohibited.
 
 ## Smoke test for `track = true` commands
 
