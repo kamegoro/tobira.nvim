@@ -37,5 +37,5 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.payload.pull_request.number,
-              body: `Thanks for your first contribution! 🎉\n\nPlease make sure your PR satisfies the following:\n\n- [ ] PR title follows [Conventional Commits](https://www.conventionalcommits.org/) (e.g. \`feat: add x pattern\`, \`fix: ...\`)\n- [ ] Code is formatted with \`stylua\`\n- [ ] \`selene\` reports no errors\n- [ ] Tested on Neovim stable\n\nSee [CONTRIBUTING.md](../blob/main/CONTRIBUTING.md) for details.`
+              body: `Thanks for your first contribution! 🎉\n\nPlease fill in the checklist in the PR description and make sure all CI checks pass before requesting a review.\n\nSee [CONTRIBUTING.md](../blob/main/CONTRIBUTING.md) if you have any questions.`
             });

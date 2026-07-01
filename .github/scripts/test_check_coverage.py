@@ -26,10 +26,10 @@ class TestParseReport(unittest.TestCase):
         self.assertIn('tobira/core/graph.lua', paths)
         self.assertIn('tobira/core/suggest.lua', paths)
 
-    def test_ignores_non_core_entries(self):
+    def test_includes_non_core_tobira_entries(self):
         entries = parse_report(SAMPLE_REPORT.splitlines())
         paths = [e[0] for e in entries]
-        self.assertNotIn('tobira/init.lua', paths)
+        self.assertIn('tobira/init.lua', paths)
 
     def test_extracts_missed_and_pct(self):
         entries = parse_report(SAMPLE_REPORT.splitlines())

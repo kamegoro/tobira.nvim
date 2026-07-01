@@ -17,4 +17,4 @@ Closes #
 - [ ] Code is formatted with `stylua`
 - [ ] `selene` passes with no errors
 - [ ] Tested on Neovim stable
-- [ ] New detection patterns added to `graph.lua` (if applicable)
+- [ ] New detection patterns added to `patterns.lua` and `commands.lua` (if applicable)

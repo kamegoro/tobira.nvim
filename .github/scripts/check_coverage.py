@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Enforce 100% luacov coverage on tobira/core/ modules."""
+"""Enforce 100% luacov coverage on all tobira/ modules."""
 
 import re
 import sys
 from typing import Iterable
 
-_ENTRY_PATTERN = re.compile(r'(tobira/core/\w+\.lua)\s+(\d+)\s+(\d+)\s+([\d.]+)%')
+_ENTRY_PATTERN = re.compile(r'(tobira/[\w/]+\.lua)\s+(\d+)\s+(\d+)\s+([\d.]+)%')
 
 
 def parse_report(lines: Iterable[str]) -> list[tuple[str, int, float]]:
@@ -32,7 +32,7 @@ def check(entries: list[tuple[str, int, float]]) -> bool:
             passed = False
 
     if passed:
-        print(f'\nAll {len(entries)} core module(s): 100% ✓')
+        print(f'\nAll {len(entries)} module(s): 100% ✓')
     else:
         print('\nCoverage gate FAILED. Add tests for the missed lines above.')
     return passed
