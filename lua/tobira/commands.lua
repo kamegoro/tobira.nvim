@@ -32,7 +32,7 @@ M.registry = {
   ['ciw'] = { requires = 'dw', track = false, category = 'edit', level = 'intermediate' },
 
   -- ── u repeat → redo ───────────────────────────────────────────────────────
-  ['<C-r>'] = { requires = 'u', track = false, category = 'edit', level = 'beginner' },
+  ['<C-r>'] = { requires = 'u', track = true, category = 'edit', level = 'beginner' },
 
   -- ── dd then p → swap lines ────────────────────────────────────────────────
   ['ddp'] = { requires = 'dd', track = false, category = 'edit', level = 'intermediate' },
@@ -77,8 +77,8 @@ M.registry = {
   ['{n}x'] = { requires = 'x', track = false, category = 'edit', level = 'intermediate' },
 
   -- ── j → <C-d> → <C-u> half-page scroll ───────────────────────────────────
-  ['<C-d>'] = { requires = 'j', track = false, category = 'motion', level = 'beginner' },
-  ['<C-u>'] = { requires = '<C-d>', track = false, category = 'motion', level = 'beginner' },
+  ['<C-d>'] = { requires = 'j', track = true, category = 'motion', level = 'beginner' },
+  ['<C-u>'] = { requires = '<C-d>', track = true, category = 'motion', level = 'beginner' },
 
   -- ── k repeat → count prefix ───────────────────────────────────────────────
   ['{n}k'] = { requires = 'k', track = false, category = 'motion', level = 'intermediate' },
@@ -87,7 +87,7 @@ M.registry = {
   ['*'] = { requires = 'n', track = true, category = 'search', level = 'beginner' },
 
   -- ── * → <C-o> jump back in jumplist ──────────────────────────────────────
-  ['<C-o>'] = { requires = '*', track = false, category = 'motion', level = 'intermediate' },
+  ['<C-o>'] = { requires = '*', track = true, category = 'motion', level = 'intermediate' },
 
   -- ── p → P paste above ────────────────────────────────────────────────────
   ['P'] = { requires = 'p', track = true, category = 'edit', level = 'intermediate' },
@@ -97,11 +97,11 @@ M.registry = {
   ['T'] = { requires = 't', track = false, category = 'motion', level = 'intermediate' },
 
   -- ── <C-o> / <C-i> jumplist navigation ────────────────────────────────────
-  ['<C-i>'] = { requires = '<C-o>', track = false, category = 'motion', level = 'beginner' },
+  ['<C-i>'] = { requires = '<C-o>', track = true, category = 'motion', level = 'beginner' },
 
   -- ── full-page scroll chain ────────────────────────────────────────────────
-  ['<C-f>'] = { requires = '<C-d>', track = false, category = 'motion', level = 'intermediate' },
-  ['<C-b>'] = { requires = '<C-u>', track = false, category = 'motion', level = 'intermediate' },
+  ['<C-f>'] = { requires = '<C-d>', track = true, category = 'motion', level = 'intermediate' },
+  ['<C-b>'] = { requires = '<C-u>', track = true, category = 'motion', level = 'intermediate' },
 
   -- ── j → } / { paragraph motions ──────────────────────────────────────────
   ['}'] = { requires = 'j', track = false, category = 'motion', level = 'intermediate' },
@@ -134,12 +134,12 @@ M.registry = {
   ['~'] = { requires = 'x', track = true, category = 'edit', level = 'intermediate' },
 
   -- ── x → <C-a> / <C-x> number increment / decrement ──────────────────────
-  ['<C-a>'] = { requires = 'x', track = false, category = 'edit', level = 'intermediate' },
-  ['<C-x>'] = { requires = '<C-a>', track = false, category = 'edit', level = 'intermediate' },
+  ['<C-a>'] = { requires = 'x', track = true, category = 'edit', level = 'intermediate' },
+  ['<C-x>'] = { requires = '<C-a>', track = true, category = 'edit', level = 'intermediate' },
 
   -- ── v → V → <C-v> visual mode chain ─────────────────────────────────────
   ['V'] = { requires = 'v', track = true, category = 'edit', level = 'beginner' },
-  ['<C-v>'] = { requires = 'V', track = false, category = 'edit', level = 'intermediate' },
+  ['<C-v>'] = { requires = 'V', track = true, category = 'edit', level = 'intermediate' },
 
   -- ── cw → yiw yank text object ────────────────────────────────────────────
   ['yiw'] = { requires = 'cw', track = false, category = 'edit', level = 'intermediate' },
@@ -159,8 +159,8 @@ M.registry = {
   ['gk'] = { requires = 'k', track = false, category = 'motion', level = 'intermediate' },
 
   -- ── line-by-line scrolling ────────────────────────────────────────────────
-  ['<C-e>'] = { requires = 'zz', track = false, category = 'motion', level = 'intermediate' },
-  ['<C-y>'] = { requires = '<C-e>', track = false, category = 'motion', level = 'intermediate' },
+  ['<C-e>'] = { requires = 'zz', track = true, category = 'motion', level = 'intermediate' },
+  ['<C-y>'] = { requires = '<C-e>', track = true, category = 'motion', level = 'intermediate' },
 
   -- ── change list navigation ────────────────────────────────────────────────
   ['g;'] = { requires = '<C-o>', track = false, category = 'motion', level = 'intermediate' },
@@ -168,7 +168,7 @@ M.registry = {
 
   -- ── return to last insert / jump positions ────────────────────────────────
   ['gi'] = { requires = 'i', track = false, category = 'motion', level = 'intermediate' },
-  ['<C-^>'] = { requires = '<C-o>', track = false, category = 'motion', level = 'intermediate' },
+  ['<C-^>'] = { requires = '<C-o>', track = true, category = 'motion', level = 'intermediate' },
 
   -- ── marks ─────────────────────────────────────────────────────────────────
   ["''"] = { requires = '<C-o>', track = false, category = 'mark', level = 'beginner' },
@@ -262,7 +262,7 @@ M.registry = {
 
   -- ── code navigation ───────────────────────────────────────────────────────────
   ['gx'] = { requires = 'gf', track = false, category = 'motion', level = 'intermediate' },
-  ['<C-]>'] = { requires = 'gf', track = false, category = 'motion', level = 'intermediate' },
+  ['<C-]>'] = { requires = 'gf', track = true, category = 'motion', level = 'intermediate' },
   ['K'] = { requires = 'gd', track = false, category = 'motion', level = 'intermediate' },
 
   -- ── paste without losing cursor ───────────────────────────────────────────────

@@ -81,34 +81,46 @@ local function increment(cmd)
   session_counts[cmd] = (session_counts[cmd] or 0) + 1
 end
 
--- Base single-char keys to track: prerequisites for suggestions + level detection.
--- Registry entries with track = true are merged in below.
+-- Maps raw keystroke bytes → registry key name for increment().
+-- Values are the canonical registry key string (e.g. '\x04' → '<C-d>').
+-- Single ASCII keys map to themselves; multi-char notation (<C-d> etc.) is
+-- converted via nvim_replace_termcodes so the raw byte matches what on_key
+-- delivers.
 local function build_track_table()
+  -- Base single-char ASCII keys (not in registry but needed for level detection).
+  -- 'g' omitted: it's always part of a compound (gg, gj…) tracked via last_op.
   local t = {
-    f = true,
-    F = true,
-    n = true,
-    ['0'] = true,
-    h = true,
-    j = true,
-    k = true,
-    l = true,
-    w = true,
-    b = true,
-    x = true,
-    p = true,
-    u = true,
-    i = true,
-    a = true,
-    o = true,
-    g = true,
-    G = true,
-    v = true,
-    ['*'] = true,
+    f = 'f',
+    F = 'F',
+    n = 'n',
+    ['0'] = '0',
+    h = 'h',
+    j = 'j',
+    k = 'k',
+    l = 'l',
+    w = 'w',
+    b = 'b',
+    x = 'x',
+    p = 'p',
+    u = 'u',
+    i = 'i',
+    a = 'a',
+    o = 'o',
+    G = 'G',
+    v = 'v',
+    ['*'] = '*',
   }
   for cmd, entry in pairs(commands.registry) do
-    if entry.track and #cmd == 1 then
-      t[cmd] = true
+    if entry.track then
+      if #cmd == 1 then
+        t[cmd] = cmd
+      else
+        -- Multi-char notation like <C-d>: convert to raw byte for on_key lookup.
+        local raw = vim.api.nvim_replace_termcodes(cmd, true, true, true)
+        if raw ~= '' then
+          t[raw] = cmd
+        end
+      end
     end
   end
   return t
@@ -125,7 +137,7 @@ local function handle_key(key)
   local prev_op = seq.last_op
   local result = patterns.feed(seq, key, line)
 
-  -- Track compound operators (dw, dd, cw …) the moment they complete.
+  -- Track compound operators (dw, dd, gg, >>, …) the moment they complete.
   -- Single-char keys are handled by the TRACK lookup below; compound ones
   -- are only visible here through the change in seq.last_op.
   if seq.last_op ~= nil and seq.last_op ~= prev_op then
@@ -136,8 +148,11 @@ local function handle_key(key)
     M.on_pattern(result.pattern, result.cmd)
   end
 
-  if TRACK[key] then
-    increment(key)
+  -- TRACK values are registry key strings; raw Ctrl bytes map to their
+  -- canonical name (e.g. '\x04' → '<C-d>') so increment uses the right key.
+  local registry_key = TRACK[key]
+  if registry_key then
+    increment(registry_key)
   end
 end
 

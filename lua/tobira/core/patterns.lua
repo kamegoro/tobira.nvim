@@ -21,6 +21,9 @@ function M.new_seq()
     pending_visual = false,
     visual_inner = nil,
     visual_obj = nil,
+    -- g* / z* two-key compound tracking
+    pending_g = false,
+    pending_z = false,
   }
 end
 
@@ -56,6 +59,8 @@ local function inner_feed(seq, key, line)
     seq.visual_obj = nil
     seq.visual_inner = nil
     seq.pending_visual = false
+    seq.pending_g = false
+    seq.pending_z = false
     return nil
   end
 
@@ -113,6 +118,48 @@ local function inner_feed(seq, key, line)
     return nil
   end
 
+  -- ── pending_g: g + x compound commands ───────────────────────────────────
+  if seq.pending_g then
+    seq.pending_g = false
+    local g_targets = {
+      g = 'gg',
+      j = 'gj',
+      k = 'gk',
+      e = 'ge',
+      d = 'gd',
+      f = 'gf',
+      n = 'gn',
+      x = 'gx',
+      ['0'] = 'g0',
+    }
+    if g_targets[key] then
+      seq.last_op = g_targets[key]
+    end
+    return nil
+  end
+
+  -- ── pending_z: z + x fold/view commands ──────────────────────────────────
+  if seq.pending_z then
+    seq.pending_z = false
+    local z_targets = {
+      z = 'zz',
+      t = 'zt',
+      b = 'zb',
+      a = 'za',
+      c = 'zc',
+      o = 'zo',
+      j = 'zj',
+      k = 'zk',
+      M = 'zM',
+      R = 'zR',
+      d = 'zd',
+    }
+    if z_targets[key] then
+      seq.last_op = z_targets[key]
+    end
+    return nil
+  end
+
   -- ── pending_text_obj ──────────────────────────────────────────────────────
   if seq.pending_text_obj then
     local op = seq.pending_text_obj
@@ -135,6 +182,7 @@ local function inner_feed(seq, key, line)
     -- ── >> / << indent/dedent streak ─────────────────────────────────────
     if op == '>' or op == '<' then
       if key == op then
+        seq.last_op = op .. op -- '>>' or '<<' for compound tracking
         if op == '>' then
           seq.indent_streak = seq.indent_streak + 1
           if seq.indent_streak == 3 then
@@ -205,6 +253,16 @@ local function inner_feed(seq, key, line)
   -- ── v: start visual text-object tracking ─────────────────────────────────
   if key == 'v' then
     seq.pending_visual = true
+    return nil
+  end
+
+  -- ── g / z: start two-key compound tracking ───────────────────────────────
+  if key == 'g' then
+    seq.pending_g = true
+    return nil
+  end
+  if key == 'z' then
+    seq.pending_z = true
     return nil
   end
 
