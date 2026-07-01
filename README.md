@@ -4,7 +4,7 @@
   <a href="https://github.com/kamegoro/tobira.nvim/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/kamegoro/tobira.nvim/ci.yml?branch=main&label=CI&logo=github&style=flat"></a>
   <a href="https://github.com/kamegoro/tobira.nvim/actions/workflows/ci.yml"><img alt="Coverage" src="https://img.shields.io/badge/coverage-100%25-brightgreen?logo=lua&logoColor=white&style=flat"></a>
   <a href="https://github.com/neovim/neovim/releases/tag/v0.9.0"><img alt="Neovim" src="https://img.shields.io/badge/Neovim-0.9%2B-57A143?logo=neovim&logoColor=white&style=flat"></a>
-  <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/github/license/kamegoro/tobira.nvim?color=blue&style=flat"></a>
+  <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue?style=flat"></a>
   <a href="https://github.com/kamegoro/tobira.nvim/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/kamegoro/tobira.nvim?style=flat&logo=github&color=yellow"></a>
   <a href="https://dotfyle.com/plugins/kamegoro/tobira.nvim"><img alt="Dotfyle" src="https://dotfyle.com/plugins/kamegoro/tobira.nvim/shield?style=flat"></a>
 </p>
@@ -149,8 +149,9 @@ tobira is the only plugin that learns from **your actual usage** and shows you t
 See [CONTRIBUTING.md](./CONTRIBUTING.md). This project follows strict TDD — tests before implementation, always.
 
 ## License
+
+MIT
+
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=kamegoro/tobira.nvim&type=Date)](https://star-history.com/#kamegoro/tobira.nvim&Date)
-
-MIT
