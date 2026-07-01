@@ -15,7 +15,7 @@ return {
       advanced = '上級者',
     },
     next = '次のおすすめ: ',
-    hint = '[q / Esc]  閉じる',
+    hint = '[x] 抑制 · [p] ピン · [q / Esc] 閉じる',
     categories = {
       motion = '移動',
       edit = '編集',
@@ -42,6 +42,7 @@ return {
   },
   float = {
     example_prefix = '例: ',
+    suppress_hint = 'x 抑制 · q/Esc 閉じる',
   },
   -- 提案フロートと :TobiraProgress に表示する文字列。
   -- キーは commands.registry のキーと完全一致させること。

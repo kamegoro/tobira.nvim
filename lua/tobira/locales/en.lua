@@ -15,7 +15,7 @@ return {
       advanced = 'advanced',
     },
     next = 'Next: ',
-    hint = '[q / Esc]  close',
+    hint = '[x] suppress · [p] pin · [q / Esc] close',
     categories = {
       motion = 'Motion',
       edit = 'Edit',
@@ -42,6 +42,7 @@ return {
   },
   float = {
     example_prefix = 'e.g. ',
+    suppress_hint = 'x suppress · q/Esc close',
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
   -- Keys match commands.registry keys exactly.
