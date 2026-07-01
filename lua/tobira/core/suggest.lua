@@ -76,8 +76,10 @@ local function watch_adoption(cmd)
   local match_target = normalize_cmd(cmd)
   local buf = ''
   vim.on_key(function(key, typed)
-    local raw = (typed ~= nil and typed ~= '') and typed or key
-    local k = vim.fn.keytrans(raw)
+    if typed == '' then
+      return
+    end
+    local k = vim.fn.keytrans(typed or key)
     buf = (buf .. k):sub(-KEY_BUF_MAX)
     if buf_matches(match_target, buf) then
       logger.mark_adopted(cmd)

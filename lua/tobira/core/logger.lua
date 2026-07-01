@@ -200,8 +200,14 @@ function M.setup()
 
   local ns = vim.api.nvim_create_namespace('tobira_logger')
   vim.on_key(function(key, typed)
-    local k = (typed ~= nil and typed ~= '') and typed or key
-    handle_key(k)
+    -- typed == '' means the key was generated internally (mapping expansion or
+    -- built-in command implementation), not physically typed by the user.
+    -- Skip it so that pressing D does not also fire 'd' and '$' through the
+    -- pattern state machine. typed is nil on Neovim < 0.10; fall back to key.
+    if typed == '' then
+      return
+    end
+    handle_key(typed or key)
   end, ns)
 
   vim.api.nvim_create_autocmd('VimLeave', {

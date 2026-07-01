@@ -108,8 +108,8 @@ describe('get_session_counts', function()
   end)
 
   it('returns the in-session keystroke counts before close_session is called', function()
-    vim.fn.feedkeys('j', 'x'); vim.api.nvim_feedkeys('', 'x', false)
-    vim.fn.feedkeys('j', 'x'); vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('j', 'xt'); vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('j', 'xt'); vim.api.nvim_feedkeys('', 'x', false)
     local counts = logger.get_session_counts()
     assert.equals(2, counts['j'])
   end)
@@ -169,19 +169,19 @@ describe('session tracking', function()
   end)
 
   it('close_session appends the current-session count to usage.sessions', function()
-    vim.fn.feedkeys('e', 'x'); vim.api.nvim_feedkeys('', 'x', false)
-    vim.fn.feedkeys('e', 'x'); vim.api.nvim_feedkeys('', 'x', false)
-    vim.fn.feedkeys('e', 'x'); vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('e', 'xt'); vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('e', 'xt'); vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('e', 'xt'); vim.api.nvim_feedkeys('', 'x', false)
     logger.close_session()
     assert.equals(3, logger.get('e').sessions[1])
   end)
 
   it('after close_session the next session starts fresh', function()
-    vim.fn.feedkeys('e', 'x'); vim.api.nvim_feedkeys('', 'x', false)
-    vim.fn.feedkeys('e', 'x'); vim.api.nvim_feedkeys('', 'x', false)
-    vim.fn.feedkeys('e', 'x'); vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('e', 'xt'); vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('e', 'xt'); vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('e', 'xt'); vim.api.nvim_feedkeys('', 'x', false)
     logger.close_session()
-    vim.fn.feedkeys('e', 'x'); vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('e', 'xt'); vim.api.nvim_feedkeys('', 'x', false)
     logger.close_session()
     local sessions = logger.get('e').sessions
     assert.equals(2, #sessions)
@@ -191,7 +191,7 @@ describe('session tracking', function()
 
   it('sessions array is capped at 10 entries', function()
     for _ = 1, 12 do
-      vim.fn.feedkeys('e', 'x'); vim.api.nvim_feedkeys('', 'x', false)
+      vim.fn.feedkeys('e', 'xt'); vim.api.nvim_feedkeys('', 'x', false)
       logger.close_session()
     end
     assert.equals(10, #logger.get('e').sessions)
@@ -297,9 +297,9 @@ describe('when the user types while in insert mode', function()
       fired = true
     end
     -- 'i' enters insert mode; 'd', 'w' typed inside insert are plain text, not operators.
-    vim.fn.feedkeys('i', 'x')
-    vim.fn.feedkeys('dw', 'x')
-    vim.fn.feedkeys(esc, 'x')
+    vim.fn.feedkeys('i', 'xt')
+    vim.fn.feedkeys('dw', 'xt')
+    vim.fn.feedkeys(esc, 'xt')
     vim.api.nvim_feedkeys('', 'x', false)
     assert.is_false(fired)
   end)
@@ -331,7 +331,7 @@ describe('when ModeChanged fires to operator-pending before the motion arrives',
     -- Simulate real interactive usage: ModeChanged (n→no) fires between
     -- keystrokes, but feedkeys batches events so we inject it manually.
     -- 1. 'd' sets seq.pending_op.
-    vim.fn.feedkeys('d', 'x')
+    vim.fn.feedkeys('d', 'xt')
     -- 2. Force current_mode to 'no' via a synthetic ModeChanged.
     --    vim.fn.mode() is stubbed to 'no' for just this call so the
     --    ModeChanged callback (which calls vim.fn.mode()) writes 'no'
@@ -343,7 +343,7 @@ describe('when ModeChanged fires to operator-pending before the motion arrives',
     vim.api.nvim_exec_autocmds('ModeChanged', { modeline = false })
     vim.fn.mode = real_mode
     -- 3. 'w' arrives while current_mode = 'no'.
-    vim.fn.feedkeys('wi', 'x')
+    vim.fn.feedkeys('wi', 'xt')
     vim.api.nvim_feedkeys('', 'x', false)
 
     assert.equals('dw_then_insert', fired.pattern)
@@ -373,7 +373,7 @@ describe('when a tracked inefficiency is detected', function()
     -- Deleting a line then pasting it is the dd-then-p line-move inefficiency.
     vim.cmd('enew')
     vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'aaa', 'bbb' })
-    vim.fn.feedkeys('ddp', 'x')
+    vim.fn.feedkeys('ddp', 'xt')
     vim.api.nvim_feedkeys('', 'x', false)
 
     assert.equals('dd_then_p', fired.pattern)
@@ -405,7 +405,7 @@ describe('when the user deletes a word then enters insert mode', function()
     vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'hello world' })
     -- on_key sees 'i' while still in normal mode, so patterns.feed detects
     -- the dw-then-insert sequence before the mode actually changes.
-    vim.fn.feedkeys('dwi', 'x')
+    vim.fn.feedkeys('dwi', 'xt')
     vim.api.nvim_feedkeys('', 'x', false)
 
     assert.equals('dw_then_insert', fired.pattern)
@@ -476,45 +476,45 @@ describe('when a compound operator completes', function()
   end)
 
   it('increments the usage count for dw', function()
-    vim.fn.feedkeys('dw', 'x')
+    vim.fn.feedkeys('dw', 'xt')
     vim.api.nvim_feedkeys('', 'x', false)
     assert.is_true(logger.get('dw').count > 0)
   end)
 
   it('increments the usage count for dd', function()
-    vim.fn.feedkeys('dd', 'x')
+    vim.fn.feedkeys('dd', 'xt')
     vim.api.nvim_feedkeys('', 'x', false)
     assert.is_true(logger.get('dd').count > 0)
   end)
 
   it('increments the usage count for >> (indent)', function()
-    vim.fn.feedkeys('>>', 'x')
+    vim.fn.feedkeys('>>', 'xt')
     vim.api.nvim_feedkeys('', 'x', false)
     assert.is_true(logger.get('>>').count > 0)
   end)
 
   it('increments the usage count for gg (go to top)', function()
-    vim.fn.feedkeys('gg', 'x')
+    vim.fn.feedkeys('gg', 'xt')
     vim.api.nvim_feedkeys('', 'x', false)
     assert.is_true(logger.get('gg').count > 0)
   end)
 
   it('increments the usage count for <C-d> (half page down)', function()
     local ctrl_d = vim.api.nvim_replace_termcodes('<C-d>', true, true, true)
-    vim.fn.feedkeys(ctrl_d, 'x')
+    vim.fn.feedkeys(ctrl_d, 'xt')
     vim.api.nvim_feedkeys('', 'x', false)
     assert.is_true(logger.get('<C-d>').count > 0)
   end)
 
   it('increments the usage count for <C-u> (half page up)', function()
     local ctrl_u = vim.api.nvim_replace_termcodes('<C-u>', true, true, true)
-    vim.fn.feedkeys(ctrl_u, 'x')
+    vim.fn.feedkeys(ctrl_u, 'xt')
     vim.api.nvim_feedkeys('', 'x', false)
     assert.is_true(logger.get('<C-u>').count > 0)
   end)
 
   it('tracks gj as a compound command', function()
-    vim.fn.feedkeys('gj', 'x')
+    vim.fn.feedkeys('gj', 'xt')
     vim.api.nvim_feedkeys('', 'x', false)
     assert.is_true(logger.get('gj').count > 0)
   end)
@@ -531,7 +531,7 @@ describe('when a compound operator completes', function()
   for _, notation in ipairs(ctrl_keys) do
     it('increments the usage count for ' .. notation, function()
       local raw = vim.api.nvim_replace_termcodes(notation, true, true, true)
-      pcall(vim.fn.feedkeys, raw, 'x')
+      pcall(vim.fn.feedkeys, raw, 'xt')
       pcall(vim.api.nvim_feedkeys, '', 'x', false)
       assert.is_true(logger.get(notation).count > 0)
     end)
@@ -561,20 +561,16 @@ describe('when single-char track=true keys are pressed', function()
 
   -- pcall absorbs Neovim side-effects (mode changes, missing prior context for
   -- ; / , , etc.). on_key fires before the command executes so the count is set.
-  --
-  -- NOTE: 'Y' is intentionally excluded. Neovim maps Y→y$ by default
-  -- (nnoremap Y y$), so on_key sees 'y' and '$' rather than 'Y'.
-  -- The count for 'Y' will always be 0; suggestion still works via the graph.
   local single_keys = {
     ';', ',', '.', '*', '#', '~',
     'A', 'b', 'C', 'D', 'e', 'F',
     'H', 'I', 'J', 'L', 'M', 'N',
     'O', 'P', 'r', 's', 't', 'V',
-    'w', 'X',
+    'w', 'X', 'Y',
   }
   for _, key in ipairs(single_keys) do
     it('increments the usage count for ' .. key, function()
-      pcall(vim.fn.feedkeys, key, 'x')
+      pcall(vim.fn.feedkeys, key, 'xt')
       pcall(vim.api.nvim_feedkeys, '', 'x', false)
       assert.is_true(logger.get(key).count > 0)
     end)
@@ -597,11 +593,11 @@ describe('when the user records a macro', function()
 
   it('does not count keystrokes typed while recording a macro', function()
     -- qa starts recording to register a, j is the macro body, q stops
-    vim.fn.feedkeys('qa', 'x')
+    vim.fn.feedkeys('qa', 'xt')
     vim.api.nvim_feedkeys('', 'x', false)
-    vim.fn.feedkeys('j', 'x')
+    vim.fn.feedkeys('j', 'xt')
     vim.api.nvim_feedkeys('', 'x', false)
-    vim.fn.feedkeys('q', 'x')
+    vim.fn.feedkeys('q', 'xt')
     vim.api.nvim_feedkeys('', 'x', false)
     assert.equals(0, logger.get('j').count)
   end)
