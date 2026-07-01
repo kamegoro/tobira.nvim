@@ -2,15 +2,16 @@ local suggest = require('tobira.core.suggest')
 local logger = require('tobira.core.logger')
 local config = require('tobira.core.config')
 
+-- Assign a spy directly to the display sink. Restored (nil) after the block
+-- so subsequent tests start clean. Mirrors init.lua's wiring point.
 local function with_float_spy(fn)
   local called = false
-  package.loaded['tobira.ui.float'] = {
-    show = function()
-      called = true
-    end,
-  }
+  local prev = suggest.on_show
+  suggest.on_show = function()
+    called = true
+  end
   local ok, err = pcall(fn)
-  package.loaded['tobira.ui.float'] = nil
+  suggest.on_show = prev
   assert.is_true(ok, err)
   return called
 end
@@ -282,16 +283,14 @@ describe('when a queued suggestion reaches the end of the idle delay', function(
   it('shows the suggestion', function()
     config.setup({ idle_delay = 10 })
     local shown = false
-    package.loaded['tobira.ui.float'] = {
-      show = function()
-        shown = true
-      end,
-    }
+    suggest.on_show = function()
+      shown = true
+    end
     suggest.queue('f_repeat', ';')
     vim.wait(500, function()
       return shown
     end, 10)
-    package.loaded['tobira.ui.float'] = nil
+    suggest.on_show = nil
     assert.is_true(shown)
   end)
 end)
@@ -346,13 +345,11 @@ describe('when manual is called and the user level limits the suggestion pool', 
     usage['x'] = { count = 10, sessions = {}, shown = 0, suppressed = false }
     assert.equals('novice', level_mod.get())
     local shown_cmd = nil
-    package.loaded['tobira.ui.float'] = {
-      show = function(sug)
-        shown_cmd = sug.cmd
-      end,
-    }
+    suggest.on_show = function(sug)
+      shown_cmd = sug.cmd
+    end
     local ok, err = pcall(suggest.manual)
-    package.loaded['tobira.ui.float'] = nil
+    suggest.on_show = nil
     assert.is_true(ok, err)
     assert.is_not_nil(shown_cmd, 'expected a suggestion to be shown')
     assert.equals('beginner', commands.registry[shown_cmd].level)
@@ -441,11 +438,15 @@ describe('when the idle timer fires in normal mode with a suggestion available',
     local usage = logger.get_all()
     usage['f'] = { count = 5, shown = 0, sessions = {}, suppressed = false }
     local shown = false
-    package.loaded['tobira.ui.float'] = { show = function() shown = true end }
+    suggest.on_show = function()
+      shown = true
+    end
     suggest.setup_idle()
     vim.fn.feedkeys('j', 'x')
-    vim.wait(500, function() return shown end, 10)
-    package.loaded['tobira.ui.float'] = nil
+    vim.wait(500, function()
+      return shown
+    end, 10)
+    suggest.on_show = nil
     assert.is_true(shown)
   end)
 end)
@@ -465,13 +466,19 @@ describe('when the idle timer fires but the cooldown is still active', function(
     local usage = logger.get_all()
     usage['f'] = { count = 5, shown = 0, sessions = {}, suppressed = false }
     -- First suggestion triggers the cooldown clock.
-    with_float_spy(function() suggest.show(';') end)
+    with_float_spy(function()
+      suggest.show(';')
+    end)
     local shown = false
-    package.loaded['tobira.ui.float'] = { show = function() shown = true end }
+    suggest.on_show = function()
+      shown = true
+    end
     suggest.setup_idle()
     vim.fn.feedkeys('j', 'x')
-    vim.wait(300, function() return shown end, 10)
-    package.loaded['tobira.ui.float'] = nil
+    vim.wait(300, function()
+      return shown
+    end, 10)
+    suggest.on_show = nil
     assert.is_false(shown)
   end)
 end)
@@ -489,11 +496,15 @@ describe('when the idle timer fires with no suggestion available', function()
   it('does not show anything', function()
     config.setup({ idle_suggestions = true, idle_delay = 10, suggestion_cooldown = 0 })
     local shown = false
-    package.loaded['tobira.ui.float'] = { show = function() shown = true end }
+    suggest.on_show = function()
+      shown = true
+    end
     suggest.setup_idle()
     vim.fn.feedkeys('j', 'x')
-    vim.wait(300, function() return shown end, 10)
-    package.loaded['tobira.ui.float'] = nil
+    vim.wait(300, function()
+      return shown
+    end, 10)
+    suggest.on_show = nil
     assert.is_false(shown)
   end)
 end)
@@ -515,13 +526,19 @@ describe('when the idle timer fires while not in normal mode', function()
     -- Patch vim.fn.mode so fire_ambient sees a non-normal mode when the timer fires.
     local orig_mode = vim.fn.mode
     local ok, err = pcall(function()
-      vim.fn.mode = function() return 'i' end
+      vim.fn.mode = function()
+        return 'i'
+      end
       local shown = false
-      package.loaded['tobira.ui.float'] = { show = function() shown = true end }
+      suggest.on_show = function()
+        shown = true
+      end
       suggest.setup_idle()
       vim.fn.feedkeys('j', 'x')
-      vim.wait(300, function() return shown end, 10)
-      package.loaded['tobira.ui.float'] = nil
+      vim.wait(300, function()
+        return shown
+      end, 10)
+      suggest.on_show = nil
       assert.is_false(shown)
     end)
     vim.fn.mode = orig_mode

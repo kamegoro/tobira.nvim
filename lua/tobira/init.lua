@@ -15,9 +15,14 @@ function M.setup(opts)
   cfg.setup(opts)
   logger.setup()
 
-  -- Wire the callback: logger fires patterns, suggest handles them.
-  -- This is the only place either module knows about the other's role.
+  -- Wire cross-layer callbacks here (the only place any module knows about
+  -- the others' roles).
+  --   logger fires patterns → suggest handles them.
+  --   suggest wants to display → ui.float renders.
   logger.on_pattern = suggest.queue
+  suggest.on_show = function(suggestion)
+    require('tobira.ui.float').show(suggestion)
+  end
   suggest.setup_idle()
 
   if not logger.is_guide_seen() then

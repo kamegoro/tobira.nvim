@@ -4,6 +4,11 @@ local graph = require('tobira.core.graph')
 
 local M = {}
 
+-- Display sink. Wired by init.lua to ui.float.show; kept as a callback so
+-- core/ never require()s ui/ (CLAUDE.md dependency rule: wiring lives in init).
+-- Tests assign a spy directly to observe display calls.
+M.on_show = nil
+
 local session = {
   last_auto_at = nil,
   timer = nil,
@@ -92,7 +97,9 @@ local function do_show(cmd)
   end
   logger.mark_shown(cmd)
   watch_adoption(cmd)
-  require('tobira.ui.float').show(suggestion)
+  if M.on_show then
+    M.on_show(suggestion)
+  end
   return true
 end
 
