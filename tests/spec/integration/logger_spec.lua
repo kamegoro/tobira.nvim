@@ -446,6 +446,71 @@ describe('when save is called explicitly', function()
       logger.save()
     end)
   end)
+
+  it('leaves no .tmp file after writing (atomic write)', function()
+    logger.mark_shown('f')
+    local tmp = vim.fn.stdpath('data') .. '/tobira/usage.json.tmp'
+    local f = io.open(tmp, 'r')
+    assert.is_nil(f, 'expected no lingering .tmp file after save()')
+    if f then f:close() end
+  end)
+
+  it('does not crash when the data directory is not writable', function()
+    local real_open = io.open
+    io.open = function(path, mode)
+      if mode == 'w' then
+        return nil
+      end
+      return real_open(path, mode)
+    end
+    local ok, err = pcall(logger.save)
+    io.open = real_open
+    assert.is_true(ok, tostring(err))
+  end)
+end)
+
+-- ── multi-instance merge ──────────────────────────────────────────────────────
+
+describe('when a concurrent Neovim instance has written counts to disk', function()
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    logger.setup()
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'hello world test' })
+  end)
+
+  it('adds this session\'s delta on top of the concurrent count instead of overwriting it', function()
+    -- Press 'e' 3 times in this session (delta = 3).
+    for _ = 1, 3 do
+      vim.fn.feedkeys('e', 'xt'); vim.api.nvim_feedkeys('', 'x', false)
+    end
+
+    -- Simulate a concurrent instance that wrote count=7 while this session ran.
+    local data_dir = vim.fn.stdpath('data') .. '/tobira'
+    vim.fn.mkdir(data_dir, 'p')
+    local f = io.open(data_dir .. '/usage.json', 'w')
+    f:write(vim.json.encode({ e = { count = 7, sessions = {}, shown = 0, suppressed = false, pinned = false } }))
+    f:close()
+
+    -- close_session must produce count = 7 (disk) + 3 (delta) = 10, not 3.
+    logger.close_session()
+    logger.load_from_disk()
+    assert.equals(10, logger.get('e').count)
+  end)
+
+  it('preserves commands recorded only by the concurrent instance', function()
+    -- This session never touches 'w'. Concurrent instance recorded count=5 for 'w'.
+    local data_dir = vim.fn.stdpath('data') .. '/tobira'
+    vim.fn.mkdir(data_dir, 'p')
+    local f = io.open(data_dir .. '/usage.json', 'w')
+    f:write(vim.json.encode({ w = { count = 5, sessions = {}, shown = 0, suppressed = false, pinned = false } }))
+    f:close()
+
+    logger.close_session()
+    logger.load_from_disk()
+    assert.equals(5, logger.get('w').count)
+  end)
 end)
 
 -- ── load: first-run (no file) ─────────────────────────────────────────────────

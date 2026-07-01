@@ -11,6 +11,7 @@ local meta = { guide_seen = false }
 local _initialized = false
 local seq = patterns.new_seq()
 local session_counts = {}
+local _loaded_counts = {}
 
 -- Wired by init.lua — logger has no direct dependency on suggest.
 M.on_pattern = nil
@@ -66,11 +67,17 @@ end
 
 local function save()
   ensure_dir()
-  local f = io.open(data_file, 'w')
+  -- Write to a temp file then rename so a crash mid-write can never corrupt the data file.
+  local tmp = data_file .. '.tmp'
+  local f = io.open(tmp, 'w')
+  if not f then
+    return
+  end
   local payload = vim.deepcopy(usage)
   payload._meta = meta
   f:write(vim.json.encode(payload))
   f:close()
+  os.rename(tmp, data_file)
 end
 
 local function increment(cmd)
@@ -178,6 +185,12 @@ function M.setup()
   _initialized = true
 
   usage = load()
+  _loaded_counts = {}
+  for cmd, entry in pairs(usage) do
+    if type(entry) == 'table' then
+      _loaded_counts[cmd] = entry.count or 0
+    end
+  end
 
   local mode_group = vim.api.nvim_create_augroup('tobira_mode', { clear = true })
 
@@ -226,6 +239,34 @@ function M.close_session()
     end
   end
   session_counts = {}
+
+  -- Re-read disk before writing so that counts accumulated by a concurrent
+  -- Neovim instance are not overwritten (last-writer-wins data loss).
+  -- Strategy: for each command we used this session, add our delta on top of
+  -- whatever disk has now.  Commands we never touched are taken from disk as-is.
+  local disk_f = io.open(data_file, 'r')
+  if disk_f then
+    local content = disk_f:read('*a')
+    disk_f:close()
+    local ok, disk_data = pcall(vim.json.decode, content)
+    if ok and type(disk_data) == 'table' then
+      if disk_data._meta then
+        meta = vim.tbl_extend('force', meta, disk_data._meta)
+        disk_data._meta = nil
+      end
+      for cmd, disk_entry in pairs(disk_data) do
+        if type(disk_entry) == 'table' then
+          if usage[cmd] then
+            local delta = math.max(0, (usage[cmd].count or 0) - (_loaded_counts[cmd] or 0))
+            usage[cmd].count = (disk_entry.count or 0) + delta
+          else
+            usage[cmd] = migrate_entry(disk_entry)
+          end
+        end
+      end
+    end
+  end
+
   save()
 end
 
@@ -285,6 +326,7 @@ end
 function M.reset()
   usage = {}
   session_counts = {}
+  _loaded_counts = {}
   meta = { guide_seen = false }
   seq = patterns.new_seq()
   current_mode = 'n'
