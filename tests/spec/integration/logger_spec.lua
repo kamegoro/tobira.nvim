@@ -303,6 +303,24 @@ describe('when the user types while in insert mode', function()
     vim.api.nvim_feedkeys('', 'x', false)
     assert.is_false(fired)
   end)
+
+  it('resets the pattern sequence when a key arrives while current_mode is not n', function()
+    -- In headless mode vim.fn.mode() always reports 'n', so stub it to 'i'
+    -- (same technique as the operator-pending test below) to exercise the
+    -- `if current_mode:sub(1,1) ~= 'n' then seq=new_seq(); return end` branch.
+    local real_mode = vim.fn.mode
+    vim.fn.mode = function() return 'i' end
+    vim.api.nvim_exec_autocmds('ModeChanged', { modeline = false })
+    vim.fn.mode = real_mode
+    -- Feed a key: typed='j' (not filtered by typed=='') but current_mode='i'
+    -- so handle_key resets seq and returns without counting or calling on_pattern.
+    local fired = false
+    logger.on_pattern = function() fired = true end
+    vim.fn.feedkeys('j', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_false(fired)
+    assert.equals(0, logger.get('j').count)
+  end)
 end)
 
 describe('when ModeChanged fires to operator-pending before the motion arrives', function()
