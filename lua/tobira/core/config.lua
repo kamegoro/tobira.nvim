@@ -20,7 +20,10 @@ function M.setup(opts)
     lang = { cfg.lang, 'string' },
   })
   if not ok then
-    vim.notify('tobira: invalid config — ' .. err, vim.log.levels.ERROR)
+    -- Use i18n.load() with the *incoming* (possibly invalid) lang value:
+    -- worst case it falls back to English inside i18n.
+    local str = require('tobira.i18n').load()
+    vim.notify(str.notifications.invalid_config .. err, vim.log.levels.ERROR)
     return
   end
   M.values = cfg

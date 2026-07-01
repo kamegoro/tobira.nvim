@@ -130,6 +130,7 @@ return {
   notifications = {
     reset = 'tobira: usage log reset',
     no_suggestions = 'tobira: no new suggestions right now 🎉',
+    invalid_config = 'tobira: invalid config — ',
   },
   stats = {
     title = 'tobira — usage stats',

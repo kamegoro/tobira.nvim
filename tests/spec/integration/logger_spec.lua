@@ -1,5 +1,13 @@
 local logger = require('tobira.core.logger')
 
+-- Test-local disk cleanup. Production `logger.reset()` deliberately does no
+-- I/O (per CLAUDE.md); specs that also need a clean usage.json on disk call
+-- this helper directly.
+local _data_file = vim.fn.stdpath('data') .. '/tobira/usage.json'
+local function wipe_disk()
+  pcall(os.remove, _data_file)
+end
+
 -- ── default state ─────────────────────────────────────────────────────────────
 
 describe('before any usage is recorded', function()
@@ -153,6 +161,7 @@ end)
 
 describe('session tracking', function()
   before_each(function()
+    wipe_disk()
     logger.reset()
     logger.setup()
     vim.cmd('enew')
@@ -426,6 +435,7 @@ end)
 describe('when no usage file exists yet', function()
   it('loads without error and returns empty usage', function()
     logger.reset()
+    wipe_disk()
     assert.has_no_error(function()
       logger.load_from_disk()
     end)

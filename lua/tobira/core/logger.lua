@@ -284,7 +284,9 @@ function M.reset()
   current_mode = 'n'
   _recording_macro = false
   _initialized = false
-  pcall(os.remove, data_file)
+  -- Intentionally no disk I/O here. Callers that want disk cleared
+  -- (e.g. :TobiraReset) invoke save() explicitly afterwards, which
+  -- overwrites usage.json with the empty state.
 end
 
 -- Re-read usage from disk without resetting in-memory state.
