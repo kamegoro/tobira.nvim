@@ -2,7 +2,7 @@
 
 <p align="center">
   <a href="https://github.com/kamegoro/tobira.nvim/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/kamegoro/tobira.nvim/ci.yml?branch=main&label=CI&logo=github&style=flat"></a>
-  <a href="https://github.com/kamegoro/tobira.nvim/actions/workflows/ci.yml"><img alt="Coverage" src="https://img.shields.io/badge/coverage-100%25%20(core%2F)-brightgreen?logo=lua&logoColor=white&style=flat"></a>
+  <a href="https://github.com/kamegoro/tobira.nvim/actions/workflows/ci.yml"><img alt="Coverage" src="https://img.shields.io/badge/coverage-100%25-brightgreen?logo=lua&logoColor=white&style=flat"></a>
   <a href="https://github.com/neovim/neovim/releases/tag/v0.9.0"><img alt="Neovim" src="https://img.shields.io/badge/Neovim-0.9%2B-57A143?logo=neovim&logoColor=white&style=flat"></a>
   <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/github/license/kamegoro/tobira.nvim?color=blue&style=flat"></a>
   <a href="https://github.com/kamegoro/tobira.nvim/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/kamegoro/tobira.nvim?style=flat&logo=github&color=yellow"></a>
@@ -30,7 +30,7 @@ No quizzes. No interruptions. Just your habits, and the better path.
 - **Suggests the one better command** — shown after a natural pause, up to `max_shown` times per session, with a cooldown between auto-suggestions
 - **Tracks mastery by watching your behavior** — once you've used a command ~100 times, tobira stops suggesting it
 - **Filters to your level** — beginner commands first, advanced ones once you're ready
-- **136 commands in the learning graph** — motion, edit, search, window, fold, mark, and macro commands from the full Neovim index
+- **148 commands in the learning graph** — motion, edit, search, window, fold, mark, and macro commands from the full Neovim index
 
 ---
 
@@ -40,7 +40,7 @@ No quizzes. No interruptions. Just your habits, and the better path.
   <img src="docs/demo-guide.gif" alt=":TobiraGuide cheatsheet panel" width="720" />
 </p>
 
-`:TobiraGuide` opens a cheatsheet on the right side of the screen. Commands you've mastered show **✓** and reveal the next step with **→**. Covers all 7 categories: motion, edit, search, window, fold, mark, and macro. Shown automatically on first launch.
+`:TobiraGuide` opens a cheatsheet on the right side of the screen. Commands you've already mastered are automatically hidden, so only your next targets are shown. Pinned commands always appear at the top. Covers all 7 categories: motion, edit, search, window, fold, mark, and macro. Opens automatically on first launch.
 
 ---
 
@@ -65,7 +65,7 @@ No quizzes. No interruptions. Just your habits, and the better path.
 | `dd` × 3 in a row | `{n}dd` — delete N lines at once |
 | `r{x}` × 3 in a row | `R` — enter replace mode |
 
-27 patterns total — see `:help tobira-patterns` for the full list.
+34 patterns total — see `:help tobira-patterns` for the full list.
 
 ---
 
