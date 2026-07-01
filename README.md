@@ -148,5 +148,8 @@ tobira is the only plugin that learns from **your actual usage** and shows you t
 See [CONTRIBUTING.md](./CONTRIBUTING.md). This project follows strict TDD — tests before implementation, always.
 
 ## License
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=kamegoro/tobira.nvim&type=Date)](https://star-history.com/#kamegoro/tobira.nvim&Date)
 
 MIT
