@@ -1,14 +1,21 @@
 -- :TobiraStats renderer.
 -- M.render(usage) is pure: takes a usage table, returns { title, body } strings.
--- M.show() reads live usage from the logger and calls vim.notify.
+-- M.toggle() opens/closes a focused custom float window.
 local M = {}
+
+local _win = nil
+local _buf = nil
+local _prev_win = nil
+local _ns = vim.api.nvim_create_namespace('tobira_stats')
 
 local BAR_SEGMENTS = 16
 local BAR_FILLED = '█'
 local BAR_EMPTY = '░'
-local TOP_N = 5
+local TOP_N = 8
+local GAPS_N = 5
+local ICON = ''
 
-local STAR_BY_LEVEL = { [0] = ' ', [1] = '☆', [2] = '★', [3] = '★★', [4] = '★★★' }
+local setup_hls = require('tobira.ui.hls').setup
 
 local function fmt_int_commas(n)
   local s = tostring(math.floor(n))
@@ -71,7 +78,9 @@ function M.render(usage)
     return a.cmd < b.cmd
   end)
 
-  local gaps = graph.efficiency_gaps(usage, 3)
+  local gaps = graph.efficiency_gaps(usage, GAPS_N)
+
+  local STAR_BY_LEVEL = { [0] = ' ', [1] = '☆', [2] = '★', [3] = '★★', [4] = '★★★' }
 
   local lines = { '' }
 
@@ -126,10 +135,113 @@ function M.render(usage)
   }
 end
 
-function M.show()
+function M.is_open()
+  return _win ~= nil and vim.api.nvim_win_is_valid(_win)
+end
+
+function M.close()
+  if M.is_open() then
+    vim.api.nvim_win_close(_win, true)
+  end
+  if _prev_win ~= nil and vim.api.nvim_win_is_valid(_prev_win) then
+    pcall(vim.api.nvim_set_current_win, _prev_win)
+  end
+  _win = nil
+  _buf = nil
+  _prev_win = nil
+end
+
+function M.open()
+  if M.is_open() then
+    return
+  end
+
+  local str = require('tobira.i18n').load()
   local usage = require('tobira.core.logger').get_all()
   local rendered = M.render(usage)
-  vim.notify(rendered.title .. '\n' .. rendered.body, vim.log.levels.INFO)
+
+  _prev_win = vim.api.nvim_get_current_win()
+  setup_hls()
+
+  -- Build line array from rendered body + hint footer.
+  local lines = {}
+  for line in (rendered.body .. '\n'):gmatch('([^\n]*)\n') do
+    table.insert(lines, line)
+  end
+  local hint_lnum = #lines
+  table.insert(lines, '')
+  table.insert(lines, '  ' .. str.stats.hint)
+  table.insert(lines, '')
+
+  -- Width: fit the widest line, also wide enough for the title.
+  local title_text = ' ' .. ICON .. ' ' .. rendered.title .. ' '
+  local max_len = vim.fn.strdisplaywidth(title_text) + 2
+  for _, line in ipairs(lines) do
+    local w = vim.fn.strdisplaywidth(line)
+    if w > max_len then
+      max_len = w
+    end
+  end
+
+  local uis = vim.api.nvim_list_uis()
+  local screen_w = uis[1] and uis[1].width or 120
+  local screen_h = uis[1] and uis[1].height or 40
+  local win_w = math.min(max_len + 2, screen_w - 6)
+  local win_h = math.min(#lines, screen_h - 4)
+
+  _buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_lines(_buf, 0, -1, false, lines)
+  vim.bo[_buf].modifiable = false
+  vim.bo[_buf].bufhidden = 'wipe'
+
+  vim.api.nvim_buf_add_highlight(_buf, _ns, 'TobiraGuideHint', hint_lnum + 1, 0, -1)
+
+  vim.keymap.set('n', 'q', M.close, { buffer = _buf, nowait = true, silent = true })
+  vim.keymap.set('n', '<Esc>', M.close, { buffer = _buf, nowait = true, silent = true })
+
+  -- Center on screen.
+  local row = math.max(1, math.floor((screen_h - win_h) / 2))
+  local col = math.max(1, math.floor((screen_w - win_w) / 2))
+
+  _win = vim.api.nvim_open_win(_buf, true, {
+    relative = 'editor',
+    row = row,
+    col = col,
+    width = win_w,
+    height = win_h,
+    style = 'minimal',
+    border = 'rounded',
+    title = title_text,
+    title_pos = 'left',
+    focusable = true,
+    zindex = 50,
+  })
+
+  vim.wo[_win].winhl = 'Normal:TobiraGuideNormal,FloatBorder:TobiraGuideBorder'
+  vim.wo[_win].wrap = false
+  vim.wo[_win].cursorline = false
+  vim.wo[_win].scrolloff = 0
+
+  vim.api.nvim_create_autocmd('WinLeave', {
+    buffer = _buf,
+    once = true,
+    callback = function()
+      vim.defer_fn(M.close, 0)
+    end,
+  })
+end
+
+function M.toggle()
+  if M.is_open() then
+    M.close()
+  else
+    M.open()
+  end
+end
+
+-- Kept for backwards compatibility (plugin/tobira.lua calls M.show).
+function M.show()
+  M.toggle()
 end
 
 return M

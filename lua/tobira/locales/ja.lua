@@ -39,6 +39,7 @@ return {
     mastery_dist = '  未使用 %d  ·  ☆ %d  ·  ★ %d  ·  ★★+ %d',
     top_commands = 'Top コマンド',
     try_next = '⚡ 次はこれを試そう',
+    hint = '[q / Esc]  閉じる',
   },
   float = {
     example_prefix = '例: ',

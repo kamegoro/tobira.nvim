@@ -99,7 +99,7 @@ function M.show(suggestion, focused)
 
   _win = vim.api.nvim_open_win(_buf, focused == true, {
     relative = 'editor',
-    row = math.max(1, screen_h - win_h - 3),
+    row = 1,
     col = math.max(1, screen_w - win_w - 2),
     width = win_w,
     height = win_h,

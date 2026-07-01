@@ -78,7 +78,7 @@ end)
 -- ── top commands ──────────────────────────────────────────────────────────────
 
 describe('when many commands have been recorded', function()
-  it('lists at most the top 5 commands by count', function()
+  it('lists at most the top 8 commands by count', function()
     -- Use registry commands only (basic keys like j/k are excluded from Top).
     local r = stats.render({
       cw = entry(1000),
@@ -88,6 +88,9 @@ describe('when many commands have been recorded', function()
       [';'] = entry(600),
       [','] = entry(500),
       gj = entry(400),
+      gg = entry(300),
+      ['G'] = entry(200),
+      dap = entry(100),
     })
     -- Count rows between the Top commands header and the next blank line.
     local lines = lines_of(r)
@@ -106,7 +109,7 @@ describe('when many commands have been recorded', function()
       end
       rows = rows + 1
     end
-    assert.equals(5, rows)
+    assert.equals(8, rows)
   end)
 
   it('sorts top commands by count descending', function()
@@ -163,16 +166,28 @@ describe('when there are no efficiency gaps', function()
   end)
 end)
 
--- ── M.show() ──────────────────────────────────────────────────────────────────
+-- ── M.show() / M.toggle() ────────────────────────────────────────────────────
 
 describe('when show() is called', function()
-  it('passes the rendered output to vim.notify', function()
-    local notified = false
-    local orig_notify = vim.notify
-    vim.notify = function(_, _) notified = true end
+  after_each(function()
+    stats.close()
+  end)
+
+  it('opens a stats window', function()
     local ok, err = pcall(stats.show)
-    vim.notify = orig_notify
     assert.is_true(ok, tostring(err))
-    assert.is_true(notified, 'expected vim.notify to be called by show()')
+    assert.is_true(stats.is_open(), 'expected a stats window to be open')
+  end)
+
+  it('closes the window when called a second time (toggle)', function()
+    stats.show()
+    stats.show()
+    assert.is_false(stats.is_open(), 'expected the stats window to close on second call')
+  end)
+
+  it('is a no-op when open() is called while already open', function()
+    stats.open()
+    stats.open()
+    assert.is_true(stats.is_open(), 'expected window to remain open')
   end)
 end)

@@ -39,6 +39,7 @@ return {
     mastery_dist = '  Never %d  ·  ☆ %d  ·  ★ %d  ·  ★★+ %d',
     top_commands = 'Top commands',
     try_next = '⚡ Try these next',
+    hint = '[q / Esc]  close',
   },
   float = {
     example_prefix = 'e.g. ',
