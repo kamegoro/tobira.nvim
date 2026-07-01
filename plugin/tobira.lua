@@ -8,7 +8,7 @@ vim.api.nvim_create_user_command('Tobira', function()
 end, { desc = 'Show next command suggestion' })
 
 vim.api.nvim_create_user_command('TobiraStats', function()
-  require('tobira.core.logger').stats()
+  require('tobira.ui.stats').show()
 end, { desc = 'Show command usage stats' })
 
 vim.api.nvim_create_user_command('TobiraGuide', function()

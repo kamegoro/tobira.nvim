@@ -133,9 +133,12 @@ return {
   },
   stats = {
     title = 'tobira — 使用統計',
-    times = '回',
-    dist_fmt = '未使用:%-3d  ☆:%-3d  ★:%-3d  ★★+:%-3d',
-    try_next = '⚡ 次はこれを試してみよう:',
+    total_keystrokes = '総キーストローク',
+    discovered = '発見コマンド',
+    mastery = '習熟度',
+    mastery_dist = '  未使用 %d  ·  ☆ %d  ·  ★ %d  ·  ★★+ %d',
+    top_commands = 'Top コマンド',
+    try_next = '⚡ 次はこれを試そう',
   },
   float = {
     example_prefix = '例: ',

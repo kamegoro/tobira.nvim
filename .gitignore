@@ -8,3 +8,4 @@ CLAUDE.md
 PLAN.md
 .agent/
 .github/copilot-instructions.md
+__pycache__/
