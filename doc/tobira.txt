@@ -146,6 +146,13 @@ When a pattern is detected and you are idle for `idle_delay` milliseconds,
 a suggestion appears via |vim.notify()|. If nvim-notify is installed, it
 appears as a floating notification in the lower right corner.
 
+ADOPTION DETECTION ~
+
+After a suggestion is shown, tobira watches whether you actually use the
+suggested command. It does this passively — no button press required.
+If you use the command, it is marked as adopted and will not be suggested
+again once mastered (100+ cumulative uses).
+
 SUPPRESSION ~
 
 If a suggestion is not relevant to you, open |:TobiraProgress| and press
@@ -158,46 +165,53 @@ Usage data is stored locally at: >
 
   ~/.local/share/nvim/tobira/usage.json
 <
-No data is sent externally.
+No data is sent externally. The file is updated on |VimLeave|.
 
 ==============================================================================
 6. DETECTED PATTERNS                                              *tobira-patterns*
 
-The following keystroke patterns are currently detected. For each pattern,
-tobira waits until you are idle and then surfaces the suggested command.
+Each pattern fires at most once per trigger sequence. After firing, the
+suggestion is shown when you are next idle for `idle_delay` milliseconds.
 
 MOTION ~
 
-  `fa` → `fa` (same line)      Suggest `;`  — repeat the last f/t/F/T
-  `l` × 5                      Suggest `w`  — jump forward by word
-  `h` × 5                      Suggest `b`  — jump backward by word
-  `w` × 5                      Suggest `W`  — jump by WORD (whitespace-delimited)
-  `b` × 5                      Suggest `B`  — jump WORD backward
-  `j` × 5                      Suggest `{n}j` — count prefix
-  `j` × 10                     Suggest `}`  — jump by paragraph
-  `k` × 5                      Suggest `{n}k` — count prefix
-  `k` × 10                     Suggest `{`  — jump by paragraph backward
-  `k` (once) → `o`             Suggest `O`  — open line above directly
-  `0` → `w`                    Suggest `^`  — go to first non-blank
-  `0` or `^` → `i`             Suggest `I`  — insert at first non-blank
-  `$` → `a`                    Suggest `A`  — append at end of line
-  `n` × 4                      Suggest `cgn` — change next match (search loop)
+  `f{x}` → `f{x}` same line    Suggest `;`    — repeat the last f/t/F/T motion
+  `l` × 5                       Suggest `w`    — jump forward by word
+  `h` × 5                       Suggest `b`    — jump backward by word
+  `w` × 5                       Suggest `W`    — jump forward by WORD
+  `b` × 5                       Suggest `B`    — jump backward by WORD
+  `j` × 5                       Suggest `{n}j` — use a count prefix instead
+  `j` × 10                      Suggest `}`    — jump forward by paragraph
+  `k` × 5                       Suggest `{n}k` — use a count prefix instead
+  `k` × 10                      Suggest `{`    — jump backward by paragraph
+  `k` (once) → `o`              Suggest `O`    — open new line above directly
+  `0` → `w`                     Suggest `^`    — go to first non-blank
+  `0` / `^` → `i`               Suggest `I`    — insert at first non-blank
+  `$` → `a`                     Suggest `A`    — append at end of line
+  `n` × 4                       Suggest `cgn`  — change next search match
 
 EDIT ~
 
-  `dw` → `i`                   Suggest `cw`   — change word in one command
-  `dd` → `p`                   Suggest `ddp`  — swap current line with next
-  `dd` → `i` / `a` / `o`      Suggest `cc`   — change whole line
-  `dd` × 3                     Suggest `{n}dd` — delete N lines at once
-  `D` → `i` / `a` / `o`       Suggest `C`    — change to end of line
-  `x` → `i` / `a` / `o`       Suggest `s`    — substitute char (delete + insert)
-  `x` × 3                      Suggest `{n}x`  — delete N chars at once
-  `p` × 3                      Suggest `{n}p`  — paste N times
-  `P` × 3                      Suggest `{n}P`  — paste above N times
-  `~` × 3                      Suggest `{n}~`  — toggle case of N chars
-  `u` × 3                      Suggest `<C-r>` — redo instead of undo-redo loop
-  `r{x}` × 3 (h/l between ok) Suggest `R`    — enter replace mode
-  `v` `i` `{obj}` `c/d/y`     Suggest `c/d/y` + inner + obj (e.g. `ciw`, `di"`)
+  `c$`                          Suggest `C`     — change to end of line
+  `d$`                          Suggest `D`     — delete to end of line
+  `dw` → `i`                    Suggest `cw`    — change word in one motion
+  `yy` → `p`                    Suggest `yyp`   — duplicate the current line
+  `dd` → `p`                    Suggest `ddp`   — swap current line with next
+  `dd` → `i` / `a` / `o`       Suggest `cc`    — change whole line
+  `dd` × 3                      Suggest `{n}dd` — delete N lines at once
+  `D` → `i` / `a` / `o`        Suggest `C`     — change to end of line
+  `x` (once) → `i` / `a` / `o` Suggest `s`     — substitute char (delete + insert)
+  `x` × 3                       Suggest `{n}x`  — delete N chars at once
+  `p` × 3                       Suggest `{n}p`  — paste N times
+  `P` × 3                       Suggest `{n}P`  — paste above N times
+  `~` × 3                       Suggest `{n}~`  — toggle case of N chars
+  `.` × 3                       Suggest `{n}.`  — dot-repeat with a count
+  `J` × 3                       Suggest `{n}J`  — join N lines at once
+  `u` × 3                       Suggest `<C-r>` — redo instead of repeating undo
+  `r{x}` × 3 (h/l between ok)  Suggest `R`     — enter Replace mode directly
+  `>>` × 3                      Suggest `{n}>>` — indent N lines at once
+  `<<` × 3                      Suggest `{n}<<` — dedent N lines at once
+  `v` `i/a` `{obj}` `c/d/y`    Suggest direct operator (e.g. `ciw`, `di"`, `ya(`)
 
 ==============================================================================
 vim:tw=78:ts=8:ft=help:norl:
