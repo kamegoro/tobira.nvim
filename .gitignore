@@ -4,7 +4,7 @@
 /tests/coverage/
 luacov.stats.out
 luacov.report.out
-CLAUDE.md
+/CLAUDE.md
 PLAN.md
 .agent/
 .github/copilot-instructions.md

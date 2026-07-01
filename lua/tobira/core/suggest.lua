@@ -1,6 +1,7 @@
 local config = require('tobira.core.config')
 local logger = require('tobira.core.logger')
 local graph = require('tobira.core.graph')
+local level = require('tobira.core.level')
 
 local M = {}
 
@@ -19,8 +20,6 @@ local _idle_timer = nil
 local _idle_ns = nil
 
 local KEY_BUF_MAX = 20
-
-local LEVEL_UP = { novice = 'beginner', beginner = 'intermediate', intermediate = 'advanced', advanced = 'advanced' }
 
 -- Normalise <C-x> / <M-x> style command strings to the form keytrans() returns,
 -- so suffix matching works regardless of capitalisation in commands.lua.
@@ -51,8 +50,7 @@ end
 
 local function should_suppress(cmd)
   local data = logger.get(cmd)
-  local mastered = graph.mastery_level(data) >= 2 and not graph.is_forgotten(data)
-  return mastered or data.suppressed or data.shown >= config.values.max_shown
+  return graph.is_mastered(data) or data.suppressed or data.shown >= config.values.max_shown
 end
 
 local function cancel_timer()
@@ -118,9 +116,7 @@ local function fire_ambient()
   if over_auto_limit() then
     return
   end
-  local level = require('tobira.core.level')
-  local max_lv = LEVEL_UP[level.get()] or 'advanced'
-  local best = graph.find_best(logger.get_all(), config.values.max_shown, max_lv)
+  local best = graph.find_best(logger.get_all(), config.values.max_shown, level.ceiling(level.get()))
   if best then
     M.show(best)
   end
@@ -188,9 +184,7 @@ function M.reset_session()
 end
 
 function M.manual()
-  local level = require('tobira.core.level')
-  local max_lv = LEVEL_UP[level.get()] or 'advanced'
-  local best = graph.find_best(logger.get_all(), config.values.max_shown, max_lv)
+  local best = graph.find_best(logger.get_all(), config.values.max_shown, level.ceiling(level.get()))
   if not best then
     local str = require('tobira.i18n').load()
     vim.notify(str.notifications.no_suggestions, vim.log.levels.INFO)

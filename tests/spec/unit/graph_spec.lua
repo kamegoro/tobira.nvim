@@ -288,6 +288,22 @@ describe('mastery_level', function()
   end)
 end)
 
+-- ── is_mastered ───────────────────────────────────────────────────────────────
+
+describe('is_mastered', function()
+  it('returns true when count reaches the mastered threshold (100)', function()
+    assert.is_true(graph.is_mastered({ count = 100, sessions = {} }))
+  end)
+
+  it('returns false when count is below the threshold', function()
+    assert.is_false(graph.is_mastered({ count = 99, sessions = {} }))
+  end)
+
+  it('returns false when mastered but forgotten (last 2 sessions are 0)', function()
+    assert.is_false(graph.is_mastered({ count = 200, sessions = { 8, 9, 0, 0 } }))
+  end)
+end)
+
 -- ── guide_commands ────────────────────────────────────────────────────────────
 
 describe('guide_commands', function()

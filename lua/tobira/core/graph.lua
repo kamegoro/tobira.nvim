@@ -60,6 +60,13 @@ function M.is_forgotten(data)
   return false
 end
 
+-- True when the command is mastered (mastery_level ≥ 2) and not forgotten.
+-- Centralises the "skip this from suggestions" decision; callers must not
+-- inline mastery_level(data) >= 2 checks.
+function M.is_mastered(data)
+  return M.mastery_level(data) >= 2 and not M.is_forgotten(data)
+end
+
 -- Returns 0-4 mastery level based on cumulative usage count.
 -- 0 = never used, 1 = ☆ (≥1), 2 = ★ (≥100), 3 = ★★ (≥1000), 4 = ★★★ (≥5000)
 function M.mastery_level(data)
@@ -203,7 +210,7 @@ function M.find_best(usage, max_shown, max_level)
     if cmd_level_num <= max_level_num then
       local data = usage[cmd] or { count = 0, sessions = {}, shown = 0, suppressed = false }
 
-      local mastered = M.mastery_level(data) >= 2 and not M.is_forgotten(data)
+      local mastered = M.is_mastered(data)
       local offered = not mastered and not data.suppressed and data.shown < max_shown
 
       if offered then

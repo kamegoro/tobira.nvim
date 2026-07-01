@@ -2,6 +2,20 @@ local graph = require('tobira.core.graph')
 
 local M = {}
 
+-- One step ahead of the user's current level: suggestions reach slightly above
+-- where they are, not all the way to advanced.
+local CEILING = {
+  novice = 'beginner',
+  beginner = 'intermediate',
+  intermediate = 'advanced',
+  advanced = 'advanced',
+}
+
+-- Returns the highest suggestion level appropriate for a given skill level.
+function M.ceiling(lv)
+  return CEILING[lv] or 'advanced'
+end
+
 local function cnt(usage, keys)
   local total = 0
   for _, k in ipairs(keys) do

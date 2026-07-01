@@ -42,3 +42,23 @@ describe('when the user has adopted cgn', function()
     assert.equals('advanced', level.get({ cgn = { count = 5, sessions = { 10 }, shown = 0, suppressed = false } }))
   end)
 end)
+
+-- ── ceiling ───────────────────────────────────────────────────────────────────
+
+describe('ceiling', function()
+  it('returns beginner for a novice (one step ahead)', function()
+    assert.equals('beginner', level.ceiling('novice'))
+  end)
+
+  it('returns intermediate for a beginner', function()
+    assert.equals('intermediate', level.ceiling('beginner'))
+  end)
+
+  it('returns advanced for an intermediate user', function()
+    assert.equals('advanced', level.ceiling('intermediate'))
+  end)
+
+  it('stays at advanced for an advanced user', function()
+    assert.equals('advanced', level.ceiling('advanced'))
+  end)
+end)
