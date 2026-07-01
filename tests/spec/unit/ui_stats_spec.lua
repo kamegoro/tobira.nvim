@@ -162,3 +162,17 @@ describe('when there are no efficiency gaps', function()
     assert.is_nil(find_line(r, '→'), 'try-next arrows should be hidden when no gaps exist')
   end)
 end)
+
+-- ── M.show() ──────────────────────────────────────────────────────────────────
+
+describe('when show() is called', function()
+  it('passes the rendered output to vim.notify', function()
+    local notified = false
+    local orig_notify = vim.notify
+    vim.notify = function(_, _) notified = true end
+    local ok, err = pcall(stats.show)
+    vim.notify = orig_notify
+    assert.is_true(ok, tostring(err))
+    assert.is_true(notified, 'expected vim.notify to be called by show()')
+  end)
+end)

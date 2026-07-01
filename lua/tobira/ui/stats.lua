@@ -24,11 +24,6 @@ end
 
 local function make_bar(pct)
   local filled = math.floor(pct / 100 * BAR_SEGMENTS + 0.5)
-  if filled < 0 then
-    filled = 0
-  elseif filled > BAR_SEGMENTS then
-    filled = BAR_SEGMENTS
-  end
   return string.rep(BAR_FILLED, filled) .. string.rep(BAR_EMPTY, BAR_SEGMENTS - filled)
 end
 
