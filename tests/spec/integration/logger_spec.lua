@@ -590,6 +590,49 @@ describe('when a compound operator completes', function()
   end
 end)
 
+-- ── single-char key tracking ─────────────────────────────────────────────────
+-- Smoke test: every track=true single-char key in commands.lua must increment
+-- its usage count when pressed. A stray track=false revert is caught here.
+
+describe('when single-char track=true keys are pressed', function()
+  before_each(function()
+    logger.reset()
+    logger.on_pattern = nil
+    logger.setup()
+    vim.cmd('enew')
+    -- Rich buffer: multi-line, multi-word so motions like w/b/e/J/H/M/L work.
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+      'hello world foo bar baz',
+      'second line here now',
+      'third line content ok',
+      'fourth line text yes',
+      'fifth line end done',
+    })
+    vim.api.nvim_win_set_cursor(0, { 3, 4 })
+  end)
+
+  -- pcall absorbs Neovim side-effects (mode changes, missing prior context for
+  -- ; / , , etc.). on_key fires before the command executes so the count is set.
+  --
+  -- NOTE: 'Y' is intentionally excluded. Neovim maps Y→y$ by default
+  -- (nnoremap Y y$), so on_key sees 'y' and '$' rather than 'Y'.
+  -- The count for 'Y' will always be 0; suggestion still works via the graph.
+  local single_keys = {
+    ';', ',', '.', '*', '#', '~',
+    'A', 'b', 'C', 'D', 'e', 'F',
+    'H', 'I', 'J', 'L', 'M', 'N',
+    'O', 'P', 'r', 's', 't', 'V',
+    'w', 'X',
+  }
+  for _, key in ipairs(single_keys) do
+    it('increments the usage count for ' .. key, function()
+      pcall(vim.fn.feedkeys, key, 'x')
+      pcall(vim.api.nvim_feedkeys, '', 'x', false)
+      assert.is_true(logger.get(key).count > 0)
+    end)
+  end
+end)
+
 describe('when the user records a macro', function()
   before_each(function()
     logger.reset()
