@@ -32,7 +32,7 @@ local function suppress_and_close()
   close()
 end
 
-function M.show(suggestion)
+function M.show(suggestion, focused)
   local str = require('tobira.i18n').load()
   local sug_str = str.suggestions and str.suggestions[suggestion.cmd]
   if not sug_str then
@@ -44,7 +44,9 @@ function M.show(suggestion)
   end
 
   _current_cmd = suggestion.cmd
-  _prev_win = vim.api.nvim_get_current_win()
+  if focused then
+    _prev_win = vim.api.nvim_get_current_win()
+  end
 
   setup_hls()
 
@@ -57,9 +59,12 @@ function M.show(suggestion)
     table.insert(lines, '  ' .. str.float.example_prefix .. sug_str.example)
   end
   table.insert(lines, '')
-  local hint_lnum = #lines -- 0-indexed line number for the hint
-  table.insert(lines, '  ' .. str.float.suppress_hint)
-  table.insert(lines, '')
+  local hint_lnum = nil
+  if focused then
+    hint_lnum = #lines -- 0-indexed line number for the hint
+    table.insert(lines, '  ' .. str.float.suppress_hint)
+    table.insert(lines, '')
+  end
 
   -- Compute window width to fit the widest line and the title.
   local title_text = ' ' .. ICON .. ' ' .. sug_str.title .. ' '
@@ -82,13 +87,17 @@ function M.show(suggestion)
   vim.bo[_buf].modifiable = false
   vim.bo[_buf].bufhidden = 'wipe'
 
-  vim.api.nvim_buf_add_highlight(_buf, _ns, 'TobiraGuideHint', hint_lnum, 0, -1)
+  if hint_lnum then
+    vim.api.nvim_buf_add_highlight(_buf, _ns, 'TobiraGuideHint', hint_lnum, 0, -1)
+  end
 
-  vim.keymap.set('n', 'x', suppress_and_close, { buffer = _buf, nowait = true, silent = true })
-  vim.keymap.set('n', 'q', close, { buffer = _buf, nowait = true, silent = true })
-  vim.keymap.set('n', '<Esc>', close, { buffer = _buf, nowait = true, silent = true })
+  if focused then
+    vim.keymap.set('n', 'x', suppress_and_close, { buffer = _buf, nowait = true, silent = true })
+    vim.keymap.set('n', 'q', close, { buffer = _buf, nowait = true, silent = true })
+    vim.keymap.set('n', '<Esc>', close, { buffer = _buf, nowait = true, silent = true })
+  end
 
-  _win = vim.api.nvim_open_win(_buf, true, {
+  _win = vim.api.nvim_open_win(_buf, focused == true, {
     relative = 'editor',
     row = math.max(1, screen_h - win_h - 3),
     col = math.max(1, screen_w - win_w - 2),
@@ -98,7 +107,7 @@ function M.show(suggestion)
     border = 'rounded',
     title = title_text,
     title_pos = 'left',
-    focusable = true,
+    focusable = focused == true,
     zindex = 50,
   })
 
@@ -106,14 +115,16 @@ function M.show(suggestion)
   vim.wo[_win].wrap = false
   vim.wo[_win].cursorline = false
 
-  -- Auto-close if the user navigates away without pressing x/q/Esc.
-  vim.api.nvim_create_autocmd('WinLeave', {
-    buffer = _buf,
-    once = true,
-    callback = function()
-      vim.defer_fn(close, 0)
-    end,
-  })
+  if focused then
+    -- Auto-close if the user navigates away without pressing x/q/Esc.
+    vim.api.nvim_create_autocmd('WinLeave', {
+      buffer = _buf,
+      once = true,
+      callback = function()
+        vim.defer_fn(close, 0)
+      end,
+    })
+  end
 
   -- Auto-close after 10 seconds.
   local my_token = _close_token

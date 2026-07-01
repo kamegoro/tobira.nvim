@@ -16,6 +16,20 @@ local function with_float_spy(fn)
   return called
 end
 
+-- Spy that also records the focused flag passed to on_show.
+local function with_focused_spy(fn)
+  local result = { called = false, focused = nil }
+  local prev = suggest.on_show
+  suggest.on_show = function(_, focused)
+    result.called = true
+    result.focused = focused
+  end
+  local ok, err = pcall(fn)
+  suggest.on_show = prev
+  assert.is_true(ok, err)
+  return result
+end
+
 describe('when a command has reached mastery level (count >= 100)', function()
   before_each(function()
     logger.reset()
@@ -480,6 +494,36 @@ describe('when the idle timer fires but the cooldown is still active', function(
     end, 10)
     suggest.on_show = nil
     assert.is_false(shown)
+  end)
+end)
+
+describe('when the focused flag is passed to on_show', function()
+  before_each(function()
+    logger.reset()
+    config.reset()
+    suggest.reset_session()
+  end)
+
+  it('passes focused=false for automatic suggestions', function()
+    config.setup({})
+    local usage = logger.get_all()
+    usage['f'] = { count = 5, shown = 0, sessions = {}, suppressed = false }
+    local result = with_focused_spy(function()
+      suggest.show(';')
+    end)
+    assert.is_true(result.called)
+    assert.is_false(result.focused)
+  end)
+
+  it('passes focused=true for manual :Tobira invocations', function()
+    config.setup({})
+    local usage = logger.get_all()
+    usage['f'] = { count = 5, shown = 0, sessions = {}, suppressed = false }
+    local result = with_focused_spy(function()
+      suggest.manual()
+    end)
+    assert.is_true(result.called)
+    assert.is_true(result.focused)
   end)
 end)
 

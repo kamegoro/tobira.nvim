@@ -85,7 +85,7 @@ local function watch_adoption(cmd)
   end, ns)
 end
 
-local function do_show(cmd)
+local function do_show(cmd, focused)
   if should_suppress(cmd) then
     return false
   end
@@ -96,7 +96,7 @@ local function do_show(cmd)
   logger.mark_shown(cmd)
   watch_adoption(cmd)
   if M.on_show then
-    M.on_show(suggestion)
+    M.on_show(suggestion, focused == true)
   end
   return true
 end
@@ -190,7 +190,7 @@ function M.manual()
     vim.notify(str.notifications.no_suggestions, vim.log.levels.INFO)
     return
   end
-  do_show(best)
+  do_show(best, true)
 end
 
 return M
