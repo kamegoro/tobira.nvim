@@ -24,6 +24,13 @@ function M.new_seq()
     -- g* / z* two-key compound tracking
     pending_g = false,
     pending_z = false,
+    -- prefixes that consume exactly one following character
+    pending_register = false, -- " or @ (register / macro name)
+    pending_mark = false, -- m / ' / ` (mark name or target)
+    pending_bracket = false, -- [ or ] (navigation pair)
+    -- set true by M.feed when the key was the second char of a compound;
+    -- logger uses this to skip standalone TRACK counting for that key
+    key_consumed = false,
   }
 end
 
@@ -48,6 +55,48 @@ local function track_run(seq, key)
 end
 
 local function inner_feed(seq, key, line)
+  -- ── pending_g / pending_z: must precede f/F/t/T so that gf and zt are ────
+  -- ── consumed by their own handlers rather than starting an f/t search.  ────
+  if seq.pending_g then
+    seq.pending_g = false
+    local g_targets = {
+      g = 'gg',
+      j = 'gj',
+      k = 'gk',
+      e = 'ge',
+      d = 'gd',
+      f = 'gf',
+      n = 'gn',
+      x = 'gx',
+      ['0'] = 'g0',
+    }
+    if g_targets[key] then
+      seq.last_op = g_targets[key]
+    end
+    return nil
+  end
+
+  if seq.pending_z then
+    seq.pending_z = false
+    local z_targets = {
+      z = 'zz',
+      t = 'zt',
+      b = 'zb',
+      a = 'za',
+      c = 'zc',
+      o = 'zo',
+      j = 'zj',
+      k = 'zk',
+      M = 'zM',
+      R = 'zR',
+      d = 'zd',
+    }
+    if z_targets[key] then
+      seq.last_op = z_targets[key]
+    end
+    return nil
+  end
+
   -- ── f / F / t / T ────────────────────────────────────────────────────────
   if key == 'f' or key == 'F' or key == 't' or key == 'T' then
     seq.pending_f = key
@@ -59,8 +108,9 @@ local function inner_feed(seq, key, line)
     seq.visual_obj = nil
     seq.visual_inner = nil
     seq.pending_visual = false
-    seq.pending_g = false
-    seq.pending_z = false
+    seq.pending_register = false
+    seq.pending_mark = false
+    seq.pending_bracket = false
     return nil
   end
 
@@ -118,45 +168,22 @@ local function inner_feed(seq, key, line)
     return nil
   end
 
-  -- ── pending_g: g + x compound commands ───────────────────────────────────
-  if seq.pending_g then
-    seq.pending_g = false
-    local g_targets = {
-      g = 'gg',
-      j = 'gj',
-      k = 'gk',
-      e = 'ge',
-      d = 'gd',
-      f = 'gf',
-      n = 'gn',
-      x = 'gx',
-      ['0'] = 'g0',
-    }
-    if g_targets[key] then
-      seq.last_op = g_targets[key]
-    end
+  -- ── single-char prefix consumers ─────────────────────────────────────────
+  if seq.pending_register then
+    seq.pending_register = false
+    seq.key_consumed = true
     return nil
   end
 
-  -- ── pending_z: z + x fold/view commands ──────────────────────────────────
-  if seq.pending_z then
-    seq.pending_z = false
-    local z_targets = {
-      z = 'zz',
-      t = 'zt',
-      b = 'zb',
-      a = 'za',
-      c = 'zc',
-      o = 'zo',
-      j = 'zj',
-      k = 'zk',
-      M = 'zM',
-      R = 'zR',
-      d = 'zd',
-    }
-    if z_targets[key] then
-      seq.last_op = z_targets[key]
-    end
+  if seq.pending_mark then
+    seq.pending_mark = false
+    seq.key_consumed = true
+    return nil
+  end
+
+  if seq.pending_bracket then
+    seq.pending_bracket = false
+    seq.key_consumed = true
     return nil
   end
 
@@ -263,6 +290,20 @@ local function inner_feed(seq, key, line)
   end
   if key == 'z' then
     seq.pending_z = true
+    return nil
+  end
+
+  -- ── single-char prefix starters ───────────────────────────────────────────
+  if key == '"' or key == '@' then
+    seq.pending_register = true
+    return nil
+  end
+  if key == 'm' or key == "'" or key == '`' then
+    seq.pending_mark = true
+    return nil
+  end
+  if key == '[' or key == ']' then
+    seq.pending_bracket = true
     return nil
   end
 
@@ -378,6 +419,7 @@ local function inner_feed(seq, key, line)
 end
 
 function M.feed(seq, key, line)
+  seq.key_consumed = false -- reset before each call; handlers set true when consuming
   local result = inner_feed(seq, key, line)
   seq.prev_key = key
   return result

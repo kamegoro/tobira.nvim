@@ -564,4 +564,54 @@ describe('when a compound operator completes', function()
     vim.api.nvim_feedkeys('', 'x', false)
     assert.is_true(logger.get('<C-u>').count > 0)
   end)
+
+  it('tracks gj as a compound command', function()
+    vim.fn.feedkeys('gj', 'x')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_true(logger.get('gj').count > 0)
+  end)
+
+  -- All Ctrl keys changed to track=true are verified here so a stray
+  -- track=false revert is caught immediately by CI.
+  -- pcall absorbs Neovim errors (e.g. E433 for <C-]> with no tags file):
+  -- on_key fires before the command executes so the count is already set.
+  local ctrl_keys = {
+    '<C-r>', '<C-o>', '<C-i>', '<C-f>', '<C-b>',
+    '<C-a>', '<C-x>', '<C-v>', '<C-e>', '<C-y>',
+    '<C-^>', '<C-]>',
+  }
+  for _, notation in ipairs(ctrl_keys) do
+    it('increments the usage count for ' .. notation, function()
+      local raw = vim.api.nvim_replace_termcodes(notation, true, true, true)
+      pcall(vim.fn.feedkeys, raw, 'x')
+      pcall(vim.api.nvim_feedkeys, '', 'x', false)
+      assert.is_true(logger.get(notation).count > 0)
+    end)
+  end
+end)
+
+describe('when the user records a macro', function()
+  before_each(function()
+    logger.reset()
+    logger.on_pattern = nil
+    logger.setup()
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'hello', 'world', 'foo' })
+    vim.api.nvim_win_set_cursor(0, { 1, 0 })
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+  end)
+
+  it('does not count keystrokes typed while recording a macro', function()
+    -- qa starts recording to register a, j is the macro body, q stops
+    vim.fn.feedkeys('qa', 'x')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('j', 'x')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('q', 'x')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals(0, logger.get('j').count)
+  end)
 end)

@@ -882,3 +882,267 @@ describe('when the user cancels a pending operator with Escape', function()
     assert.equals('dd_then_p', result.pattern)
   end)
 end)
+
+-- ── " / @ register/macro prefix ───────────────────────────────────────────────
+
+describe('when the user specifies a register with "', function()
+  it('swallows the register name so it cannot trigger other patterns', function()
+    local s = seq()
+    patterns.feed(s, '"', 1)
+    local result = patterns.feed(s, 'a', 1)
+    assert.is_nil(result)
+  end)
+
+  it('does not fire dollar_then_append when $ then " then a', function()
+    local s = seq()
+    patterns.feed(s, '$', 1)
+    patterns.feed(s, '"', 1)
+    local result = patterns.feed(s, 'a', 1)
+    assert.is_nil(result)
+  end)
+end)
+
+describe('when the user executes a macro with @', function()
+  it('swallows the register name so it cannot trigger other patterns', function()
+    local s = seq()
+    patterns.feed(s, '@', 1)
+    local result = patterns.feed(s, 'a', 1)
+    assert.is_nil(result)
+  end)
+end)
+
+-- ── m / ' / ` mark prefix ─────────────────────────────────────────────────────
+
+describe('when the user sets a mark with m', function()
+  it('swallows the mark name so it cannot trigger other patterns', function()
+    local s = seq()
+    patterns.feed(s, 'm', 1)
+    local result = patterns.feed(s, 'a', 1)
+    assert.is_nil(result)
+  end)
+end)
+
+describe("when the user jumps to a mark with '", function()
+  it("swallows the mark name so it cannot trigger k_then_o", function()
+    local s = seq()
+    patterns.feed(s, 'k', 1)
+    patterns.feed(s, "'", 1)
+    local result = patterns.feed(s, 'o', 1)
+    assert.is_nil(result)
+  end)
+end)
+
+describe('when the user jumps to a mark with `', function()
+  it('swallows the mark name so it cannot trigger other patterns', function()
+    local s = seq()
+    patterns.feed(s, '`', 1)
+    local result = patterns.feed(s, 'a', 1)
+    assert.is_nil(result)
+  end)
+end)
+
+-- ── [ / ] navigation prefix ───────────────────────────────────────────────────
+
+describe('when the user uses [ or ] navigation', function()
+  -- Without a pending_bracket guard, ]c incorrectly sets pending_op='c'.
+  -- Then a second 'c' matches key==op and sets last_op='dd', so 'p' fires
+  -- dd_then_p. This is a false positive that pending_bracket must prevent.
+  it('does not fire dd_then_p for ]cc p (] c is navigation, not an operator)', function()
+    local s = seq()
+    patterns.feed(s, ']', 1)
+    patterns.feed(s, 'c', 1) -- navigation target, must be swallowed by pending_bracket
+    patterns.feed(s, 'c', 1) -- in correct code: starts a fresh change operator
+    local result = patterns.feed(s, 'p', 1)
+    assert.is_nil(result)
+  end)
+
+  it('swallows the following key after [', function()
+    local s = seq()
+    patterns.feed(s, '[', 1)
+    local result = patterns.feed(s, 'd', 1)
+    assert.is_nil(result)
+  end)
+end)
+
+-- ── g / pending_g two-key compound tracking ───────────────────────────────────
+
+describe('when the user presses g followed by a motion key', function()
+  local cases = {
+    { key = 'g', last_op = 'gg' },
+    { key = 'j', last_op = 'gj' },
+    { key = 'k', last_op = 'gk' },
+    { key = 'e', last_op = 'ge' },
+    { key = 'd', last_op = 'gd' },
+    { key = 'n', last_op = 'gn' },
+    { key = 'x', last_op = 'gx' },
+    { key = '0', last_op = 'g0' },
+  }
+
+  for _, tc in ipairs(cases) do
+    it('records last_op = ' .. tc.last_op, function()
+      local s = seq()
+      patterns.feed(s, 'g', 1)
+      patterns.feed(s, tc.key, 1)
+      assert.equals(tc.last_op, s.last_op)
+    end)
+  end
+
+  it('does not set last_op for an unrecognised g-target', function()
+    local s = seq()
+    patterns.feed(s, 'g', 1)
+    patterns.feed(s, 'q', 1)
+    assert.is_nil(s.last_op)
+  end)
+
+  it('clears pending_g after the second key', function()
+    local s = seq()
+    patterns.feed(s, 'g', 1)
+    patterns.feed(s, 'j', 1)
+    assert.is_false(s.pending_g)
+  end)
+
+  -- key_consumed is intentionally NOT set for g compounds so that external
+  -- g key events from plugins cannot suppress the following key's TRACK count.
+  it('does not set key_consumed on the second key', function()
+    local s = seq()
+    patterns.feed(s, 'g', 1)
+    patterns.feed(s, 'j', 1)
+    assert.is_false(s.key_consumed)
+  end)
+
+  it('records last_op = gf (pending_g runs before the f-search handler)', function()
+    local s = seq()
+    patterns.feed(s, 'g', 1)
+    patterns.feed(s, 'f', 1)
+    assert.equals('gf', s.last_op)
+  end)
+end)
+
+-- ── z / pending_z two-key compound tracking ───────────────────────────────────
+
+describe('when the user presses z followed by a view command key', function()
+  local cases = {
+    { key = 'z', last_op = 'zz' },
+    { key = 't', last_op = 'zt' },
+    { key = 'b', last_op = 'zb' },
+    { key = 'a', last_op = 'za' },
+    { key = 'c', last_op = 'zc' },
+    { key = 'o', last_op = 'zo' },
+    { key = 'j', last_op = 'zj' },
+    { key = 'k', last_op = 'zk' },
+    { key = 'M', last_op = 'zM' },
+    { key = 'R', last_op = 'zR' },
+    { key = 'd', last_op = 'zd' },
+  }
+
+  for _, tc in ipairs(cases) do
+    it('records last_op = ' .. tc.last_op, function()
+      local s = seq()
+      patterns.feed(s, 'z', 1)
+      patterns.feed(s, tc.key, 1)
+      assert.equals(tc.last_op, s.last_op)
+    end)
+  end
+
+  it('does not set last_op for an unrecognised z-target', function()
+    local s = seq()
+    patterns.feed(s, 'z', 1)
+    patterns.feed(s, 'q', 1)
+    assert.is_nil(s.last_op)
+  end)
+
+  it('clears pending_z after the second key', function()
+    local s = seq()
+    patterns.feed(s, 'z', 1)
+    patterns.feed(s, 'z', 1)
+    assert.is_false(s.pending_z)
+  end)
+
+  it('does not set key_consumed on the second key', function()
+    local s = seq()
+    patterns.feed(s, 'z', 1)
+    patterns.feed(s, 'z', 1)
+    assert.is_false(s.key_consumed)
+  end)
+end)
+
+-- ── key_consumed flag ─────────────────────────────────────────────────────────
+
+describe('seq.key_consumed', function()
+  it('is false after a plain navigation key', function()
+    local s = seq()
+    patterns.feed(s, 'j', 1)
+    assert.is_false(s.key_consumed)
+  end)
+
+  it('is false after the g starter key itself', function()
+    local s = seq()
+    patterns.feed(s, 'g', 1)
+    assert.is_false(s.key_consumed)
+  end)
+
+  it('is false after the second char of a g compound', function()
+    local s = seq()
+    patterns.feed(s, 'g', 1)
+    patterns.feed(s, 'j', 1)
+    assert.is_false(s.key_consumed)
+  end)
+
+  it('is false after the second char of a z compound', function()
+    local s = seq()
+    patterns.feed(s, 'z', 1)
+    patterns.feed(s, 'z', 1)
+    assert.is_false(s.key_consumed)
+  end)
+
+  it('is true after the register name following "', function()
+    local s = seq()
+    patterns.feed(s, '"', 1)
+    patterns.feed(s, 'a', 1)
+    assert.is_true(s.key_consumed)
+  end)
+
+  it('is true after the register name following @', function()
+    local s = seq()
+    patterns.feed(s, '@', 1)
+    patterns.feed(s, 'q', 1)
+    assert.is_true(s.key_consumed)
+  end)
+
+  it('is true after the mark name following m', function()
+    local s = seq()
+    patterns.feed(s, 'm', 1)
+    patterns.feed(s, 'a', 1)
+    assert.is_true(s.key_consumed)
+  end)
+
+  it("is true after the mark name following '", function()
+    local s = seq()
+    patterns.feed(s, "'", 1)
+    patterns.feed(s, 'a', 1)
+    assert.is_true(s.key_consumed)
+  end)
+
+  it('is true after the target following [', function()
+    local s = seq()
+    patterns.feed(s, '[', 1)
+    patterns.feed(s, 'c', 1)
+    assert.is_true(s.key_consumed)
+  end)
+
+  it('is true after the target following ]', function()
+    local s = seq()
+    patterns.feed(s, ']', 1)
+    patterns.feed(s, 'c', 1)
+    assert.is_true(s.key_consumed)
+  end)
+
+  it('is reset to false at the start of every feed call', function()
+    local s = seq()
+    patterns.feed(s, '"', 1)
+    patterns.feed(s, 'a', 1)
+    assert.is_true(s.key_consumed)
+    patterns.feed(s, 'j', 1)
+    assert.is_false(s.key_consumed)
+  end)
+end)

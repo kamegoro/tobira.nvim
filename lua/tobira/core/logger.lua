@@ -127,14 +127,24 @@ local function build_track_table()
 end
 local TRACK = build_track_table()
 
+local _recording_macro = false
+
 local function handle_key(key)
   if current_mode:sub(1, 1) ~= 'n' then
     seq = patterns.new_seq()
     return
   end
+  -- Skip keystrokes while recording or replaying a macro so they don't pollute
+  -- usage counts. _recording_macro is set by RecordingEnter/Leave autocmd
+  -- (cheaper); reg_executing() covers macro replay where no autocmd fires.
+  local _re = vim.fn.reg_executing()
+  if _recording_macro or _re ~= '' then
+    return
+  end
 
   local line = vim.fn.line('.')
   local prev_op = seq.last_op
+
   local result = patterns.feed(seq, key, line)
 
   -- Track compound operators (dw, dd, gg, >>, …) the moment they complete.
@@ -148,11 +158,16 @@ local function handle_key(key)
     M.on_pattern(result.pattern, result.cmd)
   end
 
+  -- Only count as a standalone key when it was not consumed as the second
+  -- character of a multi-key compound (gj, zz, "a, ]c …).
+  -- patterns.feed() sets seq.key_consumed = true in those cases.
   -- TRACK values are registry key strings; raw Ctrl bytes map to their
-  -- canonical name (e.g. '\x04' → '<C-d>') so increment uses the right key.
-  local registry_key = TRACK[key]
-  if registry_key then
-    increment(registry_key)
+  -- canonical name (e.g. '\x04' → '<C-d>').
+  if not seq.key_consumed then
+    local registry_key = TRACK[key]
+    if registry_key then
+      increment(registry_key)
+    end
   end
 end
 
@@ -170,6 +185,16 @@ function M.setup()
     group = mode_group,
     callback = function()
       current_mode = vim.fn.mode()
+    end,
+  })
+
+  vim.api.nvim_create_autocmd({ 'RecordingEnter', 'RecordingLeave' }, {
+    group = mode_group,
+    callback = function(ev)
+      _recording_macro = ev.event == 'RecordingEnter'
+      if _recording_macro then
+        seq = patterns.new_seq()
+      end
     end,
   })
 
@@ -257,6 +282,7 @@ function M.reset()
   meta = { guide_seen = false }
   seq = patterns.new_seq()
   current_mode = 'n'
+  _recording_macro = false
   _initialized = false
   pcall(os.remove, data_file)
 end
