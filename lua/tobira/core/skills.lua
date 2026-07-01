@@ -61,19 +61,4 @@ local function build_tree()
 end
 M.tree = build_tree()
 
-function M.is_learned(item, usage)
-  if item.adopted then
-    local d = usage[item.adopted]
-    return d ~= nil and d.count > 0
-  end
-  if not item.track or not item.threshold then
-    return false
-  end
-  local total = 0
-  for _, k in ipairs(item.track) do
-    total = total + ((usage[k] and usage[k].count) or 0)
-  end
-  return total >= item.threshold
-end
-
 return M

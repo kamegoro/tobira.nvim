@@ -7,8 +7,7 @@ local en = require('tobira.locales.en')
 local ja = require('tobira.locales.ja')
 
 -- Recursively verify that all leaf string values in en_tbl exist and are
--- non-empty in ja_tbl. Arrays (numeric keys) are skipped — they live inside
--- guide.contexts and have their own structure.
+-- non-empty in ja_tbl. Arrays (numeric keys) are skipped.
 local function assert_strings_match(en_tbl, ja_tbl, path)
   for k, v in pairs(en_tbl) do
     if type(k) == 'string' then

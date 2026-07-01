@@ -10,7 +10,7 @@ function M.new_seq()
     pending_op = nil,
     last_op = nil,
     run = { key = nil, count = 0 },
-    prev_key = nil,
+    pending_text_obj = nil,
     dd_streak = 0,
     indent_streak = 0,
     dedent_streak = 0,
@@ -421,7 +421,6 @@ end
 function M.feed(seq, key, line)
   seq.key_consumed = false -- reset before each call; handlers set true when consuming
   local result = inner_feed(seq, key, line)
-  seq.prev_key = key
   return result
 end
 
