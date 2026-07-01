@@ -577,6 +577,24 @@ describe('when single-char track=true keys are pressed', function()
   end
 end)
 
+describe('when on_key fires with typed="" (internally-generated key)', function()
+  before_each(function()
+    logger.reset()
+    logger.on_pattern = nil
+    logger.setup()
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'hello', 'world' })
+    vim.api.nvim_win_set_cursor(0, { 1, 0 })
+  end)
+
+  it('does not count the key (typed filter blocks it)', function()
+    -- feedkeys without 't' flag → typed='' → filtered by `if typed == '' then return end`
+    vim.fn.feedkeys('j', 'x')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals(0, logger.get('j').count)
+  end)
+end)
+
 describe('when the user records a macro', function()
   before_each(function()
     logger.reset()

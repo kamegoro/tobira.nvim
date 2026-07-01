@@ -808,6 +808,17 @@ describe('adoption detection — nasty / adversarial cases', function()
     assert.is_true(graph.is_adopted(logger.get('cw')))
   end)
 
+  it('does not advance the adoption buffer for keys with typed="" (internal keys)', function()
+    local graph = require('tobira.core.graph')
+    with_float_spy(function()
+      suggest.show(';')
+    end)
+    -- feedkeys without 't' flag → typed='' → filtered before the buffer is updated
+    vim.fn.feedkeys(';', 'x')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_false(graph.is_adopted(logger.get(';')))
+  end)
+
   it('does not double-adopt: watcher is removed after first match', function()
     local graph = require('tobira.core.graph')
     with_float_spy(function()
