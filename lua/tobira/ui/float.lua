@@ -5,7 +5,6 @@ local _buf = nil
 local _ns = vim.api.nvim_create_namespace('tobira_float')
 local _prev_win = nil
 local _close_token = 0
-local _current_cmd = nil
 
 local ICON = ''
 
@@ -22,14 +21,6 @@ local function close()
   _win = nil
   _buf = nil
   _prev_win = nil
-  _current_cmd = nil
-end
-
-local function suppress_and_close()
-  if _current_cmd ~= nil then
-    require('tobira.core.logger').set_suppressed(_current_cmd, true)
-  end
-  close()
 end
 
 function M.show(suggestion, focused)
@@ -43,7 +34,6 @@ function M.show(suggestion, focused)
     close()
   end
 
-  _current_cmd = suggestion.cmd
   if focused then
     _prev_win = vim.api.nvim_get_current_win()
   end
@@ -61,8 +51,8 @@ function M.show(suggestion, focused)
   table.insert(lines, '')
   local hint_lnum = nil
   if focused then
-    hint_lnum = #lines -- 0-indexed line number for the hint
-    table.insert(lines, '  ' .. str.float.suppress_hint)
+    hint_lnum = #lines
+    table.insert(lines, '  ' .. str.float.close_hint)
     table.insert(lines, '')
   end
 
@@ -92,7 +82,6 @@ function M.show(suggestion, focused)
   end
 
   if focused then
-    vim.keymap.set('n', 'x', suppress_and_close, { buffer = _buf, nowait = true, silent = true })
     vim.keymap.set('n', 'q', close, { buffer = _buf, nowait = true, silent = true })
     vim.keymap.set('n', '<Esc>', close, { buffer = _buf, nowait = true, silent = true })
   end

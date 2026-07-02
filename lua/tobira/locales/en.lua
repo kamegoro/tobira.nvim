@@ -43,7 +43,7 @@ return {
   },
   float = {
     example_prefix = 'e.g. ',
-    suppress_hint = 'x suppress · q/Esc close',
+    close_hint = 'q/Esc close',
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
   -- Keys match commands.registry keys exactly.

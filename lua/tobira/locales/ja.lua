@@ -43,7 +43,7 @@ return {
   },
   float = {
     example_prefix = '例: ',
-    suppress_hint = 'x 抑制 · q/Esc 閉じる',
+    close_hint = 'q/Esc 閉じる',
   },
   -- 提案フロートと :TobiraProgress に表示する文字列。
   -- キーは commands.registry のキーと完全一致させること。

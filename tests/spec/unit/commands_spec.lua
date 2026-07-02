@@ -323,3 +323,23 @@ describe('teaching chains', function()
     end)
   end
 end)
+
+-- ── track integrity ──────────────────────────────────────────────────────────
+-- Rule: any command whose key appears in another entry's `requires` field MUST
+-- have track=true.  If track=false, count stays 0 and the dependent can never
+-- clear the count>=50 threshold — silently breaking the suggestion chain.
+-- Similarly, any single-char key (bare keystroke) must have track=true.
+
+describe('tracking integrity', function()
+  it('every single-char command has track=true', function()
+    local violations = {}
+    for cmd, entry in pairs(commands.registry) do
+      if #cmd == 1 and not entry.track then
+        table.insert(violations, cmd)
+      end
+    end
+    table.sort(violations)
+    assert.are.same({}, violations, 'single-char commands with track=false: ' .. table.concat(violations, ' '))
+  end)
+
+end)
