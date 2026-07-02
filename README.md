@@ -32,7 +32,7 @@ it quietly shows you the one command that would have helped. No quizzes. No inte
 ## ⚡️ Requirements
 
 - Neovim 0.9+
-- [nvim-notify](https://github.com/rcarriga/nvim-notify) _(optional — suggestions fall back to `vim.notify` without it)_
+- [nvim-notify](https://github.com/rcarriga/nvim-notify) _(optional — if installed, tobira's suggestion window matches its color scheme)_
 
 ## 📦 Installation
 
