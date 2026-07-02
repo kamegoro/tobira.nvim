@@ -75,12 +75,10 @@ on the same Guide row, which defeats the entire point of a distinct signal. When
 color, grep `hls.lua` for the target group first; if it's taken, pick the next unused
 `Diagnostic*` group rather than doubling one up.
 
-*Known transitional overlap:* `TobiraGuideUpgrade` (→ `DiagnosticHint`, the current `:TobiraProgress`
-"Next: …" line) and the new `TobiraGuideForgotten` (→ `DiagnosticHint`, #68) briefly share a target
-during the redesign rollout. This is safe — they never appear on the same screen — but is a signal
-that `TobiraGuideUpgrade` is dead code once #67 replaces the "Next:" line with the cursor-driven
-preview strip. Remove `TobiraGuideUpgrade` from `hls.lua` and `progress.lua` as part of landing
-#67, don't leave it orphaned.
+`TobiraGuideUpgrade` (formerly → `DiagnosticHint`, the old `:TobiraProgress` "Next: …" line) was
+removed when #67 landed — the preview strip replaced that line entirely, so the group had no
+remaining caller. If you're looking for the "what should I learn next" signal on Progress, that's
+now `progress.preview.to_next` in the cursor-driven preview strip, not a static hlgroup.
 
 ## Why these particular design choices (pointers, not restated here)
 
