@@ -2,8 +2,6 @@
 
 <p align="center">
   <a href="https://github.com/kamegoro/tobira.nvim/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/kamegoro/tobira.nvim/ci.yml?branch=main&label=CI&logo=github&style=flat"></a>
-  <a href="https://github.com/kamegoro/tobira.nvim/actions/workflows/ci.yml"><img alt="Coverage" src="https://img.shields.io/badge/coverage-100%25-brightgreen?logo=lua&logoColor=white&style=flat"></a>
-  <a href="https://github.com/neovim/neovim/releases/tag/v0.9.0"><img alt="Neovim" src="https://img.shields.io/badge/Neovim-0.9%2B-57A143?logo=neovim&logoColor=white&style=flat"></a>
   <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue?style=flat"></a>
   <a href="https://github.com/kamegoro/tobira.nvim/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/kamegoro/tobira.nvim?style=flat&logo=github&color=yellow"></a>
   <a href="https://dotfyle.com/plugins/kamegoro/tobira.nvim"><img alt="Dotfyle" src="https://dotfyle.com/plugins/kamegoro/tobira.nvim/shield?style=flat"></a>
@@ -35,7 +33,76 @@ No quizzes. No interruptions. Just your habits, and the better path.
 
 ---
 
-## 📺 Guide panel
+## ⚡️ Installation
+
+**lazy.nvim**
+```lua
+{
+  "kamegoro/tobira.nvim",
+  event = "VeryLazy",
+  opts = {},
+}
+```
+
+**packer.nvim**
+```lua
+use {
+  "kamegoro/tobira.nvim",
+  config = function()
+    require("tobira").setup()
+  end,
+}
+```
+
+Requires Neovim 0.9+. [nvim-notify](https://github.com/rcarriga/nvim-notify) is optional — suggestions fall back to `vim.notify` without it.
+
+## ⚙️ Configuration
+
+All options are optional — the defaults work out of the box.
+
+```lua
+require("tobira").setup({
+  lang                = 'en',    -- 'en' | 'ja'
+  idle_delay          = 1500,    -- ms of inactivity before showing an ambient suggestion
+  idle_suggestions    = true,    -- enable ambient idle suggestions
+  suggestion_cooldown = 300,     -- s between automatic suggestions (default: 5 min)
+  max_shown           = 2,       -- max times to suggest the same command per session
+})
+```
+
+## 🔧 Commands
+
+| Command | Description |
+|---|---|
+| `:Tobira` | Show the next suggestion now (ignores cooldown). Press `q` / `Esc` to dismiss. |
+| `:TobiraGuide` | Toggle the cheatsheet panel |
+| `:TobiraProgress` | Show skill tree with mastery glyphs. `x` = suppress, `p` = pin, `q`/`Esc` = close. |
+| `:TobiraStats` | Show usage stats: command distribution (never/tried/familiar/mastered) and efficiency gap suggestions |
+| `:TobiraReset` | Clear all usage data |
+
+Full documentation is available in Neovim via `:help tobira`.
+
+---
+
+## 🎯 Detected patterns (examples)
+
+| You do this | tobira suggests |
+|---|---|
+| `fa` → `fa` on the same line | `;` — repeat the last f/t |
+| `dw` → `i` | `cw` — change word in one command |
+| `v` `i` `w` `c` | `ciw` — text object, no visual needed |
+| `j` × 10 in a row | `}` — jump by paragraph |
+| `dd` × 3 in a row | `{n}dd` — delete N lines at once |
+| `r{x}` × 3 in a row | `R` — enter replace mode |
+
+34 patterns total — see `:help tobira-patterns` for the full list.
+
+---
+
+<details>
+<summary><h2 style="display:inline">📺 See it in action — Guide, Stats &amp; Progress panels</h2></summary>
+
+### Guide panel
 
 <p align="center">
   <img src="docs/demo-guide.gif" alt=":TobiraGuide cheatsheet panel" width="720" />
@@ -43,9 +110,7 @@ No quizzes. No interruptions. Just your habits, and the better path.
 
 `:TobiraGuide` opens a cheatsheet on the right side of the screen. Commands you've already mastered are automatically hidden, so only your next targets are shown. Pinned commands always appear at the top. Covers all 7 categories: motion, edit, search, window, fold, mark, and macro. Opens automatically on first launch.
 
----
-
-## 📈 Usage stats
+### Usage stats
 
 <p align="center">
   <img src="docs/demo-stats.gif" alt=":TobiraStats usage stats" width="720" />
@@ -53,9 +118,7 @@ No quizzes. No interruptions. Just your habits, and the better path.
 
 `:TobiraStats` shows a snapshot of your editing habits: total keystrokes, how many commands you've discovered out of the full graph, a mastery bar, your top 8 most-used commands, and the top 5 efficiency gaps — commands you're using heavily whose neighbors you've never tried.
 
----
-
-## 📊 Skill progress
+### Skill progress
 
 <p align="center">
   <img src="docs/demo-progress.gif" alt=":TobiraProgress skill tree" width="720" />
@@ -78,80 +141,7 @@ No quizzes. No interruptions. Just your habits, and the better path.
 - `p` — toggle pin on the command under the cursor
 - `q` / `Esc` — close
 
----
-
-## 🎯 Detected patterns (examples)
-
-| You do this | tobira suggests |
-|---|---|
-| `fa` → `fa` on the same line | `;` — repeat the last f/t |
-| `dw` → `i` | `cw` — change word in one command |
-| `v` `i` `w` `c` | `ciw` — text object, no visual needed |
-| `j` × 10 in a row | `}` — jump by paragraph |
-| `dd` × 3 in a row | `{n}dd` — delete N lines at once |
-| `r{x}` × 3 in a row | `R` — enter replace mode |
-
-34 patterns total — see `:help tobira-patterns` for the full list.
-
----
-
-## ⚡️ Installation
-
-**lazy.nvim**
-```lua
-{
-  "kamegoro/tobira.nvim",
-  event = "VeryLazy",
-  opts = {},
-}
-```
-
-**packer.nvim**
-```lua
-use {
-  "kamegoro/tobira.nvim",
-  config = function()
-    require("tobira").setup()
-  end,
-}
-```
-
----
-
-## ⚙️ Configuration
-
-All options are optional — the defaults work out of the box.
-
-```lua
-require("tobira").setup({
-  lang                = 'en',    -- 'en' | 'ja'
-  idle_delay          = 1500,    -- ms of inactivity before showing an ambient suggestion
-  idle_suggestions    = true,    -- enable ambient idle suggestions
-  suggestion_cooldown = 300,     -- s between automatic suggestions (default: 5 min)
-  max_shown           = 2,       -- max times to suggest the same command per session
-})
-```
-
----
-
-## 🔧 Commands
-
-| Command | Description |
-|---|---|
-| `:Tobira` | Show the next suggestion now (ignores cooldown). Press `q` / `Esc` to dismiss. |
-| `:TobiraGuide` | Toggle the cheatsheet panel |
-| `:TobiraProgress` | Show skill tree with mastery glyphs. `x` = suppress, `p` = pin, `q`/`Esc` = close. |
-| `:TobiraStats` | Show usage stats: command distribution (never/tried/familiar/mastered) and efficiency gap suggestions |
-| `:TobiraReset` | Clear all usage data |
-
-Full documentation is available in Neovim via `:help tobira`.
-
----
-
-## 🔍 Requirements
-
-- Neovim 0.9+
-- [nvim-notify](https://github.com/rcarriga/nvim-notify) _(optional — suggestions fall back to `vim.notify` without it)_
+</details>
 
 ---
 
