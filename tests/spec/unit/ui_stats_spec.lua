@@ -166,6 +166,148 @@ describe('when there are no efficiency gaps', function()
   end)
 end)
 
+-- ── section order (#74): actionable info first, vanity metric last ──────────
+
+describe('section order', function()
+  it('renders "Try these next" before "Mastery" when a gap exists', function()
+    local loc = require('tobira.i18n').load()
+    local r = stats.render({ f = entry(200) })
+    local try_pos = r.body:find(loc.stats.try_next, 1, true)
+    local mastery_pos = r.body:find(loc.stats.mastery, 1, true)
+    assert.is_not_nil(try_pos)
+    assert.is_not_nil(mastery_pos)
+    assert.is_true(try_pos < mastery_pos, '"Try these next" should come before "Mastery"')
+  end)
+
+  it('renders "Mastery" before "Top commands"', function()
+    local loc = require('tobira.i18n').load()
+    local r = stats.render({ cw = entry(50) })
+    local mastery_pos = r.body:find(loc.stats.mastery, 1, true)
+    local top_pos = r.body:find(loc.stats.top_commands, 1, true)
+    assert.is_not_nil(mastery_pos)
+    assert.is_not_nil(top_pos)
+    assert.is_true(mastery_pos < top_pos, '"Mastery" should come before "Top commands"')
+  end)
+
+  it('renders the keystroke/discovered summary as the last line of the body', function()
+    local r = stats.render({ cw = entry(50) })
+    local lines = lines_of(r)
+    -- Trailing blank-line-splitting artifact aside, the last non-empty line
+    -- should be the footer summary, not a Top-commands row or gap row.
+    local last = lines[#lines] ~= '' and lines[#lines] or lines[#lines - 1]
+    assert.is_not_nil(last:find('keystrokes', 1, true))
+  end)
+end)
+
+-- ── TobiraH1 section headings (#74) ──────────────────────────────────────────
+
+describe('section heading highlights', function()
+  it('applies TobiraH1 to the Mastery, Top commands, and Try these next headings', function()
+    local r = stats.render({ f = entry(200), cw = entry(50) })
+    local lines = lines_of(r)
+    local h1_lnums = {}
+    for _, h in ipairs(r.hls) do
+      if h.group == 'TobiraH1' then
+        h1_lnums[h.lnum] = true
+      end
+    end
+    local loc = require('tobira.i18n').load()
+    local headings = { loc.stats.try_next, loc.stats.mastery, loc.stats.top_commands }
+    for _, heading in ipairs(headings) do
+      local found = false
+      for lnum, line in ipairs(lines) do
+        if line:find(heading, 1, true) and h1_lnums[lnum - 1] then
+          found = true
+        end
+      end
+      assert.is_true(found, 'expected TobiraH1 on the "' .. heading .. '" heading line')
+    end
+  end)
+end)
+
+-- ── footer summary (#74) ──────────────────────────────────────────────────────
+
+describe('the footer summary line', function()
+  it('is styled with TobiraDim', function()
+    local r = stats.render({ cw = entry(50) })
+    local lines = lines_of(r)
+    local summary_lnum = nil
+    for i, line in ipairs(lines) do
+      if line:find('keystrokes', 1, true) then
+        summary_lnum = i - 1
+      end
+    end
+    assert.is_not_nil(summary_lnum)
+    local found = false
+    for _, h in ipairs(r.hls) do
+      if h.lnum == summary_lnum and h.group == 'TobiraDim' then
+        found = true
+      end
+    end
+    assert.is_true(found, 'expected TobiraDim on the footer summary line')
+  end)
+
+  it('uses comma-formatted keystrokes and the discovered ratio', function()
+    local r = stats.render({ j = entry(1520), k = entry(892), cw = entry(50) })
+    assert.is_not_nil(find_line(r, '2,462')) -- 1520 + 892 + 50
+    assert.is_not_nil(find_line(r, '1 /'))
+  end)
+end)
+
+-- ── nav_hint footer with g/p (#74) ────────────────────────────────────────────
+
+describe('when the stats window is open', function()
+  after_each(function()
+    stats.close()
+  end)
+
+  it('shows the nav_hint text in the footer', function()
+    local loc = require('tobira.i18n').load()
+    stats.open()
+    local buf = vim.api.nvim_get_current_buf()
+    local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+    local found = false
+    for _, line in ipairs(lines) do
+      if line:find(loc.stats.nav_hint, 1, true) then
+        found = true
+      end
+    end
+    assert.is_true(found)
+  end)
+
+  it('pressing g closes stats and opens guide', function()
+    local called = false
+    package.loaded['tobira.ui.guide'] = { open = function()
+      called = true
+    end }
+    stats.open()
+    local ok, err = pcall(function()
+      vim.fn.feedkeys('g', 'xt')
+      vim.api.nvim_feedkeys('', 'x', false)
+    end)
+    package.loaded['tobira.ui.guide'] = nil
+    assert.is_true(ok, err)
+    assert.is_true(called)
+    assert.is_false(stats.is_open())
+  end)
+
+  it('pressing p closes stats and opens progress', function()
+    local called = false
+    package.loaded['tobira.ui.progress'] = { open = function()
+      called = true
+    end }
+    stats.open()
+    local ok, err = pcall(function()
+      vim.fn.feedkeys('p', 'xt')
+      vim.api.nvim_feedkeys('', 'x', false)
+    end)
+    package.loaded['tobira.ui.progress'] = nil
+    assert.is_true(ok, err)
+    assert.is_true(called)
+    assert.is_false(stats.is_open())
+  end)
+end)
+
 -- ── M.show() / M.toggle() ────────────────────────────────────────────────────
 
 describe('when show() is called', function()
