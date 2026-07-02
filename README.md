@@ -51,7 +51,22 @@ No quizzes. No interruptions. Just your habits, and the better path.
   <img src="docs/demo-progress.gif" alt=":TobiraProgress skill tree" width="720" />
 </p>
 
-`:TobiraProgress` shows your current level and the full learning graph. Press `x` on any row to suppress a suggestion you don't want; press `x` again to restore it. Press `p` to pin a command so it always appears at the top of `:TobiraGuide`.
+`:TobiraProgress` shows your current level and the full command learning graph, with mastery glyphs on every command:
+
+| Glyph | Meaning |
+|---|---|
+| _(blank)_ | Not yet tried |
+| `☆` | Tried (1+ uses) |
+| `★` | Familiar (100+ uses) |
+| `★★` | Practiced (1000+ uses) |
+| `★★★` | Mastered (5000+ uses) |
+| `✗` | Suppressed — you don't want this suggested |
+| `*` | Pinned — always shown at the top of `:TobiraGuide` |
+
+**Keys inside `:TobiraProgress`:**
+- `x` — toggle suppress on the command under the cursor (suppress it from suggestions; press again to restore)
+- `p` — toggle pin on the command under the cursor
+- `q` / `Esc` — close
 
 ---
 
@@ -113,9 +128,9 @@ require("tobira").setup({
 
 | Command | Description |
 |---|---|
-| `:Tobira` | Show the next suggestion now (ignores cooldown) |
+| `:Tobira` | Show the next suggestion now (ignores cooldown). Press `q` / `Esc` to dismiss. |
 | `:TobiraGuide` | Toggle the cheatsheet panel |
-| `:TobiraProgress` | Show skill tree with level and mastered commands |
+| `:TobiraProgress` | Show skill tree with mastery glyphs. `x` = suppress, `p` = pin, `q`/`Esc` = close. |
 | `:TobiraStats` | Show usage stats: command distribution (never/tried/familiar/mastered) and efficiency gap suggestions |
 | `:TobiraReset` | Clear all usage data |
 
