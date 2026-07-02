@@ -553,6 +553,29 @@ describe('when the idle timer fires with no suggestion available', function()
   end)
 end)
 
+describe('when the idle on_key callback receives a key with typed="" (internal feedkeys)', function()
+  before_each(function()
+    logger.reset()
+    config.reset()
+    suggest.reset_session()
+  end)
+  after_each(function()
+    suggest.teardown_idle()
+  end)
+
+  it('ignores the event without error (does not reset the idle timer)', function()
+    -- Use a very long idle_delay so the timer does not fire during the test even if
+    -- an internal key accidentally starts it — this keeps the assertion reliable.
+    config.setup({ idle_suggestions = true, idle_delay = 60000 })
+    suggest.setup_idle()
+    -- feedkeys without 't' flag → typed='' in the on_key callback → early return
+    assert.has_no_error(function()
+      vim.fn.feedkeys('j', 'x')
+      vim.api.nvim_feedkeys('', 'x', false)
+    end)
+  end)
+end)
+
 describe('when the idle timer fires while not in normal mode', function()
   before_each(function()
     logger.reset()

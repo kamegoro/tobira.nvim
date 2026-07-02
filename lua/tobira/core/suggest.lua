@@ -133,7 +133,10 @@ function M.setup_idle()
   end
   _idle_timer = vim.loop.new_timer()
   _idle_ns = vim.api.nvim_create_namespace('tobira_idle')
-  vim.on_key(function()
+  vim.on_key(function(_, typed)
+    if typed == '' then
+      return
+    end
     _idle_timer:stop()
     _idle_timer:start(config.values.idle_delay, 0, vim.schedule_wrap(fire_ambient))
   end, _idle_ns)

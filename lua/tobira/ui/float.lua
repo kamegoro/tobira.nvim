@@ -115,6 +115,12 @@ function M.show(suggestion, focused)
   vim.wo[_win].wrap = false
   vim.wo[_win].cursorline = false
 
+  if not focused then
+    -- enter=false means no cursor movement and no automatic terminal redraw.
+    -- Force one so the window appears immediately in the TUI.
+    vim.cmd('redraw')
+  end
+
   if focused then
     -- Auto-close if the user navigates away without pressing x/q/Esc.
     vim.api.nvim_create_autocmd('WinLeave', {
