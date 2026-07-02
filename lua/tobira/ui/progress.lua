@@ -2,12 +2,12 @@ local M = {}
 
 local _win = nil
 local _buf = nil
+local _prev_win = nil
 local _ns = vim.api.nvim_create_namespace('tobira_progress')
 local _line_meta = {} -- lnum (0-indexed) → list of skill items on that line
 
-local WIDTH = 56
-local COLS = 3
-local COL_W = 13
+local COLS = 4
+local COL_W = 14
 local ICON = ''
 
 local setup_hls = require('tobira.ui.hls').setup
@@ -20,20 +20,17 @@ local function item_data(item)
   if item.adopted then
     return logger.get(item.adopted)
   end
-  if item.track then
-    local min_count = math.huge
-    for _, k in ipairs(item.track) do
-      min_count = math.min(min_count, logger.get(k).count)
-    end
-    return {
-      count = min_count == math.huge and 0 or min_count,
-      sessions = {},
-      shown = 0,
-      suppressed = false,
-      pinned = false,
-    }
+  local min_count = math.huge
+  for _, k in ipairs(item.track) do
+    min_count = math.min(min_count, logger.get(k).count)
   end
-  return { count = 0, sessions = {}, shown = 0, suppressed = false, pinned = false }
+  return {
+    count = min_count == math.huge and 0 or min_count,
+    sessions = {},
+    shown = 0,
+    suppressed = false,
+    pinned = false,
+  }
 end
 
 local SYM_FULL = '★' -- U+2605, 3 bytes, 1 display col
@@ -140,6 +137,9 @@ local function build()
     local title = sug_str and sug_str.title or next_cmd
     push('')
     push('  ' .. str.next .. title, 'TobiraGuideUpgrade')
+    if sug_str and sug_str.example and sug_str.example ~= '' then
+      push('  ' .. loc.float.example_prefix .. sug_str.example)
+    end
   end
 
   push('')
@@ -149,9 +149,6 @@ local function build()
 end
 
 local function refresh()
-  if not _buf or not vim.api.nvim_buf_is_valid(_buf) then
-    return
-  end
   local lines, hls, _, line_meta = build()
   _line_meta = line_meta
   vim.bo[_buf].modifiable = true
@@ -171,7 +168,7 @@ local function item_at_cursor()
     return nil
   end
   local cell_idx = math.floor((col - 2) / COL_W) + 1
-  if cell_idx < 1 or cell_idx > #row_items then
+  if cell_idx < 1 then
     return nil
   end
   return row_items[cell_idx]
@@ -207,8 +204,12 @@ function M.close()
   if M.is_open() then
     vim.api.nvim_win_close(_win, true)
   end
+  if _prev_win ~= nil and vim.api.nvim_win_is_valid(_prev_win) then
+    pcall(vim.api.nvim_set_current_win, _prev_win)
+  end
   _win = nil
   _buf = nil
+  _prev_win = nil
 end
 
 function M.open()
@@ -217,10 +218,26 @@ function M.open()
     return
   end
 
+  _prev_win = vim.api.nvim_get_current_win()
   setup_hls()
 
   local lines, hls, str, line_meta = build()
   _line_meta = line_meta
+
+  local uis = vim.api.nvim_list_uis()
+  local screen_w = (uis[1] and uis[1].width) or 120
+  local screen_h = (uis[1] and uis[1].height) or 40
+
+  local title_text = ' ' .. ICON .. ' ' .. str.title .. ' '
+  local max_w = vim.fn.strdisplaywidth(title_text) + 2
+  for _, line in ipairs(lines) do
+    local w = vim.fn.strdisplaywidth(line)
+    if w > max_w then
+      max_w = w
+    end
+  end
+  local win_w = math.min(max_w + 2, screen_w - 6)
+  local win_h = math.min(#lines, screen_h - 4)
 
   _buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_lines(_buf, 0, -1, false, lines)
@@ -237,20 +254,15 @@ function M.open()
   vim.keymap.set('n', 'x', toggle_suppress, { buffer = _buf, nowait = true, silent = true })
   vim.keymap.set('n', 'p', toggle_pin, { buffer = _buf, nowait = true, silent = true })
 
-  local uis = vim.api.nvim_list_uis()
-  local screen_w = (uis[1] and uis[1].width) or 120
-  local screen_h = (uis[1] and uis[1].height) or 40
-  local height = #lines
-
   _win = vim.api.nvim_open_win(_buf, true, {
     relative = 'editor',
-    row = math.max(1, math.floor((screen_h - height) / 2)),
-    col = math.max(1, math.floor((screen_w - WIDTH) / 2)),
-    width = WIDTH,
-    height = height,
+    row = math.max(1, math.floor((screen_h - win_h) / 2)),
+    col = math.max(1, math.floor((screen_w - win_w) / 2)),
+    width = win_w,
+    height = win_h,
     style = 'minimal',
     border = 'rounded',
-    title = ' ' .. ICON .. ' ' .. str.title .. ' ',
+    title = title_text,
     title_pos = 'center',
     focusable = true,
     zindex = 50,
@@ -259,6 +271,15 @@ function M.open()
   vim.wo[_win].winhl = 'Normal:TobiraGuideNormal,FloatBorder:TobiraGuideBorder'
   vim.wo[_win].wrap = false
   vim.wo[_win].cursorline = false
+  vim.wo[_win].scrolloff = 0
+
+  vim.api.nvim_create_autocmd('WinLeave', {
+    buffer = _buf,
+    once = true,
+    callback = function()
+      vim.defer_fn(M.close, 0)
+    end,
+  })
 end
 
 return M
