@@ -5,6 +5,7 @@ return {
     all_mastered = 'All commands at this level mastered!',
     pinned = 'Pinned',
     focus_hint = 'focus with <C-w>w · [q] close · [r] refresh',
+    forgotten_suffix = ' (forgotten)',
   },
   progress = {
     title = 'tobira — your vim journey',
