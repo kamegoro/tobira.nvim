@@ -64,6 +64,15 @@ Neovim's content never renders in the output GIF at all (you'll get 2-3 near-bla
 send-keys` instead — it never echoes anything about what it's doing, so the recorded stream contains only the
 real terminal output.
 
+**`demo-*.tape` files set `Env TOBIRA_DEMO_IDLE "off"` — that only applies when VHS actually executes the
+tape.** Bypassing VHS means nvim never sees that env var, so the ambient idle picker stays on and can race
+the reactive pattern suggestion you're trying to demo (e.g. showing `<C-d>` instead of the intended `;`).
+Export it yourself on the `tmux new-session` command (`-e TOBIRA_DEMO_IDLE=off`) for any tape that sets it.
+
+Keep the pacing tight — this is a README hero asset, viewers bounce if nothing happens in the first second.
+Match whatever `Sleep`/`Type` values are currently in the `.tape` file (they get tuned over time; the file is
+the source of truth, not the numbers below).
+
 ### Recipe (worked example: demo-suggest.gif)
 
 ```bash
@@ -71,9 +80,11 @@ cd ~/kame/tobira.nvim
 
 # 1. Start a tmux session running the demo, sized to roughly match the old
 #    VHS "Width 1600 Height 720 / FontSize 18" look. Status bar off — we
-#    don't want tmux's own status line burned into the recording.
+#    don't want tmux's own status line burned into the recording. Export
+#    any TOBIRA_DEMO_* env vars the target .tape file sets (see above).
 tmux kill-session -t demo 2>/dev/null
-tmux new-session -d -s demo -x 150 -y 24 "nvim -u docs/demo-init.lua docs/demo.lua"
+tmux new-session -d -s demo -x 150 -y 24 -e TOBIRA_DEMO_IDLE=off \
+  "nvim -u docs/demo-init.lua docs/demo.lua"
 tmux set-option -t demo status off
 sleep 2   # let nvim finish booting
 
@@ -83,15 +94,17 @@ asciinema rec --headless --window-size 150x24 \
   --command "tmux attach -t demo" --overwrite docs/demo-suggest.cast &
 sleep 1
 
-# 3. Drive the same keystroke timing the old .tape file used.
-sleep 0.4
+# 3. Drive the same keystroke timing docs/demo-suggest.tape uses — check
+#    that file for the current values, these are just what it had as of
+#    this writing.
+sleep 0.15
 tmux send-keys -t demo "jjj"
-sleep 0.5
+sleep 0.2
 tmux send-keys -t demo "fo"
-sleep 0.7
+sleep 0.25
 tmux send-keys -t demo "fo"
-sleep 1.5   # idle_delay
-sleep 5.5   # let the reader see the notification
+sleep 1.0   # idle_delay (800ms) + buffer
+sleep 2.8   # GIFs loop — this only needs to cover one read, not linger
 
 # 4. End the recording while the notification is still showing (killing the
 #    tmux session ends the attached asciinema recording too).

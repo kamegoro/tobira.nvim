@@ -6,7 +6,7 @@ Set Width 1600
 Set Height 720
 Set Theme "Catppuccin Mocha"
 Set Padding 20
-Set TypingSpeed 60ms
+Set TypingSpeed 40ms
 Set CursorBlink false
 
 # This demo wants the reactive f_repeat -> ; suggestion specifically, not
@@ -26,18 +26,21 @@ Show
 # Line 4: "local function find_user(id, fallback)"
 #   fo → 'o' in "local"
 #   fo → 'o' in "function"  ← same char, same line = f_repeat fires
-Sleep 400ms
+# Pacing is intentionally tight — this is a README hero GIF, viewers bounce
+# if nothing happens in the first second. Get to the payoff fast.
+Sleep 150ms
 Type "jjj"
-Sleep 500ms
+Sleep 200ms
 
 # ── Repeat f-search on the same line (the inefficient pattern) ───────────────
 Type "fo"
-Sleep 700ms
+Sleep 250ms
 Type "fo"
 
-# ── Idle for 800ms → tobira detects the pattern and shows the suggestion ─────
-Sleep 1500ms
+# ── Idle (demo-init.lua sets idle_delay=800ms) → suggestion fires ────────────
+# Must stay above idle_delay + render/capture buffer, but no more.
+Sleep 1000ms
 
-# ── Read the notification (now has a "why now" reason line + mute hint,
-# so give it a bit more time on screen than before) ──────────────────────────
-Sleep 5500ms
+# ── Read the notification. GIFs loop, so this only needs to cover one read,
+# not linger — interested viewers get more reps for free from the loop. ──────
+Sleep 2800ms
