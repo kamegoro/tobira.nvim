@@ -114,4 +114,75 @@ describe('guide top-level locale', function()
     assert.is_true(#en.guide.hint > 0)
     assert.is_true(#ja.guide.hint > 0)
   end)
+
+  it('en.lua and ja.lua have the same string keys', function()
+    assert_strings_match(en.guide, ja.guide, 'guide')
+  end)
+end)
+
+-- ── UI redesign foundation (#66) ─────────────────────────────────────────────
+-- These keys aren't wired to any UI module yet (that happens in #67/#68/#74),
+-- but must exist and stay in sync in both locales from the start.
+
+describe('progress.mastered_total / section_count / preview / nav_hint', function()
+  it('are defined as non-empty strings in both locales', function()
+    assert.is_string(en.progress.mastered_total)
+    assert.is_true(#en.progress.mastered_total > 0)
+    assert.is_string(ja.progress.mastered_total)
+    assert.is_true(#ja.progress.mastered_total > 0)
+
+    assert.is_string(en.progress.section_count)
+    assert.is_string(ja.progress.section_count)
+
+    assert.is_string(en.progress.nav_hint)
+    assert.is_string(ja.progress.nav_hint)
+  end)
+
+  it('preview has learning / mastered / forgotten / never_tried / to_next in both locales', function()
+    local keys = { 'learning', 'mastered', 'forgotten', 'never_tried', 'to_next' }
+    for _, k in ipairs(keys) do
+      assert.is_string(en.progress.preview[k], 'en.lua progress.preview.' .. k .. ' missing')
+      assert.is_true(#en.progress.preview[k] > 0)
+      assert.is_string(ja.progress.preview[k], 'ja.lua progress.preview.' .. k .. ' missing')
+      assert.is_true(#ja.progress.preview[k] > 0)
+    end
+  end)
+
+  it('en.lua and ja.lua have the same preview keys', function()
+    assert_strings_match(en.progress.preview, ja.progress.preview, 'progress.preview')
+  end)
+end)
+
+describe('stats.known_ratio / try_next_unused / overview / nav_hint', function()
+  it('are defined as non-empty strings in both locales', function()
+    assert.is_string(en.stats.known_ratio)
+    assert.is_true(#en.stats.known_ratio > 0)
+    assert.is_string(ja.stats.known_ratio)
+    assert.is_true(#ja.stats.known_ratio > 0)
+
+    assert.is_string(en.stats.try_next_unused)
+    assert.is_string(ja.stats.try_next_unused)
+
+    assert.is_string(en.stats.nav_hint)
+    assert.is_string(ja.stats.nav_hint)
+  end)
+
+  it('overview has keystrokes and mastered_pct in both locales', function()
+    assert.is_string(en.stats.overview.keystrokes)
+    assert.is_true(#en.stats.overview.keystrokes > 0)
+    assert.is_string(ja.stats.overview.keystrokes)
+    assert.is_true(#ja.stats.overview.keystrokes > 0)
+
+    assert.is_string(en.stats.overview.mastered_pct)
+    assert.is_string(ja.stats.overview.mastered_pct)
+  end)
+end)
+
+describe('guide.focus_hint', function()
+  it('is defined as a non-empty string in both locales', function()
+    assert.is_string(en.guide.focus_hint)
+    assert.is_true(#en.guide.focus_hint > 0)
+    assert.is_string(ja.guide.focus_hint)
+    assert.is_true(#ja.guide.focus_hint > 0)
+  end)
 end)

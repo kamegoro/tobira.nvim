@@ -36,6 +36,12 @@ function M.setup()
 
   -- Adoption celebration: distinct success styling so it never reads as a new suggestion.
   vim.api.nvim_set_hl(0, 'TobiraCelebrate', { link = 'DiagnosticOk' })
+
+  -- Shared foundation for the panel redesigns (#67 Progress, #68 Guide, #74 Stats):
+  -- TobiraDim for never-tried / de-emphasized text, TobiraH1 for section/status headings.
+  -- See ui/CLAUDE.md for the full color-language reference before adding another state color.
+  vim.api.nvim_set_hl(0, 'TobiraDim', { link = 'Comment' })
+  vim.api.nvim_set_hl(0, 'TobiraH1', { link = 'Title' })
 end
 
 return M
