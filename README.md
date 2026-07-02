@@ -45,6 +45,16 @@ No quizzes. No interruptions. Just your habits, and the better path.
 
 ---
 
+## 📈 Usage stats
+
+<p align="center">
+  <img src="docs/demo-stats.gif" alt=":TobiraStats usage stats" width="720" />
+</p>
+
+`:TobiraStats` shows a snapshot of your editing habits: total keystrokes, how many commands you've discovered out of the full graph, a mastery bar, your top 8 most-used commands, and the top 5 efficiency gaps — commands you're using heavily whose neighbors you've never tried.
+
+---
+
 ## 📊 Skill progress
 
 <p align="center">

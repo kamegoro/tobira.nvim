@@ -9,6 +9,10 @@ Set Padding 20
 Set TypingSpeed 60ms
 Set CursorBlink false
 
+# The Guide panel is what we're showcasing — disable ambient suggestions so
+# they don't pop over the panel during the recording.
+Env TOBIRA_DEMO_IDLE "off"
+
 # ── Boot ──────────────────────────────────────────────────────────────────────
 Hide
 Type "cd ~/kame/tobira.nvim && nvim -u docs/demo-init.lua docs/demo.lua"

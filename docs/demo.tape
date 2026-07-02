@@ -9,6 +9,10 @@ Set Padding 20
 Set TypingSpeed 40ms
 Set CursorBlink false
 
+# The combined demo drives every panel manually via :Tobira / :TobiraGuide /
+# :TobiraProgress. Mute ambient suggestions so they don't pop during panels.
+Env TOBIRA_DEMO_IDLE "off"
+
 # ── Seed demo data and boot nvim with full personal config ────────────────────
 Hide
 Type "bash ~/kame/tobira.nvim/docs/demo-seed.sh"
