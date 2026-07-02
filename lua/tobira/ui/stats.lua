@@ -1,5 +1,8 @@
 -- :TobiraStats renderer.
--- M.render(usage) is pure: takes a usage table, returns { title, body } strings.
+-- M.render(usage) is pure: takes a usage table, returns { title, body, hls }.
+-- hls is a list of { lnum, group, cs, ce } (lnum 0-indexed against body's
+-- line split) so M.open() can apply TobiraH1/TobiraDim without re-deriving
+-- them from plain text.
 -- M.toggle() opens/closes a focused custom float window.
 local M = {}
 
@@ -44,6 +47,10 @@ local function lpad(s, n)
   return string.rep(' ', math.max(0, n - vim.fn.strdisplaywidth(s))) .. s
 end
 
+-- Order follows the dashboard "5-second rule" + actionable-vs-vanity-metrics
+-- research from the #74 design review: the one section that changes what the
+-- user does next (efficiency gaps) leads; the section that's just a fun
+-- number (raw keystroke count) trails as a de-emphasized closing line.
 function M.render(usage)
   local str = require('tobira.i18n').load().stats
   local graph = require('tobira.core.graph')
@@ -54,7 +61,8 @@ function M.render(usage)
   local pct = total_cmds > 0 and math.floor(discovered / total_cmds * 100 + 0.5) or 0
 
   -- Total keystrokes: sum ALL tracked commands (including basic keys like j/k
-  -- that live outside commands.registry). This is the raw "big number" metric.
+  -- that live outside commands.registry). This is the raw "big number" metric
+  -- — fun to see, doesn't drive a decision, so it's demoted to the footer.
   local total_keys = 0
   for cmd, data in pairs(usage) do
     if cmd ~= '_meta' and type(data) == 'table' then
@@ -82,42 +90,24 @@ function M.render(usage)
 
   local STAR_BY_LEVEL = { [0] = ' ', [1] = '☆', [2] = '★', [3] = '★★', [4] = '★★★' }
 
-  local lines = { '' }
+  local lines = {}
+  local hls = {}
 
-  -- ── Summary ───────────────────────────────────────────────────────────────
-  table.insert(lines, string.format('  %s  %s', rpad(str.total_keystrokes, 18), fmt_int_commas(total_keys)))
-  table.insert(
-    lines,
-    string.format('  %s  %s / %s', rpad(str.discovered, 18), fmt_int_commas(discovered), fmt_int_commas(total_cmds))
-  )
-  table.insert(lines, '')
-
-  -- ── Mastery bar ───────────────────────────────────────────────────────────
-  table.insert(lines, string.format('  %s  %s  %d%%', str.mastery, make_bar(pct), pct))
-  table.insert(lines, string.format(str.mastery_dist, dist.never, dist.tried, dist.familiar, dist.mastered))
-
-  -- ── Top commands ──────────────────────────────────────────────────────────
-  if #sorted > 0 then
-    table.insert(lines, '')
-    table.insert(lines, '  ' .. str.top_commands)
-    for i = 1, math.min(TOP_N, #sorted) do
-      local item = sorted[i]
-      local lv = graph.mastery_level(item.data)
-      local star = STAR_BY_LEVEL[lv] or ' '
-      table.insert(
-        lines,
-        string.format('    %s  %s  %s×', rpad(star, 5), rpad(item.cmd, 6), lpad(fmt_int_commas(item.data.count), 6))
-      )
+  local function push(line, group, cs, ce)
+    local lnum = #lines
+    table.insert(lines, line)
+    if group then
+      table.insert(hls, { lnum = lnum, group = group, cs = cs or 0, ce = ce or -1 })
     end
   end
 
-  -- ── Efficiency gaps ───────────────────────────────────────────────────────
+  push('')
+
+  -- ── Try these next (promoted — the only actionable section) ────────────────
   if #gaps > 0 then
-    table.insert(lines, '')
-    table.insert(lines, '  ' .. str.try_next)
+    push('  ' .. str.try_next, 'TobiraH1')
     for _, g in ipairs(gaps) do
-      table.insert(
-        lines,
+      push(
         string.format(
           '    %s %s×  →  %s %s×',
           rpad(g.parent, 5),
@@ -127,11 +117,40 @@ function M.render(usage)
         )
       )
     end
+    push('')
   end
+
+  -- ── Mastery ──────────────────────────────────────────────────────────────
+  push('  ' .. str.mastery, 'TobiraH1')
+  push(string.format('    %s  %d%%', make_bar(pct), pct))
+  push(string.format(str.mastery_dist, dist.never, dist.tried, dist.familiar, dist.mastered))
+  push('')
+
+  -- ── Top commands ─────────────────────────────────────────────────────────
+  if #sorted > 0 then
+    push('  ' .. str.top_commands, 'TobiraH1')
+    for i = 1, math.min(TOP_N, #sorted) do
+      local item = sorted[i]
+      local lv = graph.mastery_level(item.data)
+      local star = STAR_BY_LEVEL[lv] or ' '
+      push(
+        string.format('    %s  %s  %s×', rpad(star, 5), rpad(item.cmd, 6), lpad(fmt_int_commas(item.data.count), 6))
+      )
+    end
+    push('')
+  end
+
+  -- ── Footer summary (demoted — fun number, not a decision driver) ───────────
+  push(
+    '  '
+      .. str.footer_summary:format(fmt_int_commas(total_keys), fmt_int_commas(discovered), fmt_int_commas(total_cmds)),
+    'TobiraDim'
+  )
 
   return {
     title = str.title,
     body = table.concat(lines, '\n'),
+    hls = hls,
   }
 end
 
@@ -170,7 +189,7 @@ function M.open()
   end
   local hint_lnum = #lines
   table.insert(lines, '')
-  table.insert(lines, '  ' .. str.stats.hint)
+  table.insert(lines, '  ' .. str.stats.nav_hint)
   table.insert(lines, '')
 
   -- Width: fit the widest line, also wide enough for the title.
@@ -194,10 +213,21 @@ function M.open()
   vim.bo[_buf].modifiable = false
   vim.bo[_buf].bufhidden = 'wipe'
 
+  for _, hl in ipairs(rendered.hls) do
+    vim.api.nvim_buf_add_highlight(_buf, _ns, hl.group, hl.lnum + 1, hl.cs, hl.ce)
+  end
   vim.api.nvim_buf_add_highlight(_buf, _ns, 'TobiraGuideHint', hint_lnum + 1, 0, -1)
 
   vim.keymap.set('n', 'q', M.close, { buffer = _buf, nowait = true, silent = true })
   vim.keymap.set('n', '<Esc>', M.close, { buffer = _buf, nowait = true, silent = true })
+  vim.keymap.set('n', 'g', function()
+    M.close()
+    require('tobira.ui.guide').open()
+  end, { buffer = _buf, nowait = true, silent = true })
+  vim.keymap.set('n', 'p', function()
+    M.close()
+    require('tobira.ui.progress').open()
+  end, { buffer = _buf, nowait = true, silent = true })
 
   -- Center on screen.
   local row = math.max(1, math.floor((screen_h - win_h) / 2))
