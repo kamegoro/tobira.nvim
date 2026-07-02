@@ -4,6 +4,7 @@ return {
     hint = ':TobiraGuide  toggle guide',
     all_mastered = 'All commands at this level mastered!',
     pinned = 'Pinned',
+    focus_hint = 'focus with <C-w>w · [q] close · [r] refresh',
   },
   progress = {
     title = 'tobira — your vim journey',
@@ -25,6 +26,16 @@ return {
       mark = 'Mark',
       macro = 'Macro',
     },
+    mastered_total = '%d / %d mastered',
+    section_count = '%d / %d',
+    nav_hint = '[x] suppress   [p] pin   [g] guide   [s] stats   [q] close',
+    preview = {
+      learning = 'learning',
+      mastered = 'mastered',
+      forgotten = 'forgotten',
+      never_tried = 'never tried',
+      to_next = '%d more to reach %s',
+    },
   },
   notifications = {
     reset = 'tobira: usage log reset',
@@ -40,6 +51,13 @@ return {
     top_commands = 'Top commands',
     try_next = '⚡ Try these next',
     hint = '[q / Esc]  close',
+    known_ratio = '%d / %d known',
+    try_next_unused = 'unused',
+    nav_hint = '[g] guide   [p] progress   [q] close',
+    overview = {
+      keystrokes = '%d keystrokes total',
+      mastered_pct = '%d%% of registered commands mastered',
+    },
   },
   float = {
     example_prefix = 'e.g. ',

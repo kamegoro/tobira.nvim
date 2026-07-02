@@ -4,6 +4,7 @@ return {
     hint = ':TobiraGuide  ガイドを閉じる',
     all_mastered = 'このレベルのコマンドをすべてマスターしました！',
     pinned = 'ピン留め',
+    focus_hint = '<C-w>w でフォーカス · [q] 閉じる · [r] 更新',
   },
   progress = {
     title = 'tobira — vim の旅',
@@ -25,6 +26,16 @@ return {
       mark = 'マーク',
       macro = 'マクロ',
     },
+    mastered_total = '%d / %d マスター',
+    section_count = '%d / %d',
+    nav_hint = '[x] 抑制   [p] ピン   [g] ガイド   [s] 統計   [q] 閉じる',
+    preview = {
+      learning = '学習中',
+      mastered = 'マスター済み',
+      forgotten = '忘れかけ',
+      never_tried = '未使用',
+      to_next = '%s まであと %d',
+    },
   },
   notifications = {
     reset = 'tobira: 使用ログをリセットしました',
@@ -40,6 +51,13 @@ return {
     top_commands = 'Top コマンド',
     try_next = '⚡ 次はこれを試そう',
     hint = '[q / Esc]  閉じる',
+    known_ratio = '%d / %d 習得済み',
+    try_next_unused = '未使用',
+    nav_hint = '[g] ガイド   [p] 進捗   [q] 閉じる',
+    overview = {
+      keystrokes = '合計 %d キーストローク',
+      mastered_pct = '登録コマンドの %d%% をマスター',
+    },
   },
   float = {
     example_prefix = '例: ',
