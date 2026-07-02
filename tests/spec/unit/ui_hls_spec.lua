@@ -28,3 +28,36 @@ describe('when nvim-notify highlight groups are available', function()
     assert.equals('NotifyINFOBorder', hl.link)
   end)
 end)
+
+describe('category highlight groups', function()
+  local expected = {
+    TobiraSuggestMotion = 'Special',
+    TobiraSuggestEdit = 'Function',
+    TobiraSuggestSearch = 'String',
+    TobiraSuggestWindow = 'Type',
+    TobiraSuggestFold = 'Constant',
+    TobiraSuggestMark = 'Identifier',
+    TobiraSuggestMacro = 'PreProc',
+  }
+
+  it('defines a distinct group linked to a standard syntax group for every category', function()
+    hls.setup()
+    for group, target in pairs(expected) do
+      local hl = vim.api.nvim_get_hl(0, { name = group, link = true })
+      assert.equals(target, hl.link, group .. ' should link to ' .. target)
+    end
+  end)
+end)
+
+describe('TobiraSuggestKey and TobiraCelebrate highlight groups', function()
+  it('defines TobiraSuggestKey', function()
+    hls.setup()
+    assert.equals(1, vim.fn.hlexists('TobiraSuggestKey'))
+  end)
+
+  it('defines TobiraCelebrate linked to DiagnosticOk', function()
+    hls.setup()
+    local hl = vim.api.nvim_get_hl(0, { name = 'TobiraCelebrate', link = true })
+    assert.equals('DiagnosticOk', hl.link)
+  end)
+end)

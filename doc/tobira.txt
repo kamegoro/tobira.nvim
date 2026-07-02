@@ -142,9 +142,18 @@ such as:
   - Pressing `x` multiple times instead of `{n}x`
   - Using `0` then `w w w` instead of `^`
 
-When a pattern is detected and you are idle for `idle_delay` milliseconds,
-a suggestion appears via |vim.notify()|. If nvim-notify is installed, it
-appears as a floating notification in the lower right corner.
+When a pattern is detected and you are idle for `idle_delay` milliseconds, a
+suggestion appears in tobira's own floating window, near the top-right of the
+screen. The window shows what you just did (when a specific pattern
+triggered it), the command to try instead, and a short example. Its border
+is colored by category (motion / edit / search / window / fold / mark /
+macro) so a returning user can recognize the kind of suggestion at a glance.
+The window auto-dismisses on its own after a few seconds — roughly
+scaled to how much text it is showing — and never steals focus or blocks
+input.
+
+A muted hint at the bottom of the window always shows how to silence that
+suggestion via |:TobiraProgress|, even when the window did not steal focus.
 
 ADOPTION DETECTION ~
 
@@ -152,6 +161,11 @@ After a suggestion is shown, tobira watches whether you actually use the
 suggested command. It does this passively — no button press required.
 If you use the command, it is marked as adopted and will not be suggested
 again once mastered (100+ cumulative uses).
+
+The very first time you adopt a given suggestion, tobira shows a brief
+separate confirmation ("Nice — you used ...") so the loop of noticing a
+habit and improving it is not left completely silent. This only fires once
+per command, ever.
 
 SUPPRESSION ~
 

@@ -55,6 +55,54 @@ describe('float locale', function()
   end)
 end)
 
+describe('suggestion title format', function()
+  -- ui/float.lua splits "cmd — description" to highlight the answer key
+  -- separately from its explanation. Every suggestion title must follow this
+  -- exact separator so that split never has to fall back.
+  it('every en.lua suggestion title contains the " — " separator', function()
+    for cmd, entry in pairs(en.suggestions) do
+      assert.is_not_nil(entry.title:find(' — ', 1, true), cmd .. ': title missing " — " separator')
+    end
+  end)
+
+  it('every ja.lua suggestion title contains the " — " separator', function()
+    for cmd, entry in pairs(ja.suggestions) do
+      assert.is_not_nil(entry.title:find(' — ', 1, true), cmd .. ': title missing " — " separator')
+    end
+  end)
+end)
+
+describe('float.celebrate template', function()
+  it('is defined as a non-empty string in both en.lua and ja.lua', function()
+    assert.is_string(en.float.celebrate)
+    assert.is_true(#en.float.celebrate > 0)
+    assert.is_string(ja.float.celebrate)
+    assert.is_true(#ja.float.celebrate > 0)
+  end)
+end)
+
+describe('float.reasons locale', function()
+  -- Mirrors the pattern names patterns.lua can fire (patterns_spec.lua tests each
+  -- individually). Kept as an explicit list so a new pattern with no reason text
+  -- is caught here instead of silently falling back at display time.
+  local all_patterns = {
+    'b_repeat', 'c_dollar', 'd_dollar', 'D_then_insert', 'dd_run', 'dd_then_insert',
+    'dd_then_p', 'dedent_run', 'dollar_then_append', 'dot_repeat', 'dw_then_insert',
+    'f_repeat', 'h_repeat', 'indent_run', 'j_many', 'j_repeat', 'J_repeat', 'k_many',
+    'k_repeat', 'k_then_o', 'l_repeat', 'n_repeat', 'p_repeat', 'P_repeat', 'r_run',
+    'tilde_repeat', 'u_repeat', 'visual_textobj', 'w_repeat', 'x_repeat', 'x_then_insert',
+    'yy_then_p', 'zero_then_insert', 'zero_then_w',
+  }
+
+  it('has a non-empty reason string in en.lua for every pattern patterns.lua can fire', function()
+    for _, pattern in ipairs(all_patterns) do
+      local reason = en.float.reasons[pattern]
+      assert.is_string(reason, pattern .. ': missing from en.lua float.reasons')
+      assert.is_true(#reason > 0, pattern .. ': empty in en.lua float.reasons')
+    end
+  end)
+end)
+
 describe('guide top-level locale', function()
   it('has title and hint in both en.lua and ja.lua', function()
     assert.is_string(en.guide.title)

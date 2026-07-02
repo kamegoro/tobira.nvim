@@ -10,6 +10,10 @@ local M = {}
 -- Tests assign a spy directly to observe display calls.
 M.on_show = nil
 
+-- Fired once, the first time a suggested command is ever adopted. Wired by
+-- init.lua to ui.float.celebrate; same callback pattern as on_show.
+M.on_adopt = nil
+
 local session = {
   last_auto_at = nil,
   timer = nil,
@@ -78,14 +82,21 @@ local function watch_adoption(cmd)
     local k = vim.fn.keytrans(typed or key)
     buf = (buf .. k):sub(-KEY_BUF_MAX)
     if buf_matches(match_target, buf) then
+      local first_adoption = not logger.is_celebrated(cmd)
       logger.mark_adopted(cmd)
+      if first_adoption then
+        logger.mark_celebrated(cmd)
+        if M.on_adopt then
+          M.on_adopt(cmd)
+        end
+      end
       session.watching_ns[cmd] = nil
       vim.on_key(nil, ns)
     end
   end, ns)
 end
 
-local function do_show(cmd, focused)
+local function do_show(cmd, focused, pattern)
   if should_suppress(cmd) then
     return false
   end
@@ -96,7 +107,7 @@ local function do_show(cmd, focused)
   logger.mark_shown(cmd)
   watch_adoption(cmd)
   if M.on_show then
-    M.on_show(suggestion, focused == true)
+    M.on_show(suggestion, focused == true, pattern)
   end
   return true
 end
@@ -154,7 +165,7 @@ function M.teardown_idle()
   end
 end
 
-function M.queue(_, cmd)
+function M.queue(pattern, cmd)
   if over_auto_limit() then
     return
   end
@@ -164,15 +175,17 @@ function M.queue(_, cmd)
   cancel_timer()
   session.timer = vim.defer_fn(function()
     session.timer = nil
-    M.show(cmd)
+    M.show(cmd, pattern)
   end, config.values.idle_delay)
 end
 
-function M.show(cmd)
+-- pattern: the patterns.lua event name that triggered this suggestion, or nil
+-- when there is no single triggering event (ambient idle pick, :Tobira manual).
+function M.show(cmd, pattern)
   if over_auto_limit() then
     return
   end
-  if do_show(cmd) then
+  if do_show(cmd, false, pattern) then
     session.last_auto_at = vim.loop.now()
   end
 end

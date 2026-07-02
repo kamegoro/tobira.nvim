@@ -74,7 +74,9 @@ pcall(require('nvim-treesitter.configs').setup, {
   ensure_installed = {},
 })
 
--- nvim-notify — tobira uses vim.notify for the suggestion toast
+-- nvim-notify — optional; tobira's suggestion window borrows its highlight
+-- groups for color matching when present, but never routes through it or
+-- vim.notify directly (it always renders its own floating window).
 vim.opt.rtp:prepend(lazy_root .. '/nvim-notify')
 require('notify').setup({
   background_colour = '#1e1e2e',
@@ -158,14 +160,21 @@ end
 -- Set TOBIRA_DEMO_IDLE=off in the tape via `Env TOBIRA_DEMO_IDLE "off"`.
 local idle_on = (vim.env.TOBIRA_DEMO_IDLE or 'on') ~= 'off'
 
+-- The suggest demo wants the opposite split: reactive pattern-triggered
+-- suggestions ON (that is the whole point — typing fo/fo should fire
+-- f_repeat -> ;), ambient idle-picked suggestions OFF. Otherwise the ambient
+-- picker's own best guess (scored across the whole seed data, e.g. the big
+-- j -> } efficiency gap) can race the reactive one and win, showing an
+-- unrelated suggestion instead of the one the tape is actually demoing.
+-- Panel demos set TOBIRA_DEMO_PATTERNS=off too, to silence both sources.
+local patterns_on = (vim.env.TOBIRA_DEMO_PATTERNS or 'on') ~= 'off'
+
 require('tobira').setup({
   idle_delay = 800,
   max_shown = 3,
   idle_suggestions = idle_on,
 })
 
--- When demoing a panel, also silence pattern-triggered suggestions (jjjjj,
--- fo/fo, etc.), since navigation inside the tape can accidentally fire them.
-if not idle_on then
+if not patterns_on then
   require('tobira.core.logger').on_pattern = nil
 end

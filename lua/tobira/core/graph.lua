@@ -16,6 +16,7 @@ for cmd, entry in pairs(commands.registry) do
       cmd = cmd,
       trigger = entry.requires,
       level = entry.level,
+      category = entry.category,
     }
   end
 end
