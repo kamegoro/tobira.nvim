@@ -21,6 +21,21 @@ function M.setup()
   vim.api.nvim_set_hl(0, 'TobiraGuideHint', { link = 'Comment' })
   vim.api.nvim_set_hl(0, 'TobiraGuideSuppressed', { link = 'Comment' })
   vim.api.nvim_set_hl(0, 'TobiraGuidePinned', { link = 'DiagnosticInfo' })
+
+  -- Suggestion float: category-colored border so a returning user can recognize
+  -- motion / edit / search / … at a glance without reading the title.
+  vim.api.nvim_set_hl(0, 'TobiraSuggestMotion', { link = 'Special' })
+  vim.api.nvim_set_hl(0, 'TobiraSuggestEdit', { link = 'Function' })
+  vim.api.nvim_set_hl(0, 'TobiraSuggestSearch', { link = 'String' })
+  vim.api.nvim_set_hl(0, 'TobiraSuggestWindow', { link = 'Type' })
+  vim.api.nvim_set_hl(0, 'TobiraSuggestFold', { link = 'Constant' })
+  vim.api.nvim_set_hl(0, 'TobiraSuggestMark', { link = 'Identifier' })
+  vim.api.nvim_set_hl(0, 'TobiraSuggestMacro', { link = 'PreProc' })
+  vim.api.nvim_set_hl(0, 'TobiraSuggestKey', { link = 'Special' })
+  vim.api.nvim_set_hl(0, 'TobiraSuggestReason', { link = 'Comment' })
+
+  -- Adoption celebration: distinct success styling so it never reads as a new suggestion.
+  vim.api.nvim_set_hl(0, 'TobiraCelebrate', { link = 'DiagnosticOk' })
 end
 
 return M

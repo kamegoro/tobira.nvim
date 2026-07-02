@@ -97,6 +97,44 @@ describe('when mark_adopted is called after 10 sessions have already been stored
   end)
 end)
 
+-- ── mark_celebrated / is_celebrated ─────────────────────────────────────────
+
+describe('when a command has never been celebrated', function()
+  before_each(function()
+    logger.reset()
+  end)
+
+  it('reports it as not celebrated', function()
+    assert.is_false(logger.is_celebrated(';'))
+  end)
+
+  it('reports an unknown command as not celebrated', function()
+    assert.is_false(logger.is_celebrated('never_seen'))
+  end)
+end)
+
+describe('when a command is marked celebrated', function()
+  before_each(function()
+    logger.reset()
+  end)
+
+  it('reports it as celebrated afterwards', function()
+    logger.mark_celebrated(';')
+    assert.is_true(logger.is_celebrated(';'))
+  end)
+
+  it('creates a new record even if the command was never used', function()
+    logger.mark_celebrated('brand_new_cmd')
+    assert.is_true(logger.is_celebrated('brand_new_cmd'))
+    assert.equals(0, logger.get('brand_new_cmd').count)
+  end)
+
+  it('does not affect other commands', function()
+    logger.mark_celebrated(';')
+    assert.is_false(logger.is_celebrated(','))
+  end)
+end)
+
 -- ── get_session_counts ────────────────────────────────────────────────────────
 
 describe('get_session_counts', function()
@@ -225,6 +263,20 @@ describe('old-format migration', function()
     local data = logger.get('e')
     assert.same({ 2, 3 }, data.sessions)
     assert.is_false(data.suppressed)
+  end)
+
+  it('defaults celebrated to false for entries written before the field existed', function()
+    local usage = logger.get_all()
+    usage['e'] = { count = 3, shown = 0, sessions = { 2, 3 }, suppressed = false, pinned = false }
+    logger.save()
+    logger.load_from_disk()
+    assert.is_false(logger.get('e').celebrated)
+  end)
+
+  it('preserves celebrated=true across a save/load round-trip', function()
+    logger.mark_celebrated('cw')
+    logger.load_from_disk()
+    assert.is_true(logger.is_celebrated('cw'))
   end)
 end)
 

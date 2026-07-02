@@ -20,8 +20,11 @@ function M.setup(opts)
   --   logger fires patterns → suggest handles them.
   --   suggest wants to display → ui.float renders.
   logger.on_pattern = suggest.queue
-  suggest.on_show = function(suggestion, focused)
-    require('tobira.ui.float').show(suggestion, focused)
+  suggest.on_show = function(suggestion, focused, pattern)
+    require('tobira.ui.float').show(suggestion, focused, pattern)
+  end
+  suggest.on_adopt = function(cmd)
+    require('tobira.ui.float').celebrate(cmd)
   end
   suggest.setup_idle()
 

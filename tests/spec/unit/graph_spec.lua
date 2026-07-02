@@ -174,6 +174,13 @@ describe('every suggestion in the graph', function()
       assert.is_string(sug.trigger, key .. ': missing trigger')
     end
   end)
+
+  it('carries the same category as its commands.lua entry', function()
+    local commands = require('tobira.commands')
+    for key, sug in pairs(graph.suggestions) do
+      assert.equals(commands.registry[key].category, sug.category, key .. ': category mismatch')
+    end
+  end)
 end)
 
 -- ── compound-op trigger (bug #15 regression) ─────────────────────────────────

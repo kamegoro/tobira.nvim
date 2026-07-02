@@ -30,6 +30,20 @@ local function with_focused_spy(fn)
   return result
 end
 
+-- Spy that records the pattern name passed to on_show (3rd argument).
+local function with_pattern_spy(fn)
+  local result = { called = false, pattern = nil }
+  local prev = suggest.on_show
+  suggest.on_show = function(_, _, pattern)
+    result.called = true
+    result.pattern = pattern
+  end
+  local ok, err = pcall(fn)
+  suggest.on_show = prev
+  assert.is_true(ok, err)
+  return result
+end
+
 describe('when a command has reached mastery level (count >= 100)', function()
   before_each(function()
     logger.reset()
@@ -306,6 +320,57 @@ describe('when a queued suggestion reaches the end of the idle delay', function(
     end, 10)
     suggest.on_show = nil
     assert.is_true(shown)
+  end)
+
+  it('passes the pattern that triggered it through to on_show', function()
+    config.setup({ idle_delay = 10 })
+    local done = false
+    local captured_pattern = nil
+    local prev = suggest.on_show
+    suggest.on_show = function(_, _, pattern)
+      captured_pattern = pattern
+      done = true
+    end
+    suggest.queue('f_repeat', ';')
+    vim.wait(500, function()
+      return done
+    end, 10)
+    suggest.on_show = prev
+    assert.equals('f_repeat', captured_pattern)
+  end)
+end)
+
+describe('when a suggestion is shown directly via suggest.show', function()
+  before_each(function()
+    logger.reset()
+    config.reset()
+    suggest.reset_session()
+  end)
+
+  it('passes a nil pattern (no specific trigger event) to on_show', function()
+    local result = with_pattern_spy(function()
+      suggest.show(';')
+    end)
+    assert.is_true(result.called)
+    assert.is_nil(result.pattern)
+  end)
+end)
+
+describe('when :Tobira is invoked manually', function()
+  before_each(function()
+    logger.reset()
+    config.reset()
+    suggest.reset_session()
+  end)
+
+  it('passes a nil pattern (no specific trigger event) to on_show', function()
+    local usage = logger.get_all()
+    usage['f'] = { count = 5, shown = 0, sessions = {}, suppressed = false }
+    local result = with_pattern_spy(function()
+      suggest.manual()
+    end)
+    assert.is_true(result.called)
+    assert.is_nil(result.pattern)
   end)
 end)
 
@@ -900,5 +965,105 @@ describe('adoption detection — nasty / adversarial cases', function()
     vim.fn.feedkeys(ESC, 'xt')
     vim.api.nvim_feedkeys('', 'x', false)
     assert.equals(#sessions_after_first, #logger.get('cw').sessions)
+  end)
+end)
+
+-- ── first-adoption celebration (on_adopt) ───────────────────────────────────
+
+describe('when a command is adopted for the first time ever', function()
+  before_each(function()
+    logger.reset()
+    config.reset()
+    suggest.reset_session()
+    with_content()
+  end)
+  after_each(function()
+    suggest.on_adopt = nil
+    vim.fn.feedkeys(ESC, 'xt')
+  end)
+
+  it('fires on_adopt with the command name', function()
+    local celebrated = nil
+    suggest.on_adopt = function(cmd)
+      celebrated = cmd
+    end
+    with_float_spy(function()
+      suggest.show('cw')
+    end)
+    vim.fn.feedkeys('cw', 'xt')
+    vim.fn.feedkeys(ESC, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals('cw', celebrated)
+  end)
+
+  it('marks the command as celebrated in the logger', function()
+    with_float_spy(function()
+      suggest.show(';')
+    end)
+    vim.fn.feedkeys(';', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_true(logger.is_celebrated(';'))
+  end)
+
+  it('does not error when on_adopt is not wired', function()
+    assert.has_no_error(function()
+      with_float_spy(function()
+        suggest.show(';')
+      end)
+      vim.fn.feedkeys(';', 'xt')
+      vim.api.nvim_feedkeys('', 'x', false)
+    end)
+  end)
+end)
+
+describe('when a command has already been celebrated once', function()
+  before_each(function()
+    logger.reset()
+    config.reset()
+    suggest.reset_session()
+    with_content()
+  end)
+  after_each(function()
+    suggest.on_adopt = nil
+    vim.fn.feedkeys(ESC, 'xt')
+  end)
+
+  it('does not fire on_adopt again on a later adoption', function()
+    logger.mark_celebrated(';')
+    local fired = false
+    suggest.on_adopt = function()
+      fired = true
+    end
+    with_float_spy(function()
+      suggest.show(';')
+    end)
+    vim.fn.feedkeys(';', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_false(fired)
+  end)
+end)
+
+describe('when a suggestion is shown but never adopted', function()
+  before_each(function()
+    logger.reset()
+    config.reset()
+    suggest.reset_session()
+    with_content()
+  end)
+  after_each(function()
+    suggest.on_adopt = nil
+  end)
+
+  it('never fires on_adopt', function()
+    local fired = false
+    suggest.on_adopt = function()
+      fired = true
+    end
+    with_float_spy(function()
+      suggest.show(';')
+    end)
+    vim.fn.feedkeys('jjj', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_false(fired)
   end)
 end)

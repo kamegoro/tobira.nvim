@@ -36,6 +36,9 @@ local function migrate_entry(entry)
   if entry.pinned == nil then
     entry.pinned = false
   end
+  if entry.celebrated == nil then
+    entry.celebrated = false
+  end
   entry.adopted = nil
   return entry
 end
@@ -82,7 +85,7 @@ end
 
 local function increment(cmd)
   if not usage[cmd] then
-    usage[cmd] = { count = 0, sessions = {}, shown = 0, suppressed = false, pinned = false }
+    usage[cmd] = { count = 0, sessions = {}, shown = 0, suppressed = false, pinned = false, celebrated = false }
   end
   usage[cmd].count = usage[cmd].count + 1
   session_counts[cmd] = (session_counts[cmd] or 0) + 1
@@ -271,7 +274,7 @@ function M.close_session()
 end
 
 function M.get(cmd)
-  return usage[cmd] or { count = 0, sessions = {}, shown = 0, suppressed = false, pinned = false }
+  return usage[cmd] or { count = 0, sessions = {}, shown = 0, suppressed = false, pinned = false, celebrated = false }
 end
 
 -- Exposed only for testing — lets specs verify in-session counts before close_session.
@@ -285,7 +288,7 @@ end
 
 function M.mark_shown(cmd)
   if not usage[cmd] then
-    usage[cmd] = { count = 0, sessions = {}, shown = 0, suppressed = false, pinned = false }
+    usage[cmd] = { count = 0, sessions = {}, shown = 0, suppressed = false, pinned = false, celebrated = false }
   end
   usage[cmd].shown = usage[cmd].shown + 1
   save()
@@ -298,7 +301,7 @@ function M.mark_adopted(cmd)
   local count = math.max(session_counts[cmd] or 0, 5)
   session_counts[cmd] = nil
   if not usage[cmd] then
-    usage[cmd] = { count = 0, sessions = {}, shown = 0, suppressed = false, pinned = false }
+    usage[cmd] = { count = 0, sessions = {}, shown = 0, suppressed = false, pinned = false, celebrated = false }
   end
   table.insert(usage[cmd].sessions, count)
   while #usage[cmd].sessions > MAX_SESSIONS do
@@ -307,9 +310,21 @@ function M.mark_adopted(cmd)
   save()
 end
 
+function M.is_celebrated(cmd)
+  return usage[cmd] ~= nil and usage[cmd].celebrated == true
+end
+
+function M.mark_celebrated(cmd)
+  if not usage[cmd] then
+    usage[cmd] = { count = 0, sessions = {}, shown = 0, suppressed = false, pinned = false, celebrated = false }
+  end
+  usage[cmd].celebrated = true
+  save()
+end
+
 function M.set_suppressed(cmd, value)
   if not usage[cmd] then
-    usage[cmd] = { count = 0, sessions = {}, shown = 0, suppressed = false, pinned = false }
+    usage[cmd] = { count = 0, sessions = {}, shown = 0, suppressed = false, pinned = false, celebrated = false }
   end
   usage[cmd].suppressed = value
   save()
@@ -317,7 +332,7 @@ end
 
 function M.set_pinned(cmd, value)
   if not usage[cmd] then
-    usage[cmd] = { count = 0, sessions = {}, shown = 0, suppressed = false, pinned = false }
+    usage[cmd] = { count = 0, sessions = {}, shown = 0, suppressed = false, pinned = false, celebrated = false }
   end
   usage[cmd].pinned = value
   save()
