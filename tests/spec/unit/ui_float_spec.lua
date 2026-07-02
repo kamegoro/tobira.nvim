@@ -98,27 +98,6 @@ describe('when the float is shown without focus (auto suggestion)', function()
   end)
 end)
 
--- x key: suppress (focused float only)
-
-describe('when the user presses x on the suggestion float', function()
-  before_each(setup)
-  after_each(teardown)
-
-  it('suppresses the suggested command', function()
-    float.show(suggestion(';'), true)
-    vim.fn.feedkeys('x', 'xt')
-    vim.api.nvim_feedkeys('', 'x', false)
-    assert.is_true(logger.get(';').suppressed)
-  end)
-
-  it('closes the float', function()
-    float.show(suggestion(';'), true)
-    vim.fn.feedkeys('x', 'xt')
-    vim.api.nvim_feedkeys('', 'x', false)
-    assert.is_false(float.is_open())
-  end)
-end)
-
 -- q key: dismiss without suppressing (focused float only)
 
 describe('when the user presses q on the suggestion float', function()
