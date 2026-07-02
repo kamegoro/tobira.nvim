@@ -21,6 +21,9 @@ function M.setup()
   vim.api.nvim_set_hl(0, 'TobiraGuideHint', { link = 'Comment' })
   vim.api.nvim_set_hl(0, 'TobiraGuideSuppressed', { link = 'Comment' })
   vim.api.nvim_set_hl(0, 'TobiraGuidePinned', { link = 'DiagnosticInfo' })
+  -- Guide: "used to know this, gone quiet" signal (#68). Deliberately not
+  -- DiagnosticWarn — TobiraGuideLearning already owns that, see ui/CLAUDE.md.
+  vim.api.nvim_set_hl(0, 'TobiraGuideForgotten', { link = 'DiagnosticHint' })
 
   -- Suggestion float: category-colored border so a returning user can recognize
   -- motion / edit / search / … at a glance without reading the title.

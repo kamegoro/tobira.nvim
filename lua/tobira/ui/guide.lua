@@ -4,7 +4,7 @@ local _win = nil
 local _buf = nil
 local _ns = vim.api.nvim_create_namespace('tobira_guide')
 
-local WIDTH = 54
+local WIDTH = 60 -- widened from 54 (#68) to fit the mastery-symbol and count columns
 local ICON = '' -- nerd font fa-info-circle (matches nvim-notify INFO icon)
 
 local CATEGORY_ORDER = { 'motion', 'edit', 'search', 'window', 'fold', 'mark', 'macro' }
@@ -16,14 +16,112 @@ local function short_desc(title)
   return title:match(' — (.+)$') or title
 end
 
-local function build()
+-- Returns (glyph, hlgroup) for the mastery-symbol column, or (nil, nil) for a
+-- never-tried command (rendered as a blank cell + TobiraDim on the whole row
+-- instead — see format_row). Forgotten takes priority over the numeric level:
+-- a command that was once mastered and has gone quiet should read as "come
+-- back to this", not as whatever star count it happened to reach before going
+-- quiet. See ui/CLAUDE.md for why this doesn't reuse TobiraGuideLearning's color.
+--
+-- Only two branches are reachable here: is_forgotten, or level <= 1. build()
+-- only calls this for rows guide_commands() included, and that filter is
+-- `not is_mastered(data)` i.e. `mastery_level < 2 or is_forgotten`. A row with
+-- mastery_level >= 2 and NOT forgotten is_mastered() == true and is excluded
+-- upstream — so a level >= 2 row reaching this function is always forgotten,
+-- and the is_forgotten branch above already returns before the level check.
+-- There is deliberately no `elseif level >= 2` branch: it would be dead code.
+local function mastery_glyph(data)
+  local graph = require('tobira.core.graph')
+  if graph.is_forgotten(data) then
+    return '⟳', 'TobiraGuideForgotten'
+  end
+  if graph.mastery_level(data) == 1 then
+    return '☆', 'TobiraGuideHint'
+  end
+  return nil, nil
+end
+
+-- Builds one pinned-section row. Position-tracking emit() avoids hand-computed
+-- byte offsets for the highlight ranges (glyph and key are both variable-width
+-- once combined with multi-byte glyphs).
+local function format_pinned_row(cmd, desc)
+  local pos = 0
+  local parts = {}
+  local hls = {}
+
+  local function emit(text, group)
+    table.insert(parts, text)
+    if group then
+      table.insert(hls, { cs = pos, ce = pos + #text, group = group })
+    end
+    pos = pos + #text
+  end
+
+  emit('   ')
+  emit('●', 'TobiraGuidePinned')
+  emit('  ')
+  emit(string.format('%-12s', cmd), 'TobiraGuideKey')
+  emit('  ')
+  emit(desc)
+
+  return table.concat(parts), hls
+end
+
+-- Builds one auto-section row: mastery glyph, key, description (+ forgotten
+-- suffix), and a right-aligned count. `desc_col_w` is the max display width of
+-- desc+suffix across every row in the current build pass (not a fixed global
+-- constant) so the count column aligns without padding every row out to the
+-- width of the single longest description in the whole command set.
+local function format_row(cmd, desc, data, desc_col_w, str)
+  local graph = require('tobira.core.graph')
+  local glyph, glyph_hl = mastery_glyph(data)
+  local dim = glyph == nil
+  local suffix = graph.is_forgotten(data) and str.forgotten_suffix or ''
+  local count = data.count or 0
+  local count_str = count > 0 and (tostring(count) .. '×') or ''
+
+  local pos = 0
+  local parts = {}
+  local hls = {}
+
+  local function emit(text, group)
+    table.insert(parts, text)
+    if group and not dim then
+      table.insert(hls, { cs = pos, ce = pos + #text, group = group })
+    end
+    pos = pos + #text
+  end
+
+  emit('   ')
+  emit(glyph or ' ', glyph_hl)
+  emit('  ')
+  emit(string.format('%-12s', cmd), 'TobiraGuideKey')
+  emit('  ')
+  local desc_str = desc .. suffix
+  emit(desc_str)
+  emit(string.rep(' ', math.max(0, desc_col_w - vim.fn.strdisplaywidth(desc_str))))
+  if count_str ~= '' then
+    emit('  ')
+    emit(count_str, 'TobiraGuideHint')
+  end
+
+  local line = table.concat(parts)
+  if dim then
+    hls = { { cs = 0, ce = -1, group = 'TobiraDim' } }
+  end
+  return line, hls
+end
+
+-- Pure: takes usage explicitly (mirrors ui/stats.lua's M.render(usage)) so
+-- layout can be tested without opening a real window. M.open()/M.refresh()
+-- are the only callers that read logger.get_all().
+function M.build(usage)
   local loc = require('tobira.i18n').load()
   local strings = loc.guide
   local suggestions = loc.suggestions or {}
   local cat_labels = loc.progress and loc.progress.categories or {}
   local commands = require('tobira.commands')
-
-  local usage = require('tobira.core.logger').get_all()
+  local graph = require('tobira.core.graph')
 
   -- Collect pinned commands (sorted for determinism)
   local pinned_cmds = {}
@@ -36,7 +134,7 @@ local function build()
   end
   table.sort(pinned_cmds)
 
-  local by_cat = require('tobira.core.graph').guide_commands(usage)
+  local by_cat = graph.guide_commands(usage)
 
   -- Remove pinned commands from auto section to avoid duplication
   for cat, cmds in pairs(by_cat) do
@@ -47,6 +145,27 @@ local function build()
       end
     end
     by_cat[cat] = filtered
+  end
+
+  -- First pass: collect every auto-section row so the count column can be
+  -- aligned to the max description width actually being rendered right now.
+  local auto_rows = {}
+  for _, cat in ipairs(CATEGORY_ORDER) do
+    local cmds = by_cat[cat]
+    if cmds and #cmds > 0 then
+      for _, cmd in ipairs(cmds) do
+        local sug = suggestions[cmd]
+        local desc = short_desc((sug and sug.title) or cmd)
+        local data = usage[cmd] or { count = 0 }
+        table.insert(auto_rows, { cat = cat, cmd = cmd, desc = desc, data = data })
+      end
+    end
+  end
+
+  local desc_col_w = 0
+  for _, row in ipairs(auto_rows) do
+    local suffix = graph.is_forgotten(row.data) and strings.forgotten_suffix or ''
+    desc_col_w = math.max(desc_col_w, vim.fn.strdisplaywidth(row.desc .. suffix))
   end
 
   local lines = {}
@@ -70,34 +189,40 @@ local function build()
     for _, cmd in ipairs(pinned_cmds) do
       local sug = suggestions[cmd]
       local desc = short_desc((sug and sug.title) or cmd)
-      push(string.format('   %-12s  %s', cmd, desc), 'TobiraGuideKey', 3, 3 + #cmd)
-    end
-  end
-
-  -- Auto section
-  local any = false
-  for _, cat in ipairs(CATEGORY_ORDER) do
-    local cmds = by_cat[cat]
-    if cmds and #cmds > 0 then
-      any = true
-      push('')
-      local label = cat_labels[cat] or cat
-      push('  ' .. label, 'TobiraGuideSection', 2, 2 + #label)
-      for _, cmd in ipairs(cmds) do
-        local sug = suggestions[cmd]
-        local desc = short_desc((sug and sug.title) or cmd)
-        push(string.format('   %-12s  %s', cmd, desc), 'TobiraGuideKey', 3, 3 + #cmd)
+      local line, row_hls = format_pinned_row(cmd, desc)
+      local lnum = #lines
+      table.insert(lines, line)
+      for _, h in ipairs(row_hls) do
+        table.insert(hls, { lnum = lnum, cs = h.cs, ce = h.ce, group = h.group })
       end
     end
   end
 
-  if not any and #pinned_cmds == 0 then
+  -- Auto section
+  local current_cat = nil
+  for _, row in ipairs(auto_rows) do
+    if row.cat ~= current_cat then
+      current_cat = row.cat
+      push('')
+      local label = cat_labels[row.cat] or row.cat
+      push('  ' .. label, 'TobiraGuideSection', 2, 2 + #label)
+    end
+    local line, row_hls = format_row(row.cmd, row.desc, row.data, desc_col_w, strings)
+    local lnum = #lines
+    table.insert(lines, line)
+    for _, h in ipairs(row_hls) do
+      table.insert(hls, { lnum = lnum, cs = h.cs, ce = h.ce, group = h.group })
+    end
+  end
+
+  if #auto_rows == 0 and #pinned_cmds == 0 then
     push('')
     push('  ' .. (strings.all_mastered or ''), 'TobiraGuideMastered')
   end
 
   push('')
-  push('  ' .. strings.hint, 'TobiraGuideHint')
+  push('  ' .. string.rep('─', WIDTH - 4), 'TobiraGuideHint')
+  push('  ' .. strings.focus_hint, 'TobiraGuideHint')
 
   return lines, hls, strings
 end
@@ -129,7 +254,7 @@ function M.refresh()
   if not M.is_open() then
     return
   end
-  local lines, hls = build()
+  local lines, hls = M.build(require('tobira.core.logger').get_all())
   apply_content(lines, hls)
   vim.api.nvim_win_set_height(_win, wrapped_height(lines))
 end
@@ -150,7 +275,7 @@ function M.open()
 
   setup_hls()
 
-  local lines, hls, strings = build()
+  local lines, hls, strings = M.build(require('tobira.core.logger').get_all())
 
   _buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_lines(_buf, 0, -1, false, lines)

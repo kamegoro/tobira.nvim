@@ -383,6 +383,51 @@ describe('guide_commands', function()
       end
     end
   end)
+
+  it('includes a command that reached mastery but is now forgotten (#68)', function()
+    -- count >= 100 (mastery_level 2) but the last 2 sessions are 0 after an
+    -- earlier session >= 5 -> is_forgotten(data) == true -> is_mastered(data) == false
+    local forgotten = { count = 200, sessions = { 8, 9, 0, 0 } }
+    local result = graph.guide_commands({ [';'] = forgotten })
+    local found = false
+    for _, cmd in ipairs(result.motion or {}) do
+      if cmd == ';' then
+        found = true
+      end
+    end
+    assert.is_true(found, '; is forgotten and should reappear in guide_commands')
+  end)
+
+  it('still excludes a command that is mastered and not forgotten (regression guard)', function()
+    -- Guards the old `mastery_level(data) < 2` behavior: a real mastery streak
+    -- with no forgotten signal must stay excluded after switching to is_mastered().
+    local result = graph.guide_commands({ [';'] = mastered() })
+    for _, cmd in ipairs(result.motion or {}) do
+      assert.not_equals(';', cmd, '; is mastered and not forgotten, should stay excluded')
+    end
+  end)
+
+  it('counts a forgotten command as unmastered for the ceiling calculation (#68)', function()
+    -- Every beginner command forgotten (not just mastered-and-forgotten) must
+    -- still count as "unmastered" so the ceiling doesn't prematurely open up
+    -- to intermediate/advanced levels.
+    local usage = {}
+    for cmd, entry in pairs(commands.registry) do
+      if not entry.compound and entry.level == 'beginner' then
+        usage[cmd] = { count = 200, sessions = { 8, 9, 0, 0 } }
+      end
+    end
+    local result = graph.guide_commands(usage)
+    local found_intermediate = false
+    for _, cmds in pairs(result) do
+      for _, cmd in ipairs(cmds) do
+        if commands.registry[cmd].level == 'intermediate' then
+          found_intermediate = true
+        end
+      end
+    end
+    assert.is_false(found_intermediate, 'forgotten beginner commands should keep the ceiling at beginner')
+  end)
 end)
 
 -- ── knowledge_dist ────────────────────────────────────────────────────────────
