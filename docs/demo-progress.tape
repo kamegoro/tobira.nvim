@@ -9,6 +9,9 @@ Set Padding 20
 Set TypingSpeed 60ms
 Set CursorBlink false
 
+# Progress is the focus here — mute ambient suggestions so they don't overlap.
+Env TOBIRA_DEMO_IDLE "off"
+
 # ── Boot ──────────────────────────────────────────────────────────────────────
 Hide
 Type "cd ~/kame/tobira.nvim && nvim -u docs/demo-init.lua docs/demo.lua"

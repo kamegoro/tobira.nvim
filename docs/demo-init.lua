@@ -153,7 +153,19 @@ if seed then
   seed:close()
 end
 
+-- Non-suggest demos (guide / progress / stats / combined) opt out of the
+-- ambient idle suggestion so the notification doesn't overlap the panel.
+-- Set TOBIRA_DEMO_IDLE=off in the tape via `Env TOBIRA_DEMO_IDLE "off"`.
+local idle_on = (vim.env.TOBIRA_DEMO_IDLE or 'on') ~= 'off'
+
 require('tobira').setup({
   idle_delay = 800,
   max_shown = 3,
+  idle_suggestions = idle_on,
 })
+
+-- When demoing a panel, also silence pattern-triggered suggestions (jjjjj,
+-- fo/fo, etc.), since navigation inside the tape can accidentally fire them.
+if not idle_on then
+  require('tobira.core.logger').on_pattern = nil
+end
