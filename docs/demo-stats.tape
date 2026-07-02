@@ -11,6 +11,7 @@ Set CursorBlink false
 
 # Stats panel is the focus — mute ambient suggestions to avoid overlap.
 Env TOBIRA_DEMO_IDLE "off"
+Env TOBIRA_DEMO_PATTERNS "off"
 
 # ── Boot ──────────────────────────────────────────────────────────────────────
 Hide

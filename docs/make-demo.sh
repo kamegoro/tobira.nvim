@@ -2,6 +2,13 @@
 # Generate demo GIFs for tobira.nvim using VHS.
 # https://github.com/charmbracelet/vhs
 #
+# If the output GIF has wrong colors (yellow-green background instead of
+# navy Catppuccin Mocha), this is a known VHS/Chromium bug on some machines,
+# not a config problem here — see docs/RECORDING.md for the root cause and
+# a working browser-free fallback (asciinema + tmux + agg). Do not just
+# re-run this script hoping a fresh take will be clean; verify pixel colors
+# before committing.
+#
 # Usage (from anywhere in the repo):
 #   bash docs/make-demo.sh            # all four GIFs
 #   bash docs/make-demo.sh suggest    # only demo-suggest.gif

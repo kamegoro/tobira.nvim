@@ -46,6 +46,12 @@ vim.opt.rtp:prepend("/path/to/tobira.nvim")
 require("tobira").setup({})
 ```
 
+### Regenerating demo GIFs
+
+`bash docs/make-demo.sh` uses [VHS](https://github.com/charmbracelet/vhs). If you get a GIF with the wrong
+colors (yellow-green instead of navy Catppuccin Mocha), **do not spend time debugging VHS/Chrome flags** —
+see [`docs/RECORDING.md`](docs/RECORDING.md) for why, and for a working browser-free alternative.
+
 ### Formatting and linting
 
 ```bash
