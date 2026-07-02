@@ -3,10 +3,11 @@
 # https://github.com/charmbracelet/vhs
 #
 # Usage (from anywhere in the repo):
-#   bash docs/make-demo.sh            # all three GIFs
+#   bash docs/make-demo.sh            # all four GIFs
 #   bash docs/make-demo.sh suggest    # only demo-suggest.gif
 #   bash docs/make-demo.sh guide      # only demo-guide.gif
 #   bash docs/make-demo.sh progress   # only demo-progress.gif
+#   bash docs/make-demo.sh stats      # only demo-stats.gif
 set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
@@ -26,18 +27,19 @@ run() {
 }
 
 case "$TARGET" in
-  suggest|guide|progress) run "$TARGET" ;;
+  suggest|guide|progress|stats) run "$TARGET" ;;
   all)
     run suggest
     run guide
     run progress
+    run stats
     echo ""
     echo "Done. Commit with:"
-    echo "  git add docs/demo-suggest.gif docs/demo-guide.gif docs/demo-progress.gif"
+    echo "  git add docs/demo-suggest.gif docs/demo-guide.gif docs/demo-progress.gif docs/demo-stats.gif"
     echo "  git commit -m 'docs: regenerate demo GIFs'"
     ;;
   *)
-    echo "Usage: $0 [suggest|guide|progress|all]"
+    echo "Usage: $0 [suggest|guide|progress|stats|all]"
     exit 1
     ;;
 esac
