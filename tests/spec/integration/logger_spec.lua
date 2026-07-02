@@ -660,6 +660,48 @@ describe('when single-char track=true keys are pressed', function()
   end
 end)
 
+describe('when single-char commands that were missing track=true are pressed', function()
+  before_each(function()
+    logger.reset()
+    logger.on_pattern = nil
+    logger.setup()
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+      'hello world foo bar baz',
+      '',
+      'second paragraph here now.',
+      'third line content ok.',
+      '',
+      'fourth paragraph text yes.',
+      'fifth line end done.',
+    })
+    vim.api.nvim_win_set_cursor(0, { 3, 4 })
+  end)
+
+  -- These were track=false by mistake; each is a single real keystroke.
+  -- pcall absorbs side-effects (motion fails, replace mode entered, etc.).
+  local missing_keys = {
+    '}', '{', '(', ')', '%', '^', '$', '_', '|',
+    'B', 'E', 'W', 'T', 'U', 'K', 'R',
+  }
+  for _, key in ipairs(missing_keys) do
+    it('increments the usage count for ' .. key, function()
+      pcall(vim.fn.feedkeys, key, 'xt')
+      pcall(vim.api.nvim_feedkeys, '', 'x', false)
+      assert.is_true(logger.get(key).count > 0)
+    end)
+  end
+
+  it('increments the usage count for q (macro recording key)', function()
+    -- q<Esc>: on_key fires for q before the register-waiting state begins;
+    -- Esc cancels so RecordingEnter never fires and no state leaks to later tests.
+    local esc = vim.api.nvim_replace_termcodes('<Esc>', true, false, true)
+    pcall(vim.fn.feedkeys, 'q' .. esc, 'xt')
+    pcall(vim.api.nvim_feedkeys, '', 'x', false)
+    assert.is_true(logger.get('q').count > 0)
+  end)
+end)
+
 describe('when on_key fires with typed="" (internally-generated key)', function()
   before_each(function()
     logger.reset()

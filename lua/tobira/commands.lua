@@ -41,7 +41,7 @@ M.registry = {
   ['{n}j'] = { requires = 'j', track = false, category = 'motion', level = 'intermediate' },
 
   -- ── 0 then w → ^ ──────────────────────────────────────────────────────────
-  ['^'] = { requires = '0', track = false, category = 'motion', level = 'beginner' },
+  ['^'] = { requires = '0', track = true, category = 'motion', level = 'beginner' },
 
   -- ── n repeat after search → cgn ───────────────────────────────────────────
   ['cgn'] = { requires = 'n', track = false, category = 'search', level = 'advanced' },
@@ -94,7 +94,7 @@ M.registry = {
 
   -- ── f → t stop-before-char chain ─────────────────────────────────────────
   ['t'] = { requires = 'f', track = true, category = 'motion', level = 'beginner' },
-  ['T'] = { requires = 't', track = false, category = 'motion', level = 'intermediate' },
+  ['T'] = { requires = 't', track = true, category = 'motion', level = 'intermediate' },
 
   -- ── <C-o> / <C-i> jumplist navigation ────────────────────────────────────
   ['<C-i>'] = { requires = '<C-o>', track = true, category = 'motion', level = 'beginner' },
@@ -104,8 +104,8 @@ M.registry = {
   ['<C-b>'] = { requires = '<C-u>', track = true, category = 'motion', level = 'intermediate' },
 
   -- ── j → } / { paragraph motions ──────────────────────────────────────────
-  ['}'] = { requires = 'j', track = false, category = 'motion', level = 'intermediate' },
-  ['{'] = { requires = '}', track = false, category = 'motion', level = 'intermediate' },
+  ['}'] = { requires = 'j', track = true, category = 'motion', level = 'intermediate' },
+  ['{'] = { requires = '}', track = true, category = 'motion', level = 'intermediate' },
 
   -- ── j → zz / zt / zb screen centering ────────────────────────────────────
   ['zz'] = { requires = 'j', track = false, category = 'motion', level = 'beginner' },
@@ -113,14 +113,14 @@ M.registry = {
   ['zb'] = { requires = 'zz', track = false, category = 'motion', level = 'intermediate' },
 
   -- ── w / b → W / B WORD motions ───────────────────────────────────────────
-  ['W'] = { requires = 'w', track = false, category = 'motion', level = 'intermediate' },
-  ['B'] = { requires = 'b', track = false, category = 'motion', level = 'intermediate' },
+  ['W'] = { requires = 'w', track = true, category = 'motion', level = 'intermediate' },
+  ['B'] = { requires = 'b', track = true, category = 'motion', level = 'intermediate' },
 
   -- ── e → ge word-end backward ─────────────────────────────────────────────
   ['ge'] = { requires = 'e', track = false, category = 'motion', level = 'intermediate' },
 
   -- ── 0 → % bracket matching ───────────────────────────────────────────────
-  ['%'] = { requires = '0', track = false, category = 'motion', level = 'intermediate' },
+  ['%'] = { requires = '0', track = true, category = 'motion', level = 'intermediate' },
 
   -- ── x → r / s single-char edit shortcuts ─────────────────────────────────
   ['r'] = { requires = 'x', track = true, category = 'edit', level = 'beginner' },
@@ -145,7 +145,7 @@ M.registry = {
   ['yiw'] = { requires = 'cw', track = false, category = 'edit', level = 'intermediate' },
 
   -- ── . → q macros ─────────────────────────────────────────────────────────
-  ['q'] = { requires = '.', track = false, category = 'macro', level = 'beginner' },
+  ['q'] = { requires = '.', track = true, category = 'macro', level = 'beginner' },
 
   -- ── n → N backward search / * → # backward word search ──────────────────
   ['N'] = { requires = 'n', track = true, category = 'search', level = 'beginner' },
@@ -199,7 +199,7 @@ M.registry = {
   ['X'] = { requires = 'x', track = true, category = 'edit', level = 'intermediate' },
 
   -- ── r → R replace mode ───────────────────────────────────────────────────
-  ['R'] = { requires = 'r', track = false, category = 'edit', level = 'advanced' },
+  ['R'] = { requires = 'r', track = true, category = 'edit', level = 'advanced' },
 
   -- ── p → Y yank to end of line ─────────────────────────────────────────────
   ['Y'] = { requires = 'p', track = true, category = 'edit', level = 'beginner' },
@@ -237,15 +237,15 @@ M.registry = {
   ['g#'] = { requires = '#', track = false, category = 'search', level = 'intermediate' },
 
   -- ── $ end of line / g_ last non-blank ────────────────────────────────────────
-  ['$'] = { requires = '^', track = false, category = 'motion', level = 'beginner' },
+  ['$'] = { requires = '^', track = true, category = 'motion', level = 'beginner' },
   ['g_'] = { requires = '$', track = false, category = 'motion', level = 'intermediate' },
 
   -- ── f → F backward find ───────────────────────────────────────────────────────
   ['F'] = { requires = 'f', track = true, category = 'motion', level = 'intermediate' },
 
   -- ── sentence motions ──────────────────────────────────────────────────────────
-  ['('] = { requires = '{', track = false, category = 'motion', level = 'intermediate' },
-  [')'] = { requires = '(', track = false, category = 'motion', level = 'intermediate' },
+  ['('] = { requires = '{', track = true, category = 'motion', level = 'intermediate' },
+  [')'] = { requires = '(', track = true, category = 'motion', level = 'intermediate' },
 
   -- ── section / function jumps ──────────────────────────────────────────────────
   ['[['] = { requires = 'gg', track = false, category = 'motion', level = 'intermediate' },
@@ -263,7 +263,7 @@ M.registry = {
   -- ── code navigation ───────────────────────────────────────────────────────────
   ['gx'] = { requires = 'gf', track = false, category = 'motion', level = 'intermediate' },
   ['<C-]>'] = { requires = 'gf', track = true, category = 'motion', level = 'intermediate' },
-  ['K'] = { requires = 'gd', track = false, category = 'motion', level = 'intermediate' },
+  ['K'] = { requires = 'gd', track = true, category = 'motion', level = 'intermediate' },
 
   -- ── paste without losing cursor ───────────────────────────────────────────────
   ['gp'] = { requires = 'P', track = false, category = 'edit', level = 'intermediate' },
@@ -278,10 +278,10 @@ M.registry = {
   ['zd'] = { requires = 'zc', track = false, category = 'fold', level = 'advanced' },
 
   -- ── e → E WORD-end forward ────────────────────────────────────────────────────
-  ['E'] = { requires = 'e', track = false, category = 'motion', level = 'intermediate' },
+  ['E'] = { requires = 'e', track = true, category = 'motion', level = 'intermediate' },
 
   -- ── u → U undo whole line ─────────────────────────────────────────────────────
-  ['U'] = { requires = 'u', track = false, category = 'edit', level = 'intermediate' },
+  ['U'] = { requires = 'u', track = true, category = 'edit', level = 'intermediate' },
 
   -- ── q → ZZ / ZQ quit shortcuts ───────────────────────────────────────────────
   ['ZZ'] = { requires = 'q', track = false, category = 'edit', level = 'beginner' },
@@ -291,10 +291,10 @@ M.registry = {
   ['q:'] = { requires = 'q', track = false, category = 'macro', level = 'advanced' },
 
   -- ── 0 → | go to column ───────────────────────────────────────────────────────
-  ['|'] = { requires = '0', track = false, category = 'motion', level = 'intermediate' },
+  ['|'] = { requires = '0', track = true, category = 'motion', level = 'intermediate' },
 
   -- ── ^ → _ first non-blank (relative) ─────────────────────────────────────────
-  ['_'] = { requires = '^', track = false, category = 'motion', level = 'intermediate' },
+  ['_'] = { requires = '^', track = true, category = 'motion', level = 'intermediate' },
 
   -- ── window management ─────────────────────────────────────────────────────
   ['<C-w>s'] = { requires = '<C-o>', track = false, category = 'window', level = 'intermediate' },
