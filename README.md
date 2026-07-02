@@ -1,39 +1,40 @@
-# tobira.nvim
+<div align="center">
 
-<p align="center">
-  <a href="https://github.com/kamegoro/tobira.nvim/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/kamegoro/tobira.nvim/ci.yml?branch=main&label=CI&logo=github&style=flat"></a>
-  <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue?style=flat"></a>
-  <a href="https://github.com/kamegoro/tobira.nvim/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/kamegoro/tobira.nvim?style=flat&logo=github&color=yellow"></a>
-  <a href="https://dotfyle.com/plugins/kamegoro/tobira.nvim"><img alt="Dotfyle" src="https://dotfyle.com/plugins/kamegoro/tobira.nvim/shield?style=flat"></a>
-</p>
+# 🚪 tobira.nvim
 
-<p align="center"><b>Open the next door in your Vim journey.</b></p>
+**Learn the next Vim command from your own editing habits — not a cheat sheet.**
 
-<p align="center">
-  tobira watches how you actually edit.<br>
-  When it spots a pattern you could do better, it quietly shows you the one command that would have helped — right now, not someday.
-</p>
+tobira watches how you actually edit, and when it spots a pattern you could do better,
+it quietly shows you the one command that would have helped. No quizzes. No interruptions.
 
-<p align="center">
-  <img src="docs/demo-suggest.gif" alt="tobira detects a repeated f-search and suggests ;" width="720" />
-</p>
+<a href="https://github.com/kamegoro/tobira.nvim/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/kamegoro/tobira.nvim/ci.yml?branch=main&label=CI&logo=github&style=flat"></a>
+<a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue?style=flat"></a>
+<a href="https://github.com/kamegoro/tobira.nvim/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/kamegoro/tobira.nvim?style=flat&logo=github&color=yellow"></a>
+<a href="https://dotfyle.com/plugins/kamegoro/tobira.nvim"><img alt="Dotfyle" src="https://dotfyle.com/plugins/kamegoro/tobira.nvim/shield?style=flat"></a>
 
-No quizzes. No interruptions. Just your habits, and the better path.
+[Features](#-features) • [Installation](#-installation) • [Usage](#-usage) • [Configuration](#-configuration) • [vs hardtime.nvim](#-similar-plugins)
+
+<img src="docs/demo-suggest.gif" alt="tobira detects a repeated f-search and suggests ;" width="720" />
+
+</div>
 
 ---
 
-## ✨ How it works
+## ✨ Features
 
-- **Watches your keystrokes passively** — no config required, zero impact on your mappings
-- **Detects inefficient patterns** — repeated `f`, hammering `j`, `dw`→`i` instead of `cw`, and more
-- **Suggests the one better command** — shown after a natural pause, up to `max_shown` times per session, with a cooldown between auto-suggestions
-- **Tracks mastery by watching your behavior** — once you've used a command ~100 times, tobira stops suggesting it
-- **Filters to your level** — beginner commands first, advanced ones once you're ready
-- **148 commands in the learning graph** — motion, edit, search, window, fold, mark, and macro commands from the full Neovim index
+- 👀 **Fully passive** — reads keystrokes via `vim.on_key()`; no config required, zero impact on your existing mappings
+- 🎯 **34 detected patterns** — repeated `f`, hammering `j`, `dw`→`i` instead of `cw`, and more across motion, edit, search, window, fold, mark, and macro
+- 💬 **One suggestion at a time** — shown after a natural pause, capped per session, with a cooldown between auto-suggestions — never a popup quiz
+- 📈 **Mastery-aware** — once you've used a command ~100 times, tobira stops suggesting it and moves on
+- 🪜 **Level-aware** — beginner commands surface first, advanced ones once you're ready
+- 🗺️ **148 commands** in the learning graph, covering the full Neovim command surface
 
----
+## ⚡️ Requirements
 
-## ⚡️ Installation
+- Neovim 0.9+
+- [nvim-notify](https://github.com/rcarriga/nvim-notify) _(optional — suggestions fall back to `vim.notify` without it)_
+
+## 📦 Installation
 
 **lazy.nvim**
 ```lua
@@ -54,23 +55,7 @@ use {
 }
 ```
 
-Requires Neovim 0.9+. [nvim-notify](https://github.com/rcarriga/nvim-notify) is optional — suggestions fall back to `vim.notify` without it.
-
-## ⚙️ Configuration
-
-All options are optional — the defaults work out of the box.
-
-```lua
-require("tobira").setup({
-  lang                = 'en',    -- 'en' | 'ja'
-  idle_delay          = 1500,    -- ms of inactivity before showing an ambient suggestion
-  idle_suggestions    = true,    -- enable ambient idle suggestions
-  suggestion_cooldown = 300,     -- s between automatic suggestions (default: 5 min)
-  max_shown           = 2,       -- max times to suggest the same command per session
-})
-```
-
-## 🔧 Commands
+## 🚀 Usage
 
 | Command | Description |
 |---|---|
@@ -82,25 +67,8 @@ require("tobira").setup({
 
 Full documentation is available in Neovim via `:help tobira`.
 
----
-
-## 🎯 Detected patterns (examples)
-
-| You do this | tobira suggests |
-|---|---|
-| `fa` → `fa` on the same line | `;` — repeat the last f/t |
-| `dw` → `i` | `cw` — change word in one command |
-| `v` `i` `w` `c` | `ciw` — text object, no visual needed |
-| `j` × 10 in a row | `}` — jump by paragraph |
-| `dd` × 3 in a row | `{n}dd` — delete N lines at once |
-| `r{x}` × 3 in a row | `R` — enter replace mode |
-
-34 patterns total — see `:help tobira-patterns` for the full list.
-
----
-
 <details>
-<summary><h2 style="display:inline">📺 See it in action — Guide, Stats &amp; Progress panels</h2></summary>
+<summary><b>📸 Screenshots — Guide, Stats &amp; Progress panels</b></summary>
 
 ### Guide panel
 
@@ -136,14 +104,36 @@ Full documentation is available in Neovim via `:help tobira`.
 | `✗` | Suppressed — you don't want this suggested |
 | `*` | Pinned — always shown at the top of `:TobiraGuide` |
 
-**Keys inside `:TobiraProgress`:**
-- `x` — toggle suppress on the command under the cursor (suppress it from suggestions; press again to restore)
-- `p` — toggle pin on the command under the cursor
-- `q` / `Esc` — close
+**Keys inside `:TobiraProgress`:** `x` toggles suppress on the command under the cursor, `p` toggles pin, `q` / `Esc` closes.
 
 </details>
 
----
+## ⚙️ Configuration
+
+All options are optional — the defaults work out of the box.
+
+```lua
+require("tobira").setup({
+  lang                = 'en',    -- 'en' | 'ja'
+  idle_delay          = 1500,    -- ms of inactivity before showing an ambient suggestion
+  idle_suggestions    = true,    -- enable ambient idle suggestions
+  suggestion_cooldown = 300,     -- s between automatic suggestions (default: 5 min)
+  max_shown           = 2,       -- max times to suggest the same command per session
+})
+```
+
+## 🎯 Detected patterns (examples)
+
+| You do this | tobira suggests |
+|---|---|
+| `fa` → `fa` on the same line | `;` — repeat the last f/t |
+| `dw` → `i` | `cw` — change word in one command |
+| `v` `i` `w` `c` | `ciw` — text object, no visual needed |
+| `j` × 10 in a row | `}` — jump by paragraph |
+| `dd` × 3 in a row | `{n}dd` — delete N lines at once |
+| `r{x}` × 3 in a row | `R` — enter replace mode |
+
+34 patterns total — see `:help tobira-patterns` for the full list.
 
 ## 🆚 Similar plugins
 
@@ -157,16 +147,18 @@ Full documentation is available in Neovim via `:help tobira`.
 
 tobira is the only plugin that learns from **your actual usage** and shows you the specific commands _you_ are missing.
 
----
-
-## Contributing
+## 🦾 Contributing
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md). This project follows strict TDD — tests before implementation, always.
+
+<a href="https://github.com/kamegoro/tobira.nvim/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=kamegoro/tobira.nvim" alt="Contributors to tobira.nvim" />
+</a>
 
 ## License
 
 MIT
 
-## Star History
+## ⭐ Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=kamegoro/tobira.nvim&type=Date)](https://star-history.com/#kamegoro/tobira.nvim&Date)
