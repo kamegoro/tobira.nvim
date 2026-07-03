@@ -1,57 +1,103 @@
--- Structural sync guard between en.lua and ja.lua.
--- For every string key in the "flat" locale sections (progress, notifications,
--- stats, float), ja.lua must have a matching non-empty string value.
--- Prevents adding a new key to en.lua without updating ja.lua.
+-- Structural sync guard between en.lua and every other locale file.
+-- Prevents adding a new key to en.lua without updating the other locales,
+-- and prevents a locale branch left open across a large refactor from
+-- silently drifting out of sync (see #73's French-locale review).
 
 local en = require('tobira.locales.en')
 local ja = require('tobira.locales.ja')
 
 -- Recursively verify that all leaf string values in en_tbl exist and are
--- non-empty in ja_tbl. Arrays (numeric keys) are skipped.
-local function assert_strings_match(en_tbl, ja_tbl, path)
+-- non-empty in other_tbl. Arrays (numeric keys) are skipped.
+local function assert_strings_match(en_tbl, other_tbl, path, locale_name)
+  locale_name = locale_name or 'the other locale'
   for k, v in pairs(en_tbl) do
     if type(k) == 'string' then
       local full = path .. '.' .. tostring(k)
       if type(v) == 'string' then
-        local ja_val = ja_tbl and ja_tbl[k]
-        assert.is_not_nil(ja_val, full .. ': missing from ja.lua')
-        assert.is_string(ja_val, full .. ': must be a string in ja.lua')
-        assert.is_true(#ja_val > 0, full .. ': must not be empty in ja.lua')
+        local other_val = other_tbl and other_tbl[k]
+        assert.is_not_nil(other_val, full .. ': missing from ' .. locale_name)
+        assert.is_string(other_val, full .. ': must be a string in ' .. locale_name)
+        assert.is_true(#other_val > 0, full .. ': must not be empty in ' .. locale_name)
       elseif type(v) == 'table' then
-        assert_strings_match(v, ja_tbl and ja_tbl[k] or {}, full)
+        assert_strings_match(v, other_tbl and other_tbl[k] or {}, full, locale_name)
       end
     end
   end
 end
 
-describe('progress locale', function()
-  it('en.lua and ja.lua have the same string keys', function()
-    assert_strings_match(en.progress, ja.progress, 'progress')
+-- ── assert_strings_match self-test ───────────────────────────────────────────
+-- Proves the checker itself actually detects drift, independent of whatever
+-- state the real locale files happen to be in right now.
+
+describe('assert_strings_match (the sync-check helper)', function()
+  it('fails when a locale is missing a key the reference has', function()
+    local reference = { a = 'hello', nested = { b = 'world' } }
+    local incomplete = { a = 'bonjour' } -- nested.b missing
+    local ok = pcall(assert_strings_match, reference, incomplete, 'test', 'incomplete')
+    assert.is_false(ok, 'expected assert_strings_match to fail on a missing nested key')
   end)
 
+  it('fails when a locale has an empty string for a key the reference has', function()
+    local reference = { a = 'hello' }
+    local blank = { a = '' }
+    local ok = pcall(assert_strings_match, reference, blank, 'test', 'blank')
+    assert.is_false(ok, 'expected assert_strings_match to fail on an empty translation')
+  end)
+
+  it('passes when every key is present and non-empty', function()
+    local reference = { a = 'hello', nested = { b = 'world' } }
+    local complete = { a = 'bonjour', nested = { b = 'monde' } }
+    local ok = pcall(assert_strings_match, reference, complete, 'test', 'complete')
+    assert.is_true(ok, 'expected assert_strings_match to pass when all keys are present')
+  end)
+end)
+
+-- ── dynamic multi-locale sync guard ──────────────────────────────────────────
+-- Discovers every locale file next to en.lua (ja.lua today, fr.lua/es.lua/...
+-- whenever they land) and checks each one's ENTIRE table against en.lua
+-- recursively — including `suggestions` (148 commands) and `float.reasons`
+-- (34 patterns), which the older hand-picked per-section checks below never
+-- covered. A new locale is covered automatically; nothing to remember to add.
+
+local function discover_locale_names()
+  local names = {}
+  for _, filename in ipairs(vim.fn.readdir('lua/tobira/locales')) do
+    local name = filename:match('^(%a+)%.lua$')
+    if name and name ~= 'en' then
+      table.insert(names, name)
+    end
+  end
+  table.sort(names)
+  return names
+end
+
+describe('every locale file next to en.lua', function()
+  local locale_names = discover_locale_names()
+
+  it('discovers at least ja.lua (sanity check that discovery itself works)', function()
+    local found_ja = false
+    for _, name in ipairs(locale_names) do
+      if name == 'ja' then
+        found_ja = true
+      end
+    end
+    assert.is_true(found_ja, 'expected discover_locale_names() to find ja.lua')
+  end)
+
+  for _, name in ipairs(locale_names) do
+    it('has every en.lua key, fully recursively, present and non-empty in ' .. name .. '.lua', function()
+      local loc = require('tobira.locales.' .. name)
+      assert_strings_match(en, loc, name, name .. '.lua')
+    end)
+  end
+end)
+
+describe('progress locale', function()
   it('has a level_label key (for the Level: banner)', function()
     assert.is_string(en.progress.level_label, 'en.lua progress.level_label missing')
     assert.is_true(#en.progress.level_label > 0, 'en.lua progress.level_label is empty')
     assert.is_string(ja.progress.level_label, 'ja.lua progress.level_label missing')
     assert.is_true(#ja.progress.level_label > 0, 'ja.lua progress.level_label is empty')
-  end)
-end)
-
-describe('notifications locale', function()
-  it('en.lua and ja.lua have the same string keys', function()
-    assert_strings_match(en.notifications, ja.notifications, 'notifications')
-  end)
-end)
-
-describe('stats locale', function()
-  it('en.lua and ja.lua have the same string keys', function()
-    assert_strings_match(en.stats, ja.stats, 'stats')
-  end)
-end)
-
-describe('float locale', function()
-  it('en.lua and ja.lua have the same string keys', function()
-    assert_strings_match(en.float, ja.float, 'float')
   end)
 end)
 
@@ -114,10 +160,6 @@ describe('guide top-level locale', function()
     assert.is_true(#en.guide.hint > 0)
     assert.is_true(#ja.guide.hint > 0)
   end)
-
-  it('en.lua and ja.lua have the same string keys', function()
-    assert_strings_match(en.guide, ja.guide, 'guide')
-  end)
 end)
 
 -- ── UI redesign foundation (#66) ─────────────────────────────────────────────
@@ -146,10 +188,6 @@ describe('progress.mastered_total / section_count / preview / nav_hint', functio
       assert.is_string(ja.progress.preview[k], 'ja.lua progress.preview.' .. k .. ' missing')
       assert.is_true(#ja.progress.preview[k] > 0)
     end
-  end)
-
-  it('en.lua and ja.lua have the same preview keys', function()
-    assert_strings_match(en.progress.preview, ja.progress.preview, 'progress.preview')
   end)
 end)
 
