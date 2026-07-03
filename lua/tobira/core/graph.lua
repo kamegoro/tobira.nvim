@@ -42,23 +42,40 @@ function M.is_adopted(data)
   return avg_last_n(data.sessions or {}, 3) >= 5
 end
 
--- True when the command was once adopted but the last 2 sessions are 0 (forgot it).
--- Requires at least 3 sessions in history to be meaningful.
+-- #62: not user-configurable, consistent with this file's other hardcoded
+-- thresholds (100/1000/5000 mastery counts, avg>=5 adoption bar). See
+-- ui/CLAUDE.md-style rationale in the #62 issue/plan for why these aren't
+-- exposed via core/config.lua — one fewer thing users need to understand.
+local FORGOTTEN_RECENT_WINDOW = 2 -- same recency window the old binary rule used
+local FORGOTTEN_ADOPTED_BAR = 5 -- reuses is_adopted's "meaningfully used" bar
+local FORGOTTEN_RATIO = 0.3 -- recent avg must fall below 30% of the historical avg
+
+-- True when the command was meaningfully adopted in the past (its average
+-- usage before the most recent FORGOTTEN_RECENT_WINDOW sessions reached
+-- FORGOTTEN_ADOPTED_BAR) but recent usage has decayed below FORGOTTEN_RATIO
+-- of that historical average. Requires at least 3 sessions to be meaningful.
+--
+-- Graded replacement (#62) for the old "last 2 sessions are exactly 0" rule:
+-- a command fading from heavy to occasional use is now caught gradually
+-- instead of requiring recent usage to hit exactly zero. Uses the average
+-- (not the peak) of the historical window so one unusually heavy session
+-- doesn't set a bar that makes otherwise-steady usage read as "forgotten".
 function M.is_forgotten(data)
   local sessions = data.sessions or {}
-  local len = #sessions
-  if len < 3 then
+  local n = #sessions
+  if n < 3 then
     return false
   end
-  if sessions[len] ~= 0 or sessions[len - 1] ~= 0 then
+  local historical_slice = {}
+  for i = 1, n - FORGOTTEN_RECENT_WINDOW do
+    historical_slice[i] = sessions[i]
+  end
+  local historical = avg_last_n(historical_slice, #historical_slice)
+  if historical < FORGOTTEN_ADOPTED_BAR then
     return false
   end
-  for i = 1, len - 2 do
-    if sessions[i] >= 5 then
-      return true
-    end
-  end
-  return false
+  local recent = avg_last_n(sessions, FORGOTTEN_RECENT_WINDOW)
+  return recent < historical * FORGOTTEN_RATIO
 end
 
 -- True when the command is mastered (mastery_level ≥ 2) and not forgotten.
