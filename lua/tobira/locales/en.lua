@@ -16,8 +16,6 @@ return {
       intermediate = 'intermediate',
       advanced = 'advanced',
     },
-    next = 'Next: ',
-    hint = '[x] suppress · [p] pin · [q / Esc] close',
     categories = {
       motion = 'Motion',
       edit = 'Edit',
@@ -45,20 +43,12 @@ return {
   },
   stats = {
     title = 'tobira — usage stats',
-    total_keystrokes = 'Total keystrokes',
-    discovered = 'Discovered',
     mastery = 'Mastery',
     mastery_dist = '  Never %d  ·  ☆ %d  ·  ★ %d  ·  ★★+ %d',
     top_commands = 'Top commands',
     try_next = '⚡ Try these next',
-    known_ratio = '%s / %s known',
-    try_next_unused = 'unused',
     nav_hint = '[g] guide   [p] progress   [q] close',
     footer_summary = '%s keystrokes so far · %s / %s commands discovered',
-    overview = {
-      keystrokes = '%s keystrokes total',
-      mastered_pct = '%d%% of registered commands mastered',
-    },
   },
   float = {
     example_prefix = 'e.g. ',

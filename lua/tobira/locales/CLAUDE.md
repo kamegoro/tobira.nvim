@@ -8,7 +8,7 @@ in `en.lua` and `ja.lua`, then accessed through `load_strings()` in the UI modul
 ```lua
 -- ✅ correct
 local str = load_strings()
-push(str.progress.next .. cmd_name)
+push(str.progress.mastered_total:format(n, total))
 
 -- ❌ prohibited
 push('Next: ' .. cmd_name)
