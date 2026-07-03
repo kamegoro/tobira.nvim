@@ -61,7 +61,7 @@ use {
 |---|---|
 | `:Tobira` | Show the next suggestion now (ignores cooldown). Press `q` / `Esc` to dismiss. |
 | `:TobiraGuide` | Toggle the cheatsheet panel |
-| `:TobiraProgress` | Show skill tree with mastery glyphs. `x` = suppress, `p` = pin, `q`/`Esc` = close. |
+| `:TobiraProgress` | Show skill tree with mastery glyphs and a cursor-driven detail preview. `x` = suppress, `p` = pin, `g`/`s` = jump to guide/stats, `q`/`Esc` = close. |
 | `:TobiraStats` | Show usage stats: command distribution (never/tried/familiar/mastered) and efficiency gap suggestions |
 | `:TobiraReset` | Clear all usage data |
 
@@ -76,7 +76,7 @@ Full documentation is available in Neovim via `:help tobira`.
   <img src="docs/demo-guide.gif" alt=":TobiraGuide cheatsheet panel" width="720" />
 </p>
 
-`:TobiraGuide` opens a cheatsheet on the right side of the screen. Commands you've already mastered are automatically hidden, so only your next targets are shown. Pinned commands always appear at the top. Covers all 7 categories: motion, edit, search, window, fold, mark, and macro. Opens automatically on first launch.
+`:TobiraGuide` opens a cheatsheet on the right side of the screen. Commands you've already mastered are automatically hidden, so only your next targets are shown — and if one of them fades from use after you'd gotten comfortable with it, it reappears with a `⟳` (forgotten) marker instead of staying hidden forever. Pinned commands always appear at the top, marked `●`. Covers all 7 categories: motion, edit, search, window, fold, mark, and macro. Opens automatically on first launch.
 
 ### Usage stats
 
@@ -84,7 +84,7 @@ Full documentation is available in Neovim via `:help tobira`.
   <img src="docs/demo-stats.gif" alt=":TobiraStats usage stats" width="720" />
 </p>
 
-`:TobiraStats` shows a snapshot of your editing habits: total keystrokes, how many commands you've discovered out of the full graph, a mastery bar, your top 8 most-used commands, and the top 5 efficiency gaps — commands you're using heavily whose neighbors you've never tried.
+`:TobiraStats` leads with the one section that actually changes what you do next — **Try these next**, commands you're using heavily whose neighbors you've never tried — followed by a mastery bar and your top commands. Total keystrokes and how many commands you've discovered sit in a quiet line at the bottom: fun to see, but not the point. `g` / `p` jump straight to Guide / Progress.
 
 ### Skill progress
 
@@ -92,7 +92,7 @@ Full documentation is available in Neovim via `:help tobira`.
   <img src="docs/demo-progress.gif" alt=":TobiraProgress skill tree" width="720" />
 </p>
 
-`:TobiraProgress` shows your current level and the full command learning graph, with mastery glyphs on every command:
+`:TobiraProgress` shows your current level and the full command learning graph as a calm grid — mastery glyphs only, no clutter. Move the cursor onto any command and a preview strip below the grid fills in with its usage sparkline, count, status, and how far it is from the next star. The header shows your overall `{n} / {total} mastered` ratio, and each category shows its own `{done} / {total}`.
 
 | Glyph | Meaning |
 |---|---|
@@ -101,10 +101,11 @@ Full documentation is available in Neovim via `:help tobira`.
 | `★` | Familiar (100+ uses) |
 | `★★` | Practiced (1000+ uses) |
 | `★★★` | Mastered (5000+ uses) |
+| `⟳` | Forgotten — was practiced, has gone quiet the last 2 sessions |
 | `✗` | Suppressed — you don't want this suggested |
-| `*` | Pinned — always shown at the top of `:TobiraGuide` |
+| `●` | Pinned — always shown, in both `:TobiraGuide` and `:TobiraProgress` |
 
-**Keys inside `:TobiraProgress`:** `x` toggles suppress on the command under the cursor, `p` toggles pin, `q` / `Esc` closes.
+**Keys inside `:TobiraProgress`:** `x` toggles suppress on the command under the cursor, `p` toggles pin, `g` / `s` jump to Guide / Stats, `q` / `Esc` closes.
 
 </details>
 

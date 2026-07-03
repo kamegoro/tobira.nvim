@@ -92,9 +92,10 @@ vim.notify = require('notify')
 --   ★★★ mastered : h j k l i ciw
 --   ★★  practiced: w b u dw cw a
 --   ★   familiar  : o x n p v G
---   ☆   tried     : f * } { ^ $ % <C-o>
+--   ☆   tried     : f * } { ^ $ %
+--   ⟳   forgotten : <C-i>  (practiced heavily, then quiet for 2 sessions)
 --   ✗   suppressed: dd (user decided they don't want it suggested)
---   *   pinned    : <C-r>  (always in :TobiraGuide)
+--   ●   pinned    : <C-r>  (always in :TobiraGuide, always shown in :TobiraProgress)
 --   never         : most advanced/fold/macro commands → big stats "never" bucket
 --
 -- Efficiency gaps that will surface in :TobiraStats:
@@ -141,7 +142,11 @@ if seed then
     ['^']  = { count = 35,   sessions = { 1,2,2,1,2    }, shown = 0, suppressed = false, pinned = false },
     ['$']  = { count = 40,   sessions = { 1,2,2,1,2    }, shown = 0, suppressed = false, pinned = false },
     ['%']  = { count = 22,   sessions = { 1,1,2,1,1    }, shown = 0, suppressed = false, pinned = false },
-    ['<C-o>'] = { count = 58,sessions = { 2,3,3,2,3    }, shown = 0, suppressed = false, pinned = false },
+
+    -- ⟳ forgotten: was practiced heavily, then went quiet for the last 2 sessions
+    -- (beginner-level so it clears the guide ceiling gate along with the rest
+    -- of this seed's beginner commands)
+    ['<C-i>'] = { count = 150, sessions = { 9,8,0,0 },   shown = 0, suppressed = false, pinned = false },
 
     -- ✗ suppressed
     dd     = { count = 88,   sessions = { 4,5,3,4,5    }, shown = 0, suppressed = true,  pinned = false },

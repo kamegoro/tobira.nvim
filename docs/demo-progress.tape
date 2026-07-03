@@ -27,14 +27,19 @@ Enter
 Sleep 2s
 
 # ── Navigate to a skill row (motion auto-items: $, %, (, )) ──────────────────
-# Row layout: blank / Level / blank / Motion / composite(hjkl w/b gg/G f/t) / auto-row1 / auto-row2
-# j×5 puts cursor on the first auto-row ($  %  (  ))
-Type "jjjjj"
+# Row layout: blank / H1 / separator / blank / Motion header / composite
+# (hjkl w/b gg/G f/t) / auto-row1 / auto-row2 — j×6 puts cursor on the first
+# auto-row ($  %  (  )).
+Type "jjjjjj"
 Sleep 600ms
 
 # Move into the first cell (col 2+ = cell 1)
 Type "0ll"
-Sleep 400ms
+Sleep 1600ms
+
+# ── The preview strip (new in #67) now shows detail for whatever's under the
+# cursor — sparkline, count, status, and distance to the next milestone.
+# Pause here so the recording actually shows it before moving on.
 
 # ── Press x to suppress the command under cursor ──────────────────────────────
 Type "x"
@@ -46,7 +51,7 @@ Sleep 1200ms
 
 # ── Move right to pin another command ─────────────────────────────────────────
 Type "llllllllllllll"
-Sleep 400ms
+Sleep 1400ms
 Type "p"
 Sleep 1800ms
 
