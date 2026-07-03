@@ -236,6 +236,74 @@ describe('session tracking', function()
   end)
 end)
 
+-- ── zero-padding for untouched commands (#62 prerequisite) ─────────────────────
+-- close_session() previously only appended a sessions[] entry for commands
+-- actually used that session, so "sessions[len] == 0" (an idle real session)
+-- could never occur from real usage — is_forgotten()'s "last 2 sessions are 0"
+-- check was effectively dead on production data. This backfills a 0 for every
+-- already-known command that went untouched, so decay-based scoring has a
+-- real "time passed with no use" signal to work with.
+
+describe('when a known command goes untouched for a session', function()
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    logger.setup()
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'hello world test' })
+  end)
+
+  it('appends a 0 to that command sessions on close_session', function()
+    vim.fn.feedkeys('e', 'xt'); vim.api.nvim_feedkeys('', 'x', false)
+    logger.close_session() -- 'e' now known: sessions = {1}
+
+    -- Next session: only 'w' is used, 'e' is untouched.
+    vim.fn.feedkeys('w', 'xt'); vim.api.nvim_feedkeys('', 'x', false)
+    logger.close_session()
+
+    assert.same({ 1, 0 }, logger.get('e').sessions)
+    assert.same({ 1 }, logger.get('w').sessions)
+  end)
+
+  it('does not zero-pad a command that has never been used at all', function()
+    vim.fn.feedkeys('e', 'xt'); vim.api.nvim_feedkeys('', 'x', false)
+    logger.close_session()
+    -- 'w' was never used in any session — should stay entirely absent, not
+    -- gain a spurious sessions = {0} entry.
+    assert.same({}, logger.get('w').sessions)
+    assert.equals(0, logger.get('w').count)
+  end)
+
+  it('zero-padding also respects the 10-entry cap', function()
+    vim.fn.feedkeys('e', 'xt'); vim.api.nvim_feedkeys('', 'x', false)
+    logger.close_session()
+    for _ = 1, 12 do
+      vim.fn.feedkeys('w', 'xt'); vim.api.nvim_feedkeys('', 'x', false)
+      logger.close_session()
+    end
+    assert.equals(10, #logger.get('e').sessions)
+  end)
+end)
+
+describe('when a command is flushed via mark_adopted mid-session', function()
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    logger.setup()
+  end)
+
+  it('is not double-appended when close_session runs later in the same session', function()
+    vim.fn.feedkeys('eee', 'xt'); vim.api.nvim_feedkeys('', 'x', false)
+    logger.mark_adopted('e') -- flushes a boosted count into sessions immediately
+    assert.equals(1, #logger.get('e').sessions)
+
+    logger.close_session()
+    -- Must still be exactly 1 entry — close_session must not also append a
+    -- second (spurious) entry for 'e' just because it saw no fresh session_counts.
+    assert.equals(1, #logger.get('e').sessions)
+  end)
+end)
+
 -- ── old-format migration ──────────────────────────────────────────────────────
 
 describe('old-format migration', function()

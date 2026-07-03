@@ -12,6 +12,9 @@ local _initialized = false
 local seq = patterns.new_seq()
 local session_counts = {}
 local _loaded_counts = {}
+-- Commands flushed early via mark_adopted() this session, so close_session()
+-- doesn't also zero-pad or re-append them (see close_session's zero-pad loop).
+local session_adopted = {}
 
 -- Wired by init.lua — logger has no direct dependency on suggest.
 M.on_pattern = nil
@@ -241,7 +244,24 @@ function M.close_session()
       table.remove(usage[cmd].sessions, 1)
     end
   end
+
+  -- Zero-pad every already-known command that went untouched this session, so
+  -- sessions[] reflects real elapsed sessions rather than only sessions where
+  -- the command happened to be used. Without this, decay-based scoring (#62)
+  -- has no signal that time passed with no use — "idle" was previously
+  -- invisible, not recorded as 0. Runs once per VimLeave, never on the
+  -- vim.on_key hot path.
+  for cmd, entry in pairs(usage) do
+    if session_counts[cmd] == nil and not session_adopted[cmd] then
+      table.insert(entry.sessions, 0)
+      while #entry.sessions > MAX_SESSIONS do
+        table.remove(entry.sessions, 1)
+      end
+    end
+  end
+
   session_counts = {}
+  session_adopted = {}
 
   -- Re-read disk before writing so that counts accumulated by a concurrent
   -- Neovim instance are not overwritten (last-writer-wins data loss).
@@ -300,6 +320,7 @@ end
 function M.mark_adopted(cmd)
   local count = math.max(session_counts[cmd] or 0, 5)
   session_counts[cmd] = nil
+  session_adopted[cmd] = true
   if not usage[cmd] then
     usage[cmd] = { count = 0, sessions = {}, shown = 0, suppressed = false, pinned = false, celebrated = false }
   end
@@ -341,6 +362,7 @@ end
 function M.reset()
   usage = {}
   session_counts = {}
+  session_adopted = {}
   _loaded_counts = {}
   meta = { guide_seen = false }
   seq = patterns.new_seq()
