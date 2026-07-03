@@ -65,9 +65,9 @@ Call `setup()` explicitly if not using lazy.nvim opts shorthand: >lua
 :TobiraGuide
   Toggle a dynamic cheatsheet panel. Content adapts to your current mastery
   level — commands you have already mastered are hidden, and pinned
-  commands are always shown at the top. A command that was mastered but has
-  gone quiet for the last two sessions reappears with a "forgotten" marker
-  instead of staying hidden forever.
+  commands are always shown at the top. A command that was mastered but
+  whose recent use has fallen off well below its earlier pace reappears
+  with a "forgotten" marker instead of staying hidden forever.
 
   Mastery markers in the guide panel:
     `●`          Pinned — always shown at the top
@@ -98,8 +98,8 @@ Call `setup()` explicitly if not using lazy.nvim opts shorthand: >lua
     `★`     Used 100+ times
     `★★`    Used 1000+ times
     `★★★`   Used 5000+ times
-    `⟳`     Forgotten — mastered, then quiet for the last 2 sessions
-            (shown in the preview strip, not the grid glyph)
+    `⟳`     Forgotten — mastered, then recent use fell off well below its
+            earlier pace (shown in the preview strip, not the grid glyph)
     `●`     Pinned — always shown, in both this panel and |:TobiraGuide|
 
   Inside the progress panel:

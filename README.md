@@ -101,7 +101,7 @@ Full documentation is available in Neovim via `:help tobira`.
 | `★` | Familiar (100+ uses) |
 | `★★` | Practiced (1000+ uses) |
 | `★★★` | Mastered (5000+ uses) |
-| `⟳` | Forgotten — was practiced, has gone quiet the last 2 sessions |
+| `⟳` | Forgotten — recent use has fallen off well below its earlier pace |
 | `✗` | Suppressed — you don't want this suggested |
 | `●` | Pinned — always shown, in both `:TobiraGuide` and `:TobiraProgress` |
 
