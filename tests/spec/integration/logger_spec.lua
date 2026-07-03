@@ -646,6 +646,22 @@ describe('when no usage file exists yet', function()
   end)
 end)
 
+-- ── data_dir / data_file accessors (for :checkhealth, #42) ──────────────────
+
+describe('data_dir and data_file', function()
+  it('data_file is data_dir with /usage.json appended', function()
+    assert.equals(logger.data_dir() .. '/usage.json', logger.data_file())
+  end)
+
+  it('data_dir ends with /tobira', function()
+    assert.is_not_nil(logger.data_dir():match('/tobira$'))
+  end)
+
+  it('matches the path wipe_disk() operates on', function()
+    assert.equals(_data_file, logger.data_file())
+  end)
+end)
+
 -- ── load: corrupt JSON ────────────────────────────────────────────────────────
 
 describe('when the usage file contains invalid JSON', function()

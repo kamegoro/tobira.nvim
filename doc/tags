@@ -3,6 +3,7 @@
 :TobiraProgress	tobira.txt	/*:TobiraProgress*
 :TobiraReset	tobira.txt	/*:TobiraReset*
 :TobiraStats	tobira.txt	/*:TobiraStats*
+:checkhealth-tobira	tobira.txt	/*:checkhealth-tobira*
 tobira-commands	tobira.txt	/*tobira-commands*
 tobira-config	tobira.txt	/*tobira-config*
 tobira-config-idle_delay	tobira.txt	/*tobira-config-idle_delay*
