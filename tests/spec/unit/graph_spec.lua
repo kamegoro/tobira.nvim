@@ -123,9 +123,14 @@ describe('when a command was adopted but recently fell out of use', function()
     assert.is_true(graph.is_forgotten(data))
   end)
 
-  it('is not forgotten when recent sessions are non-zero', function()
+  it('is considered forgotten when recent usage has decayed well below its historical average, even without hitting exactly zero', function()
+    -- #62: the old rule required the last 2 sessions to be *exactly* 0, so a
+    -- single stray use (here: 1) was enough to call this "not forgotten" no
+    -- matter how far usage had actually dropped. The graded rule compares the
+    -- recent average (0.5) against 30% of the historical average (7.5*0.3=2.25)
+    -- instead — a >90% drop reads as forgotten even though it isn't literally 0.
     local data = usage_entry(50, { 7, 8, 0, 1 })
-    assert.is_false(graph.is_forgotten(data))
+    assert.is_true(graph.is_forgotten(data))
   end)
 
   it('is not forgotten with fewer than 3 sessions', function()
@@ -137,6 +142,19 @@ describe('when a command was adopted but recently fell out of use', function()
     -- last 2 are 0, but no early session reached ≥ 5 → was never adopted, not forgotten
     local data = usage_entry(5, { 1, 2, 0, 0 })
     assert.is_false(graph.is_forgotten(data))
+  end)
+
+  it('is not forgotten right at the 30% boundary (recent equals 30% of historical)', function()
+    -- historical avg = avg(10,10) = 10; recent avg = avg(3,3) = 3 = 10*0.3 exactly.
+    -- Strict "<" means landing exactly on the ratio does not count as forgotten.
+    local data = usage_entry(50, { 10, 10, 3, 3 })
+    assert.is_false(graph.is_forgotten(data))
+  end)
+
+  it('is forgotten just past the 30% boundary', function()
+    -- historical avg = 10; recent avg = avg(2,2) = 2, which is < 10*0.3 = 3.
+    local data = usage_entry(50, { 10, 10, 2, 2 })
+    assert.is_true(graph.is_forgotten(data))
   end)
 
   it('returns to suggestion pool when forgotten', function()
