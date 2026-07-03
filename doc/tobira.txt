@@ -50,15 +50,32 @@ Call `setup()` explicitly if not using lazy.nvim opts shorthand: >lua
 
                                                                  *:TobiraStats*
 :TobiraStats
-  Show a usage statistics panel. Displays how many commands you have used,
-  your mastery distribution, and efficiency gaps (commands you use heavily
-  whose neighbors you have not yet discovered).
+  Show a usage statistics panel. Leads with "Try these next" — efficiency
+  gaps, commands you use heavily whose neighbors you have not yet
+  discovered — since that is the one section that actually changes what
+  you do. A mastery bar and your top commands follow. Total keystrokes and
+  how many commands you have discovered sit in a quiet line at the bottom.
+
+  Inside the stats panel:
+    `g`   Close stats and open the guide panel
+    `p`   Close stats and open the progress panel
+    `q`   Close the panel
 
                                                                  *:TobiraGuide*
 :TobiraGuide
   Toggle a dynamic cheatsheet panel. Content adapts to your current mastery
-  level — commands you have already mastered are hidden, and pinned commands
-  are always shown at the top.
+  level — commands you have already mastered are hidden, and pinned
+  commands are always shown at the top. A command that was mastered but has
+  gone quiet for the last two sessions reappears with a "forgotten" marker
+  instead of staying hidden forever.
+
+  Mastery markers in the guide panel:
+    `●`          Pinned — always shown at the top
+    `★`          Familiar, still shown because guide only lists commands
+                 you have not fully mastered
+    `☆`          Tried at least once
+    (none, dim)  Never tried
+    `⟳`          Forgotten — was practiced, has gone quiet
 
   Inside the guide panel:
     `p`   Toggle pin on the command under the cursor
@@ -67,9 +84,12 @@ Call `setup()` explicitly if not using lazy.nvim opts shorthand: >lua
 
                                                               *:TobiraProgress*
 :TobiraProgress
-  Open the skill tree panel. Displays mastery levels for all tracked
-  commands, organized by category (motion, edit, search, fold, mark, macro,
-  window).
+  Open the skill tree panel. The header shows your current level and your
+  overall `{n} / {total} mastered` ratio; each category heading shows its
+  own `{done} / {total}`. Level-0 (never tried) commands render dimmed with
+  no glyph. Move the cursor onto any command and a preview strip below the
+  grid fills in with that command's usage sparkline, count, status, and how
+  many uses remain to reach the next star.
 
   Mastery levels:
     `✗`     Suppressed (will not be suggested)
@@ -78,10 +98,15 @@ Call `setup()` explicitly if not using lazy.nvim opts shorthand: >lua
     `★`     Used 100+ times
     `★★`    Used 1000+ times
     `★★★`   Used 5000+ times
+    `⟳`     Forgotten — mastered, then quiet for the last 2 sessions
+            (shown in the preview strip, not the grid glyph)
+    `●`     Pinned — always shown, in both this panel and |:TobiraGuide|
 
   Inside the progress panel:
     `x`   Toggle suppress on the command under the cursor
     `p`   Toggle pin on the command under the cursor
+    `g`   Close progress and open the guide panel
+    `s`   Close progress and open the stats panel
     `q`   Close the panel
 
                                                                  *:TobiraReset*
