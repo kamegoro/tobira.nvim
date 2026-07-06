@@ -116,7 +116,7 @@ All options are optional — the defaults work out of the box.
 
 ```lua
 require("tobira").setup({
-  lang                = 'en',    -- 'en' | 'ja' | 'zh' | 'es' | 'fr'
+  lang                = 'en',    -- 'en' | 'ja' | 'zh' | 'es' | 'fr' | 'de'
   idle_delay          = 1500,    -- ms of inactivity before showing an ambient suggestion
   idle_suggestions    = true,    -- enable ambient idle suggestions
   suggestion_cooldown = 300,     -- s between automatic suggestions (default: 5 min)
