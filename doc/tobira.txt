@@ -139,7 +139,7 @@ Default configuration: >lua
 
                                                               *tobira-config-lang*
 `lang` (string, default: `"en"`)
-  Display language. Supported values: `"en"`, `"ja"`, `"zh"`.
+  Display language. Supported values: `"en"`, `"ja"`, `"zh"`, `"es"`.
 
                                                        *tobira-config-idle_delay*
 `idle_delay` (number, default: `1500`)
