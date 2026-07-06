@@ -17,6 +17,8 @@ core/logger.lua     — requires patterns + commands
 core/suggest.lua    — requires config / logger / graph
                       ↓
 i18n.lua            — requires config + locales
+health.lua          — requires config / logger / locales (checkhealth entry point, not
+                       required by anything else)
 ui/hls.lua          — requires nothing (highlight group definitions only)
 ui/float.lua        — requires i18n (display strings only)
 ui/stats.lua        — requires graph / logger / i18n

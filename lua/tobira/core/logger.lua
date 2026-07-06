@@ -384,6 +384,16 @@ function M.save()
   save()
 end
 
+-- Exposed for :checkhealth (#42) so health.lua doesn't recompute or duplicate
+-- this path independently.
+function M.data_dir()
+  return data_dir
+end
+
+function M.data_file()
+  return data_file
+end
+
 function M.is_guide_seen()
   return meta.guide_seen == true
 end

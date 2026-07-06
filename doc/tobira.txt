@@ -114,6 +114,13 @@ Call `setup()` explicitly if not using lazy.nvim opts shorthand: >lua
   Reset all usage data. This clears the usage log stored at
   `~/.local/share/nvim/tobira/usage.json`.
 
+                                                            *:checkhealth-tobira*
+:checkhealth tobira
+  Diagnose your install: Neovim version (and whether it is new enough for
+  full `vim.on_key()` `typed`-argument accuracy), whether the data directory
+  is writable, whether `usage.json` contains valid JSON, and whether the
+  configured `lang` has a matching locale file.
+
 ==============================================================================
 4. CONFIGURATION                                                  *tobira-config*
 

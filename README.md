@@ -64,6 +64,7 @@ use {
 | `:TobiraProgress` | Show skill tree with mastery glyphs and a cursor-driven detail preview. `x` = suppress, `p` = pin, `g`/`s` = jump to guide/stats, `q`/`Esc` = close. |
 | `:TobiraStats` | Show usage stats: command distribution (never/tried/familiar/mastered) and efficiency gap suggestions |
 | `:TobiraReset` | Clear all usage data |
+| `:checkhealth tobira` | Diagnose your install — Neovim version, data directory, usage.json validity, `lang` config |
 
 Full documentation is available in Neovim via `:help tobira`.
 
