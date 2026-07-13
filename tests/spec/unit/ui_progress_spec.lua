@@ -561,3 +561,45 @@ describe('when s is pressed in the progress window', function()
     assert.is_false(progress.is_open())
   end)
 end)
+
+-- ── ? keybinding help (#43) ───────────────────────────────────────────────────
+
+describe('when ? is pressed in the progress window', function()
+  before_each(setup)
+  after_each(teardown)
+
+  it('shows the keybinding help via vim.notify without closing the panel', function()
+    local notified_msg = nil
+    local orig = vim.notify
+    vim.notify = function(msg, _)
+      notified_msg = msg
+    end
+    progress.open()
+    local ok, err = pcall(function()
+      vim.fn.feedkeys('?', 'xt')
+      vim.api.nvim_feedkeys('', 'x', false)
+    end)
+    vim.notify = orig
+    assert.is_true(ok, err)
+    assert.is_not_nil(notified_msg, 'expected vim.notify to be called')
+    assert.is_true(progress.is_open(), 'expected the panel to stay open')
+  end)
+
+  it('uses the progress.keybind_help locale string', function()
+    local notified_msg = nil
+    local orig = vim.notify
+    vim.notify = function(msg, _)
+      notified_msg = msg
+    end
+    progress.open()
+    local ok, err = pcall(function()
+      vim.fn.feedkeys('?', 'xt')
+      vim.api.nvim_feedkeys('', 'x', false)
+    end)
+    vim.notify = orig
+    assert.is_true(ok, err)
+    local en = require('tobira.locales.en')
+    assert.is_not_nil(en.progress.keybind_help, 'expected en.progress.keybind_help to be defined')
+    assert.equals(en.progress.keybind_help, notified_msg)
+  end)
+end)

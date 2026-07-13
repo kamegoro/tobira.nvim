@@ -398,6 +398,9 @@ function M.open()
     M.close()
     require('tobira.ui.stats').open()
   end, { buffer = _buf, nowait = true, silent = true })
+  vim.keymap.set('n', '?', function()
+    vim.notify(str.keybind_help, vim.log.levels.INFO)
+  end, { buffer = _buf, nowait = true, silent = true })
 
   _win = vim.api.nvim_open_win(_buf, true, {
     relative = 'editor',
