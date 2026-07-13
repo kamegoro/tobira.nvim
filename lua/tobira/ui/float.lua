@@ -36,7 +36,27 @@ end
 
 -- Rounded border with every segment tagged with the same highlight group, so
 -- the whole border reads as one color (mirrors nvim-notify's per-level border).
+--
+-- Box-drawing characters are Unicode "Ambiguous width": narrow (1 cell) under
+-- the default ambiwidth='single', but double-width under ambiwidth='double'
+-- (set by users to match wide CJK fonts). Unlike the 'rounded' string preset
+-- (used by guide.lua/progress.lua/stats.lua), a custom per-segment border
+-- table is validated cell-by-cell, so it hard-errors with "expected only
+-- one-cell chars" under ambiwidth='double' (#89). Fall back to plain ASCII
+-- only in that case, so everyone else keeps the nicer rounded border.
 local function border_with_hl(hl)
+  if vim.o.ambiwidth == 'double' then
+    return {
+      { '+', hl },
+      { '-', hl },
+      { '+', hl },
+      { '|', hl },
+      { '+', hl },
+      { '-', hl },
+      { '+', hl },
+      { '|', hl },
+    }
+  end
   return {
     { '╭', hl },
     { '─', hl },
