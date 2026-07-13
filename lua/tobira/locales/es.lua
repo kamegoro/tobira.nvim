@@ -27,7 +27,7 @@ return {
     },
     mastered_total = '%d / %d dominados',
     section_count = '%d / %d',
-    nav_hint = '[x] ocultar   [p] fijar   [g] guía   [s] estadísticas   [q] cerrar',
+    nav_hint = '[x] ocultar   [p] fijar   [g] guía   [s] estadísticas   [?] ayuda   [q] cerrar',
     keybind_help = 'tobira: atajos\n  x  alternar ocultar\n  p  alternar fijar\n  g  guía\n  s  estadísticas\n  q  cerrar',
     preview = {
       learning = 'aprendiendo',

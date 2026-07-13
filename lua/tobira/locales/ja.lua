@@ -27,7 +27,7 @@ return {
     },
     mastered_total = '%d / %d マスター',
     section_count = '%d / %d',
-    nav_hint = '[x] 抑制   [p] ピン   [g] ガイド   [s] 統計   [q] 閉じる',
+    nav_hint = '[x] 抑制   [p] ピン   [g] ガイド   [s] 統計   [?] ヘルプ   [q] 閉じる',
     keybind_help = 'tobira: キーバインド\n  x  抑制切替\n  p  ピン切替\n  g  ガイド\n  s  統計\n  q  閉じる',
     preview = {
       learning = '学習中',
