@@ -325,6 +325,53 @@ describe('when the suggestion has no category', function()
   end)
 end)
 
+-- border chars must stay single-cell (#89): a custom border table (unlike the
+-- 'rounded' string preset used elsewhere) is validated by Neovim per-segment,
+-- and fails hard under ambiwidth=double since box-drawing chars are in
+-- Unicode's Ambiguous-width class.
+
+describe('when ambiwidth is double', function()
+  before_each(setup)
+  after_each(teardown)
+
+  it('does not error opening the suggestion float', function()
+    local orig = vim.o.ambiwidth
+    vim.o.ambiwidth = 'double'
+    local ok, err = pcall(function()
+      float.show(suggestion(';'), true)
+    end)
+    vim.o.ambiwidth = orig
+    assert.is_true(ok, err)
+  end)
+
+  it('uses single-cell characters for every border segment', function()
+    local orig = vim.o.ambiwidth
+    vim.o.ambiwidth = 'double'
+    local ok, cfg_or_err = pcall(function()
+      float.show(suggestion(';'), true)
+      local win = vim.fn.win_getid()
+      return vim.api.nvim_win_get_config(win)
+    end)
+    vim.o.ambiwidth = orig
+    assert.is_true(ok, cfg_or_err)
+    for _, segment in ipairs(cfg_or_err.border) do
+      assert.equals(1, vim.fn.strdisplaywidth(segment[1]), 'border char ' .. segment[1] .. ' must be single-cell')
+    end
+  end)
+end)
+
+describe('when ambiwidth is the default (single)', function()
+  before_each(setup)
+  after_each(teardown)
+
+  it('keeps the rounded unicode border', function()
+    float.show(suggestion(';'), true)
+    local win = vim.fn.win_getid()
+    local cfg = vim.api.nvim_win_get_config(win)
+    assert.equals('╭', cfg.border[1][1])
+  end)
+end)
+
 -- celebrate()
 
 describe('when a command is celebrated for the first time', function()
