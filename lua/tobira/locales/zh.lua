@@ -28,7 +28,7 @@ return {
     mastered_total = '%d / %d 已掌握',
     section_count = '%d / %d',
     nav_hint = '[x] 隐藏   [p] 固定   [g] 指南   [s] 统计   [q] 关闭',
-    keybind_help = 'tobira 快捷键\n  x  切换隐藏\n  p  切换固定\n  g  指南\n  s  统计\n  q  关闭',
+    keybind_help = 'tobira: 快捷键\n  x  切换隐藏\n  p  切换固定\n  g  指南\n  s  统计\n  q  关闭',
     preview = {
       learning = '学习中',
       mastered = '已掌握',
