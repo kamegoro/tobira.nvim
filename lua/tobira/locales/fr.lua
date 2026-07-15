@@ -27,8 +27,13 @@ return {
     },
     mastered_total = '%d / %d maîtrisées',
     section_count = '%d / %d',
-    nav_hint = '[x] masquer   [p] épingler   [g] guide   [s] stats   [?] aide   [q] fermer',
-    keybind_help = 'tobira : raccourcis\n  x  basculer masquer\n  p  basculer épingler\n  g  guide\n  s  stats\n  q  fermer',
+    footer = {
+      suppress = 'masquer',
+      pin = 'épingler',
+      guide = 'guide',
+      stats = 'stats',
+      close = 'fermer',
+    },
     preview = {
       learning = 'en cours',
       mastered = 'maîtrisé',

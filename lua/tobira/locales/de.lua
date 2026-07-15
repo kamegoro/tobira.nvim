@@ -27,8 +27,13 @@ return {
     },
     mastered_total = '%d / %d gemeistert',
     section_count = '%d / %d',
-    nav_hint = '[x] ausblenden   [p] anpinnen   [g] Anleitung   [s] Statistik   [?] Hilfe   [q] schließen',
-    keybind_help = 'tobira: Tastenkürzel\n  x  Ausblenden umschalten\n  p  Anpinnen umschalten\n  g  Anleitung\n  s  Statistik\n  q  schließen',
+    footer = {
+      suppress = 'ausblenden',
+      pin = 'anpinnen',
+      guide = 'Anleitung',
+      stats = 'Statistik',
+      close = 'schließen',
+    },
     preview = {
       learning = 'in Arbeit',
       mastered = 'gemeistert',

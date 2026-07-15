@@ -27,8 +27,13 @@ return {
     },
     mastered_total = '%d / %d mastered',
     section_count = '%d / %d',
-    nav_hint = '[x] suppress   [p] pin   [g] guide   [s] stats   [?] help   [q] close',
-    keybind_help = 'tobira: keybindings\n  x  toggle suppress\n  p  toggle pin\n  g  guide\n  s  stats\n  q  close',
+    footer = {
+      suppress = 'suppress',
+      pin = 'pin',
+      guide = 'guide',
+      stats = 'stats',
+      close = 'close',
+    },
     preview = {
       learning = 'learning',
       mastered = 'mastered',

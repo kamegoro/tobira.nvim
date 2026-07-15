@@ -525,17 +525,35 @@ describe('the footer', function()
   before_each(setup)
   after_each(teardown)
 
-  it('pins the nav_hint to the window footer so it stays visible while scrolling', function()
-    local loc = require('tobira.i18n').load()
+  it('pins the keybindings to the window footer so they stay visible while scrolling', function()
     progress.open()
     local footer = win_footer_str(vim.fn.win_getid())
-    assert.is_true(footer:find(loc.progress.nav_hint, 1, true) ~= nil, 'expected nav_hint in the window footer')
+    assert.is_true(#footer > 0, 'expected a non-empty window footer')
   end)
 
-  it('does not also render the nav_hint inside the scrollable buffer', function()
+  it('renders each key in the accent highlight, next to its localized label', function()
+    local loc = require('tobira.i18n').load()
+    progress.open()
+    local chunks = vim.api.nvim_win_get_config(vim.fn.win_getid()).footer
+    assert.is_table(chunks)
+    local accent_keys = {}
+    for _, chunk in ipairs(chunks) do
+      if chunk[2] == 'TobiraGuideKey' then
+        accent_keys[chunk[1]] = true
+      end
+    end
+    for _, key in ipairs({ 'x', 'p', 'g', 's', 'q' }) do
+      assert.is_true(accent_keys[key] == true, 'expected key ' .. key .. ' as an accent chunk in the footer')
+    end
+    local footer = win_footer_str(vim.fn.win_getid())
+    assert.is_true(footer:find(loc.progress.footer.suppress, 1, true) ~= nil, 'expected the suppress label in the footer')
+    assert.is_true(footer:find(loc.progress.footer.close, 1, true) ~= nil, 'expected the close label in the footer')
+  end)
+
+  it('does not also render the footer labels inside the scrollable buffer', function()
     local loc = require('tobira.i18n').load()
     local lines = progress.build(logger.get_all())
-    assert.is_false(lines_contain(lines, loc.progress.nav_hint), 'nav_hint should be a fixed footer, not buffer content')
+    assert.is_false(lines_contain(lines, loc.progress.footer.suppress), 'footer labels should be a fixed footer, not buffer content')
   end)
 end)
 
@@ -583,44 +601,3 @@ describe('when s is pressed in the progress window', function()
   end)
 end)
 
--- ── ? keybinding help (#43) ───────────────────────────────────────────────────
-
-describe('when ? is pressed in the progress window', function()
-  before_each(setup)
-  after_each(teardown)
-
-  it('shows the keybinding help via vim.notify without closing the panel', function()
-    local notified_msg = nil
-    local orig = vim.notify
-    vim.notify = function(msg, _)
-      notified_msg = msg
-    end
-    progress.open()
-    local ok, err = pcall(function()
-      vim.fn.feedkeys('?', 'xt')
-      vim.api.nvim_feedkeys('', 'x', false)
-    end)
-    vim.notify = orig
-    assert.is_true(ok, err)
-    assert.is_not_nil(notified_msg, 'expected vim.notify to be called')
-    assert.is_true(progress.is_open(), 'expected the panel to stay open')
-  end)
-
-  it('uses the progress.keybind_help locale string', function()
-    local notified_msg = nil
-    local orig = vim.notify
-    vim.notify = function(msg, _)
-      notified_msg = msg
-    end
-    progress.open()
-    local ok, err = pcall(function()
-      vim.fn.feedkeys('?', 'xt')
-      vim.api.nvim_feedkeys('', 'x', false)
-    end)
-    vim.notify = orig
-    assert.is_true(ok, err)
-    local en = require('tobira.locales.en')
-    assert.is_not_nil(en.progress.keybind_help, 'expected en.progress.keybind_help to be defined')
-    assert.equals(en.progress.keybind_help, notified_msg)
-  end)
-end)

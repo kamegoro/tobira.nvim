@@ -14,6 +14,37 @@ local PANEL_W = 2 + COLS * COL_W -- 58: matches one full grid row's display widt
 local SPARK_W = 5
 local ICON = ''
 
+-- Keybinding footer: key order is fixed here (not pairs(), which is
+-- non-deterministic) and only the labels are localized. Keys render in the
+-- accent colour, labels dimmed — the same key/label contrast the skill grid
+-- uses, instead of a flat bracketed list.
+local FOOTER_KEYS = {
+  { 'x', 'suppress' },
+  { 'p', 'pin' },
+  { 'g', 'guide' },
+  { 's', 'stats' },
+  { 'q', 'close' },
+}
+
+-- Builds nvim_open_win's `footer` chunk list and returns it with its total
+-- display width (so the window can be sized to fit).
+local function footer_chunks(str)
+  local chunks = { { ' ', 'TobiraGuideHint' } }
+  for i, kb in ipairs(FOOTER_KEYS) do
+    table.insert(chunks, { kb[1], 'TobiraGuideKey' })
+    table.insert(chunks, { ' ' .. str.footer[kb[2]], 'TobiraGuideHint' })
+    if i < #FOOTER_KEYS then
+      table.insert(chunks, { '    ', 'TobiraGuideHint' })
+    end
+  end
+  table.insert(chunks, { ' ', 'TobiraGuideHint' })
+  local width = 0
+  for _, c in ipairs(chunks) do
+    width = width + vim.fn.strdisplaywidth(c[1])
+  end
+  return chunks, width
+end
+
 local THRESHOLDS = { 1, 100, 1000, 5000 }
 local THRESHOLD_SYM = { '☆', '★', '★★', '★★★' }
 
@@ -367,7 +398,7 @@ function M.open()
   local screen_h = (uis[1] and uis[1].height) or 40
 
   local title_text = ' ' .. ICON .. ' ' .. str.title .. ' '
-  local footer_text = ' ' .. str.nav_hint .. ' '
+  local footer, footer_w = footer_chunks(str)
   local max_w = 0
   for _, line in ipairs(lines) do
     local w = vim.fn.strdisplaywidth(line)
@@ -378,7 +409,7 @@ function M.open()
   -- title and footer aren't in `lines`, so fold their widths in afterwards (the
   -- footer especially can be wider than any grid row). Done after the loop so
   -- the loop always drives max_w from 0 rather than starting above every row.
-  max_w = math.max(max_w, vim.fn.strdisplaywidth(title_text) + 2, vim.fn.strdisplaywidth(footer_text) + 2)
+  max_w = math.max(max_w, vim.fn.strdisplaywidth(title_text) + 2, footer_w + 2)
   local win_w = math.min(max_w + 2, screen_w - 6)
   -- Leave vertical breathing room so the panel reads as a floating modal, not a
   -- full-screen takeover. Centered, screen_h - 12 keeps a couple of editor rows
@@ -408,9 +439,6 @@ function M.open()
     M.close()
     require('tobira.ui.stats').open()
   end, { buffer = _buf, nowait = true, silent = true })
-  vim.keymap.set('n', '?', function()
-    vim.notify(str.keybind_help, vim.log.levels.INFO)
-  end, { buffer = _buf, nowait = true, silent = true })
 
   _win = vim.api.nvim_open_win(_buf, true, {
     relative = 'editor',
@@ -422,7 +450,7 @@ function M.open()
     border = 'rounded',
     title = title_text,
     title_pos = 'center',
-    footer = { { footer_text, 'TobiraGuideHint' } },
+    footer = footer,
     footer_pos = 'center',
     focusable = true,
     zindex = 50,

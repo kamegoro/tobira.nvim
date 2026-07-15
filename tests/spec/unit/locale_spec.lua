@@ -166,7 +166,7 @@ end)
 -- These keys aren't wired to any UI module yet (that happens in #67/#68/#74),
 -- but must exist and stay in sync in both locales from the start.
 
-describe('progress.mastered_total / section_count / preview / nav_hint', function()
+describe('progress.mastered_total / section_count / preview / footer', function()
   it('are defined as non-empty strings in both locales', function()
     assert.is_string(en.progress.mastered_total)
     assert.is_true(#en.progress.mastered_total > 0)
@@ -175,9 +175,16 @@ describe('progress.mastered_total / section_count / preview / nav_hint', functio
 
     assert.is_string(en.progress.section_count)
     assert.is_string(ja.progress.section_count)
+  end)
 
-    assert.is_string(en.progress.nav_hint)
-    assert.is_string(ja.progress.nav_hint)
+  it('footer has a non-empty label for every keybinding in both locales', function()
+    local keys = { 'suppress', 'pin', 'guide', 'stats', 'close' }
+    for _, k in ipairs(keys) do
+      assert.is_string(en.progress.footer[k], 'en.lua progress.footer.' .. k .. ' missing')
+      assert.is_true(#en.progress.footer[k] > 0)
+      assert.is_string(ja.progress.footer[k], 'ja.lua progress.footer.' .. k .. ' missing')
+      assert.is_true(#ja.progress.footer[k] > 0)
+    end
   end)
 
   it('preview has learning / mastered / forgotten / never_tried / to_next in both locales', function()
