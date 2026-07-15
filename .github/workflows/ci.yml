@@ -7,33 +7,31 @@ on:
     branches: [main]
 
 jobs:
-  scripts:
-    name: Scripts (Python unit tests)
+  # stylua, selene and the Python unit tests are all lightweight, independent,
+  # and need no Neovim — so they share one checkout and run as parallel steps
+  # (GitHub Actions step-level parallelism) instead of three separate jobs.
+  checks:
+    name: Checks (lint & scripts)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
 
-      - name: Run diff_index.py unit tests
-        run: python3 -m unittest discover -s .github/scripts -p "test_*.py" -v
+      - parallel:
+          - name: Check formatting (stylua)
+            uses: JohnnyMorganz/stylua-action@v5
+            with:
+              token: ${{ secrets.GITHUB_TOKEN }}
+              version: latest
+              args: --check lua/ plugin/
 
-  lint:
-    name: Lint & Format
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
+          - name: Lint (selene)
+            uses: AlejandroSuero/selene-linter-action@v1.0.0
+            with:
+              token: ${{ secrets.GITHUB_TOKEN }}
+              args: --display-style=quiet lua/ plugin/
 
-      - name: Check formatting (stylua)
-        uses: JohnnyMorganz/stylua-action@v5
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          version: latest
-          args: --check lua/ plugin/
-
-      - name: Lint (selene)
-        uses: AlejandroSuero/selene-linter-action@v1.0.0
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --display-style=quiet lua/ plugin/
+          - name: Scripts (Python unit tests)
+            run: python3 -m unittest discover -s .github/scripts -p "test_*.py" -v
 
   test:
     name: Test (Neovim ${{ matrix.neovim_version }})
