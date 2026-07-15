@@ -33,29 +33,30 @@ jobs:
           - name: Scripts (Python unit tests)
             run: python3 -m unittest discover -s .github/scripts -p "test_*.py" -v
 
+  # Only nightly here. The stable run is covered by the `coverage` job below,
+  # which runs the exact same suite on Neovim stable (COVERAGE=1 still executes
+  # every test) — so a separate stable matrix entry just ran it twice.
   test:
-    name: Test (Neovim ${{ matrix.neovim_version }})
+    name: Test (Neovim nightly)
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        neovim_version: [stable, nightly]
     steps:
       - uses: actions/checkout@v7
 
-      - name: Install Neovim ${{ matrix.neovim_version }}
+      - name: Install Neovim nightly
         uses: rhysd/action-setup-vim@v1
         with:
           neovim: true
-          version: ${{ matrix.neovim_version }}
+          version: nightly
 
       - name: Run tests
         run: |
           nvim --headless --noplugin -u tests/minimal_init.lua \
             -c "PlenaryBustedDirectory tests/spec/ {minimal_init = 'tests/minimal_init.lua', sequential = true}"
 
+  # Runs the full suite on Neovim stable with coverage — doubles as the stable
+  # test run (a failing test fails this job too).
   coverage:
-    name: Coverage (100%)
+    name: Coverage (100%) · Neovim stable
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
