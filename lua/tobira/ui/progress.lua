@@ -380,7 +380,11 @@ function M.open()
   -- the loop always drives max_w from 0 rather than starting above every row.
   max_w = math.max(max_w, vim.fn.strdisplaywidth(title_text) + 2, vim.fn.strdisplaywidth(footer_text) + 2)
   local win_w = math.min(max_w + 2, screen_w - 6)
-  local win_h = math.min(#lines, screen_h - 4)
+  -- Leave vertical breathing room so the panel reads as a floating modal, not a
+  -- full-screen takeover. Centered, screen_h - 12 keeps a couple of editor rows
+  -- between the panel's footer and the editor's own statusline, so the two
+  -- bottom bars don't blur together.
+  local win_h = math.min(#lines, screen_h - 12)
 
   _buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_lines(_buf, 0, -1, false, lines)
