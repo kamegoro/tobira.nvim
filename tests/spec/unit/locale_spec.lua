@@ -198,12 +198,15 @@ describe('progress.mastered_total / section_count / preview / footer', function(
   end)
 end)
 
-describe('stats.nav_hint', function()
-  it('is defined as a non-empty string in both locales', function()
-    assert.is_string(en.stats.nav_hint)
-    assert.is_true(#en.stats.nav_hint > 0)
-    assert.is_string(ja.stats.nav_hint)
-    assert.is_true(#ja.stats.nav_hint > 0)
+describe('stats.footer', function()
+  it('has a non-empty label for every keybinding in both locales', function()
+    local keys = { 'guide', 'progress', 'close' }
+    for _, k in ipairs(keys) do
+      assert.is_string(en.stats.footer[k], 'en.lua stats.footer.' .. k .. ' missing')
+      assert.is_true(#en.stats.footer[k] > 0)
+      assert.is_string(ja.stats.footer[k], 'ja.lua stats.footer.' .. k .. ' missing')
+      assert.is_true(#ja.stats.footer[k] > 0)
+    end
   end)
 end)
 

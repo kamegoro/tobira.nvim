@@ -254,25 +254,30 @@ describe('the footer summary line', function()
   end)
 end)
 
--- ── nav_hint footer with g/p (#74) ────────────────────────────────────────────
+-- ── keybinding footer with g/p (#74) ─────────────────────────────────────────
 
 describe('when the stats window is open', function()
   after_each(function()
     stats.close()
   end)
 
-  it('shows the nav_hint text in the footer', function()
+  it('pins the keybindings to the window footer with accent-coloured keys', function()
     local loc = require('tobira.i18n').load()
     stats.open()
-    local buf = vim.api.nvim_get_current_buf()
-    local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-    local found = false
-    for _, line in ipairs(lines) do
-      if line:find(loc.stats.nav_hint, 1, true) then
-        found = true
+    local cfg = vim.api.nvim_win_get_config(vim.fn.win_getid())
+    assert.is_table(cfg.footer)
+    local footer, accent_keys = '', {}
+    for _, chunk in ipairs(cfg.footer) do
+      footer = footer .. chunk[1]
+      if chunk[2] == 'TobiraGuideKey' then
+        accent_keys[chunk[1]] = true
       end
     end
-    assert.is_true(found)
+    for _, key in ipairs({ 'g', 'p', 'q' }) do
+      assert.is_true(accent_keys[key] == true, 'expected key ' .. key .. ' as an accent chunk in the footer')
+    end
+    assert.is_true(footer:find(loc.stats.footer.guide, 1, true) ~= nil, 'expected the guide label in the footer')
+    assert.is_true(footer:find(loc.stats.footer.close, 1, true) ~= nil, 'expected the close label in the footer')
   end)
 
   it('pressing g closes stats and opens guide', function()

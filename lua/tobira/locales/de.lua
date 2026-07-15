@@ -53,7 +53,11 @@ return {
     mastery_dist = '  Nie %d  ·  ☆ %d  ·  ★ %d  ·  ★★+ %d',
     top_commands = 'Meistgenutzte Befehle',
     try_next = '⚡ Als Nächstes ausprobieren',
-    nav_hint = '[g] Anleitung   [p] Fortschritt   [q] schließen',
+    footer = {
+      guide = 'Anleitung',
+      progress = 'Fortschritt',
+      close = 'schließen',
+    },
     footer_summary = 'Bisher %s Tastenanschläge · %s / %s Befehle entdeckt',
   },
   float = {

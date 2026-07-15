@@ -53,7 +53,11 @@ return {
     mastery_dist = '  未使用 %d  ·  ☆ %d  ·  ★ %d  ·  ★★+ %d',
     top_commands = 'Top コマンド',
     try_next = '⚡ 次はこれを試そう',
-    nav_hint = '[g] ガイド   [p] 進捗   [q] 閉じる',
+    footer = {
+      guide = 'ガイド',
+      progress = '進捗',
+      close = '閉じる',
+    },
     footer_summary = 'これまでに %s キーストローク · %s / %s コマンドを発見',
   },
   float = {

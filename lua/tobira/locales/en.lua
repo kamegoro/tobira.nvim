@@ -53,7 +53,11 @@ return {
     mastery_dist = '  Never %d  ·  ☆ %d  ·  ★ %d  ·  ★★+ %d',
     top_commands = 'Top commands',
     try_next = '⚡ Try these next',
-    nav_hint = '[g] guide   [p] progress   [q] close',
+    footer = {
+      guide = 'guide',
+      progress = 'progress',
+      close = 'close',
+    },
     footer_summary = '%s keystrokes so far · %s / %s commands discovered',
   },
   float = {
