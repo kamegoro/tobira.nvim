@@ -244,6 +244,9 @@ function M.build(usage)
   end
 
   -- ── preview strip (content filled in by update_preview() after open/refresh) ─
+  -- The nav_hint keybinding line is NOT here: it is pinned to the window footer
+  -- in M.open() so it stays visible while the skill tree scrolls, instead of
+  -- being buried at the bottom of the scrollable buffer.
   push('')
   push(separator(), 'TobiraGuideHint')
   push('')
@@ -251,8 +254,6 @@ function M.build(usage)
   push('')
   push('')
   push('')
-  push(separator(), 'TobiraGuideHint')
-  push('  ' .. str.nav_hint, 'TobiraGuideHint')
 
   return lines, hls, str, line_meta, preview_lnum
 end
@@ -366,7 +367,10 @@ function M.open()
   local screen_h = (uis[1] and uis[1].height) or 40
 
   local title_text = ' ' .. ICON .. ' ' .. str.title .. ' '
-  local max_w = vim.fn.strdisplaywidth(title_text) + 2
+  -- nav_hint lives on the window footer (not in lines), so fold its width into
+  -- max_w explicitly or the window could be narrower than the footer text.
+  local footer_text = ' ' .. str.nav_hint .. ' '
+  local max_w = math.max(vim.fn.strdisplaywidth(title_text), vim.fn.strdisplaywidth(footer_text)) + 2
   for _, line in ipairs(lines) do
     local w = vim.fn.strdisplaywidth(line)
     if w > max_w then
@@ -412,6 +416,8 @@ function M.open()
     border = 'rounded',
     title = title_text,
     title_pos = 'center',
+    footer = { { footer_text, 'TobiraGuideHint' } },
+    footer_pos = 'center',
     focusable = true,
     zindex = 50,
   })

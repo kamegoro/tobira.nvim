@@ -507,14 +507,35 @@ end)
 
 -- ── footer nav hint (#67) ─────────────────────────────────────────────────────
 
+local function win_footer_str(win)
+  local cfg = vim.api.nvim_win_get_config(win)
+  if type(cfg.footer) == 'string' then
+    return cfg.footer
+  end
+  local s = ''
+  if type(cfg.footer) == 'table' then
+    for _, chunk in ipairs(cfg.footer) do
+      s = s .. chunk[1]
+    end
+  end
+  return s
+end
+
 describe('the footer', function()
   before_each(setup)
   after_each(teardown)
 
-  it('uses the nav_hint locale string', function()
+  it('pins the nav_hint to the window footer so it stays visible while scrolling', function()
+    local loc = require('tobira.i18n').load()
+    progress.open()
+    local footer = win_footer_str(vim.fn.win_getid())
+    assert.is_true(footer:find(loc.progress.nav_hint, 1, true) ~= nil, 'expected nav_hint in the window footer')
+  end)
+
+  it('does not also render the nav_hint inside the scrollable buffer', function()
     local loc = require('tobira.i18n').load()
     local lines = progress.build(logger.get_all())
-    assert.is_true(lines_contain(lines, loc.progress.nav_hint))
+    assert.is_false(lines_contain(lines, loc.progress.nav_hint), 'nav_hint should be a fixed footer, not buffer content')
   end)
 end)
 
