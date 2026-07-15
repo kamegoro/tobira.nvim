@@ -27,7 +27,13 @@ return {
     },
     mastered_total = '%d / %d dominados',
     section_count = '%d / %d',
-    nav_hint = '[x] ocultar   [p] fijar   [g] guía   [s] estadísticas   [q] cerrar',
+    footer = {
+      suppress = 'ocultar',
+      pin = 'fijar',
+      guide = 'guía',
+      stats = 'estadísticas',
+      close = 'cerrar',
+    },
     preview = {
       learning = 'aprendiendo',
       mastered = 'dominado',
@@ -47,7 +53,11 @@ return {
     mastery_dist = '  Nunca %d  ·  ☆ %d  ·  ★ %d  ·  ★★+ %d',
     top_commands = 'Comandos principales',
     try_next = '⚡ Prueba esto a continuación',
-    nav_hint = '[g] guía   [p] progreso   [q] cerrar',
+    footer = {
+      guide = 'guía',
+      progress = 'progreso',
+      close = 'cerrar',
+    },
     footer_summary = '%s pulsaciones hasta ahora · %s / %s comandos descubiertos',
   },
   float = {

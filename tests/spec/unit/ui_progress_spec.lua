@@ -507,14 +507,53 @@ end)
 
 -- ── footer nav hint (#67) ─────────────────────────────────────────────────────
 
+local function win_footer_str(win)
+  local cfg = vim.api.nvim_win_get_config(win)
+  if type(cfg.footer) == 'string' then
+    return cfg.footer
+  end
+  local s = ''
+  if type(cfg.footer) == 'table' then
+    for _, chunk in ipairs(cfg.footer) do
+      s = s .. chunk[1]
+    end
+  end
+  return s
+end
+
 describe('the footer', function()
   before_each(setup)
   after_each(teardown)
 
-  it('uses the nav_hint locale string', function()
+  it('pins the keybindings to the window footer so they stay visible while scrolling', function()
+    progress.open()
+    local footer = win_footer_str(vim.fn.win_getid())
+    assert.is_true(#footer > 0, 'expected a non-empty window footer')
+  end)
+
+  it('renders each key in the accent highlight, next to its localized label', function()
+    local loc = require('tobira.i18n').load()
+    progress.open()
+    local chunks = vim.api.nvim_win_get_config(vim.fn.win_getid()).footer
+    assert.is_table(chunks)
+    local accent_keys = {}
+    for _, chunk in ipairs(chunks) do
+      if chunk[2] == 'TobiraGuideKey' then
+        accent_keys[chunk[1]] = true
+      end
+    end
+    for _, key in ipairs({ 'x', 'p', 'g', 's', 'q' }) do
+      assert.is_true(accent_keys[key] == true, 'expected key ' .. key .. ' as an accent chunk in the footer')
+    end
+    local footer = win_footer_str(vim.fn.win_getid())
+    assert.is_true(footer:find(loc.progress.footer.suppress, 1, true) ~= nil, 'expected the suppress label in the footer')
+    assert.is_true(footer:find(loc.progress.footer.close, 1, true) ~= nil, 'expected the close label in the footer')
+  end)
+
+  it('does not also render the footer labels inside the scrollable buffer', function()
     local loc = require('tobira.i18n').load()
     local lines = progress.build(logger.get_all())
-    assert.is_true(lines_contain(lines, loc.progress.nav_hint))
+    assert.is_false(lines_contain(lines, loc.progress.footer.suppress), 'footer labels should be a fixed footer, not buffer content')
   end)
 end)
 
@@ -561,3 +600,4 @@ describe('when s is pressed in the progress window', function()
     assert.is_false(progress.is_open())
   end)
 end)
+

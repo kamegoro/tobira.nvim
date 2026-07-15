@@ -182,19 +182,24 @@ function M.open()
   _prev_win = vim.api.nvim_get_current_win()
   setup_hls()
 
-  -- Build line array from rendered body + hint footer.
+  -- Build line array from the rendered body. The keybinding hint lives on the
+  -- window footer (see below), not as a buffer line, so it stays pinned to the
+  -- border and matches the progress panel.
   local lines = {}
   for line in (rendered.body .. '\n'):gmatch('([^\n]*)\n') do
     table.insert(lines, line)
   end
-  local hint_lnum = #lines
-  table.insert(lines, '')
-  table.insert(lines, '  ' .. str.stats.nav_hint)
-  table.insert(lines, '')
 
-  -- Width: fit the widest line, also wide enough for the title.
+  -- Keybindings shown on the footer: g guide · p progress · q close.
+  local footer, footer_w = require('tobira.ui.footer').build({
+    { 'g', str.stats.footer.guide },
+    { 'p', str.stats.footer.progress },
+    { 'q', str.stats.footer.close },
+  })
+
+  -- Width: fit the widest line, also wide enough for the title and footer.
   local title_text = ' ' .. ICON .. ' ' .. rendered.title .. ' '
-  local max_len = vim.fn.strdisplaywidth(title_text) + 2
+  local max_len = math.max(vim.fn.strdisplaywidth(title_text), footer_w) + 2
   for _, line in ipairs(lines) do
     local w = vim.fn.strdisplaywidth(line)
     if w > max_len then
@@ -206,7 +211,9 @@ function M.open()
   local screen_w = uis[1] and uis[1].width or 120
   local screen_h = uis[1] and uis[1].height or 40
   local win_w = math.min(max_len + 2, screen_w - 6)
-  local win_h = math.min(#lines, screen_h - 4)
+  -- Modal-sized (screen_h - 12), matching the progress panel, so it doesn't
+  -- fill the screen and the footer stays clear of the editor's statusline.
+  local win_h = math.min(#lines, screen_h - 12)
 
   _buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_lines(_buf, 0, -1, false, lines)
@@ -216,7 +223,6 @@ function M.open()
   for _, hl in ipairs(rendered.hls) do
     vim.api.nvim_buf_add_highlight(_buf, _ns, hl.group, hl.lnum + 1, hl.cs, hl.ce)
   end
-  vim.api.nvim_buf_add_highlight(_buf, _ns, 'TobiraGuideHint', hint_lnum + 1, 0, -1)
 
   vim.keymap.set('n', 'q', M.close, { buffer = _buf, nowait = true, silent = true })
   vim.keymap.set('n', '<Esc>', M.close, { buffer = _buf, nowait = true, silent = true })
@@ -243,6 +249,8 @@ function M.open()
     border = 'rounded',
     title = title_text,
     title_pos = 'left',
+    footer = footer,
+    footer_pos = 'center',
     focusable = true,
     zindex = 50,
   })

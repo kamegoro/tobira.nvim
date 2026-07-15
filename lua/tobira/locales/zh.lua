@@ -27,7 +27,13 @@ return {
     },
     mastered_total = '%d / %d 已掌握',
     section_count = '%d / %d',
-    nav_hint = '[x] 隐藏   [p] 固定   [g] 指南   [s] 统计   [q] 关闭',
+    footer = {
+      suppress = '隐藏',
+      pin = '固定',
+      guide = '指南',
+      stats = '统计',
+      close = '关闭',
+    },
     preview = {
       learning = '学习中',
       mastered = '已掌握',
@@ -47,7 +53,11 @@ return {
     mastery_dist = '  从未使用 %d  ·  ☆ %d  ·  ★ %d  ·  ★★+ %d',
     top_commands = '常用命令',
     try_next = '⚡ 接下来试试这些',
-    nav_hint = '[g] 指南   [p] 进度   [q] 关闭',
+    footer = {
+      guide = '指南',
+      progress = '进度',
+      close = '关闭',
+    },
     footer_summary = '目前共 %s 次按键 · 已发现 %s / %s 个命令',
   },
   float = {

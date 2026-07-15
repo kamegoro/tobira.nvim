@@ -14,6 +14,25 @@ local PANEL_W = 2 + COLS * COL_W -- 58: matches one full grid row's display widt
 local SPARK_W = 5
 local ICON = ''
 
+-- Keybinding footer: key order is fixed here (not pairs(), which is
+-- non-deterministic) and only the labels are localized. Rendering is shared
+-- with the stats panel via ui/footer.
+local FOOTER_KEYS = {
+  { 'x', 'suppress' },
+  { 'p', 'pin' },
+  { 'g', 'guide' },
+  { 's', 'stats' },
+  { 'q', 'close' },
+}
+
+local function footer_chunks(str)
+  local items = {}
+  for _, kb in ipairs(FOOTER_KEYS) do
+    table.insert(items, { kb[1], str.footer[kb[2]] })
+  end
+  return require('tobira.ui.footer').build(items)
+end
+
 local THRESHOLDS = { 1, 100, 1000, 5000 }
 local THRESHOLD_SYM = { '☆', '★', '★★', '★★★' }
 
@@ -244,6 +263,9 @@ function M.build(usage)
   end
 
   -- ── preview strip (content filled in by update_preview() after open/refresh) ─
+  -- The nav_hint keybinding line is NOT here: it is pinned to the window footer
+  -- in M.open() so it stays visible while the skill tree scrolls, instead of
+  -- being buried at the bottom of the scrollable buffer.
   push('')
   push(separator(), 'TobiraGuideHint')
   push('')
@@ -251,8 +273,6 @@ function M.build(usage)
   push('')
   push('')
   push('')
-  push(separator(), 'TobiraGuideHint')
-  push('  ' .. str.nav_hint, 'TobiraGuideHint')
 
   return lines, hls, str, line_meta, preview_lnum
 end
@@ -366,15 +386,24 @@ function M.open()
   local screen_h = (uis[1] and uis[1].height) or 40
 
   local title_text = ' ' .. ICON .. ' ' .. str.title .. ' '
-  local max_w = vim.fn.strdisplaywidth(title_text) + 2
+  local footer, footer_w = footer_chunks(str)
+  local max_w = 0
   for _, line in ipairs(lines) do
     local w = vim.fn.strdisplaywidth(line)
     if w > max_w then
       max_w = w
     end
   end
+  -- title and footer aren't in `lines`, so fold their widths in afterwards (the
+  -- footer especially can be wider than any grid row). Done after the loop so
+  -- the loop always drives max_w from 0 rather than starting above every row.
+  max_w = math.max(max_w, vim.fn.strdisplaywidth(title_text) + 2, footer_w + 2)
   local win_w = math.min(max_w + 2, screen_w - 6)
-  local win_h = math.min(#lines, screen_h - 4)
+  -- Leave vertical breathing room so the panel reads as a floating modal, not a
+  -- full-screen takeover. Centered, screen_h - 12 keeps a couple of editor rows
+  -- between the panel's footer and the editor's own statusline, so the two
+  -- bottom bars don't blur together.
+  local win_h = math.min(#lines, screen_h - 12)
 
   _buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_lines(_buf, 0, -1, false, lines)
@@ -409,6 +438,8 @@ function M.open()
     border = 'rounded',
     title = title_text,
     title_pos = 'center',
+    footer = footer,
+    footer_pos = 'center',
     focusable = true,
     zindex = 50,
   })

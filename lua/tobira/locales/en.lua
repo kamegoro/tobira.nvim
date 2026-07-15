@@ -27,7 +27,13 @@ return {
     },
     mastered_total = '%d / %d mastered',
     section_count = '%d / %d',
-    nav_hint = '[x] suppress   [p] pin   [g] guide   [s] stats   [q] close',
+    footer = {
+      suppress = 'suppress',
+      pin = 'pin',
+      guide = 'guide',
+      stats = 'stats',
+      close = 'close',
+    },
     preview = {
       learning = 'learning',
       mastered = 'mastered',
@@ -47,7 +53,11 @@ return {
     mastery_dist = '  Never %d  ·  ☆ %d  ·  ★ %d  ·  ★★+ %d',
     top_commands = 'Top commands',
     try_next = '⚡ Try these next',
-    nav_hint = '[g] guide   [p] progress   [q] close',
+    footer = {
+      guide = 'guide',
+      progress = 'progress',
+      close = 'close',
+    },
     footer_summary = '%s keystrokes so far · %s / %s commands discovered',
   },
   float = {

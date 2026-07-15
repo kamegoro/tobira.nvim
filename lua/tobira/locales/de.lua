@@ -27,7 +27,13 @@ return {
     },
     mastered_total = '%d / %d gemeistert',
     section_count = '%d / %d',
-    nav_hint = '[x] ausblenden   [p] anpinnen   [g] Anleitung   [s] Statistik   [q] schließen',
+    footer = {
+      suppress = 'ausblenden',
+      pin = 'anpinnen',
+      guide = 'Anleitung',
+      stats = 'Statistik',
+      close = 'schließen',
+    },
     preview = {
       learning = 'in Arbeit',
       mastered = 'gemeistert',
@@ -47,7 +53,11 @@ return {
     mastery_dist = '  Nie %d  ·  ☆ %d  ·  ★ %d  ·  ★★+ %d',
     top_commands = 'Meistgenutzte Befehle',
     try_next = '⚡ Als Nächstes ausprobieren',
-    nav_hint = '[g] Anleitung   [p] Fortschritt   [q] schließen',
+    footer = {
+      guide = 'Anleitung',
+      progress = 'Fortschritt',
+      close = 'schließen',
+    },
     footer_summary = 'Bisher %s Tastenanschläge · %s / %s Befehle entdeckt',
   },
   float = {
