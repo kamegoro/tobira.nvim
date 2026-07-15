@@ -367,16 +367,18 @@ function M.open()
   local screen_h = (uis[1] and uis[1].height) or 40
 
   local title_text = ' ' .. ICON .. ' ' .. str.title .. ' '
-  -- nav_hint lives on the window footer (not in lines), so fold its width into
-  -- max_w explicitly or the window could be narrower than the footer text.
   local footer_text = ' ' .. str.nav_hint .. ' '
-  local max_w = math.max(vim.fn.strdisplaywidth(title_text), vim.fn.strdisplaywidth(footer_text)) + 2
+  local max_w = 0
   for _, line in ipairs(lines) do
     local w = vim.fn.strdisplaywidth(line)
     if w > max_w then
       max_w = w
     end
   end
+  -- title and footer aren't in `lines`, so fold their widths in afterwards (the
+  -- footer especially can be wider than any grid row). Done after the loop so
+  -- the loop always drives max_w from 0 rather than starting above every row.
+  max_w = math.max(max_w, vim.fn.strdisplaywidth(title_text) + 2, vim.fn.strdisplaywidth(footer_text) + 2)
   local win_w = math.min(max_w + 2, screen_w - 6)
   local win_h = math.min(#lines, screen_h - 4)
 
