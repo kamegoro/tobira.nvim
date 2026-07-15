@@ -149,14 +149,6 @@ require("tobira").setup({
 
 tobira is the only plugin that learns from **your actual usage** and shows you the specific commands _you_ are missing.
 
-## 🦾 Contributing
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md). This project follows strict TDD — tests before implementation, always.
-
-<a href="https://github.com/kamegoro/tobira.nvim/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=kamegoro/tobira.nvim" alt="Contributors to tobira.nvim" />
-</a>
-
 ## ❓ FAQ
 
 ### Will tobira slow down my Neovim?
@@ -187,6 +179,14 @@ tobira stops treating it as a beginner suggestion.
 
 Run `:TobiraReset`. This clears tobira's local usage data so suggestions start
 from a fresh profile.
+
+## 🦾 Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md). This project follows strict TDD — tests before implementation, always.
+
+<a href="https://github.com/kamegoro/tobira.nvim/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=kamegoro/tobira.nvim" alt="Contributors to tobira.nvim" />
+</a>
 
 ## License
 
