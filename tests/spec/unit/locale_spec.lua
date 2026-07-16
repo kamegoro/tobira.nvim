@@ -219,3 +219,12 @@ describe('stats.footer_summary', function()
   end)
 end)
 
+describe('guide.more_suffix (#96)', function()
+  it('is a non-empty string containing a %d placeholder in both locales', function()
+    assert.is_string(en.guide.more_suffix)
+    assert.is_not_nil(en.guide.more_suffix:find('%d', 1, true))
+    assert.is_string(ja.guide.more_suffix)
+    assert.is_not_nil(ja.guide.more_suffix:find('%d', 1, true))
+  end)
+end)
+

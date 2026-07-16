@@ -5,6 +5,7 @@ return {
     all_mastered = 'Alle Befehle dieser Stufe gemeistert!',
     pinned = 'Angepinnt',
     forgotten_suffix = ' (vergessen)',
+    more_suffix = '+%d weitere',
   },
   progress = {
     title = 'tobira — deine vim-Reise',

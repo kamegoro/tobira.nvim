@@ -67,20 +67,20 @@ Call `setup()` explicitly if not using lazy.nvim opts shorthand: >lua
   level — commands you have already mastered are hidden, and pinned
   commands are always shown at the top. A command that was mastered but
   whose recent use has fallen off well below its earlier pace reappears
-  with a "forgotten" marker instead of staying hidden forever.
+  with a "forgotten" marker instead of staying hidden forever. Each category
+  shows at most 3 unmastered commands, preferring ones you have never tried;
+  if more are eligible, a "+N more" line reports how many were left out
+  rather than growing the panel to fit everything.
 
   Mastery markers in the guide panel:
     `●`          Pinned — always shown at the top
-    `★`          Familiar, still shown because guide only lists commands
-                 you have not fully mastered
     `☆`          Tried at least once
     (none, dim)  Never tried
     `⟳`          Forgotten — was practiced, has gone quiet
 
-  Inside the guide panel:
-    `p`   Toggle pin on the command under the cursor
-    `x`   Toggle suppress on the command under the cursor
-    `q`   Close the panel
+  The guide panel is passive and read-only, unlike |:TobiraProgress| and
+  |:TobiraStats| — it has no keybindings of its own. Run |:TobiraGuide| again
+  to close it, the same way you opened it.
 
                                                               *:TobiraProgress*
 :TobiraProgress

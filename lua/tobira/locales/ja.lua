@@ -5,6 +5,7 @@ return {
     all_mastered = 'このレベルのコマンドをすべてマスターしました！',
     pinned = 'ピン留め',
     forgotten_suffix = '（忘れかけ）',
+    more_suffix = 'ほか%d件',
   },
   progress = {
     title = 'tobira — vim の旅',
