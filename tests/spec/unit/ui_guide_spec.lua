@@ -198,29 +198,28 @@ describe('count column alignment', function()
   end)
 end)
 
--- ── footer (#68) ─────────────────────────────────────────────────────────────
+-- ── footer (#92) ─────────────────────────────────────────────────────────────
+-- Guide is focusable = false (recognition-over-recall, not an interactive
+-- panel — see ui/CLAUDE.md), so a footer advertising <C-w>w / q / r used to
+-- list three keys that could never fire. #92 removed the dead hint outright
+-- rather than making the panel interactive to match it.
 
 describe('the footer', function()
-  it('contains a separator line above the hint', function()
+  it('does not render a separator line (no hint left to separate from content)', function()
     local lines = guide.build({})
-    local sep_lnum, hint_lnum
-    for i, line in ipairs(lines) do
-      if line:find('───', 1, true) then
-        sep_lnum = i
-      end
-      if line:find('<C%-w>w', 1, false) then
-        hint_lnum = i
-      end
+    for _, line in ipairs(lines) do
+      assert.is_nil(line:find('───', 1, true), 'expected no leftover footer separator line')
     end
-    assert.is_not_nil(sep_lnum, 'expected a separator line')
-    assert.is_not_nil(hint_lnum, 'expected the focus_hint line')
-    assert.is_true(sep_lnum < hint_lnum, 'separator should come before the hint')
   end)
 
-  it('uses the focus_hint locale string', function()
+  it('does not define a focus_hint locale string anymore', function()
     local loc = require('tobira.i18n').load()
+    assert.is_nil(loc.guide.focus_hint)
+  end)
+
+  it('ends with a trailing blank line, matching the leading blank line', function()
     local lines = guide.build({})
-    assert.is_not_nil(find_line(lines, loc.guide.focus_hint))
+    assert.equals('', lines[#lines])
   end)
 end)
 

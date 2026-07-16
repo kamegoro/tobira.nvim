@@ -4,7 +4,6 @@ return {
     hint = ':TobiraGuide  ガイドを閉じる',
     all_mastered = 'このレベルのコマンドをすべてマスターしました！',
     pinned = 'ピン留め',
-    focus_hint = '<C-w>w でフォーカス · [q] 閉じる · [r] 更新',
     forgotten_suffix = '（忘れかけ）',
   },
   progress = {

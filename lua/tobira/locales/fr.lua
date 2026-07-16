@@ -4,7 +4,6 @@ return {
     hint = ':TobiraGuide  afficher/masquer le guide',
     all_mastered = 'Toutes les commandes de ce niveau sont maîtrisées !',
     pinned = 'Épinglé',
-    focus_hint = '<C-w>w focus · [q] fermer · [r] actualiser',
     forgotten_suffix = ' (oublié)',
   },
   progress = {

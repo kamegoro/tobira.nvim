@@ -4,7 +4,6 @@ return {
     hint = ':TobiraGuide  Anleitung umschalten',
     all_mastered = 'Alle Befehle dieser Stufe gemeistert!',
     pinned = 'Angepinnt',
-    focus_hint = '<C-w>w Fokus · [q] schließen · [r] aktualisieren',
     forgotten_suffix = ' (vergessen)',
   },
   progress = {

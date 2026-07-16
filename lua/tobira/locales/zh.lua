@@ -4,7 +4,6 @@ return {
     hint = ':TobiraGuide  切换指南',
     all_mastered = '本级别的所有命令都已掌握！',
     pinned = '已固定',
-    focus_hint = '<C-w>w 切换焦点 · [q] 关闭 · [r] 刷新',
     forgotten_suffix = '（已生疏）',
   },
   progress = {

@@ -221,8 +221,6 @@ function M.build(usage)
   end
 
   push('')
-  push('  ' .. string.rep('─', WIDTH - 4), 'TobiraGuideHint')
-  push('  ' .. strings.focus_hint, 'TobiraGuideHint')
 
   return lines, hls, strings
 end
