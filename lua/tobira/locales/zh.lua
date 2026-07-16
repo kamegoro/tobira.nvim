@@ -5,6 +5,7 @@ return {
     all_mastered = '本级别的所有命令都已掌握！',
     pinned = '已固定',
     forgotten_suffix = '（已生疏）',
+    more_suffix = '还有 %d 项',
   },
   progress = {
     title = 'tobira — 你的 vim 之旅',

@@ -5,6 +5,7 @@ return {
     all_mastered = 'Toutes les commandes de ce niveau sont maîtrisées !',
     pinned = 'Épinglé',
     forgotten_suffix = ' (oublié)',
+    more_suffix = '+%d de plus',
   },
   progress = {
     title = 'tobira — votre parcours vim',
