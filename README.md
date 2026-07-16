@@ -149,6 +149,37 @@ require("tobira").setup({
 
 tobira is the only plugin that learns from **your actual usage** and shows you the specific commands _you_ are missing.
 
+## ❓ FAQ
+
+### Will tobira slow down my Neovim?
+
+It is designed to stay passive and lightweight. tobira reads keystrokes with
+`vim.on_key()` and keeps the hot path minimal; it does not run file I/O for every
+keystroke. Usage data is flushed when Neovim exits.
+
+### Does it send my keystrokes anywhere?
+
+No. tobira stores usage data locally in Neovim's data directory under
+`tobira/usage.json`. It does not upload your keystrokes or send them to a remote
+service.
+
+### Can I use it alongside hardtime.nvim?
+
+Yes. hardtime.nvim blocks repeated habits, while tobira watches your normal
+editing and suggests what to learn next. They solve different parts of the same
+problem and can complement each other.
+
+### A suggestion keeps appearing even though I know the command. What should I do?
+
+Open `:TobiraProgress`, move to the command, and press `x` to suppress it. You
+can also keep using the command normally; once it reaches the familiar threshold,
+tobira stops treating it as a beginner suggestion.
+
+### How do I reset my data?
+
+Run `:TobiraReset`. This clears tobira's local usage data so suggestions start
+from a fresh profile.
+
 ## 🦾 Contributing
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md). This project follows strict TDD — tests before implementation, always.
