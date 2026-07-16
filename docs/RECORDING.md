@@ -1,11 +1,14 @@
 # Recording demo GIFs
 
 `docs/demo-*.gif` are generated from `docs/demo-*.tape` scripts via [VHS](https://github.com/charmbracelet/vhs)
-(`bash docs/make-demo.sh`). That still works for `guide`, `progress`, `stats`, and the combined `demo.gif`.
+(`bash docs/make-demo.sh`). That still works for `progress`, `stats`, and the combined `demo.gif`.
 
-**`demo-suggest.gif` is the exception.** On at least one contributor machine (Apple Silicon macOS), VHS
-reliably produces GIFs with corrupted colors. If you hit this, read on before spending hours re-discovering
-the same thing — use the asciinema-based recipe at the bottom instead.
+**`demo-suggest.gif` and `demo-guide.gif` are the exceptions.** On at least one contributor machine (Apple
+Silicon macOS), VHS reliably produces GIFs with corrupted colors for these two. If you hit this, read on
+before spending hours re-discovering the same thing — use the asciinema-based recipe at the bottom instead.
+`demo-guide.gif` started hitting this on 2026-07-16 (previously only `demo-suggest.gif` was affected on this
+machine) — this is consistent with the bug being about display/alt-screen state at recording time, not a
+property of any specific tape, so any tape can start tripping it without a config change on our side.
 
 ## The VHS color-corruption bug
 
@@ -152,8 +155,45 @@ for i in range(im.n_frames):
 # (30, 46, 0) means you've hit the VHS/Chromium bug above.
 ```
 
-## If VHS starts corrupting `guide` / `progress` / `stats` / the combined demo too
+## If VHS starts corrupting `progress` / `stats` / the combined demo too
 
 Same recipe applies — swap the `tmux send-keys` sequence for whatever keys that tape's `Type`/`Sleep` lines
 send (see `docs/demo-guide.tape` etc. for the reference sequence and timing), and the `nvim -u ...` command
 for whichever file that tape opens.
+
+### Worked example: `demo-guide.gif` (2026-07-16)
+
+`docs/demo-guide.tape` only opens Neovim and runs `:TobiraGuide`, so the whole sequence collapses to one
+`send-keys` call. Run from the repo root, on the branch you actually want rendered — the tape's own `Type
+"cd ~/kame/tobira.nvim && ..."` line means VHS (and this manual recipe alike) always launches Neovim against
+whatever is checked out at that fixed path, not wherever the recording command itself was invoked from. If
+you're recording from a worktree, check out the branch in `~/kame/tobira.nvim` itself first, or the GIF will
+silently show the wrong code.
+
+```bash
+cd ~/kame/tobira.nvim
+
+tmux kill-session -t demo 2>/dev/null
+tmux new-session -d -s demo -x 150 -y 24 -e TOBIRA_DEMO_IDLE=off -e TOBIRA_DEMO_PATTERNS=off \
+  "nvim -u docs/demo-init.lua docs/demo.lua"
+tmux set-option -t demo status off
+sleep 3   # matches the tape's boot Sleep 3s
+
+rm -f docs/demo-guide.cast
+asciinema rec --headless --window-size 150x24 \
+  --command "tmux attach -t demo" --overwrite docs/demo-guide.cast &
+sleep 1
+
+sleep 0.4                                  # tape: Sleep 400ms
+tmux send-keys -t demo ":TobiraGuide" Enter
+sleep 6                                    # tape: Sleep 5000ms + a little viewing buffer
+
+tmux kill-session -t demo
+
+agg --idle-time-limit 2 --cols 150 --rows 24 --font-size 18 \
+  docs/demo-guide.cast docs/demo-guide.gif
+rm docs/demo-guide.cast
+```
+
+Then trim the trailing `[exited]` frame with the same Python snippet used for `demo-suggest.gif` above, and
+verify pixel colors before committing.
