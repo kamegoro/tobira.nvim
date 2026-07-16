@@ -7,9 +7,6 @@ on:
     branches: [main]
 
 jobs:
-  # stylua, selene and the Python unit tests are all lightweight, independent,
-  # and need no Neovim — so they share one checkout and run as parallel steps
-  # (GitHub Actions step-level parallelism) instead of three separate jobs.
   checks:
     name: Checks (lint & scripts)
     runs-on: ubuntu-latest
@@ -33,9 +30,6 @@ jobs:
           - name: Scripts (Python unit tests)
             run: python3 -m unittest discover -s .github/scripts -p "test_*.py" -v
 
-  # Only nightly here. The stable run is covered by the `coverage` job below,
-  # which runs the exact same suite on Neovim stable (COVERAGE=1 still executes
-  # every test) — so a separate stable matrix entry just ran it twice.
   test:
     name: Test (Neovim nightly)
     runs-on: ubuntu-latest
@@ -53,8 +47,6 @@ jobs:
           nvim --headless --noplugin -u tests/minimal_init.lua \
             -c "PlenaryBustedDirectory tests/spec/ {minimal_init = 'tests/minimal_init.lua', sequential = true}"
 
-  # Runs the full suite on Neovim stable with coverage — doubles as the stable
-  # test run (a failing test fails this job too).
   coverage:
     name: Coverage (100%) · Neovim stable
     runs-on: ubuntu-latest
