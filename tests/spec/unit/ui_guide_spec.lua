@@ -33,6 +33,49 @@ local function find_hl(hls, lnum, group)
   return nil
 end
 
+-- Masters every non-compound command (count = 200, so nothing else can appear
+-- in the auto section), then applies overrides for the specific commands a
+-- test cares about. This isolates a test to exactly the commands it names,
+-- immune to the per-category cap (#96) and to unrelated registry commands
+-- tying on "never tried" and crowding out the one row a test is asserting on.
+local function usage_with_overrides(overrides)
+  local commands = require('tobira.commands')
+  local usage = {}
+  for cmd, e in pairs(commands.registry) do
+    if not e.compound then
+      usage[cmd] = entry({ count = 200 })
+    end
+  end
+  for cmd, data in pairs(overrides) do
+    usage[cmd] = data
+  end
+  return usage
+end
+
+-- Finds the row index (1-based, into `lines`) of a category header, and
+-- returns the rows rendered under it up to (not including) the next blank
+-- line. Used to assert on cap/overflow behavior without depending on exact
+-- line numbers elsewhere in the panel.
+local function rows_under_header(lines, header_line)
+  local header_lnum
+  for i, line in ipairs(lines) do
+    if line == header_line then
+      header_lnum = i
+    end
+  end
+  if not header_lnum then
+    return nil
+  end
+  local rows = {}
+  for i = header_lnum + 1, #lines do
+    if lines[i] == '' then
+      break
+    end
+    table.insert(rows, lines[i])
+  end
+  return rows
+end
+
 -- ── empty state ───────────────────────────────────────────────────────────────
 
 describe('when there is nothing pinned and every command is mastered', function()
@@ -91,7 +134,7 @@ end)
 
 describe('when a command has never been tried (mastery level 0)', function()
   it('renders the row with TobiraDim and no glyph', function()
-    local usage = { [';'] = entry({ count = 0 }) }
+    local usage = usage_with_overrides({ [';'] = entry({ count = 0 }) })
     local lines, hls = guide.build(usage)
     local row_lnum = nil
     for i, line in ipairs(lines) do
@@ -108,7 +151,7 @@ end)
 
 describe('when a command has been tried but not mastered (level 1)', function()
   it('renders a ☆ glyph with TobiraGuideHint', function()
-    local usage = { [';'] = entry({ count = 5 }) }
+    local usage = usage_with_overrides({ [';'] = entry({ count = 5 }) })
     local lines, hls = guide.build(usage)
     local row = find_line(lines, ';')
     assert.is_not_nil(row)
@@ -130,12 +173,12 @@ describe('when a command was mastered but is now forgotten', function()
   local forgotten_data = { count = 200, sessions = { 8, 9, 0, 0 }, shown = 0, suppressed = false, pinned = false }
 
   it('reappears in the auto section instead of staying excluded', function()
-    local lines = guide.build({ [';'] = forgotten_data })
+    local lines = guide.build(usage_with_overrides({ [';'] = forgotten_data }))
     assert.is_not_nil(find_line(lines, ';'))
   end)
 
   it('renders the ⟳ glyph with TobiraGuideForgotten, not ★', function()
-    local lines, hls = guide.build({ [';'] = forgotten_data })
+    local lines, hls = guide.build(usage_with_overrides({ [';'] = forgotten_data }))
     local row_lnum, row
     for i, line in ipairs(lines) do
       if line:find(';', 1, true) then
@@ -149,13 +192,13 @@ describe('when a command was mastered but is now forgotten', function()
 
   it('appends the forgotten_suffix to the description', function()
     local loc = require('tobira.i18n').load()
-    local lines = guide.build({ [';'] = forgotten_data })
+    local lines = guide.build(usage_with_overrides({ [';'] = forgotten_data }))
     local row = find_line(lines, ';')
     assert.is_not_nil(row:find(loc.guide.forgotten_suffix, 1, true))
   end)
 
   it('still shows the count', function()
-    local lines = guide.build({ [';'] = forgotten_data })
+    local lines = guide.build(usage_with_overrides({ [';'] = forgotten_data }))
     local row = find_line(lines, ';')
     assert.is_not_nil(row:find('200×', 1, true))
   end)
@@ -165,7 +208,7 @@ end)
 
 describe('when a command has a non-zero count', function()
   it('shows the count suffixed with ×', function()
-    local lines = guide.build({ [';'] = entry({ count = 88 }) })
+    local lines = guide.build(usage_with_overrides({ [';'] = entry({ count = 88 }) }))
     local row = find_line(lines, ';')
     assert.is_not_nil(row:find('88×', 1, true))
   end)
@@ -173,20 +216,21 @@ end)
 
 describe('when a command has never been used (count = 0)', function()
   it('shows no count text', function()
-    local lines = guide.build({ [';'] = entry({ count = 0 }) })
+    local lines = guide.build(usage_with_overrides({ [';'] = entry({ count = 0 }) }))
     local row = find_line(lines, ';')
     assert.is_nil(row:find('0×', 1, true))
   end)
 end)
 
 describe('count column alignment', function()
-  it('stays right-aligned across rows with different key lengths', function()
-    -- ';' (1 char) and '<C-w>w' (6 chars) both have registry entries; force
-    -- both to be visible (tried, not mastered) and compare the × column index.
-    local usage = {
+  it('stays right-aligned across rows within the same category', function()
+    -- ';' and '<C-d>' are both motion/beginner with different key lengths
+    -- (1 char vs 6). Mastering everything else keeps both isolated to the
+    -- same category with no third row competing for the per-category cap.
+    local usage = usage_with_overrides({
       [';'] = entry({ count = 12 }),
-      ['<C-w>w'] = entry({ count = 34 }),
-    }
+      ['<C-d>'] = entry({ count = 34 }),
+    })
     local lines = guide.build(usage)
     local row1 = find_line(lines, '12×')
     local row2 = find_line(lines, '34×')
@@ -198,29 +242,98 @@ describe('count column alignment', function()
   end)
 end)
 
--- ── footer (#68) ─────────────────────────────────────────────────────────────
+-- ── per-category cap and never-tried-first ordering (#96) ───────────────────
+-- Guide's auto section used to show every unmastered command with no limit,
+-- which made a fresh user's panel balloon past a "glance while coding"
+-- sidebar. Each category is now capped to 3, preferring never-tried commands
+-- (Progress already owns the "close to mastery" signal — see ui/CLAUDE.md —
+-- so Guide's own job is surfacing blind spots first).
 
-describe('the footer', function()
-  it('contains a separator line above the hint', function()
-    local lines = guide.build({})
-    local sep_lnum, hint_lnum
-    for i, line in ipairs(lines) do
-      if line:find('───', 1, true) then
-        sep_lnum = i
-      end
-      if line:find('<C%-w>w', 1, false) then
-        hint_lnum = i
-      end
-    end
-    assert.is_not_nil(sep_lnum, 'expected a separator line')
-    assert.is_not_nil(hint_lnum, 'expected the focus_hint line')
-    assert.is_true(sep_lnum < hint_lnum, 'separator should come before the hint')
+describe('per-category cap', function()
+  it('shows at most 3 commands, preferring never-tried, alphabetical tie-break, plus an overflow line', function()
+    -- $ (36), ; (59), <C-d> (60...), <C-i> (60...) all never-tried (count=0):
+    -- alphabetical order is $, ;, <C-d>, <C-i> — so <C-i> is the 4th and gets
+    -- capped, leaving a "+1 more" line.
+    local usage = usage_with_overrides({
+      ['$'] = entry({ count = 0 }),
+      [';'] = entry({ count = 0 }),
+      ['<C-d>'] = entry({ count = 0 }),
+      ['<C-i>'] = entry({ count = 0 }),
+    })
+    local lines = guide.build(usage)
+    local rows = rows_under_header(lines, '  Motion')
+    assert.equals(4, #rows, 'expected 3 capped command rows + 1 overflow line')
+    assert.is_not_nil(rows[1]:find('$', 1, true))
+    assert.is_not_nil(rows[2]:find(';', 1, true))
+    assert.is_not_nil(rows[3]:find('<C-d>', 1, true))
+
+    local loc = require('tobira.i18n').load()
+    assert.equals('      ' .. string.format(loc.guide.more_suffix, 1), rows[4])
   end)
 
-  it('uses the focus_hint locale string', function()
-    local loc = require('tobira.i18n').load()
+  it('does not render an overflow line when a category is not truncated', function()
+    local usage = usage_with_overrides({
+      ['$'] = entry({ count = 0 }),
+      [';'] = entry({ count = 0 }),
+    })
+    local lines = guide.build(usage)
+    local rows = rows_under_header(lines, '  Motion')
+    assert.equals(2, #rows)
+  end)
+
+  it('sorts a never-tried command before a tried-but-unmastered one, even out of alphabetical order', function()
+    -- '$' sorts before ';' alphabetically, but ';' is never-tried (count=0)
+    -- and '$' has been tried (count=50) — never-tried must win regardless.
+    local usage = usage_with_overrides({
+      ['$'] = entry({ count = 50 }),
+      [';'] = entry({ count = 0 }),
+    })
+    local lines = guide.build(usage)
+    local rows = rows_under_header(lines, '  Motion')
+    assert.equals(2, #rows)
+    assert.is_not_nil(rows[1]:find(';', 1, true), 'expected the never-tried command first')
+    assert.is_not_nil(rows[2]:find('$', 1, true), 'expected the tried command second')
+  end)
+end)
+
+describe('per-category description width (#96)', function()
+  it("does not pad a short category's rows to match a longer description in another category", function()
+    -- 'za' (fold, beginner, short description) vs "''" (mark, beginner, the
+    -- longest beginner-level description in the registry). Both beginner so
+    -- the level ceiling includes them together regardless of this test.
+    local usage_alone = usage_with_overrides({ ['za'] = entry({ count = 0 }) })
+    local usage_with_long = usage_with_overrides({
+      ['za'] = entry({ count = 0 }),
+      ["''"] = entry({ count = 0 }),
+    })
+    local row_alone = find_line(guide.build(usage_alone), 'za')
+    local row_with_long = find_line(guide.build(usage_with_long), 'za')
+    assert.equals(row_alone, row_with_long, "za's row must not depend on an unrelated category's longest description")
+  end)
+end)
+
+-- ── footer (#92) ─────────────────────────────────────────────────────────────
+-- Guide is focusable = false (recognition-over-recall, not an interactive
+-- panel — see ui/CLAUDE.md), so a footer advertising <C-w>w / q / r used to
+-- list three keys that could never fire. #92 removed the dead hint outright
+-- rather than making the panel interactive to match it.
+
+describe('the footer', function()
+  it('does not render a separator line (no hint left to separate from content)', function()
     local lines = guide.build({})
-    assert.is_not_nil(find_line(lines, loc.guide.focus_hint))
+    for _, line in ipairs(lines) do
+      assert.is_nil(line:find('───', 1, true), 'expected no leftover footer separator line')
+    end
+  end)
+
+  it('does not define a focus_hint locale string anymore', function()
+    local loc = require('tobira.i18n').load()
+    assert.is_nil(loc.guide.focus_hint)
+  end)
+
+  it('ends with a trailing blank line, matching the leading blank line', function()
+    local lines = guide.build({})
+    assert.equals('', lines[#lines])
   end)
 end)
 

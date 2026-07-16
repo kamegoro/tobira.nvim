@@ -7,6 +7,11 @@ local _ns = vim.api.nvim_create_namespace('tobira_guide')
 local WIDTH = 60 -- widened from 54 (#68) to fit the mastery-symbol and count columns
 local ICON = '' -- nerd font fa-info-circle (matches nvim-notify INFO icon)
 
+-- Caps each category's auto section so the panel stays a small "glance while
+-- you code" sidebar regardless of how many commands a brand-new user hasn't
+-- touched yet (#96) instead of growing to fit everything.
+local MAX_PER_CATEGORY = 3
+
 local CATEGORY_ORDER = { 'motion', 'edit', 'search', 'window', 'fold', 'mark', 'macro' }
 
 local setup_hls = require('tobira.ui.hls').setup
@@ -136,13 +141,34 @@ function M.build(usage)
 
   local by_cat = graph.guide_commands(usage)
 
-  -- Remove pinned commands from auto section to avoid duplication
+  -- Remove pinned commands from auto section to avoid duplication, then sort
+  -- each category never-tried-first (Guide's job is surfacing blind spots —
+  -- Progress already owns the "close to mastery" goal-gradient signal, see
+  -- ui/CLAUDE.md) with an alphabetical tie-break, and cap to MAX_PER_CATEGORY
+  -- so the panel stays bounded no matter how many commands are eligible (#96).
+  local overflow_by_cat = {}
   for cat, cmds in pairs(by_cat) do
     local filtered = {}
     for _, cmd in ipairs(cmds) do
       if not pinned_set[cmd] then
         table.insert(filtered, cmd)
       end
+    end
+    table.sort(filtered, function(a, b)
+      local a_never = ((usage[a] or {}).count or 0) == 0
+      local b_never = ((usage[b] or {}).count or 0) == 0
+      if a_never ~= b_never then
+        return a_never
+      end
+      return a < b
+    end)
+    if #filtered > MAX_PER_CATEGORY then
+      overflow_by_cat[cat] = #filtered - MAX_PER_CATEGORY
+      local capped = {}
+      for i = 1, MAX_PER_CATEGORY do
+        capped[i] = filtered[i]
+      end
+      filtered = capped
     end
     by_cat[cat] = filtered
   end
@@ -162,10 +188,14 @@ function M.build(usage)
     end
   end
 
-  local desc_col_w = 0
+  -- Per category, not global — a long description in one category (e.g.
+  -- motion) must not force every row in a short category (e.g. fold) to pad
+  -- out to match it (#96).
+  local desc_col_w_by_cat = {}
   for _, row in ipairs(auto_rows) do
     local suffix = graph.is_forgotten(row.data) and strings.forgotten_suffix or ''
-    desc_col_w = math.max(desc_col_w, vim.fn.strdisplaywidth(row.desc .. suffix))
+    local w = vim.fn.strdisplaywidth(row.desc .. suffix)
+    desc_col_w_by_cat[row.cat] = math.max(desc_col_w_by_cat[row.cat] or 0, w)
   end
 
   local lines = {}
@@ -199,20 +229,33 @@ function M.build(usage)
   end
 
   -- Auto section
+  local function push_overflow(cat)
+    local overflow = overflow_by_cat[cat]
+    if overflow then
+      push('      ' .. string.format(strings.more_suffix, overflow), 'TobiraDim')
+    end
+  end
+
   local current_cat = nil
   for _, row in ipairs(auto_rows) do
     if row.cat ~= current_cat then
+      if current_cat then
+        push_overflow(current_cat)
+      end
       current_cat = row.cat
       push('')
       local label = cat_labels[row.cat] or row.cat
       push('  ' .. label, 'TobiraGuideSection', 2, 2 + #label)
     end
-    local line, row_hls = format_row(row.cmd, row.desc, row.data, desc_col_w, strings)
+    local line, row_hls = format_row(row.cmd, row.desc, row.data, desc_col_w_by_cat[row.cat], strings)
     local lnum = #lines
     table.insert(lines, line)
     for _, h in ipairs(row_hls) do
       table.insert(hls, { lnum = lnum, cs = h.cs, ce = h.ce, group = h.group })
     end
+  end
+  if current_cat then
+    push_overflow(current_cat)
   end
 
   if #auto_rows == 0 and #pinned_cmds == 0 then
@@ -221,8 +264,6 @@ function M.build(usage)
   end
 
   push('')
-  push('  ' .. string.rep('─', WIDTH - 4), 'TobiraGuideHint')
-  push('  ' .. strings.focus_hint, 'TobiraGuideHint')
 
   return lines, hls, strings
 end

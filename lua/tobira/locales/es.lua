@@ -4,8 +4,8 @@ return {
     hint = ':TobiraGuide  alternar guía',
     all_mastered = '¡Todos los comandos de este nivel dominados!',
     pinned = 'Fijado',
-    focus_hint = '<C-w>w enfocar · [q] cerrar · [r] actualizar',
     forgotten_suffix = ' (olvidado)',
+    more_suffix = '+%d más',
   },
   progress = {
     title = 'tobira — tu viaje en vim',
