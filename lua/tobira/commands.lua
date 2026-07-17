@@ -53,6 +53,16 @@ M.registry = {
   ['A'] = { requires = 'a', track = true, category = 'edit', level = 'beginner' },
   ['O'] = { requires = 'o', track = true, category = 'edit', level = 'beginner' },
 
+  -- ── insert-mode inefficiency (#58) ───────────────────────────────────────
+  -- Insert-mode <C-w> (delete word before cursor) — distinct from the
+  -- normal-mode <C-w> window-command prefix, which is the exact same raw
+  -- byte. track = false here on purpose: build_track_table() in logger.lua
+  -- would otherwise add this byte to the generic, mode-unaware TRACK table
+  -- and count the normal-mode window prefix as if it were this command.
+  -- Counted explicitly instead, only from inside handle_insert_key() (mode
+  -- cache confirms insert mode first) — see logger.lua's INSERT_SPECIAL.
+  ['<C-w>'] = { requires = 'i', track = false, category = 'edit', level = 'beginner' },
+
   -- ── x → D → C deletion chain ──────────────────────────────────────────────
   ['D'] = { requires = 'x', track = true, category = 'edit', level = 'beginner' },
   ['C'] = { requires = 'D', track = true, category = 'edit', level = 'intermediate' },

@@ -67,6 +67,10 @@ return {
     ambient_reason = '%s をよく使っていますね',
     celebrate = '%s を使えましたね',
     reasons = {
+      insert_bs_repeat = 'インサートモードで<BS>を5回連続で押しました',
+      insert_left_repeat = 'インサートモードで<Left>を5回連続で押しました',
+      insert_right_repeat = 'インサートモードで<Right>を5回連続で押しました',
+      insert_bounce = '何も変更せずにインサートモードの出入りを2回連続で繰り返しました',
       f_repeat = '同じ行で f/t 検索を繰り返しました',
       r_run = '1文字ずつの置換を3回繰り返しました',
       visual_textobj = 'ビジュアルモードでテキストオブジェクトを選択してから編集しました',
@@ -155,6 +159,11 @@ return {
       title = '. — 最後の変更を繰り返す',
       body = 'インサートモードに入り直さずに最後の編集を繰り返す\nn や ; と組み合わせると複数箇所を素早く変更できる',
       example = 'cw foo <Esc> n . → 次のマッチも変更',
+    },
+    ['<C-w>'] = {
+      title = '<C-w> — カーソル前の単語を削除',
+      body = 'インサートモードを抜けずに削除できる — <BS>を何度も押す代わりに1回で済む\n単語の先頭で止まるので、消しすぎることがない',
+      example = 'foo bar<C-w> → foo ',
     },
     ['A'] = {
       title = 'A — 行末に追記',

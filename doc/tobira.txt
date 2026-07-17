@@ -259,5 +259,12 @@ EDIT ~
   `<<` × 3                      Suggest `{n}<<` — dedent N lines at once
   `v` `i/a` `{obj}` `c/d/y`    Suggest direct operator (e.g. `ciw`, `di"`, `ya(`)
 
+INSERT MODE ~
+
+  `<BS>` × 5                    Suggest `<C-w>` — delete the whole word at once
+  `<Left>` × 5                  Suggest `b`     — leave insert, jump back a word
+  `<Right>` × 5                 Suggest `w`     — leave insert, jump forward a word
+  Empty insert → `<Esc>`, twice Suggest `A`     — stop bouncing in and out, append directly
+
 ==============================================================================
 vim:tw=78:ts=8:ft=help:norl:

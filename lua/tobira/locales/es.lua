@@ -67,6 +67,10 @@ return {
     ambient_reason = 'Usas %s con frecuencia',
     celebrate = 'Bien — usaste %s',
     reasons = {
+      insert_bs_repeat = 'Borraste con retroceso 5 veces seguidas en modo inserción',
+      insert_left_repeat = 'Pulsaste <Left> 5 veces seguidas en modo inserción',
+      insert_right_repeat = 'Pulsaste <Right> 5 veces seguidas en modo inserción',
+      insert_bounce = 'Entraste y saliste del modo inserción sin cambios, dos veces seguidas',
       f_repeat = 'Repetiste la misma búsqueda f/t en esta línea',
       r_run = 'Reemplazaste 3 caracteres uno por uno',
       visual_textobj = 'Seleccionaste un objeto de texto en modo visual antes de editar',
@@ -155,6 +159,11 @@ return {
       title = '. — repetir el último cambio',
       body = 'Repite tu última edición sin volver a entrar en modo inserción\nCombina con n o ; para cambiar varias ocurrencias en una sola pasada',
       example = 'cw foo <Esc> n . → cambia también la siguiente coincidencia',
+    },
+    ['<C-w>'] = {
+      title = '<C-w> — borrar la palabra antes del cursor',
+      body = 'Funciona en modo inserción sin salir de él — una sola pulsación en vez de varios <BS>\nSe detiene al inicio de la palabra, así que nunca borra de más',
+      example = 'foo bar<C-w> → foo ',
     },
     ['A'] = {
       title = 'A — añadir al final de línea',
