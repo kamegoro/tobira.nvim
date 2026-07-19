@@ -1,4 +1,5 @@
 local patterns = require('tobira.core.patterns')
+local patterns_insert = require('tobira.core.patterns_insert')
 local commands = require('tobira.commands')
 
 local M = {}
@@ -141,7 +142,7 @@ end
 local TRACK = build_track_table()
 
 -- Raw on_key bytes → canonical name, for the handful of insert-mode keys
--- patterns.feed_insert() cares about (#58). Built once via the same
+-- patterns_insert.feed_insert() cares about (#58). Built once via the same
 -- nvim_replace_termcodes approach as TRACK above. '<C-w>' is included so its
 -- adoption can be measured — this is safe from the normal-mode window-prefix
 -- meaning of Ctrl-W because INSERT_SPECIAL is only consulted while the mode
@@ -154,7 +155,7 @@ for _, name in ipairs({ '<BS>', '<Left>', '<Right>', '<Esc>', '<C-w>' }) do
   end
 end
 
-local insert_seq = patterns.new_insert_seq()
+local insert_seq = patterns_insert.new_insert_seq()
 
 local _recording_macro = false
 
@@ -163,7 +164,7 @@ local function handle_insert_key(key)
   if canonical == '<C-w>' then
     increment('<C-w>')
   end
-  local result = patterns.feed_insert(insert_seq, canonical)
+  local result = patterns_insert.feed_insert(insert_seq, canonical)
   if result and M.on_pattern then
     M.on_pattern(result.pattern, result.cmd)
   end
@@ -180,7 +181,7 @@ local function handle_key(key)
 
   if current_mode:sub(1, 1) ~= 'n' then
     seq = patterns.new_seq()
-    insert_seq = patterns.new_insert_seq()
+    insert_seq = patterns_insert.new_insert_seq()
     return
   end
   -- Skip keystrokes while recording or replaying a macro so they don't pollute
@@ -249,7 +250,7 @@ function M.setup()
       _recording_macro = ev.event == 'RecordingEnter'
       if _recording_macro then
         seq = patterns.new_seq()
-        insert_seq = patterns.new_insert_seq()
+        insert_seq = patterns_insert.new_insert_seq()
       end
     end,
   })
@@ -403,7 +404,7 @@ function M.reset()
   _loaded_counts = {}
   meta = { guide_seen = false }
   seq = patterns.new_seq()
-  insert_seq = patterns.new_insert_seq()
+  insert_seq = patterns_insert.new_insert_seq()
   current_mode = 'n'
   _recording_macro = false
   _initialized = false
