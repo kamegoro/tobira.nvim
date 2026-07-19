@@ -8,11 +8,13 @@ Dependencies flow strictly downward. Upward or circular dependencies are prohibi
 commands.lua        — data only; no vim.* calls; requires nothing
                       ↓
 core/config.lua     — single source of truth for all settings
-core/patterns.lua   — pure Lua; no vim.*; requires nothing
+core/patterns.lua   — pure Lua; no vim.*; requires nothing (normal-mode operator grammar)
+core/patterns_insert.lua — pure Lua; no vim.*; requires nothing (insert-mode key streaks,
+                       #99 — shares no state with patterns.lua, split out on purpose)
 core/graph.lua      — pure Lua; no vim.*; requires commands.lua only
 core/skills.lua     — pure Lua; requires commands.lua only
 core/level.lua      — requires graph only
-core/logger.lua     — requires patterns + commands
+core/logger.lua     — requires patterns + patterns_insert + commands
                       does NOT require suggest — notifies via on_pattern callback
 core/suggest.lua    — requires config / logger / graph
                       ↓
@@ -31,6 +33,31 @@ plugin/tobira.lua   — registers commands and autocmds; require() inside callba
 
 `commands.lua` is the root of the graph. Any `require()` added to it will create a
 circular dependency.
+
+## Module splitting policy
+
+Decide whether new code belongs in an existing file or a new sibling file **before**
+writing it — don't wait until a file "feels long." This is not a line-count rule; it's a
+state-sharing test (researched against snacks.nvim / gitsigns.nvim / telescope.nvim, all of
+which split by independent concern rather than by size — see #99):
+
+- **Shares module-local state, or is ever called from the same code path** as what's
+  already in the file (e.g. a new getter that reads `usage`, a new branch in `handle_key`
+  that still touches `seq`) → same file, no matter how large it gets. Splitting here
+  scatters one conceptual flow (keystroke → pattern → increment → persist) across files
+  and *increases* how many files a single change touches, for no benefit. This is why
+  `core/logger.lua` is not split further despite being one of the larger files — its
+  persistence, tracking, and public-API code all read or write the same `usage` table.
+- **Shares nothing — no common state, never on the same call path** (e.g.
+  `core/patterns.lua`'s normal-mode `seq`/`feed` vs. the insert-mode
+  `new_insert_seq`/`feed_insert` split out in #99) → new sibling file. Splitting here
+  makes each half *more* self-contained: touching one never requires reading the other.
+
+Why this matters specifically for AI-assisted work: reading many small fragmented files
+costs more tool calls and tokens than one cohesive file (["The AI-Legible
+Codebase"](https://tianpan.co/blog/2026-04-13-the-ai-legible-codebase)). Splitting only
+pays off when it lets a task-specific read skip content that's genuinely irrelevant to
+that task — not whenever a number looks big.
 
 ## Tracking design principle
 
@@ -85,7 +112,8 @@ two-character command prefix.
      (beginner|intermediate|advanced) are required fields
 2. **Write tests first** (see `tests/CLAUDE.md`)
    - `track = true` → add a tracking smoke test to `logger_spec.lua`
-   - New pattern → add a unit test to `patterns_spec.lua`
+   - New normal-mode pattern → add a unit test to `patterns_spec.lua`
+   - New insert-mode pattern → add a unit test to `patterns_insert_spec.lua` (#99)
 3. Add display strings to both `locales/en.lua` and `locales/ja.lua` if needed
 4. Pass CI — `graph.lua`, `skills.lua`, and `logger.lua` update themselves automatically
 
