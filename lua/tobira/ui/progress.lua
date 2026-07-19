@@ -437,7 +437,7 @@ function M.open()
     style = 'minimal',
     border = 'rounded',
     title = title_text,
-    title_pos = 'center',
+    title_pos = 'left',
     footer = footer,
     footer_pos = 'center',
     focusable = true,

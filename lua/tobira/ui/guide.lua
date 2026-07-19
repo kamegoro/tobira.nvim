@@ -342,7 +342,7 @@ function M.open()
     style = 'minimal',
     border = 'rounded',
     title = ' ' .. ICON .. ' ' .. strings.title .. ' ',
-    title_pos = 'center',
+    title_pos = 'left',
     focusable = false,
     zindex = 40,
   })
