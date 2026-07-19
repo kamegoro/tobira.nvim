@@ -67,6 +67,10 @@ return {
     ambient_reason = 'Du benutzt %s häufig',
     celebrate = 'Gut gemacht — du hast %s benutzt',
     reasons = {
+      insert_bs_repeat = 'Du hast im Einfügemodus 5-mal hintereinander die Rücktaste gedrückt',
+      insert_left_repeat = 'Du hast im Einfügemodus 5-mal hintereinander <Left> gedrückt',
+      insert_right_repeat = 'Du hast im Einfügemodus 5-mal hintereinander <Right> gedrückt',
+      insert_bounce = 'Du bist zweimal hintereinander in den Einfügemodus gewechselt und ohne Änderung wieder heraus',
       f_repeat = 'Du hast dieselbe f/t-Suche in dieser Zeile wiederholt',
       r_run = 'Du hast 3 Zeichen einzeln nacheinander ersetzt',
       visual_textobj = 'Du hast vor dem Bearbeiten ein Textobjekt im visuellen Modus ausgewählt',
@@ -155,6 +159,11 @@ return {
       title = '. — letzte Änderung wiederholen',
       body = 'Wiederholt deine letzte Bearbeitung, ohne erneut in den Einfügemodus zu wechseln\nKombiniere mit n oder ;, um mehrere Vorkommen in einem Durchgang zu ändern',
       example = 'cw foo <Esc> n . → ändert auch den nächsten Treffer',
+    },
+    ['<C-w>'] = {
+      title = '<C-w> — Wort vor dem Cursor löschen',
+      body = 'Funktioniert im Einfügemodus, ohne ihn zu verlassen — ein Tastendruck statt mehrerer <BS>\nStoppt am Wortanfang, löscht also nie mehr als gemeint',
+      example = 'foo bar<C-w> → foo ',
     },
     ['A'] = {
       title = 'A — am Zeilenende anfügen',

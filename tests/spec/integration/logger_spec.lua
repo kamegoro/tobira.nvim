@@ -424,16 +424,31 @@ describe('when the user types while in insert mode', function()
     assert.is_false(fired)
   end)
 
-  it('resets the pattern sequence when a key arrives while current_mode is not n', function()
+  it('routes to the insert-mode handler (not the normal seq) when current_mode is i', function()
     -- In headless mode vim.fn.mode() always reports 'n', so stub it to 'i'
-    -- (same technique as the operator-pending test below) to exercise the
-    -- `if current_mode:sub(1,1) ~= 'n' then seq=new_seq(); return end` branch.
+    -- (same technique as the operator-pending test below). Since #58, mode
+    -- 'i' is routed to handle_insert_key rather than the generic
+    -- non-normal-mode reset branch — 'j' is an ordinary insert-mode key, so
+    -- feed_insert() just breaks any streak and returns nil.
     local real_mode = vim.fn.mode
     vim.fn.mode = function() return 'i' end
     vim.api.nvim_exec_autocmds('ModeChanged', { modeline = false })
     vim.fn.mode = real_mode
-    -- Feed a key: typed='j' (not filtered by typed=='') but current_mode='i'
-    -- so handle_key resets seq and returns without counting or calling on_pattern.
+    local fired = false
+    logger.on_pattern = function() fired = true end
+    vim.fn.feedkeys('j', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_false(fired)
+    assert.equals(0, logger.get('j').count)
+  end)
+
+  it('resets both seq and insert_seq when current_mode is neither n nor i', function()
+    -- Visual mode ('v') exercises the generic fallback branch — distinct
+    -- from both the normal path and the #58 insert-mode path.
+    local real_mode = vim.fn.mode
+    vim.fn.mode = function() return 'v' end
+    vim.api.nvim_exec_autocmds('ModeChanged', { modeline = false })
+    vim.fn.mode = real_mode
     local fired = false
     logger.on_pattern = function() fired = true end
     vim.fn.feedkeys('j', 'xt')
@@ -548,6 +563,113 @@ describe('when the user deletes a word then enters insert mode', function()
 
     assert.equals('dw_then_insert', fired.pattern)
     assert.equals('cw', fired.cmd)
+  end)
+end)
+
+describe('insert-mode inefficiency detection (#58)', function()
+  local esc = vim.api.nvim_replace_termcodes('<Esc>', true, false, true)
+  local bs = vim.api.nvim_replace_termcodes('<BS>', true, false, true)
+  local left = vim.api.nvim_replace_termcodes('<Left>', true, false, true)
+  local right = vim.api.nvim_replace_termcodes('<Right>', true, false, true)
+  local ctrl_w = vim.api.nvim_replace_termcodes('<C-w>', true, false, true)
+
+  before_each(function()
+    logger.reset()
+    logger.on_pattern = nil
+    logger.setup()
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+    if vim.fn.mode() ~= 'n' then
+      vim.cmd('stopinsert')
+    end
+  end)
+
+  it('increments the usage count for <C-w> only while actually in insert mode', function()
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'foo bar' })
+    -- Fed as a single feedkeys call (not separate ones) so the mode cache's
+    -- ModeChanged autocmd has definitely fired by the time <C-w> is processed.
+    vim.fn.feedkeys('A' .. ctrl_w .. esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_true(logger.get('<C-w>').count > 0)
+  end)
+
+  it('does not count the normal-mode window-prefix <C-w> as the insert-mode command', function()
+    vim.cmd('enew')
+    -- <C-w><C-w> in normal mode is "cycle to next window" — a no-op here
+    -- since there is only one window, but it must not increment '<C-w>'.
+    vim.fn.feedkeys(ctrl_w .. ctrl_w, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals(0, logger.get('<C-w>').count)
+  end)
+
+  it('fires insert_bs_repeat suggesting <C-w> after 5 backspaces in a row', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      fired = { pattern = pattern, cmd = cmd }
+    end
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'a very long line of text here' })
+    vim.fn.feedkeys('A' .. bs:rep(5) .. esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals('insert_bs_repeat', fired.pattern)
+    assert.equals('<C-w>', fired.cmd)
+  end)
+
+  it('fires insert_left_repeat suggesting b after 5 <Left> presses in a row', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      fired = { pattern = pattern, cmd = cmd }
+    end
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'a very long line of text here' })
+    vim.fn.feedkeys('A' .. left:rep(5) .. esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals('insert_left_repeat', fired.pattern)
+    assert.equals('b', fired.cmd)
+  end)
+
+  it('fires insert_right_repeat suggesting w after 5 <Right> presses in a row', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      fired = { pattern = pattern, cmd = cmd }
+    end
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'a very long line of text here' })
+    -- 'I' (insert at start of line) so there is room to move right
+    vim.fn.feedkeys('I' .. right:rep(5) .. esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals('insert_right_repeat', fired.pattern)
+    assert.equals('w', fired.cmd)
+  end)
+
+  it('fires insert_bounce suggesting A after two empty enter/escape round-trips', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      fired = { pattern = pattern, cmd = cmd }
+    end
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'hello' })
+    vim.fn.feedkeys('i' .. esc, 'xt') -- 1st empty bounce
+    vim.fn.feedkeys('i' .. esc, 'xt') -- 2nd empty bounce
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals('insert_bounce', fired.pattern)
+    assert.equals('A', fired.cmd)
+  end)
+
+  it('does not fire insert_bounce when the user actually typed something', function()
+    local fired = false
+    logger.on_pattern = function()
+      fired = true
+    end
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'hello' })
+    vim.fn.feedkeys('ix' .. esc, 'xt') -- typed a real character before leaving
+    vim.fn.feedkeys('i' .. esc, 'xt') -- this one alone is not 2 in a row
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_false(fired)
   end)
 end)
 

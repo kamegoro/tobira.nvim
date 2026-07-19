@@ -67,6 +67,10 @@ return {
     ambient_reason = 'Vous utilisez souvent %s',
     celebrate = 'Bien joué — vous avez utilisé %s',
     reasons = {
+      insert_bs_repeat = 'Vous avez fait 5 retours arrière de suite en mode insertion',
+      insert_left_repeat = 'Vous avez appuyé 5 fois de suite sur <Left> en mode insertion',
+      insert_right_repeat = 'Vous avez appuyé 5 fois de suite sur <Right> en mode insertion',
+      insert_bounce = 'Vous êtes entré et sorti du mode insertion sans rien changer, deux fois de suite',
       f_repeat = 'Vous avez répété la même recherche f/t sur cette ligne',
       r_run = 'Vous avez remplacé 3 caractères un par un',
       visual_textobj = "Vous avez sélectionné un objet texte en mode visuel avant d'éditer",
@@ -155,6 +159,11 @@ return {
       title = '. — répéter la dernière modification',
       body = 'Répète votre dernière édition sans revenir en mode insertion\nCombinez avec n ou ; pour modifier plusieurs occurrences en une seule passe',
       example = 'cw foo <Esc> n . → modifie aussi la correspondance suivante',
+    },
+    ['<C-w>'] = {
+      title = '<C-w> — supprimer le mot avant le curseur',
+      body = "Fonctionne en mode insertion sans le quitter — une seule touche au lieu de plusieurs <BS>\nS'arrête au début du mot, donc ne supprime jamais plus que prévu",
+      example = 'foo bar<C-w> → foo ',
     },
     ['A'] = {
       title = 'A — ajouter en fin de ligne',

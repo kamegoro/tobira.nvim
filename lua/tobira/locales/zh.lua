@@ -67,6 +67,10 @@ return {
     ambient_reason = '你经常使用 %s',
     celebrate = '不错 — 你用到了 %s',
     reasons = {
+      insert_bs_repeat = '你在插入模式下连续按了 5 次退格',
+      insert_left_repeat = '你在插入模式下连续按了 5 次 <Left>',
+      insert_right_repeat = '你在插入模式下连续按了 5 次 <Right>',
+      insert_bounce = '你连续两次进入又退出插入模式却没有任何修改',
       f_repeat = '你在这一行重复了相同的 f/t 查找',
       r_run = '你逐个字符替换了 3 个字符',
       visual_textobj = '你在编辑前用可视模式选中了一个文本对象',
@@ -155,6 +159,11 @@ return {
       title = '. — 重复上一次修改',
       body = '重复你的上一次编辑，无需重新进入插入模式\n配合 n 或 ; 可以一次性修改多个匹配项',
       example = 'cw foo <Esc> n . → 同时修改下一个匹配',
+    },
+    ['<C-w>'] = {
+      title = '<C-w> — 删除光标前的单词',
+      body = '无需退出插入模式即可删除 — 一次按键顶替多次 <BS>\n会在单词开头停止，不会删多',
+      example = 'foo bar<C-w> → foo ',
     },
     ['A'] = {
       title = 'A — 在行尾追加',

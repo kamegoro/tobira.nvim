@@ -67,6 +67,10 @@ return {
     ambient_reason = 'You often use %s',
     celebrate = 'Nice — you used %s',
     reasons = {
+      insert_bs_repeat = 'You backspaced 5 times in a row in insert mode',
+      insert_left_repeat = 'You pressed <Left> 5 times in a row in insert mode',
+      insert_right_repeat = 'You pressed <Right> 5 times in a row in insert mode',
+      insert_bounce = 'You entered and left insert mode with no changes, twice in a row',
       f_repeat = 'You repeated the same f/t search on this line',
       r_run = 'You replaced 3 characters one at a time',
       visual_textobj = 'You selected a text object in visual mode before editing',
@@ -155,6 +159,11 @@ return {
       title = '. — repeat the last change',
       body = 'Repeats your last edit without re-entering insert mode\nCombine with n or ; to change multiple occurrences in one pass',
       example = 'cw foo <Esc> n . → changes the next match too',
+    },
+    ['<C-w>'] = {
+      title = '<C-w> — delete the word before the cursor',
+      body = 'Works in insert mode without leaving it — one keystroke instead of several <BS>\nStops at the start of a word, so it never eats past what you actually meant to remove',
+      example = 'foo bar<C-w> → foo ',
     },
     ['A'] = {
       title = 'A — append at end of line',
