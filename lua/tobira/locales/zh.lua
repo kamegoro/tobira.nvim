@@ -90,6 +90,7 @@ return {
       x_then_insert = '你删除了一个字符后进入了插入模式',
       D_then_insert = '你删除到行尾后开始输入新内容',
       dw_then_insert = '你删除了一个单词后进入了插入模式',
+      gq_then_jumpback = '你用 gq 格式化后又跳回了起始位置',
       x_repeat = '你连续 3 次逐个删除字符',
       u_repeat = '你连续撤销了 3 次',
       j_repeat = '你连续按了 5 次 j',
@@ -593,6 +594,12 @@ return {
       title = 'gq{motion} — 重排 / 格式化文本以适应行宽',
       body = '将动作覆盖的文本重新格式化以在 textwidth 处换行\ngqip 格式化当前段落；gqq 格式化当前行',
       example = 'gqip → 当前段落被重排以适应设定的行宽',
+    },
+
+    ['gw'] = {
+      title = 'gw{motion} — 格式化文本且不移动光标',
+      body = '与 gq 相同，但光标会回到起始位置，而不是停在格式化文本末尾\n如果你在 gq 之后习惯用 `` 或 <C-o> 跳回原位，gw 更方便',
+      example = 'gwap → 段落被重排，光标仍留在原处',
     },
 
     -- ── join without space ────────────────────────────────────────────────

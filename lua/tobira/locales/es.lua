@@ -90,6 +90,7 @@ return {
       x_then_insert = 'Borraste un carácter y entraste en modo inserción',
       D_then_insert = 'Borraste hasta el final de línea y empezaste a escribir',
       dw_then_insert = 'Borraste una palabra y entraste en modo inserción',
+      gq_then_jumpback = 'Formateaste con gq y luego saltaste de vuelta a la posición inicial',
       x_repeat = 'Borraste caracteres uno por uno, 3 veces seguidas',
       u_repeat = 'Deshiciste 3 veces seguidas',
       j_repeat = 'Pulsaste j 5 veces seguidas',
@@ -593,6 +594,12 @@ return {
       title = 'gq{motion} — reformatear texto para ajustarse al ancho de línea',
       body = 'Reformatea el texto cubierto por el movimiento para ajustarse a textwidth\ngqip formatea el párrafo actual; gqq formatea la línea actual',
       example = 'gqip → el párrafo actual se reajusta al ancho de línea configurado',
+    },
+
+    ['gw'] = {
+      title = 'gw{motion} — reformatear texto sin mover el cursor',
+      body = 'Igual que gq, pero el cursor vuelve a la posición inicial en vez de quedar al final del texto formateado\nÚtil si sueles saltar de vuelta con `` o <C-o> justo después de gq',
+      example = 'gwap → se reformatea el párrafo, el cursor se queda donde estaba',
     },
 
     -- ── join without space ────────────────────────────────────────────────

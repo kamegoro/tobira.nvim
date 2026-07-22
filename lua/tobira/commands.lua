@@ -232,6 +232,9 @@ M.registry = {
   -- ── . → gq format text ────────────────────────────────────────────────────
   ['gq'] = { requires = '.', track = false, category = 'edit', level = 'advanced' },
 
+  -- ── gq → gw format without moving cursor (#109) ──────────────────────────
+  ['gw'] = { requires = 'gq', track = false, category = 'edit', level = 'advanced' },
+
   -- ── J → gJ join without space ─────────────────────────────────────────────
   ['gJ'] = { requires = 'J', track = false, category = 'edit', level = 'advanced' },
 

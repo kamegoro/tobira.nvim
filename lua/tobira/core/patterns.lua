@@ -25,6 +25,15 @@ function M.new_seq()
     -- g* / z* two-key compound tracking
     pending_g = false,
     pending_z = false,
+    -- gq operator-pending tracking (#109): unlike the simple two-key pending_g
+    -- targets (gg, gj, gd, …), gq is a real Vim operator that needs a further
+    -- motion (gqq, gqap, gq}) before it's complete — see pending_gq below.
+    pending_gq = false,
+    pending_gq_text_obj = false,
+    -- true only while the immediately-preceding mark-prefix key (`) started
+    -- right after a completed gq — lets the very next key tell "`` (jump back,
+    -- suggest gw)" apart from an unrelated "`a (jump to mark a)".
+    pending_gq_backtick = false,
     -- <C-w>X window-command two-key compound tracking (#120)
     pending_ctrl_w = false,
     -- prefixes that consume exactly one following character
@@ -69,6 +78,13 @@ local function inner_feed(seq, key, line)
   -- ── consumed by their own handlers rather than starting an f/t search.  ────
   if seq.pending_g then
     seq.pending_g = false
+    -- gq is a real operator (needs a further motion), unlike every other
+    -- pending_g target below which is a complete two-key command on its own —
+    -- hand it off to pending_gq instead of the flat dispatch table (#109).
+    if key == 'q' then
+      seq.pending_gq = true
+      return nil
+    end
     local g_targets = {
       g = 'gg',
       j = 'gj',
@@ -87,6 +103,37 @@ local function inner_feed(seq, key, line)
       seq.last_op = g_targets[key]
       seq.op_completed = true
     end
+    return nil
+  end
+
+  -- ── pending_gq: gq operator awaiting its motion (#109) ────────────────────
+  -- Mirrors pending_op's d/c shape (count prefix, text-object prefix, linewise
+  -- double, or a plain motion char) but always collapses to last_op = 'gq' —
+  -- nothing downstream needs to know which motion was used, only that a gq
+  -- format operation completed. Must precede f/F/t/T so a motion like gqf{char}
+  -- is consumed as gq's motion, not mistaken for the start of an f-search.
+  if seq.pending_gq then
+    if key:match('^[1-9]$') then
+      return nil -- count prefix; keep pending_gq (handles gq3j)
+    end
+    seq.pending_gq = false
+    if key == '\27' then
+      return nil -- <Esc> cancels
+    end
+    if key == 'i' or key == 'a' then
+      seq.pending_gq_text_obj = true
+      return nil
+    end
+    -- 'q' (linewise, like dd) or any other motion character completes gq.
+    seq.last_op = 'gq'
+    seq.op_completed = true
+    return nil
+  end
+
+  if seq.pending_gq_text_obj then
+    seq.pending_gq_text_obj = false
+    seq.last_op = 'gq'
+    seq.op_completed = true
     return nil
   end
 
@@ -216,6 +263,16 @@ local function inner_feed(seq, key, line)
 
   if seq.pending_mark then
     seq.pending_mark = false
+    local was_gq_backtick = seq.pending_gq_backtick
+    seq.pending_gq_backtick = false
+    -- `` (backtick-backtick, jump to position before last jump) right after a
+    -- completed gq: the user formatted text then manually jumped back to
+    -- where they started — exactly what gw does automatically (#109).
+    if was_gq_backtick and key == '`' then
+      seq.last_op = nil
+      seq.key_consumed = true
+      return { pattern = 'gq_then_jumpback', cmd = 'gw' }
+    end
     seq.key_consumed = true
     return nil
   end
@@ -359,6 +416,7 @@ local function inner_feed(seq, key, line)
   end
   if key == 'm' or key == "'" or key == '`' then
     seq.pending_mark = true
+    seq.pending_gq_backtick = key == '`' and seq.last_op == 'gq'
     return nil
   end
   if key == '[' or key == ']' then
@@ -431,6 +489,15 @@ local function inner_feed(seq, key, line)
   if seq.last_op == 'dw' and INSERT_KEYS[key] then
     seq.last_op = nil
     return { pattern = 'dw_then_insert', cmd = 'cw' }
+  end
+
+  -- ── gq → <C-o>: jump back after format, suggest gw (#109) ────────────────
+  -- Raw byte for Ctrl-O (ASCII 15 / 0x0F). <C-o> is already a complete
+  -- "jump back" command on its own (unlike `` ` ``, which needs a second key),
+  -- so this only needs a direct last_op check, not a pending_* prefix state.
+  if key == '\15' and seq.last_op == 'gq' then
+    seq.last_op = nil
+    return { pattern = 'gq_then_jumpback', cmd = 'gw' }
   end
 
   if key ~= 'p' then

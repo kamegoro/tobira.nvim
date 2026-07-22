@@ -90,6 +90,7 @@ return {
       x_then_insert = 'Du hast ein Zeichen gelöscht und bist in den Einfügemodus gewechselt',
       D_then_insert = 'Du hast bis zum Zeilenende gelöscht und angefangen zu tippen',
       dw_then_insert = 'Du hast ein Wort gelöscht und bist in den Einfügemodus gewechselt',
+      gq_then_jumpback = 'Du hast mit gq formatiert und bist danach zur Ausgangsposition zurückgesprungen',
       x_repeat = 'Du hast 3-mal hintereinander einzelne Zeichen gelöscht',
       u_repeat = 'Du hast 3-mal hintereinander rückgängig gemacht',
       j_repeat = 'Du hast 5-mal hintereinander j gedrückt',
@@ -593,6 +594,12 @@ return {
       title = 'gq{motion} — Text umfließen / an Zeilenbreite anpassen',
       body = 'Formatiert den von der Bewegung erfassten Text neu, um bei textwidth umzubrechen\ngqip formatiert den aktuellen Absatz; gqq formatiert die aktuelle Zeile',
       example = 'gqip → aktueller Absatz wird auf die eingestellte Zeilenbreite umformatiert',
+    },
+
+    ['gw'] = {
+      title = 'gw{motion} — formatieren ohne den Cursor zu bewegen',
+      body = 'Wie gq, aber der Cursor kehrt zur Ausgangsposition zurück statt am Ende des formatierten Texts zu landen\nNützlich, wenn du nach gq per `` oder <C-o> zurückspringst',
+      example = 'gwap → Absatz wird neu formatiert, Cursor bleibt an Ort und Stelle',
     },
 
     -- ── join without space ────────────────────────────────────────────────

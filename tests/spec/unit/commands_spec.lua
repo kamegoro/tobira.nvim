@@ -243,6 +243,7 @@ local chain_cases = {
   { 'g~', '~', '~ → g~: swap case of a region' },
   -- format text / join without space
   { 'gq', '.', '. → gq: reflow / format text' },
+  { 'gw', 'gq', 'gq → gw: format without moving the cursor' },
   { 'gJ', 'J', 'J → gJ: join lines without inserting a space' },
   -- repeat last macro
   { '@@', 'q', 'q → @@: repeat the last played macro' },
@@ -378,6 +379,10 @@ describe('tracking integrity', function()
     ['g;'] = true,
     gp = true,
     gu = true,
+    -- pending_gq operator-pending state (#109) — a real operator, not a flat
+    -- two-key target, but it still records last_op = 'gq' on completion via
+    -- the same seq.last_op change-detection mechanism as the entries above.
+    gq = true,
     -- pending_z dispatch table
     zz = true,
     zt = true,
