@@ -12,7 +12,17 @@ local meta = { guide_seen = false }
 local _initialized = false
 local seq = patterns.new_seq()
 local session_counts = {}
-local _loaded_counts = {}
+-- Per-command snapshot of {count, shown, suppressed, pinned, celebrated} as
+-- of the last time `usage` was synced with disk (initial load, or the end of
+-- a previous save()'s merge). merge_with_disk() diffs against this to tell
+-- "I changed this locally" apart from "this has always been the default" —
+-- see merge_with_disk()'s comment for why that distinction matters (#122).
+local _baseline = {}
+-- Per-command count of sessions[] entries appended locally since _baseline
+-- was last synced. An array-length diff can't recover this once the rolling
+-- MAX_SESSIONS cap has evicted entries from either side, so it's tracked
+-- explicitly instead (see merge_with_disk()).
+local _sessions_appended = {}
 -- Commands flushed early via mark_adopted() this session, so close_session()
 -- doesn't also zero-pad or re-append them (see close_session's zero-pad loop).
 local session_adopted = {}
@@ -47,7 +57,46 @@ local function migrate_entry(entry)
   return entry
 end
 
-local function load()
+-- Default baseline shape for a command never before synced with disk —
+-- mirrors the zero-value defaults used everywhere a fresh entry is created.
+local function baseline_of(entry)
+  entry = entry or {}
+  return {
+    count = entry.count or 0,
+    shown = entry.shown or 0,
+    suppressed = entry.suppressed == true,
+    pinned = entry.pinned == true,
+    celebrated = entry.celebrated == true,
+  }
+end
+
+-- guide_seen has no "unsee" path (mark_guide_seen only ever sets it true), so
+-- OR-merging is both correct and safe here: it can never flip a value this
+-- process just set back to false because of a stale disk read, and it still
+-- picks up a concurrent instance's dismissal of the first-run guide instead
+-- of discarding it.
+-- Callers are expected to have already checked `type(disk_meta) == 'table'`
+-- (see load() / save()) — corrupt/absent _meta is filtered out there.
+local function merge_meta(disk_meta)
+  meta.guide_seen = (meta.guide_seen == true) or (disk_meta.guide_seen == true)
+end
+
+-- Rebuild _baseline/_sessions_appended from the current `usage` table.
+-- Called whenever `usage` is freshly (re)synced with disk: setup(),
+-- load_from_disk(), and the end of every save() once the merged result has
+-- been written. Every later save() diffs local changes against this
+-- snapshot (see merge_with_disk()).
+local function sync_baseline()
+  _baseline = {}
+  _sessions_appended = {}
+  for cmd, entry in pairs(usage) do
+    if type(entry) == 'table' then
+      _baseline[cmd] = baseline_of(entry)
+    end
+  end
+end
+
+local function read_disk()
   local f = io.open(data_file, 'r')
   if not f then
     return {}
@@ -58,10 +107,15 @@ local function load()
   if not (ok and type(data) == 'table') then
     return {}
   end
-  if data._meta then
-    meta = vim.tbl_extend('force', meta, data._meta)
-    data._meta = nil
+  return data
+end
+
+local function load()
+  local data = read_disk()
+  if type(data._meta) == 'table' then
+    merge_meta(data._meta)
   end
+  data._meta = nil
   -- Migrate entries from old format on load; reset shown so max_shown is per-session
   for _, entry in pairs(data) do
     if type(entry) == 'table' then
@@ -72,9 +126,122 @@ local function load()
   return data
 end
 
-local function save()
+-- Merge in-memory `usage` with whatever is currently on disk before writing,
+-- so a concurrent Neovim instance's writes are never silently overwritten
+-- (#122). Every save-triggering function (mark_shown, mark_adopted,
+-- set_suppressed, set_pinned, mark_celebrated, close_session, ...) goes
+-- through save() → this single merge point, instead of each duplicating its
+-- own merge logic. Previously only close_session() merged anything, and
+-- only its `.count` field.
+--
+-- Per-field strategy, decided deliberately field by field:
+--
+--   .count : additive. This instance's growth since ITS OWN last sync with
+--     disk (`_baseline`) is real new data (keystrokes counted) that
+--     happened in this process; stacking that delta on top of disk's
+--     current value preserves what every other concurrently running
+--     instance already contributed. This generalizes the delta logic
+--     close_session() already had.
+--
+--   .shown : local value only, never combined with disk. `load()` always
+--     resets in-memory `shown` to 0 so the max_shown display cap is
+--     per-launch, not lifetime. Folding disk's old `.shown` back in the way
+--     `.count` does would quietly turn a per-launch counter into a
+--     cumulative-forever one, which is not what "reset shown so max_shown
+--     is per-session" (see load()) means.
+--
+--   .sessions : union, not overwrite. Two concurrently running instances
+--     can each close a real session; both entries are meaningful input to
+--     the decay/mastery scoring in graph.lua, and neither should be
+--     dropped. Disk's current array (which may already include another
+--     instance's entries) is kept as-is, and only the entries THIS instance
+--     appended since its own baseline are added on top — tracked via
+--     `_sessions_appended` rather than an array-length diff, because the
+--     rolling MAX_SESSIONS cap can evict old entries from either side
+--     without that meaning "no new data". The rolling cap is then
+--     re-applied to the merged result.
+--
+--   .suppressed / .pinned / .celebrated : sticky booleans. If THIS instance
+--     changed the flag since its own baseline, that's a deliberate local
+--     decision (e.g. the user just un-suppressed a command from
+--     :TobiraGuide) and wins outright — this is what keeps the existing
+--     "suppress then un-suppress" round trip working within one instance.
+--     If this instance never touched the flag, whatever is currently on
+--     disk is adopted as-is, which is what lets instance A's set_suppressed
+--     survive instance B's unrelated save. In the pure concurrent-write
+--     case (neither instance touches the other's flag) this behaves like an
+--     OR: once suppressed/pinned by any instance, it stays that way.
+--     `.celebrated` gets the same treatment: it is only ever set, never
+--     unset (there is no "uncelebrate" call anywhere in the codebase — see
+--     suggest.lua's `not logger.is_celebrated(cmd)` guard), so the same
+--     OR-like stickiness matches how it's actually used.
+local function merge_with_disk(disk_data)
+  local merged = {}
+
+  local all_cmds = {}
+  for cmd, entry in pairs(usage) do
+    if type(entry) == 'table' then
+      all_cmds[cmd] = true
+    end
+  end
+  for cmd, entry in pairs(disk_data) do
+    if type(entry) == 'table' then
+      all_cmds[cmd] = true
+    end
+  end
+
+  for cmd in pairs(all_cmds) do
+    local mem_entry = usage[cmd]
+    local disk_entry = type(disk_data[cmd]) == 'table' and disk_data[cmd] or nil
+
+    if mem_entry and disk_entry then
+      local baseline = _baseline[cmd] or baseline_of(nil)
+
+      local mem_sessions = mem_entry.sessions or {}
+      local mem_count = mem_entry.count or 0
+      local mem_suppressed = mem_entry.suppressed == true
+      local mem_pinned = mem_entry.pinned == true
+      local mem_celebrated = mem_entry.celebrated == true
+
+      local count_delta = math.max(0, mem_count - baseline.count)
+
+      local appended = math.min(_sessions_appended[cmd] or 0, #mem_sessions)
+      local new_sessions = vim.deepcopy(disk_entry.sessions or {})
+      for i = #mem_sessions - appended + 1, #mem_sessions do
+        table.insert(new_sessions, mem_sessions[i])
+      end
+      while #new_sessions > MAX_SESSIONS do
+        table.remove(new_sessions, 1)
+      end
+
+      local function merge_flag(mem_val, base_val, disk_val)
+        if mem_val ~= base_val then
+          return mem_val
+        end
+        return disk_val == true
+      end
+
+      merged[cmd] = {
+        count = (disk_entry.count or 0) + count_delta,
+        shown = mem_entry.shown or 0,
+        sessions = new_sessions,
+        suppressed = merge_flag(mem_suppressed, baseline.suppressed, disk_entry.suppressed),
+        pinned = merge_flag(mem_pinned, baseline.pinned, disk_entry.pinned),
+        celebrated = merge_flag(mem_celebrated, baseline.celebrated, disk_entry.celebrated),
+      }
+    elseif mem_entry then
+      merged[cmd] = mem_entry
+    else
+      merged[cmd] = migrate_entry(disk_entry)
+    end
+  end
+
+  return merged
+end
+
+-- Write to a temp file then rename so a crash mid-write can never corrupt the data file.
+local function write_file()
   ensure_dir()
-  -- Write to a temp file then rename so a crash mid-write can never corrupt the data file.
   local tmp = data_file .. '.tmp'
   local f = io.open(tmp, 'w')
   if not f then
@@ -85,6 +252,21 @@ local function save()
   f:write(vim.json.encode(payload))
   f:close()
   os.rename(tmp, data_file)
+end
+
+local function save()
+  ensure_dir()
+
+  local disk_data = read_disk()
+  if type(disk_data._meta) == 'table' then
+    merge_meta(disk_data._meta)
+  end
+  disk_data._meta = nil
+
+  usage = merge_with_disk(disk_data)
+  sync_baseline()
+
+  write_file()
 end
 
 local function increment(cmd)
@@ -231,12 +413,7 @@ function M.setup()
   _initialized = true
 
   usage = load()
-  _loaded_counts = {}
-  for cmd, entry in pairs(usage) do
-    if type(entry) == 'table' then
-      _loaded_counts[cmd] = entry.count or 0
-    end
-  end
+  sync_baseline()
 
   local mode_group = vim.api.nvim_create_augroup('tobira_mode', { clear = true })
 
@@ -281,6 +458,7 @@ end
 function M.close_session()
   for cmd, count in pairs(session_counts) do
     table.insert(usage[cmd].sessions, count)
+    _sessions_appended[cmd] = (_sessions_appended[cmd] or 0) + 1
     while #usage[cmd].sessions > MAX_SESSIONS do
       table.remove(usage[cmd].sessions, 1)
     end
@@ -295,6 +473,7 @@ function M.close_session()
   for cmd, entry in pairs(usage) do
     if session_counts[cmd] == nil and not session_adopted[cmd] then
       table.insert(entry.sessions, 0)
+      _sessions_appended[cmd] = (_sessions_appended[cmd] or 0) + 1
       while #entry.sessions > MAX_SESSIONS do
         table.remove(entry.sessions, 1)
       end
@@ -304,33 +483,8 @@ function M.close_session()
   session_counts = {}
   session_adopted = {}
 
-  -- Re-read disk before writing so that counts accumulated by a concurrent
-  -- Neovim instance are not overwritten (last-writer-wins data loss).
-  -- Strategy: for each command we used this session, add our delta on top of
-  -- whatever disk has now.  Commands we never touched are taken from disk as-is.
-  local disk_f = io.open(data_file, 'r')
-  if disk_f then
-    local content = disk_f:read('*a')
-    disk_f:close()
-    local ok, disk_data = pcall(vim.json.decode, content)
-    if ok and type(disk_data) == 'table' then
-      if disk_data._meta then
-        meta = vim.tbl_extend('force', meta, disk_data._meta)
-        disk_data._meta = nil
-      end
-      for cmd, disk_entry in pairs(disk_data) do
-        if type(disk_entry) == 'table' then
-          if usage[cmd] then
-            local delta = math.max(0, (usage[cmd].count or 0) - (_loaded_counts[cmd] or 0))
-            usage[cmd].count = (disk_entry.count or 0) + delta
-          else
-            usage[cmd] = migrate_entry(disk_entry)
-          end
-        end
-      end
-    end
-  end
-
+  -- save() re-reads disk and merges before writing (see merge_with_disk()),
+  -- so a concurrent Neovim instance's writes are never overwritten here.
   save()
 end
 
@@ -366,6 +520,7 @@ function M.mark_adopted(cmd)
     usage[cmd] = { count = 0, sessions = {}, shown = 0, suppressed = false, pinned = false, celebrated = false }
   end
   table.insert(usage[cmd].sessions, count)
+  _sessions_appended[cmd] = (_sessions_appended[cmd] or 0) + 1
   while #usage[cmd].sessions > MAX_SESSIONS do
     table.remove(usage[cmd].sessions, 1)
   end
@@ -404,7 +559,8 @@ function M.reset()
   usage = {}
   session_counts = {}
   session_adopted = {}
-  _loaded_counts = {}
+  _baseline = {}
+  _sessions_appended = {}
   meta = { guide_seen = false }
   seq = patterns.new_seq()
   insert_seq = patterns_insert.new_insert_seq()
@@ -412,18 +568,32 @@ function M.reset()
   _recording_macro = false
   _initialized = false
   -- Intentionally no disk I/O here. Callers that want disk cleared
-  -- (e.g. :TobiraReset) invoke save() explicitly afterwards, which
-  -- overwrites usage.json with the empty state.
+  -- (e.g. :TobiraReset) invoke clear_disk() explicitly afterwards.
 end
 
 -- Re-read usage from disk without resetting in-memory state.
 -- Used in tests to verify migration of old-format JSON.
 function M.load_from_disk()
   usage = load()
+  sync_baseline()
 end
 
+-- Merge-on-save (see merge_with_disk()) — every other public save path goes
+-- through this.
 function M.save()
   save()
+end
+
+-- Overwrites usage.json unconditionally, bypassing the merge-on-save that
+-- M.save() otherwise does. Used only by :TobiraReset. A full reset is an
+-- explicit "erase everything" user action, not an incremental update — if it
+-- went through the normal merge, an empty in-memory `usage` would just
+-- resurrect every entry a concurrent instance (or a previous run) still has
+-- on disk, and :TobiraReset would silently stop actually resetting anything
+-- (#122).
+function M.clear_disk()
+  write_file()
+  sync_baseline()
 end
 
 -- Exposed for :checkhealth (#42) so health.lua doesn't recompute or duplicate
