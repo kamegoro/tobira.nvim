@@ -18,6 +18,8 @@ function M.new_seq()
     -- r-replacement tracking: r{char} l r{char} l r{char} → R
     pending_r = false,
     r_streak = 0,
+    -- <C-a> sequential-increment tracking: <C-a> j <C-a> j <C-a> → g<C-a> (#108)
+    ca_streak = 0,
     -- visual text-object tracking: v i {obj} c/d/y → c/d/yiw etc.
     pending_visual = false,
     visual_inner = nil,
@@ -326,6 +328,23 @@ local function inner_feed(seq, key, line)
     return nil
   end
 
+  -- ── <C-a>: sequential-increment streak tracking (#108) ────────────────────
+  -- Raw byte for Ctrl-A (ASCII 1 / 0x01). Detects the "increment → move →
+  -- increment" hand-rolled sequence (<C-a> j <C-a> j <C-a>, 3+ times) that
+  -- means the user is manually building a numbered sequence one line at a
+  -- time, and suggests selecting the block with <C-v> and running g<C-a>
+  -- once instead. Same streak-counter shape as r_streak above: increment on
+  -- every occurrence, fire at the 3rd, reset via the tolerated-motion check
+  -- further down (j/k here, in place of r_streak's h/l).
+  if key == '\1' then
+    seq.ca_streak = seq.ca_streak + 1
+    if seq.ca_streak >= 3 then
+      seq.ca_streak = 0
+      return { pattern = 'ca_run', cmd = 'g<C-a>' }
+    end
+    return nil
+  end
+
   -- ── v: start visual text-object tracking ─────────────────────────────────
   if key == 'v' then
     seq.pending_visual = true
@@ -370,6 +389,14 @@ local function inner_feed(seq, key, line)
   -- h and l are safe navigation between replacements; everything else resets.
   if key ~= 'h' and key ~= 'l' then
     seq.r_streak = 0
+  end
+
+  -- ── ca_streak reset for keys that break the C-a increment flow (#108) ────
+  -- j and k are the tolerated connecting motion between increments; any
+  -- other key reaching this point means the sequence wasn't built line by
+  -- line and the streak no longer applies.
+  if key ~= 'j' and key ~= 'k' then
+    seq.ca_streak = 0
   end
 
   -- ── yy → p (duplicate line) ──────────────────────────────────────────────

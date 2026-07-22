@@ -720,6 +720,57 @@ describe('when the user replaces individual characters 3 or more times', functio
   end)
 end)
 
+-- ── <C-a> → j/k → <C-a> × 3: suggest g<C-a> (#108) ───────────────────────────
+-- Raw byte for Ctrl-A (ASCII 1 / 0x01), same convention as ctrl_w below.
+
+describe('when the user increments a number, moves down, and repeats 3 or more times', function()
+  local ctrl_a = '\1'
+
+  it('fires ca_run suggesting g<C-a> after <C-a> j <C-a> j <C-a>', function()
+    local s = seq()
+    patterns.feed(s, ctrl_a, 1) -- 1st increment
+    patterns.feed(s, 'j', 1)
+    patterns.feed(s, ctrl_a, 1) -- 2nd increment
+    patterns.feed(s, 'j', 1)
+    local result = patterns.feed(s, ctrl_a, 1) -- 3rd increment → fires
+    assert.is_not_nil(result)
+    assert.equals('ca_run', result.pattern)
+    assert.equals('g<C-a>', result.cmd)
+  end)
+
+  it('also fires when k is used as the connecting motion instead of j', function()
+    local s = seq()
+    patterns.feed(s, ctrl_a, 1)
+    patterns.feed(s, 'k', 1)
+    patterns.feed(s, ctrl_a, 1)
+    patterns.feed(s, 'k', 1)
+    local result = patterns.feed(s, ctrl_a, 1)
+    assert.is_not_nil(result)
+    assert.equals('ca_run', result.pattern)
+    assert.equals('g<C-a>', result.cmd)
+  end)
+
+  it('does not fire after only 2 increments', function()
+    local s = seq()
+    patterns.feed(s, ctrl_a, 1)
+    patterns.feed(s, 'j', 1)
+    local result = patterns.feed(s, ctrl_a, 1)
+    assert.is_nil(result)
+  end)
+
+  it('resets the streak when an unrelated key separates the increments', function()
+    local s = seq()
+    patterns.feed(s, ctrl_a, 1)
+    patterns.feed(s, 'j', 1)
+    patterns.feed(s, ctrl_a, 1)
+    patterns.feed(s, 'x', 1) -- unrelated key: not j/k, breaks the streak
+    patterns.feed(s, ctrl_a, 1)
+    patterns.feed(s, 'j', 1)
+    local result = patterns.feed(s, ctrl_a, 1)
+    assert.is_nil(result)
+  end)
+end)
+
 -- ── v i {obj} c/d/y → c/d/y + i + {obj} text object shortcut ────────────────
 
 describe('when the user selects an inner text object visually then operates', function()

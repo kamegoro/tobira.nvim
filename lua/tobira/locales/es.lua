@@ -106,6 +106,7 @@ return {
       tilde_repeat = 'Alternaste mayúsculas/minúsculas 3 veces seguidas',
       dot_repeat = 'Repetiste el último cambio 3 veces seguidas',
       J_repeat = 'Uniste líneas 3 veces seguidas',
+      ca_run = 'Incrementaste un número, bajaste una línea y lo repetiste 3 veces',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -384,6 +385,11 @@ return {
       title = '<C-x> — decrementar el número bajo el cursor',
       body = 'El complemento hacia abajo de <C-a> — resta uno al siguiente número\nÚtil para ajustar valores numéricos sin volver a escribirlos a mano',
       example = '<C-x> en "z-index: 10" → "z-index: 9"',
+    },
+    ['g<C-a>'] = {
+      title = 'g<C-a> — incrementar una secuencia en modo bloque visual',
+      body = 'Selecciona las líneas con <C-v> (bloque visual) primero, luego g<C-a> incrementa cada línea un número más que la anterior — convirtiendo números repetidos en una secuencia\nSustituye hacerlo a mano línea por línea: <C-a> → j → <C-a> → j → ...',
+      example = 'Selecciona 3 líneas de "0" con <C-v> → g<C-a> → 1 / 2 / 3',
     },
 
     -- ── visual mode chain ─────────────────────────────────────────────────

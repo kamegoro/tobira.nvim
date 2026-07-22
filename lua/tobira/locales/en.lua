@@ -106,6 +106,7 @@ return {
       tilde_repeat = 'You toggled case 3 times in a row',
       dot_repeat = 'You repeated the last change 3 times in a row',
       J_repeat = 'You joined lines 3 times in a row',
+      ca_run = 'You incremented a number, moved down a line, and repeated it 3 times',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -384,6 +385,11 @@ return {
       title = '<C-x> — decrement the number under the cursor',
       body = 'The downward complement of <C-a> — subtracts one from the next number\nUseful for adjusting numeric values without manual retyping',
       example = '<C-x> on "z-index: 10" → "z-index: 9"',
+    },
+    ['g<C-a>'] = {
+      title = 'g<C-a> — increment a sequence in visual-block mode',
+      body = 'Select the lines with <C-v> (visual block) first, then g<C-a> increments each line one more than the last, turning repeated numbers into a clean sequence\nReplaces doing it the hard way: <C-a> → j → <C-a> → j → ...',
+      example = '<C-v> select 3 lines of "0" → g<C-a> → 1 / 2 / 3',
     },
 
     -- ── visual mode chain ─────────────────────────────────────────────────
