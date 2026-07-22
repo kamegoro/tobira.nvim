@@ -191,6 +191,8 @@ local chain_cases = {
   -- number increment / decrement
   { '<C-a>', 'x', 'x → <C-a>: increment number under cursor' },
   { '<C-x>', '<C-a>', '<C-a> → <C-x>: decrement number under cursor' },
+  -- manual sequential increment → visual-block g<C-a> (#108)
+  { 'g<C-a>', '<C-a>', '<C-a> → g<C-a>: increment a sequence in visual-block mode' },
   -- visual mode chain
   { 'V', 'v', 'v → V: line-wise visual selection' },
   { '<C-v>', 'V', 'V → <C-v>: block visual selection' },
@@ -267,6 +269,7 @@ local chain_cases = {
   { '<C-w>l', '<C-w>w', '<C-w>w → <C-w>l: move to right window' },
   { '<C-w>q', '<C-w>w', '<C-w>w → <C-w>q: close current window' },
   { '<C-w>=', '<C-w>w', '<C-w>w → <C-w>=: equalize all window sizes' },
+  { '<C-w>o', '<C-w>q', '<C-w>q → <C-w>o: close all other windows' },
   -- line-edge motions
   { '$', '^', '^ → $: jump to end of line' },
   { 'g_', '$', '$ → g_: last non-blank character of line' },

@@ -152,6 +152,12 @@ M.registry = {
   ['<C-a>'] = { requires = 'x', track = true, category = 'edit', level = 'intermediate' },
   ['<C-x>'] = { requires = '<C-a>', track = true, category = 'edit', level = 'intermediate' },
 
+  -- ── <C-a> streak → g<C-a> visual-block sequential increment (#108) ──────
+  -- Detected via ca_run (patterns.lua): <C-a> → j/k → <C-a> repeated 3+
+  -- times. track = false: like the other g-prefixed compounds (gg, gu, …),
+  -- there is no pending_g dispatch entry recording literal g<C-a> keypresses.
+  ['g<C-a>'] = { requires = '<C-a>', track = false, category = 'edit', level = 'advanced' },
+
   -- ── v → V → <C-v> visual mode chain ─────────────────────────────────────
   ['V'] = { requires = 'v', track = true, category = 'edit', level = 'beginner' },
   ['<C-v>'] = { requires = 'V', track = true, category = 'edit', level = 'intermediate' },
@@ -324,6 +330,8 @@ M.registry = {
   ['<C-w>l'] = { requires = '<C-w>w', track = false, category = 'window', level = 'intermediate' },
   ['<C-w>q'] = { requires = '<C-w>w', track = false, category = 'window', level = 'intermediate' },
   ['<C-w>='] = { requires = '<C-w>w', track = false, category = 'window', level = 'intermediate' },
+  -- ── <C-w>q / <C-w>c repeated → <C-w>o: close all other windows (#107) ──────
+  ['<C-w>o'] = { requires = '<C-w>q', track = false, category = 'window', level = 'intermediate' },
 
   -- ── l → w / h → b basic word motion (suggested by l_repeat / h_repeat) ───────
   ['w'] = { requires = 'l', track = true, category = 'motion', level = 'beginner' },

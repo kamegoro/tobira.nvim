@@ -104,9 +104,13 @@ return {
       b_repeat = 'Vous avez appuyé sur b 5 fois de suite',
       p_repeat = 'Vous avez collé 3 fois de suite',
       P_repeat = 'Vous avez collé avant le curseur 3 fois de suite',
+      p_then_rightward = 'Vous avez collé puis déplacé le curseur vers la droite plusieurs fois',
+      P_then_rightward = 'Vous avez collé avant le curseur puis déplacé le curseur vers la droite plusieurs fois',
       tilde_repeat = 'Vous avez basculé la casse 3 fois de suite',
       dot_repeat = 'Vous avez répété la dernière modification 3 fois de suite',
       J_repeat = 'Vous avez fusionné des lignes 3 fois de suite',
+      ca_run = "Vous avez incrémenté un nombre, déplacé d'une ligne, et répété cela 3 fois",
+      ctrl_w_close_repeat = 'Vous avez fermé des fenêtres une par une, 2 fois de suite',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -385,6 +389,11 @@ return {
       title = '<C-x> — décrémenter le nombre sous le curseur',
       body = 'Le complément vers le bas de <C-a> — soustrait un au prochain nombre\nUtile pour ajuster des valeurs numériques sans les retaper manuellement',
       example = '<C-x> sur "z-index: 10" → "z-index: 9"',
+    },
+    ['g<C-a>'] = {
+      title = 'g<C-a> — incrémenter une séquence en mode bloc visuel',
+      body = "Sélectionnez d'abord les lignes avec <C-v> (bloc visuel), puis g<C-a> incrémente chaque ligne d'une unité de plus que la précédente — transformant des nombres répétés en séquence\nRemplace la méthode manuelle ligne par ligne : <C-a> → j → <C-a> → j → ...",
+      example = 'Sélectionnez 3 lignes de "0" avec <C-v> → g<C-a> → 1 / 2 / 3',
     },
 
     -- ── visual mode chain ─────────────────────────────────────────────────
@@ -705,6 +714,11 @@ return {
       title = '<C-w>= — égaliser la taille de toutes les fenêtres',
       body = 'Redimensionne toutes les divisions ouvertes à largeur et hauteur égales\nUne remise à zéro rapide quand les divisions deviennent déséquilibrées après un redimensionnement manuel',
       example = '<C-w>= → tous les volets reviennent à des dimensions égales',
+    },
+    ['<C-w>o'] = {
+      title = '<C-w>o — fermer toutes les autres fenêtres',
+      body = 'Ferme toutes les divisions sauf la fenêtre actuelle en une seule touche\nInutile de répéter <C-w>q ou <C-w>c une fois par fenêtre quand vous voulez juste garder une seule fenêtre',
+      example = '<C-w>o → toutes les autres divisions se ferment ; seule la fenêtre actuelle reste',
     },
     ['$'] = {
       title = '$ — sauter à la fin de ligne',

@@ -519,6 +519,83 @@ describe('when p is pressed 3 or more times in a row without a preceding dd', fu
   end)
 end)
 
+-- ── p / P → rightward motion (cursor skips past paste) → gp / gP (#106) ──────
+-- Same "remember the last operation, decide on the next key" design as
+-- yy_then_p / dd_then_p, but the decision spans several following keys
+-- instead of just one — closer in shape to dd_run / r_run's streak tracking.
+
+describe('when the user pastes then moves the cursor right several times', function()
+  it('fires p_then_rightward suggesting gp after p followed by l x3', function()
+    local s = seq()
+    patterns.feed(s, 'p', 1)
+    patterns.feed(s, 'l', 1)
+    patterns.feed(s, 'l', 1)
+    local result = patterns.feed(s, 'l', 1)
+    assert.is_not_nil(result)
+    assert.equals('p_then_rightward', result.pattern)
+    assert.equals('gp', result.cmd)
+  end)
+
+  it('does not fire after only 2 rightward moves', function()
+    local s = seq()
+    patterns.feed(s, 'p', 1)
+    patterns.feed(s, 'l', 1)
+    local result = patterns.feed(s, 'l', 1)
+    assert.is_nil(result)
+  end)
+
+  it('fires with a mix of rightward keys (l, w, $)', function()
+    local s = seq()
+    patterns.feed(s, 'p', 1)
+    patterns.feed(s, 'l', 1)
+    patterns.feed(s, 'w', 1)
+    local result = patterns.feed(s, '$', 1)
+    assert.is_not_nil(result)
+    assert.equals('p_then_rightward', result.pattern)
+    assert.equals('gp', result.cmd)
+  end)
+
+  it('does not fire when a non-motion key interrupts the streak', function()
+    local s = seq()
+    patterns.feed(s, 'p', 1)
+    patterns.feed(s, 'l', 1)
+    patterns.feed(s, 'j', 1) -- interrupt: not a rightward motion
+    patterns.feed(s, 'l', 1)
+    local result = patterns.feed(s, 'l', 1)
+    assert.is_nil(result)
+  end)
+
+  it('does not fire for l x3 with no preceding paste', function()
+    local s = seq()
+    patterns.feed(s, 'l', 1)
+    patterns.feed(s, 'l', 1)
+    local result = patterns.feed(s, 'l', 1)
+    -- l_repeat has a threshold of 5, so 3 plain l presses fire nothing
+    assert.is_nil(result)
+  end)
+end)
+
+describe('when the user pastes before the cursor then moves the cursor right several times', function()
+  it('fires P_then_rightward suggesting gP after P followed by l x3', function()
+    local s = seq()
+    patterns.feed(s, 'P', 1)
+    patterns.feed(s, 'l', 1)
+    patterns.feed(s, 'l', 1)
+    local result = patterns.feed(s, 'l', 1)
+    assert.is_not_nil(result)
+    assert.equals('P_then_rightward', result.pattern)
+    assert.equals('gP', result.cmd)
+  end)
+
+  it('does not fire after only 2 rightward moves', function()
+    local s = seq()
+    patterns.feed(s, 'P', 1)
+    patterns.feed(s, 'l', 1)
+    local result = patterns.feed(s, 'l', 1)
+    assert.is_nil(result)
+  end)
+end)
+
 -- ── $ → a (append at end of line) ────────────────────────────────────────────
 
 describe('when the user moves to end of line then appends', function()
@@ -716,6 +793,57 @@ describe('when the user replaces individual characters 3 or more times', functio
     patterns.feed(s, 'c', 1) -- streak=1
     patterns.feed(s, 'r', 1)
     local result = patterns.feed(s, 'd', 1) -- streak=2, still below threshold
+    assert.is_nil(result)
+  end)
+end)
+
+-- ── <C-a> → j/k → <C-a> × 3: suggest g<C-a> (#108) ───────────────────────────
+-- Raw byte for Ctrl-A (ASCII 1 / 0x01), same convention as ctrl_w below.
+
+describe('when the user increments a number, moves down, and repeats 3 or more times', function()
+  local ctrl_a = '\1'
+
+  it('fires ca_run suggesting g<C-a> after <C-a> j <C-a> j <C-a>', function()
+    local s = seq()
+    patterns.feed(s, ctrl_a, 1) -- 1st increment
+    patterns.feed(s, 'j', 1)
+    patterns.feed(s, ctrl_a, 1) -- 2nd increment
+    patterns.feed(s, 'j', 1)
+    local result = patterns.feed(s, ctrl_a, 1) -- 3rd increment → fires
+    assert.is_not_nil(result)
+    assert.equals('ca_run', result.pattern)
+    assert.equals('g<C-a>', result.cmd)
+  end)
+
+  it('also fires when k is used as the connecting motion instead of j', function()
+    local s = seq()
+    patterns.feed(s, ctrl_a, 1)
+    patterns.feed(s, 'k', 1)
+    patterns.feed(s, ctrl_a, 1)
+    patterns.feed(s, 'k', 1)
+    local result = patterns.feed(s, ctrl_a, 1)
+    assert.is_not_nil(result)
+    assert.equals('ca_run', result.pattern)
+    assert.equals('g<C-a>', result.cmd)
+  end)
+
+  it('does not fire after only 2 increments', function()
+    local s = seq()
+    patterns.feed(s, ctrl_a, 1)
+    patterns.feed(s, 'j', 1)
+    local result = patterns.feed(s, ctrl_a, 1)
+    assert.is_nil(result)
+  end)
+
+  it('resets the streak when an unrelated key separates the increments', function()
+    local s = seq()
+    patterns.feed(s, ctrl_a, 1)
+    patterns.feed(s, 'j', 1)
+    patterns.feed(s, ctrl_a, 1)
+    patterns.feed(s, 'x', 1) -- unrelated key: not j/k, breaks the streak
+    patterns.feed(s, ctrl_a, 1)
+    patterns.feed(s, 'j', 1)
+    local result = patterns.feed(s, ctrl_a, 1)
     assert.is_nil(result)
   end)
 end)
@@ -1167,6 +1295,7 @@ describe('when the user presses <C-w> followed by a window-command key', functio
     { key = 'k', last_op = '<C-w>k' },
     { key = 'l', last_op = '<C-w>l' },
     { key = 'q', last_op = '<C-w>q' },
+    { key = 'c', last_op = '<C-w>c' },
     { key = '=', last_op = '<C-w>=' },
   }
 
@@ -1355,6 +1484,110 @@ describe('when a jump-back is not preceded by a completed gq', function()
   end)
 end)
 
+-- ── <C-w>q / <C-w>c repeated → <C-w>o (#107) ──────────────────────────────────
+-- Closing windows one at a time with <C-w>q or <C-w>c, repeated (or alternated)
+-- 2+ times in a row, means the user wants to get back down to a single window —
+-- <C-w>o (close all other windows) does that in one step.
+
+describe('when the user closes windows one at a time', function()
+  local ctrl_w = '\23'
+
+  local function press(s, key)
+    patterns.feed(s, ctrl_w, 1)
+    return patterns.feed(s, key, 1)
+  end
+
+  it('fires ctrl_w_close_repeat suggesting <C-w>o after two <C-w>q in a row', function()
+    local s = seq()
+    press(s, 'q')
+    local result = press(s, 'q')
+    assert.is_not_nil(result)
+    assert.equals('ctrl_w_close_repeat', result.pattern)
+    assert.equals('<C-w>o', result.cmd)
+  end)
+
+  it('fires ctrl_w_close_repeat suggesting <C-w>o after two <C-w>c in a row', function()
+    local s = seq()
+    press(s, 'c')
+    local result = press(s, 'c')
+    assert.is_not_nil(result)
+    assert.equals('ctrl_w_close_repeat', result.pattern)
+    assert.equals('<C-w>o', result.cmd)
+  end)
+
+  it('fires when <C-w>q is followed by <C-w>c (mixed close actions count together)', function()
+    local s = seq()
+    press(s, 'q')
+    local result = press(s, 'c')
+    assert.is_not_nil(result)
+    assert.equals('ctrl_w_close_repeat', result.pattern)
+    assert.equals('<C-w>o', result.cmd)
+  end)
+
+  it('fires when <C-w>c is followed by <C-w>q (mixed close actions count together)', function()
+    local s = seq()
+    press(s, 'c')
+    local result = press(s, 'q')
+    assert.is_not_nil(result)
+    assert.equals('ctrl_w_close_repeat', result.pattern)
+    assert.equals('<C-w>o', result.cmd)
+  end)
+
+  it('does not fire after only a single <C-w>q', function()
+    local s = seq()
+    local result = press(s, 'q')
+    assert.is_nil(result)
+  end)
+
+  it('does not fire after only a single <C-w>c', function()
+    local s = seq()
+    local result = press(s, 'c')
+    assert.is_nil(result)
+  end)
+
+  it('resets the streak after firing, so a 3rd close does not immediately refire', function()
+    local s = seq()
+    press(s, 'q')
+    press(s, 'q') -- fires here
+    local result = press(s, 'q')
+    assert.is_nil(result)
+  end)
+
+  it('fires again once 2 more closes accumulate after a previous fire', function()
+    local s = seq()
+    press(s, 'q')
+    press(s, 'q') -- fires here
+    press(s, 'q')
+    local result = press(s, 'q')
+    assert.is_not_nil(result)
+    assert.equals('ctrl_w_close_repeat', result.pattern)
+  end)
+
+  it('resets the streak when interrupted by a different window command (<C-w>s)', function()
+    local s = seq()
+    press(s, 'q')
+    press(s, 's') -- interrupt: not a close action
+    local result = press(s, 'q')
+    assert.is_nil(result)
+  end)
+
+  it('resets the streak when interrupted by an unrelated normal-mode key', function()
+    local s = seq()
+    press(s, 'q')
+    patterns.feed(s, 'j', 1) -- interrupt: unrelated key, no <C-w> prefix
+    local result = press(s, 'q')
+    assert.is_nil(result)
+  end)
+
+  it('resets the streak when interrupted by an unrecognised window-command target', function()
+    local s = seq()
+    press(s, 'q')
+    press(s, 'p') -- interrupt: not in ctrl_w_targets at all
+    local result = press(s, 'q')
+    assert.is_nil(result)
+  end)
+end)
+
 -- ── key_consumed flag ─────────────────────────────────────────────────────────
 
 describe('seq.key_consumed', function()
@@ -1499,6 +1732,21 @@ describe('seq.op_completed', function()
     patterns.feed(s, ctrl_w, 1)
     assert.is_false(s.op_completed)
     patterns.feed(s, 'j', 1)
+    assert.is_true(s.op_completed)
+  end)
+
+  -- #107 adds <C-w>c to the pending_ctrl_w dispatch table (it was not tracked
+  -- at all before). Guard against the same #119 undercounting bug reappearing
+  -- on this newly-added entry.
+  it('is true again when a second, identical <C-w>c completes right after the first', function()
+    local ctrl_w = '\23'
+    local s = seq()
+    patterns.feed(s, ctrl_w, 1)
+    patterns.feed(s, 'c', 1)
+    assert.is_true(s.op_completed)
+    patterns.feed(s, ctrl_w, 1)
+    assert.is_false(s.op_completed)
+    patterns.feed(s, 'c', 1)
     assert.is_true(s.op_completed)
   end)
 

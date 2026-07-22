@@ -75,5 +75,5 @@ jobs:
         if: always()
         run: cat luacov.report.out 2>/dev/null || echo "(no report generated)"
 
-      - name: Enforce 100% coverage on core/ modules
+      - name: Enforce 100% coverage on tobira/ modules
         run: python3 .github/scripts/check_coverage.py luacov.report.out

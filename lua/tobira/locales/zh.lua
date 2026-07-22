@@ -104,9 +104,13 @@ return {
       b_repeat = '你连续按了 5 次 b',
       p_repeat = '你连续粘贴了 3 次',
       P_repeat = '你连续在光标前粘贴了 3 次',
+      p_then_rightward = '你粘贴后向右移动光标多次,越过了刚粘贴的内容',
+      P_then_rightward = '你在光标前粘贴后向右移动光标多次,越过了刚粘贴的内容',
       tilde_repeat = '你连续切换了 3 次大小写',
       dot_repeat = '你连续重复了 3 次上次修改',
       J_repeat = '你连续合并了 3 次行',
+      ca_run = '你增加了一个数字、下移一行，并重复了 3 次',
+      ctrl_w_close_repeat = '你连续 2 次逐个关闭窗口',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -385,6 +389,11 @@ return {
       title = '<C-x> — 减少光标下的数字',
       body = '<C-a> 的反向操作 — 将下一个数字减一\n无需手动重新输入即可调整数值',
       example = '<C-x> 在 "z-index: 10" 上 → "z-index: 9"',
+    },
+    ['g<C-a>'] = {
+      title = 'g<C-a> — 在可视块模式下递增序列',
+      body = '先用 <C-v>（可视块）选中多行，再用 g<C-a>，每行会比上一行多加一，把重复的数字变成连续序列\n无需再手动逐行操作：<C-a> → j → <C-a> → j → ...',
+      example = '用 <C-v> 选中3行 "0" → g<C-a> → 1 / 2 / 3',
     },
 
     -- ── visual mode chain ─────────────────────────────────────────────────
@@ -705,6 +714,11 @@ return {
       title = '<C-w>= — 均分所有窗口大小',
       body = '将所有打开的分割调整为相等的宽度和高度\n在手动调整后分割变得不均衡时快速重置',
       example = '<C-w>= → 所有窗格恢复为相等尺寸',
+    },
+    ['<C-w>o'] = {
+      title = '<C-w>o — 关闭其他所有窗口',
+      body = '一键关闭除当前窗口外的所有分割\n只想专注一个窗口时，不必对每个窗口重复按 <C-w>q 或 <C-w>c',
+      example = '<C-w>o → 其他所有分割关闭；只保留当前窗口',
     },
     ['$'] = {
       title = '$ — 跳到行尾',
