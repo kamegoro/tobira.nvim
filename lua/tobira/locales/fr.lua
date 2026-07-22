@@ -90,6 +90,7 @@ return {
       x_then_insert = 'Vous avez supprimé un caractère puis êtes entré en mode insertion',
       D_then_insert = "Vous avez supprimé jusqu'à la fin de ligne puis commencé à taper",
       dw_then_insert = 'Vous avez supprimé un mot puis êtes entré en mode insertion',
+      gq_then_jumpback = 'Vous avez formaté avec gq puis êtes revenu à la position de départ',
       x_repeat = 'Vous avez supprimé des caractères un par un, 3 fois de suite',
       u_repeat = 'Vous avez annulé 3 fois de suite',
       j_repeat = 'Vous avez appuyé sur j 5 fois de suite',
@@ -602,6 +603,12 @@ return {
       title = 'gq{motion} — reformater le texte pour tenir dans la largeur de ligne',
       body = 'Reformate le texte couvert par le mouvement pour passer à la ligne à textwidth\ngqip formate le paragraphe actuel ; gqq formate la ligne actuelle',
       example = 'gqip → le paragraphe actuel est reformaté pour tenir dans la largeur configurée',
+    },
+
+    ['gw'] = {
+      title = 'gw{motion} — reformater le texte sans déplacer le curseur',
+      body = 'Comme gq, mais le curseur revient à sa position de départ au lieu de rester à la fin du texte reformaté\nUtile si vous revenez en arrière avec `` ou <C-o> juste après gq',
+      example = 'gwap → le paragraphe est reformaté, le curseur reste à sa place',
     },
 
     -- ── join without space ────────────────────────────────────────────────

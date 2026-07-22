@@ -1341,6 +1341,149 @@ describe('when the user presses <C-w> followed by a window-command key', functio
   end)
 end)
 
+-- ── gq operator (format) + jump-back → suggest gw ─────────────────────────────
+-- gq is a real Vim operator: unlike gg/gj/gd (simple two-key pending_g targets
+-- that complete immediately), gq needs a further motion (gqq, gqap, gq}) before
+-- it's "done". A completed gq followed immediately by a jump-back (`` ` ` `` or
+-- <C-o>) means the user formatted text, then manually returned to where they
+-- started — exactly what gw already does for free by leaving the cursor in place.
+
+describe('when the user completes a gq format operation', function()
+  it('records last_op = gq for the linewise gqq form', function()
+    local s = seq()
+    patterns.feed(s, 'g', 1)
+    patterns.feed(s, 'q', 1)
+    local result = patterns.feed(s, 'q', 1)
+    assert.is_nil(result)
+    assert.equals('gq', s.last_op)
+    assert.is_true(s.op_completed)
+  end)
+
+  it('records last_op = gq for the gqap text-object form', function()
+    local s = seq()
+    patterns.feed(s, 'g', 1)
+    patterns.feed(s, 'q', 1)
+    patterns.feed(s, 'a', 1)
+    local result = patterns.feed(s, 'p', 1)
+    assert.is_nil(result)
+    assert.equals('gq', s.last_op)
+    assert.is_true(s.op_completed)
+  end)
+
+  it('records last_op = gq for the gq} motion form', function()
+    local s = seq()
+    patterns.feed(s, 'g', 1)
+    patterns.feed(s, 'q', 1)
+    local result = patterns.feed(s, '}', 1)
+    assert.is_nil(result)
+    assert.equals('gq', s.last_op)
+    assert.is_true(s.op_completed)
+  end)
+
+  it('does not complete gq on just g q (still pending a motion)', function()
+    local s = seq()
+    patterns.feed(s, 'g', 1)
+    patterns.feed(s, 'q', 1)
+    assert.is_nil(s.last_op)
+    assert.is_false(s.op_completed)
+  end)
+
+  it('supports a count prefix before the motion (gq3j)', function()
+    local s = seq()
+    patterns.feed(s, 'g', 1)
+    patterns.feed(s, 'q', 1)
+    patterns.feed(s, '3', 1)
+    patterns.feed(s, 'j', 1)
+    assert.equals('gq', s.last_op)
+  end)
+
+  it('cancels a pending gq with Escape', function()
+    local s = seq()
+    patterns.feed(s, 'g', 1)
+    patterns.feed(s, 'q', 1)
+    patterns.feed(s, '\27', 1) -- <Esc>
+    assert.is_nil(s.last_op)
+  end)
+end)
+
+describe('when the user completes gq then jumps back with ` `', function()
+  it('fires gq_then_jumpback suggesting gw', function()
+    local s = seq()
+    patterns.feed(s, 'g', 1)
+    patterns.feed(s, 'q', 1)
+    patterns.feed(s, 'a', 1)
+    patterns.feed(s, 'p', 1) -- gqap completes
+    patterns.feed(s, '`', 1)
+    local result = patterns.feed(s, '`', 1)
+    assert.is_not_nil(result)
+    assert.equals('gq_then_jumpback', result.pattern)
+    assert.equals('gw', result.cmd)
+  end)
+
+  it('fires for the linewise gqq form too', function()
+    local s = seq()
+    patterns.feed(s, 'g', 1)
+    patterns.feed(s, 'q', 1)
+    patterns.feed(s, 'q', 1) -- gqq completes
+    patterns.feed(s, '`', 1)
+    local result = patterns.feed(s, '`', 1)
+    assert.is_not_nil(result)
+    assert.equals('gq_then_jumpback', result.pattern)
+    assert.equals('gw', result.cmd)
+  end)
+end)
+
+describe('when the user completes gq then jumps back with <C-o>', function()
+  it('fires gq_then_jumpback suggesting gw', function()
+    local ctrl_o = '\15'
+    local s = seq()
+    patterns.feed(s, 'g', 1)
+    patterns.feed(s, 'q', 1)
+    patterns.feed(s, 'q', 1) -- gqq completes
+    local result = patterns.feed(s, ctrl_o, 1)
+    assert.is_not_nil(result)
+    assert.equals('gq_then_jumpback', result.pattern)
+    assert.equals('gw', result.cmd)
+  end)
+end)
+
+describe('when a jump-back is not preceded by a completed gq', function()
+  it('does not fire gq_then_jumpback for backtick-backtick on its own', function()
+    local s = seq()
+    patterns.feed(s, '`', 1)
+    local result = patterns.feed(s, '`', 1)
+    assert.is_nil(result)
+  end)
+
+  it('does not fire gq_then_jumpback for <C-o> on its own', function()
+    local ctrl_o = '\15'
+    local s = seq()
+    local result = patterns.feed(s, ctrl_o, 1)
+    assert.is_nil(result)
+  end)
+
+  it('does not fire when gq is followed by a mark jump other than backtick (`a)', function()
+    local s = seq()
+    patterns.feed(s, 'g', 1)
+    patterns.feed(s, 'q', 1)
+    patterns.feed(s, 'q', 1) -- gqq completes
+    patterns.feed(s, '`', 1)
+    local result = patterns.feed(s, 'a', 1)
+    assert.is_nil(result)
+  end)
+
+  it('does not fire when another key separates gq from the jump-back', function()
+    local ctrl_o = '\15'
+    local s = seq()
+    patterns.feed(s, 'g', 1)
+    patterns.feed(s, 'q', 1)
+    patterns.feed(s, 'q', 1) -- gqq completes
+    patterns.feed(s, 'j', 1) -- unrelated key clears last_op
+    local result = patterns.feed(s, ctrl_o, 1)
+    assert.is_nil(result)
+  end)
+end)
+
 -- ── <C-w>q / <C-w>c repeated → <C-w>o (#107) ──────────────────────────────────
 -- Closing windows one at a time with <C-w>q or <C-w>c, repeated (or alternated)
 -- 2+ times in a row, means the user wants to get back down to a single window —

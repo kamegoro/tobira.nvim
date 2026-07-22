@@ -90,6 +90,7 @@ return {
       x_then_insert = 'You deleted a character then entered insert mode',
       D_then_insert = 'You deleted to end of line then started typing',
       dw_then_insert = 'You deleted a word then entered insert mode',
+      gq_then_jumpback = 'You formatted text with gq then jumped back to where you started',
       x_repeat = 'You deleted characters one at a time, 3 in a row',
       u_repeat = 'You undid 3 times in a row',
       j_repeat = 'You pressed j 5 times in a row',
@@ -602,6 +603,13 @@ return {
       title = 'gq{motion} — reflow / format text to fit line width',
       body = 'Reformats the text covered by the motion to wrap at textwidth\ngqip formats the current paragraph; gqq formats the current line',
       example = 'gqip → current paragraph is reflowed to fit the configured line width',
+    },
+
+    -- ── format text without moving the cursor (#109) ────────────────────────
+    ['gw'] = {
+      title = 'gw{motion} — reflow text without moving the cursor',
+      body = 'Same as gq, but the cursor returns to where it started instead of landing at the end of the formatted text\nUseful if you find yourself jumping back with `` or <C-o> right after gq',
+      example = 'gwap → paragraph is reformatted; cursor stays right where you were',
     },
 
     -- ── join without space ────────────────────────────────────────────────
