@@ -12,6 +12,7 @@ end
 
 describe('before any usage is recorded', function()
   before_each(function()
+    wipe_disk()
     logger.reset()
   end)
 
@@ -32,6 +33,7 @@ end)
 
 describe('when a suggestion has been shown to the user', function()
   before_each(function()
+    wipe_disk()
     logger.reset()
   end)
 
@@ -59,6 +61,7 @@ end)
 
 describe('when the user adopts a suggested command', function()
   before_each(function()
+    wipe_disk()
     logger.reset()
   end)
 
@@ -73,6 +76,7 @@ end)
 
 describe('when mark_adopted is called for an unknown command', function()
   before_each(function()
+    wipe_disk()
     logger.reset()
   end)
 
@@ -85,6 +89,7 @@ end)
 
 describe('when mark_adopted is called after 10 sessions have already been stored', function()
   before_each(function()
+    wipe_disk()
     logger.reset()
   end)
 
@@ -101,6 +106,7 @@ end)
 
 describe('when a command has never been celebrated', function()
   before_each(function()
+    wipe_disk()
     logger.reset()
   end)
 
@@ -115,6 +121,7 @@ end)
 
 describe('when a command is marked celebrated', function()
   before_each(function()
+    wipe_disk()
     logger.reset()
   end)
 
@@ -139,6 +146,7 @@ end)
 
 describe('get_session_counts', function()
   before_each(function()
+    wipe_disk()
     logger.reset()
     logger.setup()
     vim.cmd('enew')
@@ -157,6 +165,7 @@ end)
 
 describe('when a command is explicitly suppressed', function()
   before_each(function()
+    wipe_disk()
     logger.reset()
   end)
 
@@ -176,6 +185,7 @@ end)
 
 describe('when a command is pinned to the guide', function()
   before_each(function()
+    wipe_disk()
     logger.reset()
   end)
 
@@ -308,6 +318,7 @@ end)
 
 describe('old-format migration', function()
   before_each(function()
+    wipe_disk()
     logger.reset()
   end)
 
@@ -460,6 +471,7 @@ end)
 
 describe('when ModeChanged fires to operator-pending before the motion arrives', function()
   before_each(function()
+    wipe_disk()
     logger.reset()
     logger.on_pattern = nil
   end)
@@ -508,6 +520,7 @@ end)
 
 describe('when a tracked inefficiency is detected', function()
   before_each(function()
+    wipe_disk()
     logger.reset()
     logger.on_pattern = nil
   end)
@@ -536,6 +549,7 @@ end)
 
 describe('when the user deletes a word then enters insert mode', function()
   before_each(function()
+    wipe_disk()
     logger.reset()
     logger.on_pattern = nil
   end)
@@ -679,6 +693,7 @@ end)
 
 describe('when save is called explicitly', function()
   before_each(function()
+    wipe_disk()
     logger.reset()
   end)
 
@@ -708,6 +723,48 @@ describe('when save is called explicitly', function()
     local ok, err = pcall(logger.save)
     io.open = real_open
     assert.is_true(ok, tostring(err))
+  end)
+end)
+
+-- ── clear_disk (:TobiraReset, #122) ─────────────────────────────────────────
+-- save() deliberately merges with disk so concurrent instances never clobber
+-- each other. :TobiraReset's "erase everything" action needs the opposite
+-- guarantee — an empty in-memory `usage` must actually end up empty on disk,
+-- not get merged back up to whatever was there before. clear_disk() is the
+-- dedicated escape hatch for that one caller.
+
+describe('when clear_disk is called after a reset', function()
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+  end)
+
+  it('erases previously-saved data instead of merging it back in', function()
+    logger.mark_shown('f')
+    logger.set_suppressed(';', true)
+
+    logger.reset()
+    logger.clear_disk()
+    logger.load_from_disk()
+
+    assert.same({}, logger.get_all())
+  end)
+
+  it('differs from save(), which would merge stale disk data back in', function()
+    logger.mark_shown('f')
+
+    logger.reset()
+    -- save() is the merge-aware path — confirms clear_disk() is not simply
+    -- redundant with it. Reading the raw file (rather than load_from_disk(),
+    -- which always resets .shown to 0 for the per-launch max_shown cap) is
+    -- what actually distinguishes "merged back in" from "erased".
+    logger.save()
+
+    local f = io.open(logger.data_file(), 'r')
+    local disk = vim.json.decode(f:read('*a'))
+    f:close()
+
+    assert.is_not_nil(disk.f)
   end)
 end)
 
@@ -752,6 +809,92 @@ describe('when a concurrent Neovim instance has written counts to disk', functio
     logger.close_session()
     logger.load_from_disk()
     assert.equals(5, logger.get('w').count)
+  end)
+end)
+
+-- ── concurrent-instance field protection (#122) ───────────────────────────────
+-- close_session() already merged `.count`; these cover every OTHER
+-- save-triggering function (mark_shown, set_suppressed, ...) and every OTHER
+-- field (.sessions, .suppressed, .pinned, .celebrated), which previously had
+-- no merge at all — a save from any of them clobbered whatever a concurrent
+-- Neovim instance had just written.
+
+describe('when a concurrent Neovim instance has suppressed a command', function()
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    logger.setup()
+  end)
+
+  it("is not lost when this instance's mark_shown saves afterward", function()
+    -- This instance never touches ';' at all — a second, concurrent instance
+    -- suppressed it and wrote that directly to disk.
+    local data_dir = vim.fn.stdpath('data') .. '/tobira'
+    vim.fn.mkdir(data_dir, 'p')
+    local f = io.open(data_dir .. '/usage.json', 'w')
+    f:write(vim.json.encode({
+      [';'] = { count = 0, sessions = {}, shown = 0, suppressed = true, pinned = false, celebrated = false },
+    }))
+    f:close()
+
+    -- This instance is unaware of that and records an unrelated suggestion
+    -- being shown, which used to call save() and overwrite the whole file.
+    logger.mark_shown('other_cmd')
+
+    logger.load_from_disk()
+    assert.is_true(logger.get(';').suppressed)
+  end)
+
+  it('is still un-suppressible by this instance after a concurrent write to a different command', function()
+    logger.set_suppressed('f', true)
+
+    -- A concurrent instance saves something unrelated in between.
+    local data_dir = vim.fn.stdpath('data') .. '/tobira'
+    local disk_f = io.open(data_dir .. '/usage.json', 'r')
+    local disk = vim.json.decode(disk_f:read('*a'))
+    disk_f:close()
+    disk.other_cmd = { count = 1, sessions = {}, shown = 0, suppressed = false, pinned = false, celebrated = false }
+    local write_f = io.open(data_dir .. '/usage.json', 'w')
+    write_f:write(vim.json.encode(disk))
+    write_f:close()
+
+    -- This instance's own explicit un-suppress must still win for its own flag.
+    logger.set_suppressed('f', false)
+
+    logger.load_from_disk()
+    assert.is_false(logger.get('f').suppressed)
+    assert.equals(1, logger.get('other_cmd').count)
+  end)
+end)
+
+describe('when a concurrent Neovim instance has recorded its own session', function()
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    logger.setup()
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'hello world' })
+  end)
+
+  it("retains both instances' recorded sessions instead of one overwriting the other", function()
+    -- This instance uses 'e' twice this session.
+    vim.fn.feedkeys('ee', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+
+    -- A concurrent instance already closed its own session for 'e' and wrote
+    -- that to disk before this instance's close_session runs.
+    local data_dir = vim.fn.stdpath('data') .. '/tobira'
+    vim.fn.mkdir(data_dir, 'p')
+    local f = io.open(data_dir .. '/usage.json', 'w')
+    f:write(vim.json.encode({
+      e = { count = 3, sessions = { 3 }, shown = 0, suppressed = false, pinned = false, celebrated = false },
+    }))
+    f:close()
+
+    logger.close_session()
+    logger.load_from_disk()
+
+    assert.same({ 3, 2 }, logger.get('e').sessions)
   end)
 end)
 
@@ -805,6 +948,7 @@ end)
 
 describe('when a compound operator completes', function()
   before_each(function()
+    wipe_disk()
     logger.reset()
     logger.on_pattern = nil
     logger.setup()
@@ -885,6 +1029,7 @@ end)
 
 describe('when single-char track=true keys are pressed', function()
   before_each(function()
+    wipe_disk()
     logger.reset()
     logger.on_pattern = nil
     logger.setup()
@@ -920,6 +1065,7 @@ end)
 
 describe('when single-char commands that were missing track=true are pressed', function()
   before_each(function()
+    wipe_disk()
     logger.reset()
     logger.on_pattern = nil
     logger.setup()
@@ -962,6 +1108,7 @@ end)
 
 describe('when on_key fires with typed="" (internally-generated key)', function()
   before_each(function()
+    wipe_disk()
     logger.reset()
     logger.on_pattern = nil
     logger.setup()
@@ -980,6 +1127,7 @@ end)
 
 describe('when the user records a macro', function()
   before_each(function()
+    wipe_disk()
     logger.reset()
     logger.on_pattern = nil
     logger.setup()
