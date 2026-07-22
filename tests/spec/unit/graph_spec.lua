@@ -87,6 +87,51 @@ describe('when multiple triggers are active', function()
   end)
 end)
 
+-- ── nil best_cmd guard at the -1 score sentinel (#121) ───────────────────────
+
+describe('when the only offered candidate has trigger_count - cmd_count == -1', function()
+  it('is selected instead of erroring on a nil best_cmd comparison', function()
+    -- #121: best_score starts at -1, so a candidate whose score is exactly
+    -- -1 (a realistic value: trigger used 5 times, suggested cmd used 6)
+    -- fails `score > best_score`, falling into `cmd < best_cmd` while
+    -- best_cmd is still nil -> "attempt to compare string with nil".
+    -- A single-entry suggestions table makes pairs() order a non-issue:
+    -- with only one candidate, it is always the (only) one visited first.
+    local original_suggestions = graph.suggestions
+    graph.suggestions = {
+      w = { cmd = 'w', trigger = 'l', level = 'beginner', category = 'motion' },
+    }
+    local ok, result = pcall(graph.find_best, { l = usage_entry(5), w = usage_entry(6) })
+    graph.suggestions = original_suggestions
+
+    assert.is_true(ok, result)
+    assert.equals('w', result)
+  end)
+end)
+
+describe('when two offered candidates tie at score -1', function()
+  it('still applies the alphabetical tie-break without erroring', function()
+    -- Both candidates score trigger_count(5) - cmd_count(6) == -1. Whichever
+    -- one pairs() visits first must not crash, and the final pick must be
+    -- the alphabetically smaller command regardless of visit order.
+    local original_suggestions = graph.suggestions
+    graph.suggestions = {
+      w = { cmd = 'w', trigger = 'l', level = 'beginner', category = 'motion' },
+      b = { cmd = 'b', trigger = 'h', level = 'beginner', category = 'motion' },
+    }
+    local ok, result = pcall(graph.find_best, {
+      l = usage_entry(5),
+      w = usage_entry(6),
+      h = usage_entry(5),
+      b = usage_entry(6),
+    })
+    graph.suggestions = original_suggestions
+
+    assert.is_true(ok, result)
+    assert.equals('b', result)
+  end)
+end)
+
 -- ── session-based adoption detection ─────────────────────────────────────────
 
 describe('when a command has high average usage over recent sessions', function()
