@@ -576,8 +576,8 @@ describe('when g is pressed in the progress window', function()
         called = true
       end,
     }
-    progress.open()
     local ok, err = pcall(function()
+      progress.open()
       vim.fn.feedkeys('g', 'xt')
       vim.api.nvim_feedkeys('', 'x', false)
     end)
@@ -599,8 +599,8 @@ describe('when s is pressed in the progress window', function()
         called = true
       end,
     }
-    progress.open()
     local ok, err = pcall(function()
+      progress.open()
       vim.fn.feedkeys('s', 'xt')
       vim.api.nvim_feedkeys('', 'x', false)
     end)

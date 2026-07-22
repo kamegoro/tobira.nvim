@@ -44,8 +44,9 @@ describe('config.setup validation', function()
         notified = true
       end
     end
-    config.setup({ idle_delay = 'fast' })
+    local ok, err = pcall(config.setup, { idle_delay = 'fast' })
     vim.notify = orig
+    assert.is_true(ok, err)
     assert.is_true(notified)
     assert.equals(1500, config.values.idle_delay)
   end)
