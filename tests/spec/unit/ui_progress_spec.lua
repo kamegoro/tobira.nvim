@@ -302,6 +302,38 @@ describe('when p is pressed on an adopted skill row at a valid column', function
   end)
 end)
 
+-- ── cursor-to-command mapping under byte/display-width drift (#124) ─────────
+
+describe('when p is pressed over a cell preceded by multiple mastered+pinned cells in the same row', function()
+  before_each(setup)
+  after_each(teardown)
+
+  it('pins the command visually under the cursor, not a neighboring one', function()
+    local usage = logger.get_all()
+    -- '$' and '%' are mastered (level 4, three ★ = 9 bytes for 3 display cols)
+    -- and pinned (● = 3 bytes for 1 display col) — each cell is +8 bytes wider
+    -- than its 14-column display budget. '(' is the cursor target; ')' is the
+    -- neighboring cell the byte-offset bug used to resolve to instead.
+    usage['$'] = entry({ count = 5000, pinned = true })
+    usage['%'] = entry({ count = 5000, pinned = true })
+    usage['('] = entry({ count = 0 })
+    usage[')'] = entry({ count = 0 })
+    progress.open()
+    assert.is_false(logger.get('(').pinned)
+    assert.is_false(logger.get(')').pinned)
+    local buf = vim.api.nvim_get_current_buf()
+    local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+    local row, col = find_pos(lines, '(')
+    assert.is_not_nil(row, 'expected to find ( in the rendered grid')
+    vim.api.nvim_win_set_cursor(0, { row, col })
+    vim.fn.feedkeys('p', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_true(progress.is_open())
+    assert.is_true(logger.get('(').pinned, 'expected ( to be pinned (the cell visually under the cursor)')
+    assert.is_false(logger.get(')').pinned, 'did not expect ) to be pinned (cursor was not over it)')
+  end)
+end)
+
 -- ── H1 status line (#67) ──────────────────────────────────────────────────────
 
 describe('the H1 line', function()

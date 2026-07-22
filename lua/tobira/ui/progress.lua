@@ -294,7 +294,16 @@ local function item_at_cursor()
   if not row_items then
     return nil
   end
-  local cell_idx = math.floor((col - 2) / COL_W) + 1
+  -- `col` from nvim_win_get_cursor() is a BYTE offset, but each cell is a
+  -- fixed-width DISPLAY-COLUMN budget (COL_W): mastery glyphs (★/☆/✗, 3 bytes
+  -- each) and the pin marker (●, 3 bytes) are 1-2 display columns but 3-4x
+  -- that in bytes, so byte offset and display column drift apart as more of
+  -- these multibyte glyphs accumulate earlier in the same row. Convert to a
+  -- display column first so the division by COL_W matches how cells are
+  -- actually laid out (#124).
+  local line = vim.api.nvim_buf_get_lines(_buf, lnum, lnum + 1, false)[1] or ''
+  local disp_col = vim.fn.strdisplaywidth(line:sub(1, col))
+  local cell_idx = math.floor((disp_col - 2) / COL_W) + 1
   if cell_idx < 1 then
     return nil
   end
