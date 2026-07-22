@@ -92,8 +92,10 @@ d or c arrives → pending_op = 'd' | 'c'
 
 While pending_op is set:
   [1-9]            → count digit; keep pending_op (handles d3w)
-  same operator    → linewise; last_op = 'dd'
-  j / k            → linewise; last_op = 'dd' (dj / dk = line delete)
+  same operator    → linewise; last_op = op .. op ('dd' or 'cc'); dd_streak/cc_streak
+                     tracked separately per operator (#118 — a hardcoded 'dd' literal
+                     here used to misattribute every cc as dd)
+  j / k            → linewise; last_op = op .. op (dj/dk / cj/ck = line delete/change)
   i / a            → text-object prefix; set pending_text_obj, wait for next key
   w / b / e / $ …  → charwise motion; last_op = op .. 'w'
   <Esc>            → cancel; clear pending_op

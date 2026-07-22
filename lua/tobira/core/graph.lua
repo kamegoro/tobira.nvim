@@ -224,7 +224,12 @@ function M.find_best(usage, max_shown, max_level)
   max_shown = max_shown or 3
   local max_level_num = max_level and (LEVEL_ORDER[max_level] or 3) or 3
   local best_cmd = nil
-  local best_score = -1
+  -- -math.huge (not -1): a real score can legitimately equal -1 (e.g.
+  -- trigger used 5 times, suggested cmd used 6), which used to collide with
+  -- this sentinel and let `cmd < best_cmd` run while best_cmd was still nil
+  -- (#121). -math.huge can never tie a real score, so best_cmd is always
+  -- non-nil by the time the tie-break branch is reached.
+  local best_score = -math.huge
 
   for cmd, sug in pairs(M.suggestions) do
     local cmd_level_num = LEVEL_ORDER[sug.level] or 1

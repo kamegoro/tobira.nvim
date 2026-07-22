@@ -78,6 +78,9 @@ M.registry = {
   -- ── i → I / a → A line-edge insert ───────────────────────────────────────
   ['I'] = { requires = 'i', track = true, category = 'edit', level = 'intermediate' },
 
+  -- ── 0 → i → gI: true column 1, ignoring indentation ──────────────────────
+  ['gI'] = { requires = 'I', track = false, category = 'edit', level = 'intermediate' },
+
   -- ── G → H → M → L screen navigation ──────────────────────────────────────
   ['H'] = { requires = 'G', track = true, category = 'motion', level = 'intermediate' },
   ['M'] = { requires = 'H', track = true, category = 'motion', level = 'intermediate' },

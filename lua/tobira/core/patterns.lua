@@ -12,6 +12,7 @@ function M.new_seq()
     run = { key = nil, count = 0 },
     pending_text_obj = nil,
     dd_streak = 0,
+    cc_streak = 0,
     indent_streak = 0,
     dedent_streak = 0,
     -- r-replacement tracking: r{char} l r{char} l r{char} → R
@@ -258,16 +259,21 @@ local function inner_feed(seq, key, line)
         return { pattern = 'd_dollar', cmd = 'D' }
       end
     elseif key == op or key == 'j' or key == 'k' then
-      seq.last_op = 'dd'
+      seq.last_op = op .. op -- 'dd' or 'cc' (also dj/dk, cj/ck: linewise, tracked the same)
       seq.op_completed = true
       if key == op then
-        seq.dd_streak = seq.dd_streak + 1
-        if seq.dd_streak >= 3 then
-          seq.dd_streak = 0
-          return { pattern = 'dd_run', cmd = '{n}dd' }
+        if op == 'd' then
+          seq.dd_streak = seq.dd_streak + 1
+          if seq.dd_streak >= 3 then
+            seq.dd_streak = 0
+            return { pattern = 'dd_run', cmd = '{n}dd' }
+          end
+        elseif op == 'c' then
+          seq.cc_streak = seq.cc_streak + 1
         end
       else
         seq.dd_streak = 0
+        seq.cc_streak = 0
       end
     elseif key == 'i' or key == 'a' then
       seq.pending_text_obj = op
@@ -352,8 +358,13 @@ local function inner_feed(seq, key, line)
     return { pattern = 'zero_then_w', cmd = '^' }
   end
 
-  -- ── 0 / ^ → i: suggest I ────────────────────────────────────────────────
-  if key == 'i' and (seq.run.key == '0' or seq.run.key == '^') then
+  -- ── 0 → i: suggest gI (true column 1, unlike I which goes to first non-blank) ──
+  if key == 'i' and seq.run.key == '0' then
+    return { pattern = 'zero_col_then_insert', cmd = 'gI' }
+  end
+
+  -- ── ^ → i: suggest I ─────────────────────────────────────────────────────
+  if key == 'i' and seq.run.key == '^' then
     return { pattern = 'zero_then_insert', cmd = 'I' }
   end
 
@@ -386,6 +397,7 @@ local function inner_feed(seq, key, line)
   if key ~= 'p' then
     seq.last_op = nil
     seq.dd_streak = 0
+    seq.cc_streak = 0
     seq.indent_streak = 0
     seq.dedent_streak = 0
   end
