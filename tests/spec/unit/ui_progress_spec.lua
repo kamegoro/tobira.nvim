@@ -546,14 +546,20 @@ describe('the footer', function()
       assert.is_true(accent_keys[key] == true, 'expected key ' .. key .. ' as an accent chunk in the footer')
     end
     local footer = win_footer_str(vim.fn.win_getid())
-    assert.is_true(footer:find(loc.progress.footer.suppress, 1, true) ~= nil, 'expected the suppress label in the footer')
+    assert.is_true(
+      footer:find(loc.progress.footer.suppress, 1, true) ~= nil,
+      'expected the suppress label in the footer'
+    )
     assert.is_true(footer:find(loc.progress.footer.close, 1, true) ~= nil, 'expected the close label in the footer')
   end)
 
   it('does not also render the footer labels inside the scrollable buffer', function()
     local loc = require('tobira.i18n').load()
     local lines = progress.build(logger.get_all())
-    assert.is_false(lines_contain(lines, loc.progress.footer.suppress), 'footer labels should be a fixed footer, not buffer content')
+    assert.is_false(
+      lines_contain(lines, loc.progress.footer.suppress),
+      'footer labels should be a fixed footer, not buffer content'
+    )
   end)
 end)
 
@@ -565,9 +571,11 @@ describe('when g is pressed in the progress window', function()
 
   it('closes progress and opens the guide panel', function()
     local called = false
-    package.loaded['tobira.ui.guide'] = { open = function()
-      called = true
-    end }
+    package.loaded['tobira.ui.guide'] = {
+      open = function()
+        called = true
+      end,
+    }
     progress.open()
     local ok, err = pcall(function()
       vim.fn.feedkeys('g', 'xt')
@@ -586,9 +594,11 @@ describe('when s is pressed in the progress window', function()
 
   it('closes progress and opens the stats panel', function()
     local called = false
-    package.loaded['tobira.ui.stats'] = { open = function()
-      called = true
-    end }
+    package.loaded['tobira.ui.stats'] = {
+      open = function()
+        called = true
+      end,
+    }
     progress.open()
     local ok, err = pcall(function()
       vim.fn.feedkeys('s', 'xt')
@@ -600,4 +610,3 @@ describe('when s is pressed in the progress window', function()
     assert.is_false(progress.is_open())
   end)
 end)
-

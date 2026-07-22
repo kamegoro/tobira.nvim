@@ -132,12 +132,41 @@ describe('float.reasons locale', function()
   -- individually). Kept as an explicit list so a new pattern with no reason text
   -- is caught here instead of silently falling back at display time.
   local all_patterns = {
-    'b_repeat', 'c_dollar', 'd_dollar', 'D_then_insert', 'dd_run', 'dd_then_insert',
-    'dd_then_p', 'dedent_run', 'dollar_then_append', 'dot_repeat', 'dw_then_insert',
-    'f_repeat', 'h_repeat', 'indent_run', 'j_many', 'j_repeat', 'J_repeat', 'k_many',
-    'k_repeat', 'k_then_o', 'l_repeat', 'n_repeat', 'p_repeat', 'P_repeat', 'r_run',
-    'tilde_repeat', 'u_repeat', 'visual_textobj', 'w_repeat', 'x_repeat', 'x_then_insert',
-    'yy_then_p', 'zero_col_then_insert', 'zero_then_insert', 'zero_then_w',
+    'b_repeat',
+    'c_dollar',
+    'd_dollar',
+    'D_then_insert',
+    'dd_run',
+    'dd_then_insert',
+    'dd_then_p',
+    'dedent_run',
+    'dollar_then_append',
+    'dot_repeat',
+    'dw_then_insert',
+    'f_repeat',
+    'h_repeat',
+    'indent_run',
+    'j_many',
+    'j_repeat',
+    'J_repeat',
+    'k_many',
+    'k_repeat',
+    'k_then_o',
+    'l_repeat',
+    'n_repeat',
+    'p_repeat',
+    'P_repeat',
+    'r_run',
+    'tilde_repeat',
+    'u_repeat',
+    'visual_textobj',
+    'w_repeat',
+    'x_repeat',
+    'x_then_insert',
+    'yy_then_p',
+    'zero_col_then_insert',
+    'zero_then_insert',
+    'zero_then_w',
   }
 
   it('has a non-empty reason string in en.lua for every pattern patterns.lua can fire', function()
@@ -227,4 +256,3 @@ describe('guide.more_suffix (#96)', function()
     assert.is_not_nil(ja.guide.more_suffix:find('%d', 1, true))
   end)
 end)
-

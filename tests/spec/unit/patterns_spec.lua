@@ -123,17 +123,17 @@ end)
 -- x, u, j, k, n all share the same "fire after N presses" structure.
 
 local run_cases = {
-  { key = 'x', threshold = 3, pattern = 'x_repeat',     cmd = '{n}x'  },
-  { key = 'u', threshold = 3, pattern = 'u_repeat',     cmd = '<C-r>' },
-  { key = 'j', threshold = 5, pattern = 'j_repeat',     cmd = '{n}j'  },
-  { key = 'k', threshold = 5, pattern = 'k_repeat',     cmd = '{n}k'  },
-  { key = 'n', threshold = 4, pattern = 'n_repeat',     cmd = 'cgn'   },
-  { key = 'w', threshold = 5, pattern = 'w_repeat',     cmd = 'W'     },
-  { key = 'b', threshold = 5, pattern = 'b_repeat',     cmd = 'B'     },
-  { key = 'P', threshold = 3, pattern = 'P_repeat',     cmd = '{n}P'  },
-  { key = '~', threshold = 3, pattern = 'tilde_repeat', cmd = '{n}~'  },
-  { key = '.', threshold = 3, pattern = 'dot_repeat',   cmd = '{n}.'  },
-  { key = 'J', threshold = 3, pattern = 'J_repeat',     cmd = '{n}J'  },
+  { key = 'x', threshold = 3, pattern = 'x_repeat', cmd = '{n}x' },
+  { key = 'u', threshold = 3, pattern = 'u_repeat', cmd = '<C-r>' },
+  { key = 'j', threshold = 5, pattern = 'j_repeat', cmd = '{n}j' },
+  { key = 'k', threshold = 5, pattern = 'k_repeat', cmd = '{n}k' },
+  { key = 'n', threshold = 4, pattern = 'n_repeat', cmd = 'cgn' },
+  { key = 'w', threshold = 5, pattern = 'w_repeat', cmd = 'W' },
+  { key = 'b', threshold = 5, pattern = 'b_repeat', cmd = 'B' },
+  { key = 'P', threshold = 3, pattern = 'P_repeat', cmd = '{n}P' },
+  { key = '~', threshold = 3, pattern = 'tilde_repeat', cmd = '{n}~' },
+  { key = '.', threshold = 3, pattern = 'dot_repeat', cmd = '{n}.' },
+  { key = 'J', threshold = 3, pattern = 'J_repeat', cmd = '{n}J' },
 }
 
 for _, tc in ipairs(run_cases) do
@@ -165,11 +165,15 @@ end
 describe('when j is pressed 10 times in a row', function()
   it('fires j_repeat at 5 and then j_many at 10 suggesting }', function()
     local s = seq()
-    for _ = 1, 4 do patterns.feed(s, 'j', 1) end
+    for _ = 1, 4 do
+      patterns.feed(s, 'j', 1)
+    end
     local at5 = patterns.feed(s, 'j', 1)
     assert.is_not_nil(at5)
     assert.equals('j_repeat', at5.pattern)
-    for _ = 1, 4 do patterns.feed(s, 'j', 1) end
+    for _ = 1, 4 do
+      patterns.feed(s, 'j', 1)
+    end
     local at10 = patterns.feed(s, 'j', 1)
     assert.is_not_nil(at10)
     assert.equals('j_many', at10.pattern)
@@ -178,12 +182,16 @@ describe('when j is pressed 10 times in a row', function()
 
   it('does not fire j_many at 9 presses', function()
     local s = seq()
-    for _ = 1, 9 do patterns.feed(s, 'j', 1) end
+    for _ = 1, 9 do
+      patterns.feed(s, 'j', 1)
+    end
     -- press 9: nothing fires (j_repeat already fired at 5)
     -- just verify j_many hasn't fired (result may be nil, that's fine)
     -- re-feed 9th to capture return value
     local s2 = seq()
-    for _ = 1, 8 do patterns.feed(s2, 'j', 1) end
+    for _ = 1, 8 do
+      patterns.feed(s2, 'j', 1)
+    end
     local result = patterns.feed(s2, 'j', 1)
     if result then
       assert.is_not_equal('j_many', result.pattern)
@@ -194,11 +202,15 @@ end)
 describe('when k is pressed 10 times in a row', function()
   it('fires k_repeat at 5 and then k_many at 10 suggesting {', function()
     local s = seq()
-    for _ = 1, 4 do patterns.feed(s, 'k', 1) end
+    for _ = 1, 4 do
+      patterns.feed(s, 'k', 1)
+    end
     local at5 = patterns.feed(s, 'k', 1)
     assert.is_not_nil(at5)
     assert.equals('k_repeat', at5.pattern)
-    for _ = 1, 4 do patterns.feed(s, 'k', 1) end
+    for _ = 1, 4 do
+      patterns.feed(s, 'k', 1)
+    end
     local at10 = patterns.feed(s, 'k', 1)
     assert.is_not_nil(at10)
     assert.equals('k_many', at10.pattern)
@@ -241,9 +253,11 @@ describe('when the user presses dd 3 or more times in a row', function()
   it('fires dd_run suggesting {n}dd', function()
     local s = seq()
     -- 1st dd
-    patterns.feed(s, 'd', 1) ; patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'd', 1)
     -- 2nd dd
-    patterns.feed(s, 'd', 1) ; patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'd', 1)
     -- 3rd dd
     patterns.feed(s, 'd', 1)
     local result = patterns.feed(s, 'd', 1)
@@ -254,7 +268,8 @@ describe('when the user presses dd 3 or more times in a row', function()
 
   it('does not fire after only 2 consecutive dd', function()
     local s = seq()
-    patterns.feed(s, 'd', 1) ; patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'd', 1)
     patterns.feed(s, 'd', 1)
     local result = patterns.feed(s, 'd', 1)
     assert.is_nil(result)
@@ -262,10 +277,13 @@ describe('when the user presses dd 3 or more times in a row', function()
 
   it('resets the streak when interrupted by a non-delete key', function()
     local s = seq()
-    patterns.feed(s, 'd', 1) ; patterns.feed(s, 'd', 1)
-    patterns.feed(s, 'd', 1) ; patterns.feed(s, 'd', 1)
-    patterns.feed(s, 'j', 1)  -- interrupt
-    patterns.feed(s, 'd', 1) ; patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'j', 1) -- interrupt
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'd', 1)
     patterns.feed(s, 'd', 1)
     local result = patterns.feed(s, 'd', 1)
     assert.is_nil(result)
@@ -274,10 +292,12 @@ describe('when the user presses dd 3 or more times in a row', function()
   it('resets the streak when dd is followed by p (dd→p pattern)', function()
     local s = seq()
     -- dd → p: swap lines, not a deletion streak
-    patterns.feed(s, 'd', 1) ; patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'd', 1)
     patterns.feed(s, 'p', 1)
     -- Now two more dd: not enough for dd_run
-    patterns.feed(s, 'd', 1) ; patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'd', 1)
     patterns.feed(s, 'd', 1)
     local result = patterns.feed(s, 'd', 1)
     assert.is_nil(result)
@@ -619,7 +639,7 @@ describe('when the user deletes one character then enters insert mode', function
     local s = seq()
     patterns.feed(s, 'x', 1)
     patterns.feed(s, 'x', 1)
-    patterns.feed(s, 'x', 1)  -- x_repeat fires here
+    patterns.feed(s, 'x', 1) -- x_repeat fires here
     local result = patterns.feed(s, 'i', 1)
     assert.is_nil(result)
   end)
@@ -661,12 +681,14 @@ end)
 describe('when the user replaces individual characters 3 or more times', function()
   it('fires r_run suggesting R after r{char} × 3', function()
     local s = seq()
-    patterns.feed(s, 'r', 1) ; patterns.feed(s, 'a', 1)  -- 1st replacement
-    patterns.feed(s, 'l', 1)                               -- navigate
-    patterns.feed(s, 'r', 1) ; patterns.feed(s, 'b', 1)  -- 2nd replacement
+    patterns.feed(s, 'r', 1)
+    patterns.feed(s, 'a', 1) -- 1st replacement
+    patterns.feed(s, 'l', 1) -- navigate
+    patterns.feed(s, 'r', 1)
+    patterns.feed(s, 'b', 1) -- 2nd replacement
     patterns.feed(s, 'l', 1)
-    patterns.feed(s, 'r', 1)                               -- 3rd r
-    local result = patterns.feed(s, 'c', 1)               -- replacement char → fires
+    patterns.feed(s, 'r', 1) -- 3rd r
+    local result = patterns.feed(s, 'c', 1) -- replacement char → fires
     assert.is_not_nil(result)
     assert.equals('r_run', result.pattern)
     assert.equals('R', result.cmd)
@@ -674,7 +696,8 @@ describe('when the user replaces individual characters 3 or more times', functio
 
   it('does not fire after only 2 replacements', function()
     local s = seq()
-    patterns.feed(s, 'r', 1) ; patterns.feed(s, 'a', 1)
+    patterns.feed(s, 'r', 1)
+    patterns.feed(s, 'a', 1)
     patterns.feed(s, 'l', 1)
     patterns.feed(s, 'r', 1)
     local result = patterns.feed(s, 'b', 1)
@@ -683,13 +706,16 @@ describe('when the user replaces individual characters 3 or more times', functio
 
   it('resets the streak when a non-navigation key appears between replacements', function()
     local s = seq()
-    patterns.feed(s, 'r', 1) ; patterns.feed(s, 'a', 1)  -- streak=1
-    patterns.feed(s, 'r', 1) ; patterns.feed(s, 'b', 1)  -- streak=2
-    patterns.feed(s, 'j', 1)  -- j resets streak to 0
-    -- Only 2 more replacements after the reset: not enough to fire
-    patterns.feed(s, 'r', 1) ; patterns.feed(s, 'c', 1)  -- streak=1
     patterns.feed(s, 'r', 1)
-    local result = patterns.feed(s, 'd', 1)               -- streak=2, still below threshold
+    patterns.feed(s, 'a', 1) -- streak=1
+    patterns.feed(s, 'r', 1)
+    patterns.feed(s, 'b', 1) -- streak=2
+    patterns.feed(s, 'j', 1) -- j resets streak to 0
+    -- Only 2 more replacements after the reset: not enough to fire
+    patterns.feed(s, 'r', 1)
+    patterns.feed(s, 'c', 1) -- streak=1
+    patterns.feed(s, 'r', 1)
+    local result = patterns.feed(s, 'd', 1) -- streak=2, still below threshold
     assert.is_nil(result)
   end)
 end)
@@ -741,7 +767,7 @@ describe('when the user selects an inner text object visually then operates', fu
   it('cancels when a non-i/a key follows v', function()
     local s = seq()
     patterns.feed(s, 'v', 1)
-    patterns.feed(s, 'j', 1)  -- visual line-select, not a text object
+    patterns.feed(s, 'j', 1) -- visual line-select, not a text object
     local result = patterns.feed(s, 'c', 1)
     assert.is_nil(result)
   end)
@@ -750,8 +776,8 @@ describe('when the user selects an inner text object visually then operates', fu
     local s = seq()
     patterns.feed(s, 'v', 1)
     patterns.feed(s, 'i', 1)
-    patterns.feed(s, 'w', 1)  -- visual_obj is now set
-    patterns.feed(s, 'j', 1)  -- not c/d/y → cancel
+    patterns.feed(s, 'w', 1) -- visual_obj is now set
+    patterns.feed(s, 'j', 1) -- not c/d/y → cancel
     local result = patterns.feed(s, 'c', 1)
     assert.is_nil(result)
   end)
@@ -792,7 +818,7 @@ describe('when the user deletes to end of line with d$', function()
   it('does not fire dollar_then_append when $ follows an insert after d$', function()
     local s = seq()
     patterns.feed(s, 'd', 1)
-    patterns.feed(s, '$', 1)  -- fires d_dollar, clears last_op
+    patterns.feed(s, '$', 1) -- fires d_dollar, clears last_op
     local result = patterns.feed(s, 'a', 1)
     if result then
       assert.is_not_equal('dollar_then_append', result.pattern)
@@ -835,8 +861,10 @@ end)
 describe('when the user indents the current line 3 or more times in a row', function()
   it('fires indent_run suggesting {n}>>', function()
     local s = seq()
-    patterns.feed(s, '>', 1) ; patterns.feed(s, '>', 1)
-    patterns.feed(s, '>', 1) ; patterns.feed(s, '>', 1)
+    patterns.feed(s, '>', 1)
+    patterns.feed(s, '>', 1)
+    patterns.feed(s, '>', 1)
+    patterns.feed(s, '>', 1)
     patterns.feed(s, '>', 1)
     local result = patterns.feed(s, '>', 1)
     assert.is_not_nil(result)
@@ -846,7 +874,8 @@ describe('when the user indents the current line 3 or more times in a row', func
 
   it('does not fire after only 2 consecutive >>', function()
     local s = seq()
-    patterns.feed(s, '>', 1) ; patterns.feed(s, '>', 1)
+    patterns.feed(s, '>', 1)
+    patterns.feed(s, '>', 1)
     patterns.feed(s, '>', 1)
     local result = patterns.feed(s, '>', 1)
     assert.is_nil(result)
@@ -854,10 +883,13 @@ describe('when the user indents the current line 3 or more times in a row', func
 
   it('resets the streak when interrupted by a non-indent key', function()
     local s = seq()
-    patterns.feed(s, '>', 1) ; patterns.feed(s, '>', 1)
-    patterns.feed(s, '>', 1) ; patterns.feed(s, '>', 1)
+    patterns.feed(s, '>', 1)
+    patterns.feed(s, '>', 1)
+    patterns.feed(s, '>', 1)
+    patterns.feed(s, '>', 1)
     patterns.feed(s, 'j', 1)
-    patterns.feed(s, '>', 1) ; patterns.feed(s, '>', 1)
+    patterns.feed(s, '>', 1)
+    patterns.feed(s, '>', 1)
     patterns.feed(s, '>', 1)
     local result = patterns.feed(s, '>', 1)
     assert.is_nil(result)
@@ -866,12 +898,16 @@ describe('when the user indents the current line 3 or more times in a row', func
   it('resets the streak when > is followed by a non-> motion (e.g. >j)', function()
     local s = seq()
     -- Build up a streak of 2
-    patterns.feed(s, '>', 1) ; patterns.feed(s, '>', 1)
-    patterns.feed(s, '>', 1) ; patterns.feed(s, '>', 1)
+    patterns.feed(s, '>', 1)
+    patterns.feed(s, '>', 1)
+    patterns.feed(s, '>', 1)
+    patterns.feed(s, '>', 1)
     -- >j: operator > but motion j, not >>  → resets streak
-    patterns.feed(s, '>', 1) ; patterns.feed(s, 'j', 1)
+    patterns.feed(s, '>', 1)
+    patterns.feed(s, 'j', 1)
     -- Two more >>: only 2, not enough for threshold
-    patterns.feed(s, '>', 1) ; patterns.feed(s, '>', 1)
+    patterns.feed(s, '>', 1)
+    patterns.feed(s, '>', 1)
     patterns.feed(s, '>', 1)
     local result = patterns.feed(s, '>', 1)
     assert.is_nil(result)
@@ -883,8 +919,10 @@ end)
 describe('when the user dedents the current line 3 or more times in a row', function()
   it('fires dedent_run suggesting {n}<<', function()
     local s = seq()
-    patterns.feed(s, '<', 1) ; patterns.feed(s, '<', 1)
-    patterns.feed(s, '<', 1) ; patterns.feed(s, '<', 1)
+    patterns.feed(s, '<', 1)
+    patterns.feed(s, '<', 1)
+    patterns.feed(s, '<', 1)
+    patterns.feed(s, '<', 1)
     patterns.feed(s, '<', 1)
     local result = patterns.feed(s, '<', 1)
     assert.is_not_nil(result)
@@ -894,7 +932,8 @@ describe('when the user dedents the current line 3 or more times in a row', func
 
   it('does not fire after only 2 consecutive <<', function()
     local s = seq()
-    patterns.feed(s, '<', 1) ; patterns.feed(s, '<', 1)
+    patterns.feed(s, '<', 1)
+    patterns.feed(s, '<', 1)
     patterns.feed(s, '<', 1)
     local result = patterns.feed(s, '<', 1)
     assert.is_nil(result)
@@ -963,7 +1002,7 @@ describe('when the user sets a mark with m', function()
 end)
 
 describe("when the user jumps to a mark with '", function()
-  it("swallows the mark name so it cannot trigger k_then_o", function()
+  it('swallows the mark name so it cannot trigger k_then_o', function()
     local s = seq()
     patterns.feed(s, 'k', 1)
     patterns.feed(s, "'", 1)
@@ -1018,6 +1057,10 @@ describe('when the user presses g followed by a motion key', function()
     { key = 'n', last_op = 'gn' },
     { key = 'x', last_op = 'gx' },
     { key = '0', last_op = 'g0' },
+    -- #120: change-list nav / paste-without-jump / case-operator chains
+    { key = ';', last_op = 'g;' },
+    { key = 'p', last_op = 'gp' },
+    { key = 'u', last_op = 'gu' },
   }
 
   for _, tc in ipairs(cases) do
@@ -1105,6 +1148,67 @@ describe('when the user presses z followed by a view command key', function()
     patterns.feed(s, 'z', 1)
     patterns.feed(s, 'z', 1)
     assert.is_false(s.key_consumed)
+  end)
+end)
+
+-- ── <C-w> / pending_ctrl_w two-key compound tracking (#120) ───────────────────
+-- Raw byte for Ctrl-W is ASCII 23 ('\23'), matching the byte vim.on_key
+-- delivers and the literal used in patterns.lua — see logger_spec.lua's
+-- integration-level coverage for the vim.api.nvim_replace_termcodes version.
+
+describe('when the user presses <C-w> followed by a window-command key', function()
+  local ctrl_w = '\23'
+  local cases = {
+    { key = 's', last_op = '<C-w>s' },
+    { key = 'v', last_op = '<C-w>v' },
+    { key = 'w', last_op = '<C-w>w' },
+    { key = 'h', last_op = '<C-w>h' },
+    { key = 'j', last_op = '<C-w>j' },
+    { key = 'k', last_op = '<C-w>k' },
+    { key = 'l', last_op = '<C-w>l' },
+    { key = 'q', last_op = '<C-w>q' },
+    { key = '=', last_op = '<C-w>=' },
+  }
+
+  for _, tc in ipairs(cases) do
+    it('records last_op = ' .. tc.last_op, function()
+      local s = seq()
+      patterns.feed(s, ctrl_w, 1)
+      patterns.feed(s, tc.key, 1)
+      assert.equals(tc.last_op, s.last_op)
+    end)
+  end
+
+  it('does not set last_op for an unrecognised window-command target', function()
+    local s = seq()
+    patterns.feed(s, ctrl_w, 1)
+    patterns.feed(s, 'p', 1)
+    assert.is_nil(s.last_op)
+  end)
+
+  it('clears pending_ctrl_w after the second key', function()
+    local s = seq()
+    patterns.feed(s, ctrl_w, 1)
+    patterns.feed(s, 'w', 1)
+    assert.is_false(s.pending_ctrl_w)
+  end)
+
+  it('does not set key_consumed on the second key', function()
+    local s = seq()
+    patterns.feed(s, ctrl_w, 1)
+    patterns.feed(s, 'w', 1)
+    assert.is_false(s.key_consumed)
+  end)
+
+  it('does not confuse a second <C-w> byte with the literal w target', function()
+    -- <C-w><C-w> is a valid Vim window command (cycle window) but uses two
+    -- raw Ctrl-W bytes, not <C-w> + literal 'w'. This case is intentionally
+    -- not in ctrl_w_targets — see logger_spec.lua's assertion that repeated
+    -- <C-w> must never be conflated with the insert-mode <C-w> command.
+    local s = seq()
+    patterns.feed(s, ctrl_w, 1)
+    patterns.feed(s, ctrl_w, 1)
+    assert.is_nil(s.last_op)
   end)
 end)
 
@@ -1236,6 +1340,22 @@ describe('seq.op_completed', function()
     patterns.feed(s, 'd', 1)
     assert.is_false(s.op_completed)
     patterns.feed(s, 'w', 1)
+    assert.is_true(s.op_completed)
+  end)
+
+  -- #120's pending_ctrl_w dispatch table was added after op_completed (#119)
+  -- already existed elsewhere in this file (pending_g / pending_z), so its
+  -- last_op assignment needed the same flag added by hand during the merge —
+  -- this guards against that path silently regressing to the #119 bug.
+  it('is true again when a second, identical <C-w>j completes right after the first', function()
+    local ctrl_w = '\23'
+    local s = seq()
+    patterns.feed(s, ctrl_w, 1)
+    patterns.feed(s, 'j', 1)
+    assert.is_true(s.op_completed)
+    patterns.feed(s, ctrl_w, 1)
+    assert.is_false(s.op_completed)
+    patterns.feed(s, 'j', 1)
     assert.is_true(s.op_completed)
   end)
 
