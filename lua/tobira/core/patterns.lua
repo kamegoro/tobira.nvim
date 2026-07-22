@@ -31,6 +31,13 @@ function M.new_seq()
     -- set true by M.feed when the key was the second char of a compound;
     -- logger uses this to skip standalone TRACK counting for that key
     key_consumed = false,
+    -- set true by M.feed on the exact call that freshly assigns seq.last_op
+    -- (a compound operation just completed). logger.lua increments usage
+    -- from this flag rather than comparing last_op's value before/after —
+    -- a value comparison can't tell "the same compound completed again"
+    -- from "nothing happened", which undercounted back-to-back repeats of
+    -- the same compound (dd dd, dw dw, …) — see #119.
+    op_completed = false,
   }
 end
 
@@ -72,6 +79,7 @@ local function inner_feed(seq, key, line)
     }
     if g_targets[key] then
       seq.last_op = g_targets[key]
+      seq.op_completed = true
     end
     return nil
   end
@@ -93,6 +101,7 @@ local function inner_feed(seq, key, line)
     }
     if z_targets[key] then
       seq.last_op = z_targets[key]
+      seq.op_completed = true
     end
     return nil
   end
@@ -192,6 +201,7 @@ local function inner_feed(seq, key, line)
     local op = seq.pending_text_obj
     seq.pending_text_obj = nil
     seq.last_op = op .. 'w'
+    seq.op_completed = true
     return nil
   end
 
@@ -210,6 +220,7 @@ local function inner_feed(seq, key, line)
     if op == '>' or op == '<' then
       if key == op then
         seq.last_op = op .. op -- '>>' or '<<' for compound tracking
+        seq.op_completed = true
         if op == '>' then
           seq.indent_streak = seq.indent_streak + 1
           if seq.indent_streak == 3 then
@@ -234,6 +245,7 @@ local function inner_feed(seq, key, line)
     if op == 'y' then
       if key == 'y' then
         seq.last_op = 'yy'
+        seq.op_completed = true
       end
       return nil
     end
@@ -247,6 +259,7 @@ local function inner_feed(seq, key, line)
       end
     elseif key == op or key == 'j' or key == 'k' then
       seq.last_op = 'dd'
+      seq.op_completed = true
       if key == op then
         seq.dd_streak = seq.dd_streak + 1
         if seq.dd_streak >= 3 then
@@ -260,6 +273,7 @@ local function inner_feed(seq, key, line)
       seq.pending_text_obj = op
     else
       seq.last_op = op .. 'w'
+      seq.op_completed = true
     end
     return nil
   end
@@ -420,6 +434,7 @@ end
 
 function M.feed(seq, key, line)
   seq.key_consumed = false -- reset before each call; handlers set true when consuming
+  seq.op_completed = false -- reset before each call; handlers set true when last_op is freshly set
   local result = inner_feed(seq, key, line)
   return result
 end
