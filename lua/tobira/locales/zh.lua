@@ -108,6 +108,7 @@ return {
       tilde_repeat = '你连续切换了 3 次大小写',
       dot_repeat = '你连续重复了 3 次上次修改',
       J_repeat = '你连续合并了 3 次行',
+      ctrl_w_close_repeat = '你连续 2 次逐个关闭窗口',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -700,6 +701,11 @@ return {
       title = '<C-w>= — 均分所有窗口大小',
       body = '将所有打开的分割调整为相等的宽度和高度\n在手动调整后分割变得不均衡时快速重置',
       example = '<C-w>= → 所有窗格恢复为相等尺寸',
+    },
+    ['<C-w>o'] = {
+      title = '<C-w>o — 关闭其他所有窗口',
+      body = '一键关闭除当前窗口外的所有分割\n只想专注一个窗口时，不必对每个窗口重复按 <C-w>q 或 <C-w>c',
+      example = '<C-w>o → 其他所有分割关闭；只保留当前窗口',
     },
     ['$'] = {
       title = '$ — 跳到行尾',

@@ -1244,6 +1244,7 @@ describe('when the user presses <C-w> followed by a window-command key', functio
     { key = 'k', last_op = '<C-w>k' },
     { key = 'l', last_op = '<C-w>l' },
     { key = 'q', last_op = '<C-w>q' },
+    { key = 'c', last_op = '<C-w>c' },
     { key = '=', last_op = '<C-w>=' },
   }
 
@@ -1286,6 +1287,110 @@ describe('when the user presses <C-w> followed by a window-command key', functio
     patterns.feed(s, ctrl_w, 1)
     patterns.feed(s, ctrl_w, 1)
     assert.is_nil(s.last_op)
+  end)
+end)
+
+-- ── <C-w>q / <C-w>c repeated → <C-w>o (#107) ──────────────────────────────────
+-- Closing windows one at a time with <C-w>q or <C-w>c, repeated (or alternated)
+-- 2+ times in a row, means the user wants to get back down to a single window —
+-- <C-w>o (close all other windows) does that in one step.
+
+describe('when the user closes windows one at a time', function()
+  local ctrl_w = '\23'
+
+  local function press(s, key)
+    patterns.feed(s, ctrl_w, 1)
+    return patterns.feed(s, key, 1)
+  end
+
+  it('fires ctrl_w_close_repeat suggesting <C-w>o after two <C-w>q in a row', function()
+    local s = seq()
+    press(s, 'q')
+    local result = press(s, 'q')
+    assert.is_not_nil(result)
+    assert.equals('ctrl_w_close_repeat', result.pattern)
+    assert.equals('<C-w>o', result.cmd)
+  end)
+
+  it('fires ctrl_w_close_repeat suggesting <C-w>o after two <C-w>c in a row', function()
+    local s = seq()
+    press(s, 'c')
+    local result = press(s, 'c')
+    assert.is_not_nil(result)
+    assert.equals('ctrl_w_close_repeat', result.pattern)
+    assert.equals('<C-w>o', result.cmd)
+  end)
+
+  it('fires when <C-w>q is followed by <C-w>c (mixed close actions count together)', function()
+    local s = seq()
+    press(s, 'q')
+    local result = press(s, 'c')
+    assert.is_not_nil(result)
+    assert.equals('ctrl_w_close_repeat', result.pattern)
+    assert.equals('<C-w>o', result.cmd)
+  end)
+
+  it('fires when <C-w>c is followed by <C-w>q (mixed close actions count together)', function()
+    local s = seq()
+    press(s, 'c')
+    local result = press(s, 'q')
+    assert.is_not_nil(result)
+    assert.equals('ctrl_w_close_repeat', result.pattern)
+    assert.equals('<C-w>o', result.cmd)
+  end)
+
+  it('does not fire after only a single <C-w>q', function()
+    local s = seq()
+    local result = press(s, 'q')
+    assert.is_nil(result)
+  end)
+
+  it('does not fire after only a single <C-w>c', function()
+    local s = seq()
+    local result = press(s, 'c')
+    assert.is_nil(result)
+  end)
+
+  it('resets the streak after firing, so a 3rd close does not immediately refire', function()
+    local s = seq()
+    press(s, 'q')
+    press(s, 'q') -- fires here
+    local result = press(s, 'q')
+    assert.is_nil(result)
+  end)
+
+  it('fires again once 2 more closes accumulate after a previous fire', function()
+    local s = seq()
+    press(s, 'q')
+    press(s, 'q') -- fires here
+    press(s, 'q')
+    local result = press(s, 'q')
+    assert.is_not_nil(result)
+    assert.equals('ctrl_w_close_repeat', result.pattern)
+  end)
+
+  it('resets the streak when interrupted by a different window command (<C-w>s)', function()
+    local s = seq()
+    press(s, 'q')
+    press(s, 's') -- interrupt: not a close action
+    local result = press(s, 'q')
+    assert.is_nil(result)
+  end)
+
+  it('resets the streak when interrupted by an unrelated normal-mode key', function()
+    local s = seq()
+    press(s, 'q')
+    patterns.feed(s, 'j', 1) -- interrupt: unrelated key, no <C-w> prefix
+    local result = press(s, 'q')
+    assert.is_nil(result)
+  end)
+
+  it('resets the streak when interrupted by an unrecognised window-command target', function()
+    local s = seq()
+    press(s, 'q')
+    press(s, 'p') -- interrupt: not in ctrl_w_targets at all
+    local result = press(s, 'q')
+    assert.is_nil(result)
   end)
 end)
 
@@ -1433,6 +1538,21 @@ describe('seq.op_completed', function()
     patterns.feed(s, ctrl_w, 1)
     assert.is_false(s.op_completed)
     patterns.feed(s, 'j', 1)
+    assert.is_true(s.op_completed)
+  end)
+
+  -- #107 adds <C-w>c to the pending_ctrl_w dispatch table (it was not tracked
+  -- at all before). Guard against the same #119 undercounting bug reappearing
+  -- on this newly-added entry.
+  it('is true again when a second, identical <C-w>c completes right after the first', function()
+    local ctrl_w = '\23'
+    local s = seq()
+    patterns.feed(s, ctrl_w, 1)
+    patterns.feed(s, 'c', 1)
+    assert.is_true(s.op_completed)
+    patterns.feed(s, ctrl_w, 1)
+    assert.is_false(s.op_completed)
+    patterns.feed(s, 'c', 1)
     assert.is_true(s.op_completed)
   end)
 

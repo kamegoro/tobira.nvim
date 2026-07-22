@@ -108,6 +108,7 @@ return {
       tilde_repeat = 'Vous avez basculé la casse 3 fois de suite',
       dot_repeat = 'Vous avez répété la dernière modification 3 fois de suite',
       J_repeat = 'Vous avez fusionné des lignes 3 fois de suite',
+      ctrl_w_close_repeat = 'Vous avez fermé des fenêtres une par une, 2 fois de suite',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -700,6 +701,11 @@ return {
       title = '<C-w>= — égaliser la taille de toutes les fenêtres',
       body = 'Redimensionne toutes les divisions ouvertes à largeur et hauteur égales\nUne remise à zéro rapide quand les divisions deviennent déséquilibrées après un redimensionnement manuel',
       example = '<C-w>= → tous les volets reviennent à des dimensions égales',
+    },
+    ['<C-w>o'] = {
+      title = '<C-w>o — fermer toutes les autres fenêtres',
+      body = 'Ferme toutes les divisions sauf la fenêtre actuelle en une seule touche\nInutile de répéter <C-w>q ou <C-w>c une fois par fenêtre quand vous voulez juste garder une seule fenêtre',
+      example = '<C-w>o → toutes les autres divisions se ferment ; seule la fenêtre actuelle reste',
     },
     ['$'] = {
       title = '$ — sauter à la fin de ligne',

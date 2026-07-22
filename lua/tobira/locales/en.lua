@@ -108,6 +108,7 @@ return {
       tilde_repeat = 'You toggled case 3 times in a row',
       dot_repeat = 'You repeated the last change 3 times in a row',
       J_repeat = 'You joined lines 3 times in a row',
+      ctrl_w_close_repeat = 'You closed windows one at a time, 2 times in a row',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -700,6 +701,11 @@ return {
       title = '<C-w>= — equalize all window sizes',
       body = 'Resizes all open splits to equal width and height\nA quick reset after splits become unbalanced from manual resizing',
       example = '<C-w>= → all panes snap to equal dimensions',
+    },
+    ['<C-w>o'] = {
+      title = '<C-w>o — close all other windows',
+      body = 'Closes every split except the current one in a single keystroke\nNo need to repeat <C-w>q or <C-w>c once per window when all you want is to focus one',
+      example = '<C-w>o → every other split closes; only the current window remains',
     },
     ['$'] = {
       title = '$ — jump to end of line',

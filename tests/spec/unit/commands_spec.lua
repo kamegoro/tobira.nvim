@@ -266,6 +266,7 @@ local chain_cases = {
   { '<C-w>l', '<C-w>w', '<C-w>w → <C-w>l: move to right window' },
   { '<C-w>q', '<C-w>w', '<C-w>w → <C-w>q: close current window' },
   { '<C-w>=', '<C-w>w', '<C-w>w → <C-w>=: equalize all window sizes' },
+  { '<C-w>o', '<C-w>q', '<C-w>q → <C-w>o: close all other windows' },
   -- line-edge motions
   { '$', '^', '^ → $: jump to end of line' },
   { 'g_', '$', '$ → g_: last non-blank character of line' },

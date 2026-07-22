@@ -27,6 +27,8 @@ function M.new_seq()
     pending_z = false,
     -- <C-w>X window-command two-key compound tracking (#120)
     pending_ctrl_w = false,
+    -- <C-w>q / <C-w>c repeated (or alternated) 2+ times in a row → <C-w>o (#107)
+    ctrl_w_close_streak = 0,
     -- prefixes that consume exactly one following character
     pending_register = false, -- " or @ (register / macro name)
     pending_mark = false, -- m / ' / ` (mark name or target)
@@ -168,11 +170,26 @@ local function inner_feed(seq, key, line)
       k = '<C-w>k',
       l = '<C-w>l',
       q = '<C-w>q',
+      c = '<C-w>c',
       ['='] = '<C-w>=',
     }
     if ctrl_w_targets[key] then
       seq.last_op = ctrl_w_targets[key]
       seq.op_completed = true
+      -- <C-w>q and <C-w>c both close the current window. Repeating either one
+      -- (or alternating between them) 2+ times in a row means the user is
+      -- closing windows one at a time — suggest <C-w>o instead (#107).
+      if key == 'q' or key == 'c' then
+        seq.ctrl_w_close_streak = seq.ctrl_w_close_streak + 1
+        if seq.ctrl_w_close_streak >= 2 then
+          seq.ctrl_w_close_streak = 0
+          return { pattern = 'ctrl_w_close_repeat', cmd = '<C-w>o' }
+        end
+      else
+        seq.ctrl_w_close_streak = 0
+      end
+    else
+      seq.ctrl_w_close_streak = 0
     end
     return nil
   end
@@ -490,6 +507,7 @@ local function inner_feed(seq, key, line)
     seq.cc_streak = 0
     seq.indent_streak = 0
     seq.dedent_streak = 0
+    seq.ctrl_w_close_streak = 0
   end
 
   -- ── consecutive-run patterns ──────────────────────────────────────────────
