@@ -49,7 +49,15 @@ end
 -- Builds one pinned-section row. Position-tracking emit() avoids hand-computed
 -- byte offsets for the highlight ranges (glyph and key are both variable-width
 -- once combined with multi-byte glyphs).
-local function format_pinned_row(cmd, desc)
+--
+-- `data` drives the same forgotten-state check the auto section's format_row
+-- makes: a pinned command that was once mastered and has since gone quiet
+-- gets the ⟳ glyph + forgotten_suffix here too, instead of staying a plain
+-- ● row forever regardless of whether it still needs review — see #123.
+local function format_pinned_row(cmd, data, desc, str)
+  local graph = require('tobira.core.graph')
+  local forgotten = graph.is_forgotten(data)
+
   local pos = 0
   local parts = {}
   local hls = {}
@@ -67,7 +75,11 @@ local function format_pinned_row(cmd, desc)
   emit('  ')
   emit(string.format('%-12s', cmd), 'TobiraGuideKey')
   emit('  ')
-  emit(desc)
+  if forgotten then
+    emit('⟳ ', 'TobiraGuideForgotten')
+  end
+  local suffix = forgotten and str.forgotten_suffix or ''
+  emit(desc .. suffix)
 
   return table.concat(parts), hls
 end
@@ -219,7 +231,8 @@ function M.build(usage)
     for _, cmd in ipairs(pinned_cmds) do
       local sug = suggestions[cmd]
       local desc = short_desc((sug and sug.title) or cmd)
-      local line, row_hls = format_pinned_row(cmd, desc)
+      local data = usage[cmd] or { count = 0 }
+      local line, row_hls = format_pinned_row(cmd, data, desc, strings)
       local lnum = #lines
       table.insert(lines, line)
       for _, h in ipairs(row_hls) do
