@@ -84,6 +84,7 @@ return {
       dd_then_insert = 'Borraste una línea y empezaste a escribir una nueva',
       zero_then_w = 'Saltaste a la columna 0 y luego avanzaste una palabra',
       zero_then_insert = 'Saltaste al inicio de línea y entraste en modo inserción',
+      zero_col_then_insert = 'Saltaste a la columna 0 y entraste en modo inserción',
       dollar_then_append = 'Saltaste al final de línea y entraste en modo inserción',
       k_then_o = 'Subiste una línea y abriste una nueva debajo',
       x_then_insert = 'Borraste un carácter y entraste en modo inserción',
@@ -199,6 +200,11 @@ return {
       title = 'I — insertar al inicio de línea',
       body = 'Va al primer carácter no en blanco y entra en modo inserción\nCombina con A (final de línea) para editar rápido los extremos de línea',
       example = 'I// → comenta la línea actual',
+    },
+    ['gI'] = {
+      title = 'gI — insertar en la columna 1, ignorando la sangría',
+      body = 'A diferencia de I, siempre inserta al verdadero inicio de la línea, aunque esté sangrada\nÚtil cuando la intención era la columna 1, no el primer carácter no en blanco',
+      example = 'gI# → añade # al verdadero inicio de una línea con sangría',
     },
     ['H'] = {
       title = 'H — saltar a la parte superior de la pantalla',

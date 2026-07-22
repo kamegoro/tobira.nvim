@@ -37,8 +37,8 @@ describe('when the best candidate has reached mastery level (count >= 100)', fun
   it('has no suggestion to offer', function()
     local usage = {
       u = usage_entry(10),
-      ['<C-r>'] = usage_entry(100, {}),  -- mastery_level 2 → excluded
-      U = usage_entry(100, {}),           -- mastery_level 2 → excluded
+      ['<C-r>'] = usage_entry(100, {}), -- mastery_level 2 → excluded
+      U = usage_entry(100, {}), -- mastery_level 2 → excluded
     }
     assert.is_nil(graph.find_best(usage))
   end)
@@ -48,8 +48,8 @@ describe('when the best candidate has been shown the maximum number of times', f
   it('has no suggestion to offer', function()
     local usage = {
       u = usage_entry(10),
-      ['<C-r>'] = usage_entry(5, {}, 3),  -- shown 3 times (default max)
-      U = usage_entry(100, {}),            -- mastered → excluded
+      ['<C-r>'] = usage_entry(5, {}, 3), -- shown 3 times (default max)
+      U = usage_entry(100, {}), -- mastered → excluded
     }
     assert.is_nil(graph.find_best(usage))
   end)
@@ -79,11 +79,56 @@ describe('when multiple triggers are active', function()
     local usage = {
       f = usage_entry(10),
       [';'] = usage_entry(8),
-      dw = usage_entry(20),  -- cw/ciw score 20 > F's 10, no tie needed
+      dw = usage_entry(20), -- cw/ciw score 20 > F's 10, no tie needed
     }
     -- ; score = 10-8 = 2; F score = 10; cw/ciw score = 20 → dw-triggered wins
     local result = graph.find_best(usage)
     assert.equals('dw', graph.suggestions[result].trigger)
+  end)
+end)
+
+-- ── nil best_cmd guard at the -1 score sentinel (#121) ───────────────────────
+
+describe('when the only offered candidate has trigger_count - cmd_count == -1', function()
+  it('is selected instead of erroring on a nil best_cmd comparison', function()
+    -- #121: best_score starts at -1, so a candidate whose score is exactly
+    -- -1 (a realistic value: trigger used 5 times, suggested cmd used 6)
+    -- fails `score > best_score`, falling into `cmd < best_cmd` while
+    -- best_cmd is still nil -> "attempt to compare string with nil".
+    -- A single-entry suggestions table makes pairs() order a non-issue:
+    -- with only one candidate, it is always the (only) one visited first.
+    local original_suggestions = graph.suggestions
+    graph.suggestions = {
+      w = { cmd = 'w', trigger = 'l', level = 'beginner', category = 'motion' },
+    }
+    local ok, result = pcall(graph.find_best, { l = usage_entry(5), w = usage_entry(6) })
+    graph.suggestions = original_suggestions
+
+    assert.is_true(ok, result)
+    assert.equals('w', result)
+  end)
+end)
+
+describe('when two offered candidates tie at score -1', function()
+  it('still applies the alphabetical tie-break without erroring', function()
+    -- Both candidates score trigger_count(5) - cmd_count(6) == -1. Whichever
+    -- one pairs() visits first must not crash, and the final pick must be
+    -- the alphabetically smaller command regardless of visit order.
+    local original_suggestions = graph.suggestions
+    graph.suggestions = {
+      w = { cmd = 'w', trigger = 'l', level = 'beginner', category = 'motion' },
+      b = { cmd = 'b', trigger = 'h', level = 'beginner', category = 'motion' },
+    }
+    local ok, result = pcall(graph.find_best, {
+      l = usage_entry(5),
+      w = usage_entry(6),
+      h = usage_entry(5),
+      b = usage_entry(6),
+    })
+    graph.suggestions = original_suggestions
+
+    assert.is_true(ok, result)
+    assert.equals('b', result)
   end)
 end)
 
@@ -123,15 +168,18 @@ describe('when a command was adopted but recently fell out of use', function()
     assert.is_true(graph.is_forgotten(data))
   end)
 
-  it('is considered forgotten when recent usage has decayed well below its historical average, even without hitting exactly zero', function()
-    -- #62: the old rule required the last 2 sessions to be *exactly* 0, so a
-    -- single stray use (here: 1) was enough to call this "not forgotten" no
-    -- matter how far usage had actually dropped. The graded rule compares the
-    -- recent average (0.5) against 30% of the historical average (7.5*0.3=2.25)
-    -- instead — a >90% drop reads as forgotten even though it isn't literally 0.
-    local data = usage_entry(50, { 7, 8, 0, 1 })
-    assert.is_true(graph.is_forgotten(data))
-  end)
+  it(
+    'is considered forgotten when recent usage has decayed well below its historical average, even without hitting exactly zero',
+    function()
+      -- #62: the old rule required the last 2 sessions to be *exactly* 0, so a
+      -- single stray use (here: 1) was enough to call this "not forgotten" no
+      -- matter how far usage had actually dropped. The graded rule compares the
+      -- recent average (0.5) against 30% of the historical average (7.5*0.3=2.25)
+      -- instead — a >90% drop reads as forgotten even though it isn't literally 0.
+      local data = usage_entry(50, { 7, 8, 0, 1 })
+      assert.is_true(graph.is_forgotten(data))
+    end
+  )
 
   it('is not forgotten with fewer than 3 sessions', function()
     local data = usage_entry(5, { 0, 0 })
@@ -160,8 +208,8 @@ describe('when a command was adopted but recently fell out of use', function()
   it('returns to suggestion pool when forgotten', function()
     local usage = {
       u = usage_entry(500),
-      ['<C-r>'] = usage_entry(120, { 8, 9, 0, 0 }),  -- mastered but forgotten → back in pool (score 500-120=380)
-      U = usage_entry(100, {}),                        -- mastered and not forgotten → excluded
+      ['<C-r>'] = usage_entry(120, { 8, 9, 0, 0 }), -- mastered but forgotten → back in pool (score 500-120=380)
+      U = usage_entry(100, {}), -- mastered and not forgotten → excluded
     }
     assert.equals('<C-r>', graph.find_best(usage))
   end)
@@ -171,8 +219,8 @@ describe('when a command is explicitly suppressed', function()
   it('is never suggested even with low usage', function()
     local usage = {
       u = usage_entry(10),
-      ['<C-r>'] = usage_entry(0, {}, 0, true),  -- suppressed
-      U = usage_entry(100, {}),                  -- mastered → excluded
+      ['<C-r>'] = usage_entry(0, {}, 0, true), -- suppressed
+      U = usage_entry(100, {}), -- mastered → excluded
     }
     assert.is_nil(graph.find_best(usage))
   end)
@@ -249,8 +297,8 @@ describe('when max_shown is lowered below the default', function()
   it('does not suggest a command that has reached the lower limit', function()
     local usage = {
       u = usage_entry(10),
-      ['<C-r>'] = usage_entry(0, {}, 2),  -- shown 2 times
-      U = usage_entry(100, {}),            -- mastered → excluded
+      ['<C-r>'] = usage_entry(0, {}, 2), -- shown 2 times
+      U = usage_entry(100, {}), -- mastered → excluded
     }
     assert.is_nil(graph.find_best(usage, 2))
   end)

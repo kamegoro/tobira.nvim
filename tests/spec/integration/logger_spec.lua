@@ -146,8 +146,10 @@ describe('get_session_counts', function()
   end)
 
   it('returns the in-session keystroke counts before close_session is called', function()
-    vim.fn.feedkeys('j', 'xt'); vim.api.nvim_feedkeys('', 'x', false)
-    vim.fn.feedkeys('j', 'xt'); vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('j', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('j', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
     local counts = logger.get_session_counts()
     assert.equals(2, counts['j'])
   end)
@@ -207,19 +209,26 @@ describe('session tracking', function()
   end)
 
   it('close_session appends the current-session count to usage.sessions', function()
-    vim.fn.feedkeys('e', 'xt'); vim.api.nvim_feedkeys('', 'x', false)
-    vim.fn.feedkeys('e', 'xt'); vim.api.nvim_feedkeys('', 'x', false)
-    vim.fn.feedkeys('e', 'xt'); vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('e', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('e', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('e', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
     logger.close_session()
     assert.equals(3, logger.get('e').sessions[1])
   end)
 
   it('after close_session the next session starts fresh', function()
-    vim.fn.feedkeys('e', 'xt'); vim.api.nvim_feedkeys('', 'x', false)
-    vim.fn.feedkeys('e', 'xt'); vim.api.nvim_feedkeys('', 'x', false)
-    vim.fn.feedkeys('e', 'xt'); vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('e', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('e', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('e', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
     logger.close_session()
-    vim.fn.feedkeys('e', 'xt'); vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('e', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
     logger.close_session()
     local sessions = logger.get('e').sessions
     assert.equals(2, #sessions)
@@ -229,7 +238,8 @@ describe('session tracking', function()
 
   it('sessions array is capped at 10 entries', function()
     for _ = 1, 12 do
-      vim.fn.feedkeys('e', 'xt'); vim.api.nvim_feedkeys('', 'x', false)
+      vim.fn.feedkeys('e', 'xt')
+      vim.api.nvim_feedkeys('', 'x', false)
       logger.close_session()
     end
     assert.equals(10, #logger.get('e').sessions)
@@ -254,11 +264,13 @@ describe('when a known command goes untouched for a session', function()
   end)
 
   it('appends a 0 to that command sessions on close_session', function()
-    vim.fn.feedkeys('e', 'xt'); vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('e', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
     logger.close_session() -- 'e' now known: sessions = {1}
 
     -- Next session: only 'w' is used, 'e' is untouched.
-    vim.fn.feedkeys('w', 'xt'); vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('w', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
     logger.close_session()
 
     assert.same({ 1, 0 }, logger.get('e').sessions)
@@ -266,7 +278,8 @@ describe('when a known command goes untouched for a session', function()
   end)
 
   it('does not zero-pad a command that has never been used at all', function()
-    vim.fn.feedkeys('e', 'xt'); vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('e', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
     logger.close_session()
     -- 'w' was never used in any session — should stay entirely absent, not
     -- gain a spurious sessions = {0} entry.
@@ -275,10 +288,12 @@ describe('when a known command goes untouched for a session', function()
   end)
 
   it('zero-padding also respects the 10-entry cap', function()
-    vim.fn.feedkeys('e', 'xt'); vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('e', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
     logger.close_session()
     for _ = 1, 12 do
-      vim.fn.feedkeys('w', 'xt'); vim.api.nvim_feedkeys('', 'x', false)
+      vim.fn.feedkeys('w', 'xt')
+      vim.api.nvim_feedkeys('', 'x', false)
       logger.close_session()
     end
     assert.equals(10, #logger.get('e').sessions)
@@ -293,7 +308,8 @@ describe('when a command is flushed via mark_adopted mid-session', function()
   end)
 
   it('is not double-appended when close_session runs later in the same session', function()
-    vim.fn.feedkeys('eee', 'xt'); vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('eee', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
     logger.mark_adopted('e') -- flushes a boosted count into sessions immediately
     assert.equals(1, #logger.get('e').sessions)
 
@@ -431,11 +447,15 @@ describe('when the user types while in insert mode', function()
     -- non-normal-mode reset branch — 'j' is an ordinary insert-mode key, so
     -- feed_insert() just breaks any streak and returns nil.
     local real_mode = vim.fn.mode
-    vim.fn.mode = function() return 'i' end
+    vim.fn.mode = function()
+      return 'i'
+    end
     vim.api.nvim_exec_autocmds('ModeChanged', { modeline = false })
     vim.fn.mode = real_mode
     local fired = false
-    logger.on_pattern = function() fired = true end
+    logger.on_pattern = function()
+      fired = true
+    end
     vim.fn.feedkeys('j', 'xt')
     vim.api.nvim_feedkeys('', 'x', false)
     assert.is_false(fired)
@@ -446,11 +466,15 @@ describe('when the user types while in insert mode', function()
     -- Visual mode ('v') exercises the generic fallback branch — distinct
     -- from both the normal path and the #58 insert-mode path.
     local real_mode = vim.fn.mode
-    vim.fn.mode = function() return 'v' end
+    vim.fn.mode = function()
+      return 'v'
+    end
     vim.api.nvim_exec_autocmds('ModeChanged', { modeline = false })
     vim.fn.mode = real_mode
     local fired = false
-    logger.on_pattern = function() fired = true end
+    logger.on_pattern = function()
+      fired = true
+    end
     vim.fn.feedkeys('j', 'xt')
     vim.api.nvim_feedkeys('', 'x', false)
     assert.is_false(fired)
@@ -492,7 +516,9 @@ describe('when ModeChanged fires to operator-pending before the motion arrives',
     --    Old guard  (`~= 'n'`)            resets seq on 'w' → no pattern.
     --    Fixed guard (`:sub(1,1) ~= 'n'`) 'no' passes     → pattern fires.
     local real_mode = vim.fn.mode
-    vim.fn.mode = function() return 'no' end
+    vim.fn.mode = function()
+      return 'no'
+    end
     vim.api.nvim_exec_autocmds('ModeChanged', { modeline = false })
     vim.fn.mode = real_mode
     -- 3. 'w' arrives while current_mode = 'no'.
@@ -694,7 +720,9 @@ describe('when save is called explicitly', function()
     local tmp = vim.fn.stdpath('data') .. '/tobira/usage.json.tmp'
     local f = io.open(tmp, 'r')
     assert.is_nil(f, 'expected no lingering .tmp file after save()')
-    if f then f:close() end
+    if f then
+      f:close()
+    end
   end)
 
   it('does not crash when the data directory is not writable', function()
@@ -722,10 +750,11 @@ describe('when a concurrent Neovim instance has written counts to disk', functio
     vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'hello world test' })
   end)
 
-  it('adds this session\'s delta on top of the concurrent count instead of overwriting it', function()
+  it("adds this session's delta on top of the concurrent count instead of overwriting it", function()
     -- Press 'e' 3 times in this session (delta = 3).
     for _ = 1, 3 do
-      vim.fn.feedkeys('e', 'xt'); vim.api.nvim_feedkeys('', 'x', false)
+      vim.fn.feedkeys('e', 'xt')
+      vim.api.nvim_feedkeys('', 'x', false)
     end
 
     -- Simulate a concurrent instance that wrote count=7 while this session ran.
@@ -917,14 +946,82 @@ describe('when a compound operator completes', function()
     assert.equals(0, logger.get('<C-w>w').count)
   end)
 
+  -- pending_ctrl_w (#120) was added after op_completed (#119) already existed
+  -- elsewhere in patterns.lua, so its last_op assignment needed the same flag
+  -- added by hand during the merge — this is the integration-level guard
+  -- against that path silently regressing to the #119 undercount bug.
+  it('increments the usage count for <C-w>j by 2 when it is run twice in a row', function()
+    pcall(vim.fn.feedkeys, ctrl_w .. 'j', 'xt')
+    pcall(vim.api.nvim_feedkeys, '', 'x', false)
+    pcall(vim.fn.feedkeys, ctrl_w .. 'j', 'xt')
+    pcall(vim.api.nvim_feedkeys, '', 'x', false)
+    assert.equals(2, logger.get('<C-w>j').count)
+  end)
+
+  -- #119: consecutive identical compounds (dd dd, dw dw, …) were undercounted
+  -- because the old detection compared seq.last_op's value before/after each
+  -- keystroke — a second, identical compound re-assigns the same string, so
+  -- no value change was observed and the second occurrence was silently
+  -- dropped from the count.
+  it('increments the usage count for dd by 2 when dd is run twice in a row', function()
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'aaa', 'bbb', 'ccc' })
+    vim.fn.feedkeys('dd', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('dd', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals(2, logger.get('dd').count)
+  end)
+
+  it('increments the usage count for dw by 2 when dw is run twice in a row', function()
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'hello world foo bar' })
+    vim.fn.feedkeys('dw', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('dw', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals(2, logger.get('dw').count)
+  end)
+
+  it('keeps counting dd on every repeat, even the one that also fires the dd_run streak', function()
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'aaa', 'bbb', 'ccc', 'ddd' })
+    for _ = 1, 3 do
+      vim.fn.feedkeys('dd', 'xt')
+      vim.api.nvim_feedkeys('', 'x', false)
+    end
+    assert.equals(3, logger.get('dd').count)
+  end)
+
+  it('does not double count dd when it is immediately consumed by dd_then_p', function()
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'aaa', 'bbb' })
+    vim.fn.feedkeys('ddp', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals(1, logger.get('dd').count)
+  end)
+
+  it('does not double count dw when it is immediately consumed by dw_then_insert', function()
+    local esc = vim.api.nvim_replace_termcodes('<Esc>', true, false, true)
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'hello world' })
+    vim.fn.feedkeys('dwi' .. esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals(1, logger.get('dw').count)
+  end)
+
   -- All Ctrl keys changed to track=true are verified here so a stray
   -- track=false revert is caught immediately by CI.
   -- pcall absorbs Neovim errors (e.g. E433 for <C-]> with no tags file):
   -- on_key fires before the command executes so the count is already set.
   local ctrl_keys = {
-    '<C-r>', '<C-o>', '<C-i>', '<C-f>', '<C-b>',
-    '<C-a>', '<C-x>', '<C-v>', '<C-e>', '<C-y>',
-    '<C-^>', '<C-]>',
+    '<C-r>',
+    '<C-o>',
+    '<C-i>',
+    '<C-f>',
+    '<C-b>',
+    '<C-a>',
+    '<C-x>',
+    '<C-v>',
+    '<C-e>',
+    '<C-y>',
+    '<C-^>',
+    '<C-]>',
   }
   for _, notation in ipairs(ctrl_keys) do
     it('increments the usage count for ' .. notation, function()
@@ -960,11 +1057,33 @@ describe('when single-char track=true keys are pressed', function()
   -- pcall absorbs Neovim side-effects (mode changes, missing prior context for
   -- ; / , , etc.). on_key fires before the command executes so the count is set.
   local single_keys = {
-    ';', ',', '.', '*', '#', '~',
-    'A', 'b', 'C', 'D', 'e', 'F',
-    'H', 'I', 'J', 'L', 'M', 'N',
-    'O', 'P', 'r', 's', 't', 'V',
-    'w', 'X', 'Y',
+    ';',
+    ',',
+    '.',
+    '*',
+    '#',
+    '~',
+    'A',
+    'b',
+    'C',
+    'D',
+    'e',
+    'F',
+    'H',
+    'I',
+    'J',
+    'L',
+    'M',
+    'N',
+    'O',
+    'P',
+    'r',
+    's',
+    't',
+    'V',
+    'w',
+    'X',
+    'Y',
   }
   for _, key in ipairs(single_keys) do
     it('increments the usage count for ' .. key, function()
@@ -996,8 +1115,22 @@ describe('when single-char commands that were missing track=true are pressed', f
   -- These were track=false by mistake; each is a single real keystroke.
   -- pcall absorbs side-effects (motion fails, replace mode entered, etc.).
   local missing_keys = {
-    '}', '{', '(', ')', '%', '^', '$', '_', '|',
-    'B', 'E', 'W', 'T', 'U', 'K', 'R',
+    '}',
+    '{',
+    '(',
+    ')',
+    '%',
+    '^',
+    '$',
+    '_',
+    '|',
+    'B',
+    'E',
+    'W',
+    'T',
+    'U',
+    'K',
+    'R',
   }
   for _, key in ipairs(missing_keys) do
     it('increments the usage count for ' .. key, function()
