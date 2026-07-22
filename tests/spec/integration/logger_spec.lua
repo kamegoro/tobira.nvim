@@ -860,6 +860,63 @@ describe('when a compound operator completes', function()
     assert.is_true(logger.get('gj').count > 0)
   end)
 
+  -- #120: g; / gp / gu were added to patterns.lua's pending_g dispatch table
+  -- so the change-list / paste / case-operator teaching chains become
+  -- trackable. pcall absorbs real Vim errors (e.g. g; with an empty change
+  -- list, gp with an empty register) — on_key fires before the command
+  -- executes so the count is already set regardless of the outcome.
+  it('tracks g; as a compound command', function()
+    pcall(vim.fn.feedkeys, 'g;', 'xt')
+    pcall(vim.api.nvim_feedkeys, '', 'x', false)
+    assert.is_true(logger.get('g;').count > 0)
+  end)
+
+  it('tracks gp as a compound command', function()
+    pcall(vim.fn.feedkeys, 'gp', 'xt')
+    pcall(vim.api.nvim_feedkeys, '', 'x', false)
+    assert.is_true(logger.get('gp').count > 0)
+  end)
+
+  it('tracks gu as a compound command', function()
+    -- 'guu' (doubled operator = linewise) is a complete, harmless real Vim
+    -- command — unlike a bare 'gu' it does not leave an operator pending,
+    -- so it can't swallow the next test's first keystroke as its motion.
+    pcall(vim.fn.feedkeys, 'guu', 'xt')
+    pcall(vim.api.nvim_feedkeys, '', 'x', false)
+    assert.is_true(logger.get('gu').count > 0)
+  end)
+
+  -- #120: <C-w>X window-command compounds — patterns.lua's new pending_ctrl_w
+  -- dispatch table. Some of these (s/v split, q close) have real window
+  -- side effects; pcall absorbs any resulting error (E444 etc. — same
+  -- rationale as the ctrl_keys loop below) and the trailing `:only` collapses
+  -- back to a single window so a split/close in one iteration can't affect
+  -- the next. on_key fires before the command executes so the count is
+  -- already set regardless of the command's outcome.
+  local ctrl_w = vim.api.nvim_replace_termcodes('<C-w>', true, true, true)
+  local ctrl_w_targets = { 's', 'v', 'w', 'h', 'j', 'k', 'l', 'q', '=' }
+  for _, target in ipairs(ctrl_w_targets) do
+    local cmd = '<C-w>' .. target
+    it('tracks ' .. cmd .. ' as a compound command', function()
+      pcall(vim.fn.feedkeys, ctrl_w .. target, 'xt')
+      pcall(vim.api.nvim_feedkeys, '', 'x', false)
+      pcall(vim.cmd, 'only')
+      assert.is_true(logger.get(cmd).count > 0)
+    end)
+  end
+
+  it('does not track <C-w><C-w> (double raw byte) as any <C-w>X compound', function()
+    -- <C-w><C-w> is a valid Vim window command (cycle window) using two raw
+    -- Ctrl-W bytes, not <C-w> + literal 'w' — must keep passing alongside the
+    -- pre-existing "does not count the normal-mode window-prefix <C-w> as the
+    -- insert-mode command" test above; this is the normal-mode-compound side
+    -- of that same guarantee.
+    pcall(vim.fn.feedkeys, ctrl_w .. ctrl_w, 'xt')
+    pcall(vim.api.nvim_feedkeys, '', 'x', false)
+    pcall(vim.cmd, 'only')
+    assert.equals(0, logger.get('<C-w>w').count)
+  end)
+
   -- All Ctrl keys changed to track=true are verified here so a stray
   -- track=false revert is caught immediately by CI.
   -- pcall absorbs Neovim errors (e.g. E433 for <C-]> with no tags file):

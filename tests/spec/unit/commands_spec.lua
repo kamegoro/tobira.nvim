@@ -342,4 +342,144 @@ describe('tracking integrity', function()
     assert.are.same({}, violations, 'single-char commands with track=false: ' .. table.concat(violations, ' '))
   end)
 
+  -- Rule from lua/tobira/CLAUDE.md: any key referenced by another entry's
+  -- `requires` field must actually be trackable, or its usage count is
+  -- structurally stuck at 0 forever and graph.find_best() (which requires
+  -- trigger_count > 0) can never surface the dependent entry as a suggestion.
+  -- The narrower "single-char track=true" test above did not catch this —
+  -- see #120, where 31 multi-char entries went unnoticed this way.
+  --
+  -- A `requires` target is trackable when:
+  --   1. it is a single character (guaranteed track=true by the test above,
+  --      or one of the base motion keys logger.lua's build_track_table()
+  --      hardcodes regardless of the registry — f/F/n/0/h/j/k/l/w/b/x/p/u/
+  --      i/a/o/G/v/*), or
+  --   2. entry.track == true, or
+  --   3. entry.compound == true (dw / dd — tracked via seq.last_op change
+  --      detection in logger.lua's handle_key), or
+  --   4. it is in PATTERN_TRACKED below: a multi-char key that patterns.lua
+  --      records via the same seq.last_op change-detection mechanism even
+  --      though its registry entry has track=false — either through the
+  --      generic operator-normalization branches (cw / >> — see patterns.lua
+  --      inner_feed's pending_op handling) or through an explicit two-key
+  --      dispatch table (pending_g / pending_z / pending_ctrl_w).
+  local PATTERN_TRACKED = {
+    -- generic operator normalization (pending_op in patterns.lua)
+    cw = true,
+    ['>>'] = true,
+    ['<<'] = true,
+    -- pending_g dispatch table
+    gg = true,
+    gj = true,
+    gk = true,
+    ge = true,
+    gd = true,
+    gf = true,
+    gn = true,
+    gx = true,
+    ['g0'] = true,
+    ['g;'] = true,
+    gp = true,
+    gu = true,
+    -- pending_z dispatch table
+    zz = true,
+    zt = true,
+    zb = true,
+    za = true,
+    zc = true,
+    zo = true,
+    zj = true,
+    zk = true,
+    zM = true,
+    zR = true,
+    zd = true,
+    -- pending_ctrl_w dispatch table (#120)
+    ['<C-w>s'] = true,
+    ['<C-w>v'] = true,
+    ['<C-w>w'] = true,
+    ['<C-w>h'] = true,
+    ['<C-w>j'] = true,
+    ['<C-w>k'] = true,
+    ['<C-w>l'] = true,
+    ['<C-w>q'] = true,
+    ['<C-w>='] = true,
+  }
+
+  -- Entries left untrackable on purpose as of #120. Fixing this PR's minimum
+  -- scope (the window category) plus g;/gp/gu leaves these deferred to
+  -- follow-up issues — see the #120 PR description for the reasoning behind
+  -- each group. This list must only ever shrink: a fix must remove the
+  -- entry here, never add to it without also adding a detection path above.
+  local KNOWN_DEFERRED = {
+    -- mark chain: '. / '^ / 'a are never recorded as such — the pending_mark
+    -- prefix in patterns.lua consumes the mark-name key without recording
+    -- which mark command it was (m/'/` all just consume-and-discard).
+    ["'."] = true,
+    ["'^"] = true,
+    ["'a"] = true,
+    -- text-object chain: ciw / ci" / cib all collapse into the generic 'cw'
+    -- bucket (pending_text_obj always sets last_op = op .. 'w', discarding
+    -- which specific text object was used), so none of the specific
+    -- variants are ever individually counted.
+    ['ci"'] = true,
+    ["ci'"] = true,
+    ['cib'] = true,
+    ['ciB'] = true,
+    ['cit'] = true,
+    ['cip'] = true,
+    ['diw'] = true,
+    -- macro chain: @@ / ZZ are never recorded — patterns.lua has no pending
+    -- handler for @ (pending_register just consumes-and-discards the
+    -- register/macro name) or for the doubled Z Z sequence.
+    ['@:'] = true,
+    ['@q'] = true,
+    ['ZQ'] = true,
+    -- bracket pairs: [{ / ]} are never recorded — pending_bracket consumes
+    -- the bracket-pair character without recording which pair it was.
+    ['[('] = true,
+    ['])'] = true,
+    -- indent chain: >> itself is trackable, but it requires 'cc', and cc is
+    -- never recorded due to a separate bug (last_op is hardcoded to 'dd' for
+    -- any doubled operator, not op .. op) — tracked separately as #118.
+    ['>>'] = true,
+  }
+
+  it('every requires target is track=true, compound=true, or pattern-tracked (or explicitly deferred)', function()
+    local violations = {}
+    for cmd, entry in pairs(commands.registry) do
+      if not entry.compound and entry.requires and #entry.requires > 1 then
+        local req = entry.requires
+        local req_entry = commands.registry[req]
+        local trackable = (req_entry and req_entry.track) or (req_entry and req_entry.compound) or PATTERN_TRACKED[req]
+        if not trackable and not KNOWN_DEFERRED[cmd] then
+          table.insert(violations, cmd .. ' (requires "' .. req .. '")')
+        end
+      end
+    end
+    table.sort(violations)
+    assert.are.same(
+      {},
+      violations,
+      'requires targets with no tracking path and not in KNOWN_DEFERRED: ' .. table.concat(violations, ', ')
+    )
+  end)
+
+  it('KNOWN_DEFERRED contains no stale entries that are now actually trackable', function()
+    local stale = {}
+    for cmd in pairs(KNOWN_DEFERRED) do
+      local entry = commands.registry[cmd]
+      if entry and entry.requires then
+        local req_entry = commands.registry[entry.requires]
+        local trackable = #entry.requires == 1
+          or (req_entry and req_entry.track)
+          or (req_entry and req_entry.compound)
+          or PATTERN_TRACKED[entry.requires]
+        if trackable then
+          table.insert(stale, cmd)
+        end
+      end
+    end
+    table.sort(stale)
+    assert.are.same({}, stale, 'entries fixed but still listed in KNOWN_DEFERRED: ' .. table.concat(stale, ', '))
+  end)
 end)

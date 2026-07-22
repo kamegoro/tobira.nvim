@@ -976,6 +976,10 @@ describe('when the user presses g followed by a motion key', function()
     { key = 'n', last_op = 'gn' },
     { key = 'x', last_op = 'gx' },
     { key = '0', last_op = 'g0' },
+    -- #120: change-list nav / paste-without-jump / case-operator chains
+    { key = ';', last_op = 'g;' },
+    { key = 'p', last_op = 'gp' },
+    { key = 'u', last_op = 'gu' },
   }
 
   for _, tc in ipairs(cases) do
@@ -1063,6 +1067,67 @@ describe('when the user presses z followed by a view command key', function()
     patterns.feed(s, 'z', 1)
     patterns.feed(s, 'z', 1)
     assert.is_false(s.key_consumed)
+  end)
+end)
+
+-- ── <C-w> / pending_ctrl_w two-key compound tracking (#120) ───────────────────
+-- Raw byte for Ctrl-W is ASCII 23 ('\23'), matching the byte vim.on_key
+-- delivers and the literal used in patterns.lua — see logger_spec.lua's
+-- integration-level coverage for the vim.api.nvim_replace_termcodes version.
+
+describe('when the user presses <C-w> followed by a window-command key', function()
+  local ctrl_w = '\23'
+  local cases = {
+    { key = 's', last_op = '<C-w>s' },
+    { key = 'v', last_op = '<C-w>v' },
+    { key = 'w', last_op = '<C-w>w' },
+    { key = 'h', last_op = '<C-w>h' },
+    { key = 'j', last_op = '<C-w>j' },
+    { key = 'k', last_op = '<C-w>k' },
+    { key = 'l', last_op = '<C-w>l' },
+    { key = 'q', last_op = '<C-w>q' },
+    { key = '=', last_op = '<C-w>=' },
+  }
+
+  for _, tc in ipairs(cases) do
+    it('records last_op = ' .. tc.last_op, function()
+      local s = seq()
+      patterns.feed(s, ctrl_w, 1)
+      patterns.feed(s, tc.key, 1)
+      assert.equals(tc.last_op, s.last_op)
+    end)
+  end
+
+  it('does not set last_op for an unrecognised window-command target', function()
+    local s = seq()
+    patterns.feed(s, ctrl_w, 1)
+    patterns.feed(s, 'p', 1)
+    assert.is_nil(s.last_op)
+  end)
+
+  it('clears pending_ctrl_w after the second key', function()
+    local s = seq()
+    patterns.feed(s, ctrl_w, 1)
+    patterns.feed(s, 'w', 1)
+    assert.is_false(s.pending_ctrl_w)
+  end)
+
+  it('does not set key_consumed on the second key', function()
+    local s = seq()
+    patterns.feed(s, ctrl_w, 1)
+    patterns.feed(s, 'w', 1)
+    assert.is_false(s.key_consumed)
+  end)
+
+  it('does not confuse a second <C-w> byte with the literal w target', function()
+    -- <C-w><C-w> is a valid Vim window command (cycle window) but uses two
+    -- raw Ctrl-W bytes, not <C-w> + literal 'w'. This case is intentionally
+    -- not in ctrl_w_targets — see logger_spec.lua's assertion that repeated
+    -- <C-w> must never be conflated with the insert-mode <C-w> command.
+    local s = seq()
+    patterns.feed(s, ctrl_w, 1)
+    patterns.feed(s, ctrl_w, 1)
+    assert.is_nil(s.last_op)
   end)
 end)
 

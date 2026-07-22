@@ -24,6 +24,8 @@ function M.new_seq()
     -- g* / z* two-key compound tracking
     pending_g = false,
     pending_z = false,
+    -- <C-w>X window-command two-key compound tracking (#120)
+    pending_ctrl_w = false,
     -- prefixes that consume exactly one following character
     pending_register = false, -- " or @ (register / macro name)
     pending_mark = false, -- m / ' / ` (mark name or target)
@@ -69,6 +71,9 @@ local function inner_feed(seq, key, line)
       n = 'gn',
       x = 'gx',
       ['0'] = 'g0',
+      [';'] = 'g;',
+      p = 'gp',
+      u = 'gu',
     }
     if g_targets[key] then
       seq.last_op = g_targets[key]
@@ -93,6 +98,29 @@ local function inner_feed(seq, key, line)
     }
     if z_targets[key] then
       seq.last_op = z_targets[key]
+    end
+    return nil
+  end
+
+  -- ── pending_ctrl_w: <C-w>X window-command two-key compound (#120) ─────────
+  -- Same dispatch-table design as pending_g / pending_z above. Must precede
+  -- f/F/t/T for the same reason gf and zt do — a stray collision would be a
+  -- new two-character prefix anyway, which is why this sits right next to them.
+  if seq.pending_ctrl_w then
+    seq.pending_ctrl_w = false
+    local ctrl_w_targets = {
+      s = '<C-w>s',
+      v = '<C-w>v',
+      w = '<C-w>w',
+      h = '<C-w>h',
+      j = '<C-w>j',
+      k = '<C-w>k',
+      l = '<C-w>l',
+      q = '<C-w>q',
+      ['='] = '<C-w>=',
+    }
+    if ctrl_w_targets[key] then
+      seq.last_op = ctrl_w_targets[key]
     end
     return nil
   end
@@ -290,6 +318,16 @@ local function inner_feed(seq, key, line)
   end
   if key == 'z' then
     seq.pending_z = true
+    return nil
+  end
+
+  -- ── <C-w>: start window-command two-key compound tracking (#120) ─────────
+  -- Raw byte for Ctrl-W (ASCII 23 / 0x17). Only reached from the normal-mode
+  -- path in logger.lua's handle_key — the insert-mode meaning of the exact
+  -- same byte is handled entirely separately by handle_insert_key(), so this
+  -- can never conflate the two (see commands.lua's '<C-w>' entry comment).
+  if key == '\23' then
+    seq.pending_ctrl_w = true
     return nil
   end
 
