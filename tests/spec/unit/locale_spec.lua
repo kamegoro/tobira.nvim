@@ -134,6 +134,7 @@ describe('float.reasons locale', function()
   local all_patterns = {
     'b_repeat',
     'c_dollar',
+    'ctrl_w_close_repeat',
     'd_dollar',
     'D_then_insert',
     'dd_run',
