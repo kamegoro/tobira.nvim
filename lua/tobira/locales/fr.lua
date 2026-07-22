@@ -103,6 +103,8 @@ return {
       b_repeat = 'Vous avez appuyé sur b 5 fois de suite',
       p_repeat = 'Vous avez collé 3 fois de suite',
       P_repeat = 'Vous avez collé avant le curseur 3 fois de suite',
+      p_then_rightward = 'Vous avez collé puis déplacé le curseur vers la droite plusieurs fois',
+      P_then_rightward = 'Vous avez collé avant le curseur puis déplacé le curseur vers la droite plusieurs fois',
       tilde_repeat = 'Vous avez basculé la casse 3 fois de suite',
       dot_repeat = 'Vous avez répété la dernière modification 3 fois de suite',
       J_repeat = 'Vous avez fusionné des lignes 3 fois de suite',

@@ -519,6 +519,83 @@ describe('when p is pressed 3 or more times in a row without a preceding dd', fu
   end)
 end)
 
+-- ── p / P → rightward motion (cursor skips past paste) → gp / gP (#106) ──────
+-- Same "remember the last operation, decide on the next key" design as
+-- yy_then_p / dd_then_p, but the decision spans several following keys
+-- instead of just one — closer in shape to dd_run / r_run's streak tracking.
+
+describe('when the user pastes then moves the cursor right several times', function()
+  it('fires p_then_rightward suggesting gp after p followed by l x3', function()
+    local s = seq()
+    patterns.feed(s, 'p', 1)
+    patterns.feed(s, 'l', 1)
+    patterns.feed(s, 'l', 1)
+    local result = patterns.feed(s, 'l', 1)
+    assert.is_not_nil(result)
+    assert.equals('p_then_rightward', result.pattern)
+    assert.equals('gp', result.cmd)
+  end)
+
+  it('does not fire after only 2 rightward moves', function()
+    local s = seq()
+    patterns.feed(s, 'p', 1)
+    patterns.feed(s, 'l', 1)
+    local result = patterns.feed(s, 'l', 1)
+    assert.is_nil(result)
+  end)
+
+  it('fires with a mix of rightward keys (l, w, $)', function()
+    local s = seq()
+    patterns.feed(s, 'p', 1)
+    patterns.feed(s, 'l', 1)
+    patterns.feed(s, 'w', 1)
+    local result = patterns.feed(s, '$', 1)
+    assert.is_not_nil(result)
+    assert.equals('p_then_rightward', result.pattern)
+    assert.equals('gp', result.cmd)
+  end)
+
+  it('does not fire when a non-motion key interrupts the streak', function()
+    local s = seq()
+    patterns.feed(s, 'p', 1)
+    patterns.feed(s, 'l', 1)
+    patterns.feed(s, 'j', 1) -- interrupt: not a rightward motion
+    patterns.feed(s, 'l', 1)
+    local result = patterns.feed(s, 'l', 1)
+    assert.is_nil(result)
+  end)
+
+  it('does not fire for l x3 with no preceding paste', function()
+    local s = seq()
+    patterns.feed(s, 'l', 1)
+    patterns.feed(s, 'l', 1)
+    local result = patterns.feed(s, 'l', 1)
+    -- l_repeat has a threshold of 5, so 3 plain l presses fire nothing
+    assert.is_nil(result)
+  end)
+end)
+
+describe('when the user pastes before the cursor then moves the cursor right several times', function()
+  it('fires P_then_rightward suggesting gP after P followed by l x3', function()
+    local s = seq()
+    patterns.feed(s, 'P', 1)
+    patterns.feed(s, 'l', 1)
+    patterns.feed(s, 'l', 1)
+    local result = patterns.feed(s, 'l', 1)
+    assert.is_not_nil(result)
+    assert.equals('P_then_rightward', result.pattern)
+    assert.equals('gP', result.cmd)
+  end)
+
+  it('does not fire after only 2 rightward moves', function()
+    local s = seq()
+    patterns.feed(s, 'P', 1)
+    patterns.feed(s, 'l', 1)
+    local result = patterns.feed(s, 'l', 1)
+    assert.is_nil(result)
+  end)
+end)
+
 -- ── $ → a (append at end of line) ────────────────────────────────────────────
 
 describe('when the user moves to end of line then appends', function()

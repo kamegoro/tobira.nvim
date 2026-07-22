@@ -156,6 +156,8 @@ describe('float.reasons locale', function()
     'n_repeat',
     'p_repeat',
     'P_repeat',
+    'p_then_rightward',
+    'P_then_rightward',
     'r_run',
     'tilde_repeat',
     'u_repeat',
