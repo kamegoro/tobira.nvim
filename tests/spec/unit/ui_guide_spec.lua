@@ -130,6 +130,53 @@ describe('when a command is pinned', function()
   end)
 end)
 
+-- ── pinned row forgotten state (#123) ────────────────────────────────────────
+-- format_pinned_row() didn't take `data` at all before this fix, so a pinned
+-- command that decayed into graph.is_forgotten() never got the ⟳ glyph or
+-- (forgotten) suffix the same command would correctly get in the auto
+-- section — it just kept showing the plain ● pin row forever. See #123.
+
+describe('when a pinned command has decayed into a forgotten state', function()
+  local forgotten_data = { count = 200, sessions = { 8, 9, 0, 0 }, shown = 0, suppressed = false, pinned = true }
+
+  it('renders the ⟳ glyph with TobiraGuideForgotten on the pinned row', function()
+    local lines, hls = guide.build({ [';'] = forgotten_data })
+    local row_lnum, row
+    for i, line in ipairs(lines) do
+      if line:find(';', 1, true) then
+        row_lnum, row = i - 1, line
+      end
+    end
+    assert.is_not_nil(row, 'expected a pinned row for ;')
+    assert.is_not_nil(row:find('⟳', 1, true))
+    assert.is_not_nil(find_hl(hls, row_lnum, 'TobiraGuideForgotten'))
+  end)
+
+  it('still shows the ● pin marker alongside the forgotten glyph', function()
+    local lines = guide.build({ [';'] = forgotten_data })
+    local row = find_line(lines, ';')
+    assert.is_not_nil(row:find('●', 1, true))
+  end)
+
+  it('appends the forgotten_suffix to the description', function()
+    local loc = require('tobira.i18n').load()
+    local lines = guide.build({ [';'] = forgotten_data })
+    local row = find_line(lines, ';')
+    assert.is_not_nil(row:find(loc.guide.forgotten_suffix, 1, true))
+  end)
+end)
+
+describe('when a pinned command is not forgotten', function()
+  it('renders no ⟳ glyph and no forgotten_suffix', function()
+    local loc = require('tobira.i18n').load()
+    local lines = guide.build({ ['ciw'] = entry({ pinned = true, count = 5 }) })
+    local row = find_line(lines, 'ciw')
+    assert.is_not_nil(row)
+    assert.is_nil(row:find('⟳', 1, true))
+    assert.is_nil(row:find(loc.guide.forgotten_suffix, 1, true))
+  end)
+end)
+
 -- ── mastery-symbol column (#68) ──────────────────────────────────────────────
 
 describe('when a command has never been tried (mastery level 0)', function()

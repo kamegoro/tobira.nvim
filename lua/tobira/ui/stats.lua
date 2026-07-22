@@ -89,6 +89,7 @@ function M.render(usage)
   local gaps = graph.efficiency_gaps(usage, GAPS_N)
 
   local STAR_BY_LEVEL = { [0] = ' ', [1] = '☆', [2] = '★', [3] = '★★', [4] = '★★★' }
+  local SYM_FORGOTTEN = '⟳' -- mirrors ui/guide.lua's forgotten glyph, see ui/CLAUDE.md's state-color table
 
   local lines = {}
   local hls = {}
@@ -131,8 +132,15 @@ function M.render(usage)
     push('  ' .. str.top_commands, 'TobiraH1')
     for i = 1, math.min(TOP_N, #sorted) do
       local item = sorted[i]
-      local lv = graph.mastery_level(item.data)
-      local star = STAR_BY_LEVEL[lv] or ' '
+      -- Forgotten overrides the mastery-level star (mirrors graph.is_mastered's
+      -- own precedence) so a command that decayed doesn't still read as ★★★
+      -- here while Guide already shows it needs review — see #123.
+      local star
+      if graph.is_forgotten(item.data) then
+        star = SYM_FORGOTTEN
+      else
+        star = STAR_BY_LEVEL[graph.mastery_level(item.data)] or ' '
+      end
       push(
         string.format('    %s  %s  %s×', rpad(star, 5), rpad(item.cmd, 6), lpad(fmt_int_commas(item.data.count), 6))
       )

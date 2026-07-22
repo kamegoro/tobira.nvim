@@ -63,14 +63,23 @@ end
 local SYM_FULL = '★' -- U+2605, 3 bytes, 1 display col
 local SYM_OPEN = '☆' -- U+2606, 3 bytes, 1 display col
 local SYM_SUPPRESSED = '✗' -- U+2717, 3 bytes, 1 display col
+local SYM_FORGOTTEN = '⟳' -- U+27F3, 3 bytes, 1 display col
 
 -- Returns (sym_str, sym_bytes, sym_disp_cols, hl_group).
 -- sym area is always 3 display cols wide (padded with spaces).
+-- Forgotten takes priority over the numeric level (mirrors ui/guide.lua's
+-- mastery_glyph()) so a command that was once mastered and has since gone
+-- quiet reads as "come back to this" here too, instead of still showing
+-- whatever star count it reached before going quiet — see #123.
 local function mastery_sym(data)
+  local graph = require('tobira.core.graph')
   if data.suppressed then
     return SYM_SUPPRESSED .. '  ', 5, 3, 'TobiraGuideSuppressed'
   end
-  local level = require('tobira.core.graph').mastery_level(data)
+  if graph.is_forgotten(data) then
+    return SYM_FORGOTTEN .. '  ', 5, 3, 'TobiraGuideForgotten'
+  end
+  local level = graph.mastery_level(data)
   if level == 4 then
     return SYM_FULL .. SYM_FULL .. SYM_FULL, 9, 3, 'TobiraGuideMastered'
   elseif level == 3 then
@@ -184,7 +193,11 @@ function M.build(usage)
   for _, cat in ipairs(skills.tree) do
     for _, item in ipairs(cat.items) do
       total_items = total_items + 1
-      if graph.mastery_level(item_data(item, usage)) >= 2 then
+      -- is_mastered() (not a raw mastery_level >= 2 check) so a command that
+      -- crossed the mastery threshold but has since gone quiet doesn't still
+      -- count toward the ratio here while Guide already shows it as
+      -- forgotten — see #123.
+      if graph.is_mastered(item_data(item, usage)) then
         total_mastered = total_mastered + 1
       end
     end
@@ -205,7 +218,8 @@ function M.build(usage)
     local cat_label = str.categories[cat.id] or cat.id
     local done = 0
     for _, item in ipairs(cat.items) do
-      if graph.mastery_level(item_data(item, usage)) >= 2 then
+      -- See the total_mastered loop above (#123) — same is_mastered() switch.
+      if graph.is_mastered(item_data(item, usage)) then
         done = done + 1
       end
     end

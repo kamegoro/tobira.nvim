@@ -226,6 +226,91 @@ describe('when an adopted motion skill is suppressed', function()
   end)
 end)
 
+-- ── forgotten state (#123) ────────────────────────────────────────────────────
+-- graph.is_forgotten() was only consulted by Guide before this fix — Progress
+-- derived its glyph/ratio purely from mastery_level(), so a command that was
+-- once mastered and has since gone quiet could read as "mastered" here while
+-- Guide already showed it as ⟳ needs-review. See #123.
+
+describe('when an adopted motion skill has decayed into a forgotten state', function()
+  before_each(setup)
+  after_each(teardown)
+
+  it('renders the ⟳ glyph on the skill row, not a star', function()
+    local usage = logger.get_all()
+    usage[';'] = entry({ count = 200, sessions = { 8, 9, 0, 0 } })
+    progress.open()
+    local buf = vim.api.nvim_get_current_buf()
+    local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+    assert.is_true(lines_contain(lines, '⟳'))
+    local row = nil
+    for _, line in ipairs(lines) do
+      if line:find(';', 1, true) then
+        row = line
+      end
+    end
+    assert.is_not_nil(row, 'expected a row for ;')
+    assert.is_nil(row:find('★', 1, true))
+  end)
+
+  it('is highlighted with TobiraGuideForgotten, not a mastered/learning group', function()
+    local usage = logger.get_all()
+    usage[';'] = entry({ count = 200, sessions = { 8, 9, 0, 0 } })
+    local lines, hls = progress.build(usage)
+    local row_lnum = select(1, find_pos(lines, ';')) - 1
+    local found_forgotten = false
+    for _, h in ipairs(hls) do
+      if h.lnum == row_lnum then
+        assert.not_equals('TobiraGuideMastered', h.group)
+        assert.not_equals('TobiraGuideLearning', h.group)
+        if h.group == 'TobiraGuideForgotten' then
+          found_forgotten = true
+        end
+      end
+    end
+    assert.is_true(found_forgotten, 'expected a TobiraGuideForgotten highlight on the forgotten row')
+  end)
+end)
+
+describe('the H1 mastered ratio when the only touched command is forgotten', function()
+  before_each(setup)
+  after_each(teardown)
+
+  it('does not count the forgotten command as mastered', function()
+    local usage = logger.get_all()
+    usage[';'] = entry({ count = 200, sessions = { 8, 9, 0, 0 } })
+    local lines = progress.build(usage)
+    local skills = require('tobira.core.skills')
+    local total = 0
+    for _, cat in ipairs(skills.tree) do
+      total = total + #cat.items
+    end
+    local loc = require('tobira.i18n').load()
+    local expected_suffix = loc.progress.mastered_total:format(0, total)
+    local h1 = lines[2]
+    assert.equals(expected_suffix, h1:sub(-#expected_suffix))
+  end)
+end)
+
+describe('a category section heading when the only touched command in it is forgotten', function()
+  before_each(setup)
+  after_each(teardown)
+
+  it('does not count the forgotten command as done', function()
+    local skills = require('tobira.core.skills')
+    local motion_total = 0
+    for _, cat in ipairs(skills.tree) do
+      if cat.id == 'motion' then
+        motion_total = #cat.items
+      end
+    end
+    local usage = logger.get_all()
+    usage[';'] = entry({ count = 200, sessions = { 8, 9, 0, 0 } })
+    local lines = progress.build(usage)
+    assert.is_true(lines_contain(lines, '0 / ' .. motion_total))
+  end)
+end)
+
 -- ── pin marker upgrade (#67: * -> ●) ─────────────────────────────────────────
 
 describe('when an adopted motion skill is pinned', function()

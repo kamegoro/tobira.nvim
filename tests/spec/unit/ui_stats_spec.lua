@@ -148,6 +148,40 @@ describe('when many commands have been recorded', function()
     assert.is_not_nil(find_line(r, 'j'), 'expected j in Top list')
     assert.is_not_nil(find_line(r, 'dd'), 'expected dd in Top list')
   end)
+
+  -- ── forgotten state (#123) ──────────────────────────────────────────────────
+  -- Top commands derived its star purely from mastery_level() before this fix,
+  -- so a command that decayed into graph.is_forgotten() could still show as
+  -- ★★★ here while Guide already flagged it with ⟳ needing review. See #123.
+
+  it('renders the ⟳ glyph instead of a mastery star for a forgotten command', function()
+    -- cw is also the trigger for '.' and 'yiw', so it additionally spawns
+    -- "Try these next" efficiency-gap rows containing the same "cw" text —
+    -- search only the lines from the Top commands header onward so those
+    -- earlier gap rows can't be mistaken for the Top commands row.
+    local r = stats.render({
+      cw = { count = 200, sessions = { 8, 9, 0, 0 }, shown = 0, suppressed = false, pinned = false },
+    })
+    local lines = lines_of(r)
+    local top_header_idx = nil
+    for i, line in ipairs(lines) do
+      if line:find('Top', 1, true) then
+        top_header_idx = i
+        break
+      end
+    end
+    assert.is_not_nil(top_header_idx, 'expected a Top commands section header')
+    local row = nil
+    for i = top_header_idx + 1, #lines do
+      if lines[i]:find('cw', 1, true) then
+        row = lines[i]
+        break
+      end
+    end
+    assert.is_not_nil(row, 'expected a row for cw in the Top commands section')
+    assert.is_not_nil(row:find('⟳', 1, true))
+    assert.is_nil(row:find('★', 1, true))
+  end)
 end)
 
 -- ── efficiency gaps ───────────────────────────────────────────────────────────
