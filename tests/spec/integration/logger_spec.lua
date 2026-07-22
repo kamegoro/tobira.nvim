@@ -860,6 +860,53 @@ describe('when a compound operator completes', function()
     assert.is_true(logger.get('gj').count > 0)
   end)
 
+  -- #119: consecutive identical compounds (dd dd, dw dw, …) were undercounted
+  -- because the old detection compared seq.last_op's value before/after each
+  -- keystroke — a second, identical compound re-assigns the same string, so
+  -- no value change was observed and the second occurrence was silently
+  -- dropped from the count.
+  it('increments the usage count for dd by 2 when dd is run twice in a row', function()
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'aaa', 'bbb', 'ccc' })
+    vim.fn.feedkeys('dd', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('dd', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals(2, logger.get('dd').count)
+  end)
+
+  it('increments the usage count for dw by 2 when dw is run twice in a row', function()
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'hello world foo bar' })
+    vim.fn.feedkeys('dw', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('dw', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals(2, logger.get('dw').count)
+  end)
+
+  it('keeps counting dd on every repeat, even the one that also fires the dd_run streak', function()
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'aaa', 'bbb', 'ccc', 'ddd' })
+    for _ = 1, 3 do
+      vim.fn.feedkeys('dd', 'xt')
+      vim.api.nvim_feedkeys('', 'x', false)
+    end
+    assert.equals(3, logger.get('dd').count)
+  end)
+
+  it('does not double count dd when it is immediately consumed by dd_then_p', function()
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'aaa', 'bbb' })
+    vim.fn.feedkeys('ddp', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals(1, logger.get('dd').count)
+  end)
+
+  it('does not double count dw when it is immediately consumed by dw_then_insert', function()
+    local esc = vim.api.nvim_replace_termcodes('<Esc>', true, false, true)
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'hello world' })
+    vim.fn.feedkeys('dwi' .. esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals(1, logger.get('dw').count)
+  end)
+
   -- All Ctrl keys changed to track=true are verified here so a stray
   -- track=false revert is caught immediately by CI.
   -- pcall absorbs Neovim errors (e.g. E433 for <C-]> with no tags file):

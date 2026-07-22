@@ -1188,3 +1188,79 @@ describe('seq.key_consumed', function()
     assert.is_false(s.key_consumed)
   end)
 end)
+
+-- ── op_completed flag (#119) ────────────────────────────────────────────────
+-- seq.op_completed is true only on the exact feed() call that freshly assigns
+-- seq.last_op. logger.lua increments usage from this flag rather than from a
+-- value-change comparison, so two identical compounds back-to-back (dd dd,
+-- dw dw, …) are each counted once — a value-change comparison cannot tell
+-- "the same compound completed twice" from "nothing happened".
+
+describe('seq.op_completed', function()
+  it('is false after only the first key of a pending operator', function()
+    local s = seq()
+    patterns.feed(s, 'd', 1)
+    assert.is_false(s.op_completed)
+  end)
+
+  it('is true on the exact key that completes dd', function()
+    local s = seq()
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'd', 1)
+    assert.is_true(s.op_completed)
+  end)
+
+  it('is true again when a second, identical dd completes right after the first', function()
+    local s = seq()
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'd', 1)
+    assert.is_true(s.op_completed) -- 1st dd
+    patterns.feed(s, 'd', 1)
+    assert.is_false(s.op_completed) -- pending again, not yet completed
+    patterns.feed(s, 'd', 1)
+    assert.is_true(s.op_completed) -- 2nd dd, same value as last_op but freshly completed
+  end)
+
+  it('is true on the exact key that completes dw', function()
+    local s = seq()
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'w', 1)
+    assert.is_true(s.op_completed)
+  end)
+
+  it('is true again when a second, identical dw completes right after the first', function()
+    local s = seq()
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'w', 1)
+    assert.is_true(s.op_completed)
+    patterns.feed(s, 'd', 1)
+    assert.is_false(s.op_completed)
+    patterns.feed(s, 'w', 1)
+    assert.is_true(s.op_completed)
+  end)
+
+  it('is false on the p that consumes dd_then_p (last_op cleared, not freshly set)', function()
+    local s = seq()
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'p', 1)
+    assert.is_false(s.op_completed)
+  end)
+
+  it('is false on the insert key that consumes dw_then_insert (last_op cleared, not freshly set)', function()
+    local s = seq()
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'w', 1)
+    patterns.feed(s, 'i', 1)
+    assert.is_false(s.op_completed)
+  end)
+
+  it('is reset to false at the start of every feed call', function()
+    local s = seq()
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'd', 1)
+    assert.is_true(s.op_completed)
+    patterns.feed(s, 'j', 1)
+    assert.is_false(s.op_completed)
+  end)
+end)

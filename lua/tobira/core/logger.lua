@@ -193,14 +193,17 @@ local function handle_key(key)
   end
 
   local line = vim.fn.line('.')
-  local prev_op = seq.last_op
 
   local result = patterns.feed(seq, key, line)
 
   -- Track compound operators (dw, dd, gg, >>, …) the moment they complete.
   -- Single-char keys are handled by the TRACK lookup below; compound ones
-  -- are only visible here through the change in seq.last_op.
-  if seq.last_op ~= nil and seq.last_op ~= prev_op then
+  -- are only visible here through seq.op_completed, which patterns.feed()
+  -- sets on the exact call that freshly assigns seq.last_op. This must NOT
+  -- be a before/after value comparison on seq.last_op — two identical
+  -- compounds back-to-back (dd dd, dw dw, …) re-assign the same string, so
+  -- a value-change check would silently drop the second occurrence (#119).
+  if seq.op_completed then
     increment(seq.last_op)
   end
 

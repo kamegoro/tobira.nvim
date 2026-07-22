@@ -19,7 +19,9 @@ local M = {}
 M.registry = {
   -- ── Compound operators ────────────────────────────────────────────────────
   -- Multi-char sequences (operator + motion) that act as prerequisites.
-  -- Tracked via seq.last_op change detection in logger.lua.
+  -- Tracked in logger.lua via seq.op_completed, set by patterns.lua the
+  -- moment seq.last_op is freshly assigned (see patterns.lua for why this
+  -- is not a before/after value comparison on seq.last_op).
   ['dw'] = { compound = true },
   ['dd'] = { compound = true },
 
