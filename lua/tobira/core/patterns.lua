@@ -29,10 +29,15 @@ function M.new_seq()
     pending_z = false,
     -- <C-w>X window-command two-key compound tracking (#120)
     pending_ctrl_w = false,
+    -- <C-w>q / <C-w>c repeated (or alternated) 2+ times in a row → <C-w>o (#107)
+    ctrl_w_close_streak = 0,
     -- prefixes that consume exactly one following character
     pending_register = false, -- " or @ (register / macro name)
     pending_mark = false, -- m / ' / ` (mark name or target)
     pending_bracket = false, -- [ or ] (navigation pair)
+    -- p / P → rightward motion: cursor skipped past a paste, suggest gp/gP (#106)
+    pending_paste = nil, -- 'p' | 'P' | nil
+    paste_motion_streak = 0,
     -- set true by M.feed when the key was the second char of a compound;
     -- logger uses this to skip standalone TRACK counting for that key
     key_consumed = false,
@@ -57,6 +62,17 @@ local INSERT_KEYS = {
   S = true,
 }
 
+-- Motion keys that move the cursor rightward on the current line — the set
+-- checked by the p/P → gp/gP cursor-skip-past-paste pattern (#106).
+local RIGHTWARD_KEYS = {
+  l = true,
+  w = true,
+  W = true,
+  e = true,
+  E = true,
+  ['$'] = true,
+}
+
 local function track_run(seq, key)
   if seq.run.key == key then
     seq.run.count = seq.run.count + 1
@@ -67,6 +83,33 @@ local function track_run(seq, key)
 end
 
 local function inner_feed(seq, key, line)
+  -- ── p / P → rightward motion: cursor skipped past a paste (#106) ─────────
+  -- Checked first, before any other handler, so it observes every key that
+  -- follows a paste — including keys other handlers would otherwise consume
+  -- (e.g. g, ", m). Unlike those handlers this one does NOT return early on
+  -- a non-firing key: rightward motions still fall through to their own
+  -- patterns (l_repeat, w_repeat, zero_then_w, ...), and non-motion keys
+  -- just cancel the pending streak and fall through unchanged. p/P re-press
+  -- is exempted from cancelling so p_repeat / P_repeat below are unaffected.
+  if seq.pending_paste then
+    if RIGHTWARD_KEYS[key] then
+      seq.paste_motion_streak = seq.paste_motion_streak + 1
+      if seq.paste_motion_streak >= 3 then
+        local pasted = seq.pending_paste
+        seq.pending_paste = nil
+        seq.paste_motion_streak = 0
+        if pasted == 'p' then
+          return { pattern = 'p_then_rightward', cmd = 'gp' }
+        else
+          return { pattern = 'P_then_rightward', cmd = 'gP' }
+        end
+      end
+    elseif key ~= 'p' and key ~= 'P' then
+      seq.pending_paste = nil
+      seq.paste_motion_streak = 0
+    end
+  end
+
   -- ── pending_g / pending_z: must precede f/F/t/T so that gf and zt are ────
   -- ── consumed by their own handlers rather than starting an f/t search.  ────
   if seq.pending_g then
@@ -129,11 +172,26 @@ local function inner_feed(seq, key, line)
       k = '<C-w>k',
       l = '<C-w>l',
       q = '<C-w>q',
+      c = '<C-w>c',
       ['='] = '<C-w>=',
     }
     if ctrl_w_targets[key] then
       seq.last_op = ctrl_w_targets[key]
       seq.op_completed = true
+      -- <C-w>q and <C-w>c both close the current window. Repeating either one
+      -- (or alternating between them) 2+ times in a row means the user is
+      -- closing windows one at a time — suggest <C-w>o instead (#107).
+      if key == 'q' or key == 'c' then
+        seq.ctrl_w_close_streak = seq.ctrl_w_close_streak + 1
+        if seq.ctrl_w_close_streak >= 2 then
+          seq.ctrl_w_close_streak = 0
+          return { pattern = 'ctrl_w_close_repeat', cmd = '<C-w>o' }
+        end
+      else
+        seq.ctrl_w_close_streak = 0
+      end
+    else
+      seq.ctrl_w_close_streak = 0
     end
     return nil
   end
@@ -419,6 +477,16 @@ local function inner_feed(seq, key, line)
     return { pattern = 'dd_then_insert', cmd = 'cc' }
   end
 
+  -- ── p / P: arm cursor-skip-past-paste tracking (#106) ────────────────────
+  -- Not consumed here — p/P still fall through to p_repeat / P_repeat via
+  -- the track_run() call at the bottom of this function. The top-of-function
+  -- check above uses this state to detect several rightward moves right
+  -- after this paste.
+  if key == 'p' or key == 'P' then
+    seq.pending_paste = key
+    seq.paste_motion_streak = 0
+  end
+
   -- ── 0 → w: first non-blank ───────────────────────────────────────────────
   if key == 'w' and seq.run.key == '0' then
     return { pattern = 'zero_then_w', cmd = '^' }
@@ -466,6 +534,7 @@ local function inner_feed(seq, key, line)
     seq.cc_streak = 0
     seq.indent_streak = 0
     seq.dedent_streak = 0
+    seq.ctrl_w_close_streak = 0
   end
 
   -- ── consecutive-run patterns ──────────────────────────────────────────────

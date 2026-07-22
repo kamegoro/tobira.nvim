@@ -103,10 +103,13 @@ return {
       b_repeat = 'Du hast 5-mal hintereinander b gedrückt',
       p_repeat = 'Du hast 3-mal hintereinander eingefügt',
       P_repeat = 'Du hast 3-mal hintereinander vor dem Cursor eingefügt',
+      p_then_rightward = 'Du hast eingefügt und den Cursor dann mehrmals nach rechts daran vorbei bewegt',
+      P_then_rightward = 'Du hast vor dem Cursor eingefügt und ihn dann mehrmals nach rechts daran vorbei bewegt',
       tilde_repeat = 'Du hast 3-mal hintereinander die Groß-/Kleinschreibung umgeschaltet',
       dot_repeat = 'Du hast die letzte Änderung 3-mal hintereinander wiederholt',
       J_repeat = 'Du hast 3-mal hintereinander Zeilen zusammengeführt',
       ca_run = 'Du hast eine Zahl erhöht, eine Zeile weiterbewegt und das 3-mal wiederholt',
+      ctrl_w_close_repeat = 'Du hast 2-mal hintereinander Fenster einzeln geschlossen',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -704,6 +707,11 @@ return {
       title = '<C-w>= — Größe aller Fenster angleichen',
       body = 'Passt alle offenen Teilungen auf gleiche Breite und Höhe an\nEin schnelles Zurücksetzen, wenn Teilungen nach manueller Größenänderung unausgeglichen werden',
       example = '<C-w>= → alle Fensterbereiche kehren zu gleichen Abmessungen zurück',
+    },
+    ['<C-w>o'] = {
+      title = '<C-w>o — alle anderen Fenster schließen',
+      body = 'Schließt mit einem Tastendruck jede Teilung außer der aktuellen\nKein Grund, <C-w>q oder <C-w>c einmal pro Fenster zu wiederholen, wenn du dich nur auf eines konzentrieren willst',
+      example = '<C-w>o → jede andere Teilung schließt; nur das aktuelle Fenster bleibt übrig',
     },
     ['$'] = {
       title = '$ — zum Zeilenende springen',

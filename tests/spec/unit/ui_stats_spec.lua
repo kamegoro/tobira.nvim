@@ -287,8 +287,8 @@ describe('when the stats window is open', function()
         called = true
       end,
     }
-    stats.open()
     local ok, err = pcall(function()
+      stats.open()
       vim.fn.feedkeys('g', 'xt')
       vim.api.nvim_feedkeys('', 'x', false)
     end)
@@ -305,8 +305,8 @@ describe('when the stats window is open', function()
         called = true
       end,
     }
-    stats.open()
     local ok, err = pcall(function()
+      stats.open()
       vim.fn.feedkeys('p', 'xt')
       vim.api.nvim_feedkeys('', 'x', false)
     end)

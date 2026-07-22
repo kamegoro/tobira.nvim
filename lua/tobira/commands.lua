@@ -327,6 +327,8 @@ M.registry = {
   ['<C-w>l'] = { requires = '<C-w>w', track = false, category = 'window', level = 'intermediate' },
   ['<C-w>q'] = { requires = '<C-w>w', track = false, category = 'window', level = 'intermediate' },
   ['<C-w>='] = { requires = '<C-w>w', track = false, category = 'window', level = 'intermediate' },
+  -- ── <C-w>q / <C-w>c repeated → <C-w>o: close all other windows (#107) ──────
+  ['<C-w>o'] = { requires = '<C-w>q', track = false, category = 'window', level = 'intermediate' },
 
   -- ── l → w / h → b basic word motion (suggested by l_repeat / h_repeat) ───────
   ['w'] = { requires = 'l', track = true, category = 'motion', level = 'beginner' },
