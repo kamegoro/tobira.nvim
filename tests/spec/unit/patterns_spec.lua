@@ -284,6 +284,46 @@ describe('when the user presses dd 3 or more times in a row', function()
   end)
 end)
 
+-- ── cc (change line) → last_op tracking ──────────────────────────────────────
+-- Regression tests for #118: patterns.lua's operator-pending branch used to
+-- hardcode seq.last_op = 'dd' regardless of the actual operator, so cc was
+-- silently recorded (and streak-tracked) as dd.
+
+describe('when the user presses cc (change line)', function()
+  it('records last_op = cc, not the hardcoded dd', function()
+    local s = seq()
+    patterns.feed(s, 'c', 1)
+    patterns.feed(s, 'c', 1)
+    assert.equals('cc', s.last_op)
+  end)
+
+  it('does not disturb dd: dd still records last_op = dd', function()
+    local s = seq()
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'd', 1)
+    assert.equals('dd', s.last_op)
+  end)
+
+  it('does not fire dd_run ({n}dd) when cc is pressed 3 times in a row', function()
+    local s = seq()
+    patterns.feed(s, 'c', 1)
+    patterns.feed(s, 'c', 1)
+    patterns.feed(s, 'c', 1)
+    patterns.feed(s, 'c', 1)
+    patterns.feed(s, 'c', 1)
+    local result = patterns.feed(s, 'c', 1)
+    assert.is_nil(result)
+  end)
+
+  it('does not fire dd_then_p when cc is followed by p', function()
+    local s = seq()
+    patterns.feed(s, 'c', 1)
+    patterns.feed(s, 'c', 1)
+    local result = patterns.feed(s, 'p', 1)
+    assert.is_nil(result)
+  end)
+end)
+
 describe('when x is interrupted by a different key', function()
   it('resets the run so subsequent x presses start fresh', function()
     local s = seq()
@@ -945,8 +985,10 @@ end)
 
 describe('when the user uses [ or ] navigation', function()
   -- Without a pending_bracket guard, ]c incorrectly sets pending_op='c'.
-  -- Then a second 'c' matches key==op and sets last_op='dd', so 'p' fires
-  -- dd_then_p. This is a false positive that pending_bracket must prevent.
+  -- Then a second 'c' matches key==op and sets last_op='cc', so 'p' would
+  -- fall through (no cc_then_p pattern exists) and stay nil either way; the
+  -- pending_bracket guard is what prevents ]c from ever becoming pending_op
+  -- in the first place, which this test verifies.
   it('does not fire dd_then_p for ]cc p (] c is navigation, not an operator)', function()
     local s = seq()
     patterns.feed(s, ']', 1)
