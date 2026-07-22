@@ -84,6 +84,7 @@ return {
       dd_then_insert = 'Vous avez supprimé une ligne puis commencé à en taper une nouvelle',
       zero_then_w = "Vous avez sauté à la colonne 0 puis avancé d'un mot",
       zero_then_insert = 'Vous avez sauté au début de ligne puis êtes entré en mode insertion',
+      zero_col_then_insert = 'Vous avez sauté à la colonne 0 puis êtes entré en mode insertion',
       dollar_then_append = 'Vous avez sauté à la fin de ligne puis êtes entré en mode insertion',
       k_then_o = "Vous êtes monté d'une ligne puis en avez ouvert une nouvelle en dessous",
       x_then_insert = 'Vous avez supprimé un caractère puis êtes entré en mode insertion',
@@ -199,6 +200,11 @@ return {
       title = 'I — insérer en début de ligne',
       body = 'Va au premier caractère non blanc et entre en mode insertion\nCombinez avec A (fin de ligne) pour éditer rapidement les extrémités de ligne',
       example = 'I// → commenter la ligne actuelle',
+    },
+    ['gI'] = {
+      title = "gI — insérer à la colonne 1, en ignorant l'indentation",
+      body = "Contrairement à I, insère toujours au tout début de la ligne, même si elle est indentée\nUtile quand l'intention était la colonne 1, pas le premier caractère non blanc",
+      example = "gI# → ajoute # au tout début d'une ligne indentée",
     },
     ['H'] = {
       title = "H — sauter en haut de l'écran",

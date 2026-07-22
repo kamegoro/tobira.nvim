@@ -493,14 +493,14 @@ end)
 
 -- ── 0 / ^ → i (insert at beginning of line) ──────────────────────────────────
 
-describe('when the user goes to column 0 then enters insert mode', function()
-  it('fires zero_then_insert suggesting I', function()
+describe('when the user goes to true column 0 then enters insert mode', function()
+  it('fires zero_col_then_insert suggesting gI', function()
     local s = seq()
     patterns.feed(s, '0', 1)
     local result = patterns.feed(s, 'i', 1)
     assert.is_not_nil(result)
-    assert.equals('zero_then_insert', result.pattern)
-    assert.equals('I', result.cmd)
+    assert.equals('zero_col_then_insert', result.pattern)
+    assert.equals('gI', result.cmd)
   end)
 end)
 
