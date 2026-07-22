@@ -84,6 +84,7 @@ return {
       dd_then_insert = 'Du hast eine Zeile gelöscht und eine neue eingetippt',
       zero_then_w = 'Du bist zu Spalte 0 gesprungen und dann ein Wort weiter',
       zero_then_insert = 'Du bist zum Zeilenanfang gesprungen und in den Einfügemodus gewechselt',
+      zero_col_then_insert = 'Du bist zu Spalte 0 gesprungen und in den Einfügemodus gewechselt',
       dollar_then_append = 'Du bist zum Zeilenende gesprungen und in den Einfügemodus gewechselt',
       k_then_o = 'Du bist eine Zeile hoch und hast darunter eine neue geöffnet',
       x_then_insert = 'Du hast ein Zeichen gelöscht und bist in den Einfügemodus gewechselt',
@@ -199,6 +200,11 @@ return {
       title = 'I — am Zeilenanfang einfügen',
       body = 'Springt zum ersten Nicht-Leerzeichen und wechselt in den Einfügemodus\nKombiniere mit A (Zeilenende) für schnelles Bearbeiten der Zeilenränder',
       example = 'I// → aktuelle Zeile auskommentieren',
+    },
+    ['gI'] = {
+      title = 'gI — an Spalte 1 einfügen, Einrückung ignorieren',
+      body = 'Anders als I fügt dies immer am wirklichen Zeilenanfang ein, auch wenn die Zeile eingerückt ist\nNützlich, wenn eigentlich Spalte 1 gemeint war, nicht das erste Nicht-Leerzeichen',
+      example = 'gI# → fügt # ganz am Anfang einer eingerückten Zeile ein',
     },
     ['H'] = {
       title = 'H — zum oberen Bildschirmrand springen',

@@ -338,8 +338,13 @@ local function inner_feed(seq, key, line)
     return { pattern = 'zero_then_w', cmd = '^' }
   end
 
-  -- ── 0 / ^ → i: suggest I ────────────────────────────────────────────────
-  if key == 'i' and (seq.run.key == '0' or seq.run.key == '^') then
+  -- ── 0 → i: suggest gI (true column 1, unlike I which goes to first non-blank) ──
+  if key == 'i' and seq.run.key == '0' then
+    return { pattern = 'zero_col_then_insert', cmd = 'gI' }
+  end
+
+  -- ── ^ → i: suggest I ─────────────────────────────────────────────────────
+  if key == 'i' and seq.run.key == '^' then
     return { pattern = 'zero_then_insert', cmd = 'I' }
   end
 

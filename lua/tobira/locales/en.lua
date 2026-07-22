@@ -84,6 +84,7 @@ return {
       dd_then_insert = 'You deleted a line then started typing a new one',
       zero_then_w = 'You jumped to column 0 then moved forward a word',
       zero_then_insert = 'You jumped to line start then entered insert mode',
+      zero_col_then_insert = 'You jumped to column 0 then entered insert mode',
       dollar_then_append = 'You jumped to end of line then entered insert mode',
       k_then_o = 'You moved up a line then opened a new one below',
       x_then_insert = 'You deleted a character then entered insert mode',
@@ -199,6 +200,11 @@ return {
       title = 'I — insert at start of line',
       body = 'Moves to the first non-blank character and enters insert mode\nPair with A (end of line) for quick line-edge edits',
       example = 'I// → comment out the current line',
+    },
+    ['gI'] = {
+      title = 'gI — insert at column 1, ignoring indent',
+      body = 'Unlike I, always inserts at the true start of the line even when it is indented\nUseful when 0 then i was your intent, not the first non-blank character',
+      example = 'gI# → adds # at the very start of an indented line',
     },
     ['H'] = {
       title = 'H — jump to top of screen',

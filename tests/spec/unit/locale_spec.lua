@@ -137,7 +137,7 @@ describe('float.reasons locale', function()
     'f_repeat', 'h_repeat', 'indent_run', 'j_many', 'j_repeat', 'J_repeat', 'k_many',
     'k_repeat', 'k_then_o', 'l_repeat', 'n_repeat', 'p_repeat', 'P_repeat', 'r_run',
     'tilde_repeat', 'u_repeat', 'visual_textobj', 'w_repeat', 'x_repeat', 'x_then_insert',
-    'yy_then_p', 'zero_then_insert', 'zero_then_w',
+    'yy_then_p', 'zero_col_then_insert', 'zero_then_insert', 'zero_then_w',
   }
 
   it('has a non-empty reason string in en.lua for every pattern patterns.lua can fire', function()
