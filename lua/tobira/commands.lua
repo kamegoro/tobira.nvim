@@ -152,6 +152,12 @@ M.registry = {
   ['<C-a>'] = { requires = 'x', track = true, category = 'edit', level = 'intermediate' },
   ['<C-x>'] = { requires = '<C-a>', track = true, category = 'edit', level = 'intermediate' },
 
+  -- ── <C-a> streak → g<C-a> visual-block sequential increment (#108) ──────
+  -- Detected via ca_run (patterns.lua): <C-a> → j/k → <C-a> repeated 3+
+  -- times. track = false: like the other g-prefixed compounds (gg, gu, …),
+  -- there is no pending_g dispatch entry recording literal g<C-a> keypresses.
+  ['g<C-a>'] = { requires = '<C-a>', track = false, category = 'edit', level = 'advanced' },
+
   -- ── v → V → <C-v> visual mode chain ─────────────────────────────────────
   ['V'] = { requires = 'v', track = true, category = 'edit', level = 'beginner' },
   ['<C-v>'] = { requires = 'V', track = true, category = 'edit', level = 'intermediate' },

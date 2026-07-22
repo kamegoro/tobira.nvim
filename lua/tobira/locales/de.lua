@@ -108,6 +108,7 @@ return {
       tilde_repeat = 'Du hast 3-mal hintereinander die Groß-/Kleinschreibung umgeschaltet',
       dot_repeat = 'Du hast die letzte Änderung 3-mal hintereinander wiederholt',
       J_repeat = 'Du hast 3-mal hintereinander Zeilen zusammengeführt',
+      ca_run = 'Du hast eine Zahl erhöht, eine Zeile weiterbewegt und das 3-mal wiederholt',
       ctrl_w_close_repeat = 'Du hast 2-mal hintereinander Fenster einzeln geschlossen',
     },
   },
@@ -387,6 +388,11 @@ return {
       title = '<C-x> — Zahl unter dem Cursor verringern',
       body = 'Die Gegenrichtung zu <C-a> — subtrahiert eins von der nächsten Zahl\nNützlich, um Zahlenwerte anzupassen, ohne sie manuell neu einzutippen',
       example = '<C-x> auf "z-index: 10" → "z-index: 9"',
+    },
+    ['g<C-a>'] = {
+      title = 'g<C-a> — Sequenz im Visual-Block-Modus hochzählen',
+      body = 'Erst die Zeilen mit <C-v> (visueller Block) auswählen, dann erhöht g<C-a> jede Zeile um eins mehr als die vorherige — aus wiederholten Zahlen wird eine Sequenz\nErsetzt das mühsame Zeile-für-Zeile: <C-a> → j → <C-a> → j → ...',
+      example = 'Mit <C-v> 3 Zeilen "0" auswählen → g<C-a> → 1 / 2 / 3',
     },
 
     -- ── visual mode chain ─────────────────────────────────────────────────
