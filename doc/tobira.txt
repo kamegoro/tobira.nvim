@@ -232,7 +232,8 @@ MOTION ~
   `k` × 10                      Suggest `{`    — jump backward by paragraph
   `k` (once) → `o`              Suggest `O`    — open new line above directly
   `0` → `w`                     Suggest `^`    — go to first non-blank
-  `0` / `^` → `i`               Suggest `I`    — insert at first non-blank
+  `0` → `i`                     Suggest `gI`   — insert at true column 1
+  `^` → `i`                     Suggest `I`    — insert at first non-blank
   `$` → `a`                     Suggest `A`    — append at end of line
   `n` × 4                       Suggest `cgn`  — change next search match
 
@@ -258,6 +259,13 @@ EDIT ~
   `>>` × 3                      Suggest `{n}>>` — indent N lines at once
   `<<` × 3                      Suggest `{n}<<` — dedent N lines at once
   `v` `i/a` `{obj}` `c/d/y`    Suggest direct operator (e.g. `ciw`, `di"`, `ya(`)
+  `p` / `P` → rightward × 3    Suggest `gp` / `gP` — paste, leave cursor after it
+  `<C-a>` → `j` × 3             Suggest `g<C-a>` — visual-block sequential increment
+  `gq` → jump back              Suggest `gw`    — format without moving the cursor
+
+WINDOW ~
+
+  `<C-w>q` / `<C-w>c` × 2       Suggest `<C-w>o` — close all other windows
 
 INSERT MODE ~
 
