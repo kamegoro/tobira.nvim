@@ -282,9 +282,11 @@ describe('when the stats window is open', function()
 
   it('pressing g closes stats and opens guide', function()
     local called = false
-    package.loaded['tobira.ui.guide'] = { open = function()
-      called = true
-    end }
+    package.loaded['tobira.ui.guide'] = {
+      open = function()
+        called = true
+      end,
+    }
     stats.open()
     local ok, err = pcall(function()
       vim.fn.feedkeys('g', 'xt')
@@ -298,9 +300,11 @@ describe('when the stats window is open', function()
 
   it('pressing p closes stats and opens progress', function()
     local called = false
-    package.loaded['tobira.ui.progress'] = { open = function()
-      called = true
-    end }
+    package.loaded['tobira.ui.progress'] = {
+      open = function()
+        called = true
+      end,
+    }
     stats.open()
     local ok, err = pcall(function()
       vim.fn.feedkeys('p', 'xt')

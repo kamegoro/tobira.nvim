@@ -12,6 +12,7 @@ function M.new_seq()
     run = { key = nil, count = 0 },
     pending_text_obj = nil,
     dd_streak = 0,
+    cc_streak = 0,
     indent_streak = 0,
     dedent_streak = 0,
     -- r-replacement tracking: r{char} l r{char} l r{char} → R
@@ -24,6 +25,8 @@ function M.new_seq()
     -- g* / z* two-key compound tracking
     pending_g = false,
     pending_z = false,
+    -- <C-w>X window-command two-key compound tracking (#120)
+    pending_ctrl_w = false,
     -- prefixes that consume exactly one following character
     pending_register = false, -- " or @ (register / macro name)
     pending_mark = false, -- m / ' / ` (mark name or target)
@@ -31,6 +34,13 @@ function M.new_seq()
     -- set true by M.feed when the key was the second char of a compound;
     -- logger uses this to skip standalone TRACK counting for that key
     key_consumed = false,
+    -- set true by M.feed on the exact call that freshly assigns seq.last_op
+    -- (a compound operation just completed). logger.lua increments usage
+    -- from this flag rather than comparing last_op's value before/after —
+    -- a value comparison can't tell "the same compound completed again"
+    -- from "nothing happened", which undercounted back-to-back repeats of
+    -- the same compound (dd dd, dw dw, …) — see #119.
+    op_completed = false,
   }
 end
 
@@ -69,9 +79,13 @@ local function inner_feed(seq, key, line)
       n = 'gn',
       x = 'gx',
       ['0'] = 'g0',
+      [';'] = 'g;',
+      p = 'gp',
+      u = 'gu',
     }
     if g_targets[key] then
       seq.last_op = g_targets[key]
+      seq.op_completed = true
     end
     return nil
   end
@@ -93,6 +107,31 @@ local function inner_feed(seq, key, line)
     }
     if z_targets[key] then
       seq.last_op = z_targets[key]
+      seq.op_completed = true
+    end
+    return nil
+  end
+
+  -- ── pending_ctrl_w: <C-w>X window-command two-key compound (#120) ─────────
+  -- Same dispatch-table design as pending_g / pending_z above. Must precede
+  -- f/F/t/T for the same reason gf and zt do — a stray collision would be a
+  -- new two-character prefix anyway, which is why this sits right next to them.
+  if seq.pending_ctrl_w then
+    seq.pending_ctrl_w = false
+    local ctrl_w_targets = {
+      s = '<C-w>s',
+      v = '<C-w>v',
+      w = '<C-w>w',
+      h = '<C-w>h',
+      j = '<C-w>j',
+      k = '<C-w>k',
+      l = '<C-w>l',
+      q = '<C-w>q',
+      ['='] = '<C-w>=',
+    }
+    if ctrl_w_targets[key] then
+      seq.last_op = ctrl_w_targets[key]
+      seq.op_completed = true
     end
     return nil
   end
@@ -192,6 +231,7 @@ local function inner_feed(seq, key, line)
     local op = seq.pending_text_obj
     seq.pending_text_obj = nil
     seq.last_op = op .. 'w'
+    seq.op_completed = true
     return nil
   end
 
@@ -210,6 +250,7 @@ local function inner_feed(seq, key, line)
     if op == '>' or op == '<' then
       if key == op then
         seq.last_op = op .. op -- '>>' or '<<' for compound tracking
+        seq.op_completed = true
         if op == '>' then
           seq.indent_streak = seq.indent_streak + 1
           if seq.indent_streak == 3 then
@@ -234,6 +275,7 @@ local function inner_feed(seq, key, line)
     if op == 'y' then
       if key == 'y' then
         seq.last_op = 'yy'
+        seq.op_completed = true
       end
       return nil
     end
@@ -246,20 +288,27 @@ local function inner_feed(seq, key, line)
         return { pattern = 'd_dollar', cmd = 'D' }
       end
     elseif key == op or key == 'j' or key == 'k' then
-      seq.last_op = 'dd'
+      seq.last_op = op .. op -- 'dd' or 'cc' (also dj/dk, cj/ck: linewise, tracked the same)
+      seq.op_completed = true
       if key == op then
-        seq.dd_streak = seq.dd_streak + 1
-        if seq.dd_streak >= 3 then
-          seq.dd_streak = 0
-          return { pattern = 'dd_run', cmd = '{n}dd' }
+        if op == 'd' then
+          seq.dd_streak = seq.dd_streak + 1
+          if seq.dd_streak >= 3 then
+            seq.dd_streak = 0
+            return { pattern = 'dd_run', cmd = '{n}dd' }
+          end
+        elseif op == 'c' then
+          seq.cc_streak = seq.cc_streak + 1
         end
       else
         seq.dd_streak = 0
+        seq.cc_streak = 0
       end
     elseif key == 'i' or key == 'a' then
       seq.pending_text_obj = op
     else
       seq.last_op = op .. 'w'
+      seq.op_completed = true
     end
     return nil
   end
@@ -290,6 +339,16 @@ local function inner_feed(seq, key, line)
   end
   if key == 'z' then
     seq.pending_z = true
+    return nil
+  end
+
+  -- ── <C-w>: start window-command two-key compound tracking (#120) ─────────
+  -- Raw byte for Ctrl-W (ASCII 23 / 0x17). Only reached from the normal-mode
+  -- path in logger.lua's handle_key — the insert-mode meaning of the exact
+  -- same byte is handled entirely separately by handle_insert_key(), so this
+  -- can never conflate the two (see commands.lua's '<C-w>' entry comment).
+  if key == '\23' then
+    seq.pending_ctrl_w = true
     return nil
   end
 
@@ -338,8 +397,13 @@ local function inner_feed(seq, key, line)
     return { pattern = 'zero_then_w', cmd = '^' }
   end
 
-  -- ── 0 / ^ → i: suggest I ────────────────────────────────────────────────
-  if key == 'i' and (seq.run.key == '0' or seq.run.key == '^') then
+  -- ── 0 → i: suggest gI (true column 1, unlike I which goes to first non-blank) ──
+  if key == 'i' and seq.run.key == '0' then
+    return { pattern = 'zero_col_then_insert', cmd = 'gI' }
+  end
+
+  -- ── ^ → i: suggest I ─────────────────────────────────────────────────────
+  if key == 'i' and seq.run.key == '^' then
     return { pattern = 'zero_then_insert', cmd = 'I' }
   end
 
@@ -372,6 +436,7 @@ local function inner_feed(seq, key, line)
   if key ~= 'p' then
     seq.last_op = nil
     seq.dd_streak = 0
+    seq.cc_streak = 0
     seq.indent_streak = 0
     seq.dedent_streak = 0
   end
@@ -420,6 +485,7 @@ end
 
 function M.feed(seq, key, line)
   seq.key_consumed = false -- reset before each call; handlers set true when consuming
+  seq.op_completed = false -- reset before each call; handlers set true when last_op is freshly set
   local result = inner_feed(seq, key, line)
   return result
 end
