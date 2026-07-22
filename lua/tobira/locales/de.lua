@@ -103,6 +103,8 @@ return {
       b_repeat = 'Du hast 5-mal hintereinander b gedrückt',
       p_repeat = 'Du hast 3-mal hintereinander eingefügt',
       P_repeat = 'Du hast 3-mal hintereinander vor dem Cursor eingefügt',
+      p_then_rightward = 'Du hast eingefügt und den Cursor dann mehrmals nach rechts daran vorbei bewegt',
+      P_then_rightward = 'Du hast vor dem Cursor eingefügt und ihn dann mehrmals nach rechts daran vorbei bewegt',
       tilde_repeat = 'Du hast 3-mal hintereinander die Groß-/Kleinschreibung umgeschaltet',
       dot_repeat = 'Du hast die letzte Änderung 3-mal hintereinander wiederholt',
       J_repeat = 'Du hast 3-mal hintereinander Zeilen zusammengeführt',

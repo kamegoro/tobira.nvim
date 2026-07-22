@@ -103,6 +103,8 @@ return {
       b_repeat = 'You pressed b 5 times in a row',
       p_repeat = 'You pasted 3 times in a row',
       P_repeat = 'You pasted before the cursor 3 times in a row',
+      p_then_rightward = 'You pasted then moved the cursor right past it several times',
+      P_then_rightward = 'You pasted before the cursor then moved right past it several times',
       tilde_repeat = 'You toggled case 3 times in a row',
       dot_repeat = 'You repeated the last change 3 times in a row',
       J_repeat = 'You joined lines 3 times in a row',

@@ -103,6 +103,8 @@ return {
       b_repeat = 'Pulsaste b 5 veces seguidas',
       p_repeat = 'Pegaste 3 veces seguidas',
       P_repeat = 'Pegaste antes del cursor 3 veces seguidas',
+      p_then_rightward = 'Pegaste y luego moviste el cursor a la derecha varias veces, pasando el texto pegado',
+      P_then_rightward = 'Pegaste antes del cursor y luego lo moviste a la derecha varias veces, pasando el texto pegado',
       tilde_repeat = 'Alternaste mayúsculas/minúsculas 3 veces seguidas',
       dot_repeat = 'Repetiste el último cambio 3 veces seguidas',
       J_repeat = 'Uniste líneas 3 veces seguidas',

@@ -103,6 +103,8 @@ return {
       b_repeat = '你连续按了 5 次 b',
       p_repeat = '你连续粘贴了 3 次',
       P_repeat = '你连续在光标前粘贴了 3 次',
+      p_then_rightward = '你粘贴后向右移动光标多次,越过了刚粘贴的内容',
+      P_then_rightward = '你在光标前粘贴后向右移动光标多次,越过了刚粘贴的内容',
       tilde_repeat = '你连续切换了 3 次大小写',
       dot_repeat = '你连续重复了 3 次上次修改',
       J_repeat = '你连续合并了 3 次行',
