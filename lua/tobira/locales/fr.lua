@@ -24,6 +24,7 @@ return {
       fold = 'Pliage',
       mark = 'Marque',
       macro = 'Macro',
+      terminal = 'Terminal',
     },
     mastered_total = '%d / %d maîtrisées',
     section_count = '%d / %d',
@@ -111,6 +112,7 @@ return {
       J_repeat = 'Vous avez fusionné des lignes 3 fois de suite',
       ca_run = "Vous avez incrémenté un nombre, déplacé d'une ligne, et répété cela 3 fois",
       ctrl_w_close_repeat = 'Vous avez fermé des fenêtres une par une, 2 fois de suite',
+      terminal_esc_repeat = 'Vous avez appuyé sur <Esc> deux fois de suite en mode terminal sans effet',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -969,6 +971,13 @@ return {
       title = "{n}<< — désindenter plusieurs lignes d'un coup",
       body = "Préfixez << avec un nombre pour désindenter autant de lignes en une seule commande\n3<< retire un niveau d'indentation à 3 lignes à partir du curseur",
       example = "3<< → désindente 3 lignes d'un coup",
+    },
+
+    -- terminal mode: ineffective <Esc> -> <C-\\><C-n> (#110)
+    ['<C-\\><C-n>'] = {
+      title = '<C-\\><C-n> — quitter le mode terminal',
+      body = 'Dans :terminal, <Esc> est transmis directement au job — cela ne quitte pas le mode terminal\n<C-\\><C-n> est le véritable moyen de revenir en mode Normal',
+      example = '<C-\\><C-n> → retour en mode Normal, le job du terminal continue de tourner',
     },
   },
 }

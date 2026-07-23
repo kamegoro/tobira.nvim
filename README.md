@@ -23,7 +23,7 @@ it quietly shows you the one command that would have helped. No quizzes. No inte
 ## ✨ Features
 
 - 👀 **Fully passive** — reads keystrokes via `vim.on_key()`; no config required, zero impact on your existing mappings
-- 🎯 **43 detected patterns** — repeated `f`, hammering `j`, `dw`→`i` instead of `cw`, insert-mode habits like `<BS>` spam or bouncing in and out with `<Esc>i`, and more across motion, edit, search, window, fold, mark, and macro
+- 🎯 **44 detected patterns** — repeated `f`, hammering `j`, `dw`→`i` instead of `cw`, insert-mode habits like `<BS>` spam or bouncing in and out with `<Esc>i`, getting stuck in terminal mode, and more across motion, edit, search, window, fold, mark, macro, and terminal
 - 💬 **One suggestion at a time** — shown after a natural pause, capped per session, with a cooldown between auto-suggestions — never a popup quiz
 - 📈 **Mastery-aware** — once you've used a command ~100 times, tobira stops suggesting it and moves on
 - 🪜 **Level-aware** — beginner commands surface first, advanced ones once you're ready
@@ -77,7 +77,7 @@ Full documentation is available in Neovim via `:help tobira`.
   <img src="docs/demo-guide.gif" alt=":TobiraGuide cheatsheet panel" width="720" />
 </p>
 
-`:TobiraGuide` opens a cheatsheet on the right side of the screen. Commands you've already mastered are automatically hidden, so only your next targets are shown — and if one of them fades from use after you'd gotten comfortable with it, it reappears with a `⟳` (forgotten) marker instead of staying hidden forever. Pinned commands always appear at the top, marked `●`. Covers all 7 categories: motion, edit, search, window, fold, mark, and macro — each capped to 3 unmastered commands (preferring ones you've never tried) so the panel stays a compact reference to glance at while you keep coding, with a `+N more` line if a category has more to show. Opens automatically on first launch.
+`:TobiraGuide` opens a cheatsheet on the right side of the screen. Commands you've already mastered are automatically hidden, so only your next targets are shown — and if one of them fades from use after you'd gotten comfortable with it, it reappears with a `⟳` (forgotten) marker instead of staying hidden forever. Pinned commands always appear at the top, marked `●`. Covers all 8 categories: motion, edit, search, window, fold, mark, macro, and terminal — each capped to 3 unmastered commands (preferring ones you've never tried) so the panel stays a compact reference to glance at while you keep coding, with a `+N more` line if a category has more to show. Opens automatically on first launch.
 
 ### Usage stats
 

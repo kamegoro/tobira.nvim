@@ -12,7 +12,7 @@ local ICON = '' -- nerd font fa-info-circle (matches nvim-notify INFO icon)
 -- touched yet (#96) instead of growing to fit everything.
 local MAX_PER_CATEGORY = 3
 
-local CATEGORY_ORDER = { 'motion', 'edit', 'search', 'window', 'fold', 'mark', 'macro' }
+local CATEGORY_ORDER = { 'motion', 'edit', 'search', 'window', 'fold', 'mark', 'macro', 'terminal' }
 
 local setup_hls = require('tobira.ui.hls').setup
 

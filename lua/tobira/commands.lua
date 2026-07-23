@@ -360,6 +360,19 @@ M.registry = {
   -- ── >> × 3 / << × 3 indent count prefix ─────────────────────────────────────
   ['{n}>>'] = { requires = '>>', track = false, category = 'edit', level = 'intermediate' },
   ['{n}<<'] = { requires = '<<', track = false, category = 'edit', level = 'intermediate' },
+
+  -- ── terminal mode: ineffective <Esc> → exit terminal mode (#110) ─────────
+  -- Detected reactively by patterns_terminal.lua while mode() == 't'
+  -- (terminal-job mode), independent of any prerequisite command — there is
+  -- no tracked "you opened :terminal" signal to require here (ex-command
+  -- tracking is a separate, parallel effort — #57). `requires = 'i'` is a
+  -- nominal anchor only, mirroring the '<C-w>' insert-mode entry above: it
+  -- satisfies commands_spec.lua's schema guard (every suggestion needs a
+  -- `requires`) and gives the ambient idle picker (graph.find_best, which
+  -- needs a nonzero-count trigger) something to gate on, but the reactive
+  -- path this pattern actually fires through (logger.on_pattern →
+  -- suggest.queue/show → do_show) never consults it.
+  ['<C-\\><C-n>'] = { requires = 'i', track = false, category = 'terminal', level = 'beginner' },
 }
 
 return M

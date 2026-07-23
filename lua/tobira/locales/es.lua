@@ -24,6 +24,7 @@ return {
       fold = 'Pliegue',
       mark = 'Marca',
       macro = 'Macro',
+      terminal = 'Terminal',
     },
     mastered_total = '%d / %d dominados',
     section_count = '%d / %d',
@@ -111,6 +112,7 @@ return {
       J_repeat = 'Uniste líneas 3 veces seguidas',
       ca_run = 'Incrementaste un número, bajaste una línea y lo repetiste 3 veces',
       ctrl_w_close_repeat = 'Cerraste ventanas una por una, 2 veces seguidas',
+      terminal_esc_repeat = 'Presionaste <Esc> dos veces seguidas en modo terminal sin ningún efecto',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -969,6 +971,13 @@ return {
       title = '{n}<< — quitar sangría a varias líneas a la vez',
       body = 'Antepone un número a << para quitar la sangría a esa cantidad de líneas en un solo comando\n3<< quita un nivel de sangría de 3 líneas desde el cursor',
       example = '3<< → quita la sangría de 3 líneas a la vez',
+    },
+
+    -- terminal mode: ineffective <Esc> -> <C-\\><C-n> (#110)
+    ['<C-\\><C-n>'] = {
+      title = '<C-\\><C-n> — salir del modo terminal',
+      body = 'Dentro de :terminal, <Esc> se envía directamente al proceso — no sale del modo terminal\n<C-\\><C-n> es la salida real al modo Normal',
+      example = '<C-\\><C-n> → vuelve al modo Normal, el proceso del terminal sigue en ejecución',
     },
   },
 }

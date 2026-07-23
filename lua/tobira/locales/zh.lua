@@ -24,6 +24,7 @@ return {
       fold = '折叠',
       mark = '标记',
       macro = '宏',
+      terminal = '终端',
     },
     mastered_total = '%d / %d 已掌握',
     section_count = '%d / %d',
@@ -111,6 +112,7 @@ return {
       J_repeat = '你连续合并了 3 次行',
       ca_run = '你增加了一个数字、下移一行，并重复了 3 次',
       ctrl_w_close_repeat = '你连续 2 次逐个关闭窗口',
+      terminal_esc_repeat = '你在终端模式下连续按了两次 <Esc> 但没有效果',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -969,6 +971,13 @@ return {
       title = '{n}<< — 一次取消缩进多行',
       body = '在 << 前加计数即可一次取消缩进多行\n3<< 从光标处的 3 行中移除一级缩进',
       example = '3<< → 一次取消 3 行的缩进',
+    },
+
+    -- terminal mode: ineffective <Esc> -> <C-\\><C-n> (#110)
+    ['<C-\\><C-n>'] = {
+      title = '<C-\\><C-n> — 退出终端模式',
+      body = '在 :terminal 中，<Esc> 会直接发送给任务 — 并不会退出终端模式\n<C-\\><C-n> 才是真正返回普通模式的方式',
+      example = '<C-\\><C-n> → 返回普通模式，终端任务继续运行',
     },
   },
 }

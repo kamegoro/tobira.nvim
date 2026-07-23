@@ -493,6 +493,145 @@ describe('when the user types while in insert mode', function()
   end)
 end)
 
+-- ── terminal mode: ineffective <Esc> → suggest <C-\\><C-n> (#110) ─────────────
+-- mode() == 't' is terminal-job mode: keys go straight to the job, not to
+-- Neovim's own key handling. Headless Neovim can never actually enter 't'
+-- mode (there is no real job to attach to), so these tests use the same
+-- vim.fn.mode() stub + synthetic ModeChanged technique as the 'i' mode
+-- tests above (see .agent/plan.md's terminal-mode lesson for #110).
+
+local function enter_terminal_mode()
+  local real_mode = vim.fn.mode
+  vim.fn.mode = function()
+    return 't'
+  end
+  vim.api.nvim_exec_autocmds('ModeChanged', { modeline = false })
+  vim.fn.mode = real_mode
+end
+
+local function leave_terminal_mode_to_normal()
+  local real_mode = vim.fn.mode
+  vim.fn.mode = function()
+    return 'n'
+  end
+  vim.api.nvim_exec_autocmds('ModeChanged', { modeline = false })
+  vim.fn.mode = real_mode
+end
+
+describe('when the user is stuck in terminal mode', function()
+  local esc = vim.api.nvim_replace_termcodes('<Esc>', true, false, true)
+
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    logger.on_pattern = nil
+    logger.setup()
+    enter_terminal_mode()
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+    leave_terminal_mode_to_normal()
+  end)
+
+  it('does not fire on a single <Esc> with no effect', function()
+    local fired = false
+    logger.on_pattern = function()
+      fired = true
+    end
+    vim.fn.feedkeys(esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_false(fired)
+  end)
+
+  it('fires terminal_esc_repeat suggesting <C-\\><C-n> on the second consecutive <Esc>', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+    vim.fn.feedkeys(esc, 'xt')
+    vim.fn.feedkeys(esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals(1, #fired)
+    assert.equals('terminal_esc_repeat', fired[1].pattern)
+    assert.equals('<C-\\><C-n>', fired[1].cmd)
+  end)
+
+  it('does not spam the suggestion on further <Esc> presses in the same streak', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+    vim.fn.feedkeys(esc, 'xt')
+    vim.fn.feedkeys(esc, 'xt')
+    vim.fn.feedkeys(esc, 'xt')
+    vim.fn.feedkeys(esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals(1, #fired, 'expected exactly one suggestion despite 4 consecutive <Esc> presses')
+  end)
+
+  it('resets the streak once the user actually leaves terminal mode', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+    vim.fn.feedkeys(esc, 'xt') -- 1st Esc, no fire yet
+    vim.api.nvim_feedkeys('', 'x', false)
+    leave_terminal_mode_to_normal() -- successful exit — a real mode change
+    enter_terminal_mode() -- back into a fresh terminal session
+    vim.fn.feedkeys(esc, 'xt') -- only the 1st Esc of the NEW session
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals(0, #fired, 'a single leftover Esc from a previous session must not carry over')
+  end)
+end)
+
+describe('terminal-mode <Esc> detection does not affect other modes (mode isolation)', function()
+  local esc = vim.api.nvim_replace_termcodes('<Esc>', true, false, true)
+
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    logger.on_pattern = nil
+    logger.setup()
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+    if vim.fn.mode() ~= 'n' then
+      vim.cmd('stopinsert')
+    end
+  end)
+
+  it('still fires insert_bounce (not terminal_esc_repeat) for <Esc> <Esc> in insert mode', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+    -- Each enter/escape round-trip fed as one feedkeys call (not separate
+    -- ones) so the mode cache's ModeChanged autocmd has definitely fired by
+    -- the time <Esc> is processed — see the <C-w> test above for the same
+    -- rule.
+    vim.fn.feedkeys('i' .. esc, 'xt')
+    vim.fn.feedkeys('i' .. esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals(1, #fired)
+    assert.equals('insert_bounce', fired[1].pattern)
+    assert.equals('A', fired[1].cmd)
+  end)
+
+  it('still lets <Esc> cancel a pending operator in normal mode with no pattern fired', function()
+    local fired = false
+    logger.on_pattern = function()
+      fired = true
+    end
+    vim.fn.feedkeys('d', 'xt')
+    vim.fn.feedkeys(esc, 'xt')
+    vim.fn.feedkeys('w', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_false(fired)
+  end)
+end)
+
 describe('when ModeChanged fires to operator-pending before the motion arrives', function()
   before_each(function()
     wipe_disk()

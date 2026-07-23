@@ -24,6 +24,7 @@ return {
       fold = 'Fold',
       mark = 'Mark',
       macro = 'Macro',
+      terminal = 'Terminal',
     },
     mastered_total = '%d / %d mastered',
     section_count = '%d / %d',
@@ -111,6 +112,7 @@ return {
       J_repeat = 'You joined lines 3 times in a row',
       ca_run = 'You incremented a number, moved down a line, and repeated it 3 times',
       ctrl_w_close_repeat = 'You closed windows one at a time, 2 times in a row',
+      terminal_esc_repeat = 'You pressed <Esc> twice in a row in terminal mode with no effect',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -970,6 +972,13 @@ return {
       title = '{n}<< — dedent multiple lines at once',
       body = 'Prefix << with a count to dedent that many lines in one command\n3<< removes one level of indentation from 3 lines starting from the cursor',
       example = '3<< → dedent 3 lines at once',
+    },
+
+    -- ── terminal mode: ineffective <Esc> → <C-\\><C-n> (#110) ───────────────
+    ['<C-\\><C-n>'] = {
+      title = '<C-\\><C-n> — exit terminal mode',
+      body = 'Inside :terminal, <Esc> is sent straight to the job — it does not leave terminal mode\n<C-\\><C-n> is the actual escape hatch back to Normal mode',
+      example = '<C-\\><C-n> → back to Normal mode, the terminal job keeps running',
     },
   },
 }

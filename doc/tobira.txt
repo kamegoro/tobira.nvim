@@ -179,7 +179,8 @@ suggestion appears in tobira's own floating window, near the top-right of the
 screen. The window shows what you just did (when a specific pattern
 triggered it), the command to try instead, and a short example. Its border
 is colored by category (motion / edit / search / window / fold / mark /
-macro) so a returning user can recognize the kind of suggestion at a glance.
+macro / terminal) so a returning user can recognize the kind of suggestion at
+a glance.
 The window auto-dismisses on its own after a few seconds — roughly
 scaled to how much text it is showing — and never steals focus or blocks
 input.

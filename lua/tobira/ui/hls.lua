@@ -33,6 +33,7 @@ function M.setup()
   vim.api.nvim_set_hl(0, 'TobiraSuggestFold', { link = 'Constant' })
   vim.api.nvim_set_hl(0, 'TobiraSuggestMark', { link = 'Identifier' })
   vim.api.nvim_set_hl(0, 'TobiraSuggestMacro', { link = 'PreProc' })
+  vim.api.nvim_set_hl(0, 'TobiraSuggestTerminal', { link = 'Statement' })
   vim.api.nvim_set_hl(0, 'TobiraSuggestKey', { link = 'Special' })
   vim.api.nvim_set_hl(0, 'TobiraSuggestReason', { link = 'Comment' })
 

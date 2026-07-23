@@ -76,7 +76,16 @@ end)
 
 describe('every non-compound entry in the registry', function()
   it('has a category field (motion | edit | search | window | fold | mark | macro)', function()
-    local valid = { motion = true, edit = true, search = true, window = true, fold = true, mark = true, macro = true }
+    local valid = {
+      motion = true,
+      edit = true,
+      search = true,
+      window = true,
+      fold = true,
+      mark = true,
+      macro = true,
+      terminal = true,
+    }
     for cmd, entry in pairs(commands.registry) do
       if not entry.compound then
         assert.is_not_nil(
@@ -314,6 +323,8 @@ local chain_cases = {
   { '|', '0', '0 → |: move to column N' },
   -- first non-blank (current line)
   { '_', '^', '^ → _: first non-blank (N-1 lines lower)' },
+  -- terminal mode: ineffective <Esc> → exit terminal mode (#110)
+  { '<C-\\><C-n>', 'i', 'i → <C-\\><C-n>: exit terminal mode (nominal anchor, see commands.lua comment)' },
 }
 
 describe('teaching chains', function()
