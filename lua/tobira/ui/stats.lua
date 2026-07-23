@@ -111,9 +111,9 @@ function M.render(usage)
       push(
         string.format(
           '    %s %s×  →  %s %s×',
-          rpad(g.parent, 5),
-          lpad(fmt_int_commas(g.parent_count), 5),
-          rpad(g.child, 5),
+          rpad(g.parent, 6),
+          lpad(fmt_int_commas(g.parent_count), 6),
+          rpad(g.child, 6),
           lpad(fmt_int_commas(g.child_count), 4)
         )
       )
