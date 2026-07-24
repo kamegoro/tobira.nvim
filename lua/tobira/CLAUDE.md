@@ -11,10 +11,14 @@ core/config.lua     — single source of truth for all settings
 core/patterns.lua   — pure Lua; no vim.*; requires nothing (normal-mode operator grammar)
 core/patterns_insert.lua — pure Lua; no vim.*; requires nothing (insert-mode key streaks,
                        #99 — shares no state with patterns.lua, split out on purpose)
+core/patterns_cmdline.lua — pure Lua; no vim.*; requires nothing (Ex-command tokenizer,
+                       #57 — takes one complete cmdline string at <CR> time, shares no
+                       per-keystroke state with patterns.lua/patterns_insert.lua, split
+                       out on purpose)
 core/graph.lua      — pure Lua; no vim.*; requires commands.lua only
 core/skills.lua     — pure Lua; requires commands.lua only
 core/level.lua      — requires graph only
-core/logger.lua     — requires patterns + patterns_insert + commands
+core/logger.lua     — requires patterns + patterns_insert + patterns_cmdline + commands
                       does NOT require suggest — notifies via on_pattern callback
 core/suggest.lua    — requires config / logger / graph
                       ↓
@@ -67,6 +71,15 @@ tobira is a passive observer — it never modifies the user's key mappings or in
 input. `vim.keymap.set` risks conflicting with user mappings. Hybrid approaches
 (e.g., TextYankPost + vim.on_key) add complexity without covering more cases.
 
+Ex-command tracking (#57) follows the same rule: no `CmdlineLeave`/`CmdlineChanged`
+autocmd. `vim.on_key` already sees every cmdline keystroke; `logger.lua`'s
+`handle_cmdline_key` calls `vim.fn.getcmdtype()`/`vim.fn.getcmdline()` from inside that
+same callback instead of adding a second entry point. See `core/patterns_cmdline.lua`'s
+header for why the tokenizer takes one complete string at `<CR>` time rather than
+accumulating keystrokes itself (short version: `<Up>`/`<Down>` history recall replaces
+the whole buffer non-incrementally, so a manual per-keystroke accumulator cannot
+represent it — `vim.fn.getcmdline()` at the terminating keystroke always can).
+
 ## vim.on_key() performance
 
 The callback fires on **every keystroke**. Keep it minimal.
@@ -110,7 +123,7 @@ two-character command prefix.
 
 1. Add one entry to `commands.lua`
    - If `requires` is multi-char, add a `compound = true` entry for it first
-   - `requires`, `category` (motion|edit|search|window|fold|mark|macro), and `level`
+   - `requires`, `category` (motion|edit|search|window|fold|mark|macro|ex), and `level`
      (beginner|intermediate|advanced) are required fields
 2. **Write tests first** (see `tests/CLAUDE.md`)
    - `track = true` → add a tracking smoke test to `logger_spec.lua`

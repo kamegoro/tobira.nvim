@@ -226,6 +226,49 @@ describe('when a command is explicitly suppressed', function()
   end)
 end)
 
+-- ── Ex command suggestions (#57): stricter never-tried gate ──────────────────
+-- Ex commands (:g, :norm) do the work of many ordinary keystrokes in one
+-- shot, so continuing to suggest one after the user has tried it even once
+-- would read as ignoring feedback. Suggestions flagged ex_command = true are
+-- gated on "never tried at all" (count == 0) instead of the generic
+-- mastery-level gate (count < 100) every other suggestion uses.
+
+describe('an ex_command-flagged suggestion', function()
+  it('is offered when the user has never tried it', function()
+    local original_suggestions = graph.suggestions
+    graph.suggestions = {
+      ['ex:g'] = { cmd = 'ex:g', trigger = 'n', level = 'advanced', category = 'ex', ex_command = true },
+    }
+    local result = graph.find_best({ n = usage_entry(10) })
+    graph.suggestions = original_suggestions
+    assert.equals('ex:g', result)
+  end)
+
+  it('is not offered once tried even a single time, below the generic mastery threshold', function()
+    local original_suggestions = graph.suggestions
+    graph.suggestions = {
+      ['ex:g'] = { cmd = 'ex:g', trigger = 'n', level = 'advanced', category = 'ex', ex_command = true },
+    }
+    local result = graph.find_best({ n = usage_entry(10), ['ex:g'] = usage_entry(1) })
+    graph.suggestions = original_suggestions
+    assert.is_nil(result)
+  end)
+end)
+
+describe('an ordinary (non ex_command) suggestion', function()
+  it('still uses the generic mastery gate, not a never-tried gate', function()
+    local original_suggestions = graph.suggestions
+    graph.suggestions = {
+      cw = { cmd = 'cw', trigger = 'dw', level = 'beginner', category = 'edit' },
+    }
+    -- cw has been tried once (count=1) but is nowhere near mastered (< 100):
+    -- still offered, unlike an ex_command suggestion in the same situation.
+    local result = graph.find_best({ dw = usage_entry(10), cw = usage_entry(1) })
+    graph.suggestions = original_suggestions
+    assert.equals('cw', result)
+  end)
+end)
+
 -- ── data integrity ────────────────────────────────────────────────────────────
 
 describe('every suggestion in the graph', function()
@@ -245,6 +288,13 @@ describe('every suggestion in the graph', function()
     local commands = require('tobira.commands')
     for key, sug in pairs(graph.suggestions) do
       assert.equals(commands.registry[key].category, sug.category, key .. ': category mismatch')
+    end
+  end)
+
+  it('carries the ex_command flag from its commands.lua entry (#57)', function()
+    local commands = require('tobira.commands')
+    for key, sug in pairs(graph.suggestions) do
+      assert.equals(commands.registry[key].ex_command == true, sug.ex_command == true, key .. ': ex_command mismatch')
     end
   end)
 end)

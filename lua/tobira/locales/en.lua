@@ -24,6 +24,7 @@ return {
       fold = 'Fold',
       mark = 'Mark',
       macro = 'Macro',
+      ex = 'Ex',
     },
     mastered_total = '%d / %d mastered',
     section_count = '%d / %d',
@@ -970,6 +971,18 @@ return {
       title = '{n}<< — dedent multiple lines at once',
       body = 'Prefix << with a count to dedent that many lines in one command\n3<< removes one level of indentation from 3 lines starting from the cursor',
       example = '3<< → dedent 3 lines at once',
+    },
+
+    -- ── Ex commands (#57) ─────────────────────────────────────────────────
+    ['ex:g'] = {
+      title = ':g — run a command over every matching line',
+      body = 'Finds every line matching a pattern and runs an Ex command on each one\nReplaces manually repeating n / . one match at a time',
+      example = ':g/TODO/d → delete every line containing TODO',
+    },
+    ['ex:norm'] = {
+      title = ':norm — run a normal-mode command on every selected line',
+      body = 'Applies a sequence of normal-mode keystrokes to every line in a range\nReplaces recording a macro when the edit is simple enough to type directly',
+      example = ':%norm A; → append a semicolon to every line',
     },
   },
 }

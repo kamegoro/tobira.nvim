@@ -713,6 +713,102 @@ describe('insert-mode inefficiency detection (#58)', function()
   end)
 end)
 
+-- ── Ex command tracking (#57) ────────────────────────────────────────────────
+-- vim.on_key sees every keystroke including cmdline ones. Confirmed
+-- empirically (not just assumed): querying vim.fn.getcmdtype()/getcmdline()
+-- from inside the on_key callback for the terminating <CR>/<Esc> keystroke
+-- still reports the PRE-submission state (mode/cmdtype have not flipped back
+-- to normal yet, and getcmdline() still holds the full buffer content) —
+-- same timing property patterns_insert.lua's bounce-detection design note
+-- relies on for <Esc> vs insert mode. Unlike insert mode, cmdline mode is
+-- genuinely enterable via feedkeys in headless Neovim, so these tests need
+-- no vim.fn.mode() stubbing.
+
+describe('Ex command tracking (#57)', function()
+  local esc = vim.api.nvim_replace_termcodes('<Esc>', true, true, true)
+  local cr = vim.api.nvim_replace_termcodes('<CR>', true, true, true)
+  local up = vim.api.nvim_replace_termcodes('<Up>', true, true, true)
+  local ctrl_c = vim.api.nvim_replace_termcodes('<C-c>', true, true, true)
+
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    logger.on_pattern = nil
+    logger.setup()
+    vim.cmd('enew!')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'foo', 'TODO', 'foo' })
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+    if vim.fn.mode() ~= 'n' then
+      pcall(vim.api.nvim_input, esc)
+    end
+  end)
+
+  it('increments usage["ex:s"] when a %s/../../ substitute command is completed', function()
+    pcall(vim.fn.feedkeys, ':%s/foo/bar/g' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_true(logger.get('ex:s').count > 0)
+  end)
+
+  it('increments usage["ex:g"] when a global command is completed', function()
+    pcall(vim.fn.feedkeys, ':g/TODO/d' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_true(logger.get('ex:g').count > 0)
+  end)
+
+  it('does not increment usage["ex:s"] when the command is aborted with <Esc> before <CR>', function()
+    pcall(vim.fn.feedkeys, ':s/foo' .. esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals(0, logger.get('ex:s').count)
+  end)
+
+  it('does not increment anything when the command is canceled mid-typing with <C-c>', function()
+    pcall(vim.fn.feedkeys, ':g/TOD' .. ctrl_c, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals(0, logger.get('ex:g').count)
+  end)
+
+  it('increments the recalled command when it is submitted via <Up> history recall', function()
+    -- Prime recall by typing (and aborting) a target command first. Neovim's
+    -- <Up> recalls the most recently edited command line regardless of
+    -- whether it was submitted or aborted — this is exactly why reading
+    -- vim.fn.getcmdline() at <CR> time (not reconstructing keystrokes
+    -- ourselves) is the right design: <Up> never "types" characters that a
+    -- manual accumulator could append.
+    pcall(vim.fn.feedkeys, ':g/TODO/d' .. esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals(0, logger.get('ex:g').count) -- the primer itself was aborted
+
+    pcall(vim.fn.feedkeys, ':' .. up .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_true(logger.get('ex:g').count > 0)
+  end)
+
+  it('does not track a search (/) cmdline as an Ex command', function()
+    pcall(vim.fn.feedkeys, '/foo' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    local has_ex_key = false
+    for cmd in pairs(logger.get_all()) do
+      if cmd:sub(1, 3) == 'ex:' then
+        has_ex_key = true
+      end
+    end
+    assert.is_false(has_ex_key, 'a / search must never be tokenized as an Ex command')
+  end)
+
+  it('does not fire an on_pattern callback (usage-based tracking, not a reactive pattern)', function()
+    local fired = false
+    logger.on_pattern = function()
+      fired = true
+    end
+    pcall(vim.fn.feedkeys, ':g/TODO/d' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_false(fired)
+  end)
+end)
+
 -- (stats rendering has moved to tests/spec/unit/ui_stats_spec.lua)
 
 -- ── save ─────────────────────────────────────────────────────────────────────

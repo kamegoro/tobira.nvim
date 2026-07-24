@@ -386,6 +386,25 @@ end)
 
 -- ── regression: existing behavior preserved ─────────────────────────────────
 
+-- ── Ex command category (#57) ────────────────────────────────────────────────
+
+describe('an unmastered Ex command suggestion', function()
+  it('appears under the Ex category header', function()
+    local usage = usage_with_overrides({ ['ex:g'] = entry({ count = 0 }) })
+    local lines = guide.build(usage)
+    assert.is_not_nil(find_line(lines, '  Ex'))
+    local rows = rows_under_header(lines, '  Ex')
+    assert.is_not_nil(rows)
+    local found = false
+    for _, row in ipairs(rows) do
+      if row:find('ex:g', 1, true) then
+        found = true
+      end
+    end
+    assert.is_true(found, 'expected ex:g to render under the Ex category header')
+  end)
+end)
+
 describe('category ordering (regression)', function()
   it('renders categories in the fixed CATEGORY_ORDER, skipping empty ones', function()
     local commands = require('tobira.commands')

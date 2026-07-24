@@ -360,6 +360,30 @@ M.registry = {
   -- ── >> × 3 / << × 3 indent count prefix ─────────────────────────────────────
   ['{n}>>'] = { requires = '>>', track = false, category = 'edit', level = 'intermediate' },
   ['{n}<<'] = { requires = '<<', track = false, category = 'edit', level = 'intermediate' },
+
+  -- ── Ex commands (#57) ─────────────────────────────────────────────────────
+  -- Tracked via logger.lua's cmdline handler (core/patterns_cmdline.lua
+  -- tokenizes the completed command-line buffer), not via a single keystroke
+  -- or the normal-mode operator grammar — track = false here just like the
+  -- other entries whose count comes from a side channel (dw/dd compounds,
+  -- <C-w> insert-mode variant): build_track_table() must not also try to
+  -- treat 'ex:g'/'ex:norm' as literal keys to watch for.
+  --
+  -- ex_command = true is read by graph.lua to apply a stricter "never tried"
+  -- offer gate instead of the generic mastery-level gate every other
+  -- suggestion uses (see graph.find_best) — a single :g or :norm already
+  -- does the work of many ordinary keystrokes, so unlike e.g. cw (fine to
+  -- keep nudging until count reaches 100), continuing to suggest either of
+  -- these after the user has tried it even once would read as ignoring
+  -- feedback rather than teaching.
+  --
+  -- requires: 'n' (search-repeat) for :g — a user who repeatedly re-runs the
+  -- same search is already doing by hand what :g/pattern/cmd does over every
+  -- match at once. 'q' (macro recording) for :norm — the same "you're
+  -- already doing this manually, one line/repeat at a time" relationship.
+  -- Both requires targets are single-char and track=true already.
+  ['ex:g'] = { requires = 'n', track = false, category = 'ex', level = 'advanced', ex_command = true },
+  ['ex:norm'] = { requires = 'q', track = false, category = 'ex', level = 'advanced', ex_command = true },
 }
 
 return M
