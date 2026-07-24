@@ -23,11 +23,11 @@ it quietly shows you the one command that would have helped. No quizzes. No inte
 ## ✨ Features
 
 - 👀 **Fully passive** — reads keystrokes via `vim.on_key()`; no config required, zero impact on your existing mappings
-- 🎯 **43 detected patterns** — repeated `f`, hammering `j`, `dw`→`i` instead of `cw`, insert-mode habits like `<BS>` spam or bouncing in and out with `<Esc>i`, and more across motion, edit, search, window, fold, mark, and macro
+- 🎯 **45 detected patterns** — repeated `f`, hammering `j`, `dw`→`i` instead of `cw`, insert-mode habits like `<BS>` spam or bouncing in and out with `<Esc>i`, and more across motion, edit, search, window, fold, mark, and macro
 - 💬 **One suggestion at a time** — shown after a natural pause, capped per session, with a cooldown between auto-suggestions — never a popup quiz
 - 📈 **Mastery-aware** — once you've used a command ~100 times, tobira stops suggesting it and moves on
 - 🪜 **Level-aware** — beginner commands surface first, advanced ones once you're ready
-- 🗺️ **155 commands** in the learning graph, covering the full Neovim command surface
+- 🗺️ **154 commands** in the learning graph, covering the full Neovim command surface
 
 ## ⚡️ Requirements
 
@@ -136,8 +136,9 @@ require("tobira").setup({
 | `r{x}` × 3 in a row | `R` — enter replace mode |
 | `<C-w>q` / `<C-w>c` × 2 in a row | `<C-w>o` — close all other windows |
 | `<BS>` × 5 in insert mode | `<C-w>` — delete the whole word at once |
+| `<Esc>` → 1 motion → `i` | insert-mode `<C-o>` — run one command without leaving insert |
 
-43 patterns total — see `:help tobira-patterns` for the full list.
+45 patterns total — see `:help tobira-patterns` for the full list.
 
 ## 🆚 Similar plugins
 

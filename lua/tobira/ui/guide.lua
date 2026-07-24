@@ -56,6 +56,7 @@ end
 -- ● row forever regardless of whether it still needs review — see #123.
 local function format_pinned_row(cmd, data, desc, str)
   local graph = require('tobira.core.graph')
+  local commands = require('tobira.commands')
   local forgotten = graph.is_forgotten(data)
 
   local pos = 0
@@ -73,7 +74,7 @@ local function format_pinned_row(cmd, data, desc, str)
   emit('   ')
   emit('●', 'TobiraGuidePinned')
   emit('  ')
-  emit(string.format('%-12s', cmd), 'TobiraGuideKey')
+  emit(string.format('%-12s', commands.display_key(cmd)), 'TobiraGuideKey')
   emit('  ')
   if forgotten then
     emit('⟳ ', 'TobiraGuideForgotten')
@@ -91,6 +92,7 @@ end
 -- width of the single longest description in the whole command set.
 local function format_row(cmd, desc, data, desc_col_w, str)
   local graph = require('tobira.core.graph')
+  local commands = require('tobira.commands')
   local glyph, glyph_hl = mastery_glyph(data)
   local dim = glyph == nil
   local suffix = graph.is_forgotten(data) and str.forgotten_suffix or ''
@@ -112,7 +114,7 @@ local function format_row(cmd, desc, data, desc_col_w, str)
   emit('   ')
   emit(glyph or ' ', glyph_hl)
   emit('  ')
-  emit(string.format('%-12s', cmd), 'TobiraGuideKey')
+  emit(string.format('%-12s', commands.display_key(cmd)), 'TobiraGuideKey')
   emit('  ')
   local desc_str = desc .. suffix
   emit(desc_str)

@@ -713,6 +713,88 @@ describe('insert-mode inefficiency detection (#58)', function()
   end)
 end)
 
+-- #105: insert-mode <C-o> (run exactly one Normal-mode command, then return
+-- to insert automatically). See commands.lua's 'i_<C-o>' registry comment for
+-- why this is a distinct composite key from the normal-mode '<C-o>' entry.
+describe('insert-mode <C-o> one-shot detection (#105)', function()
+  local esc = vim.api.nvim_replace_termcodes('<Esc>', true, false, true)
+  local ctrl_o = vim.api.nvim_replace_termcodes('<C-o>', true, false, true)
+
+  before_each(function()
+    logger.reset()
+    logger.on_pattern = nil
+    logger.setup()
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+    if vim.fn.mode() ~= 'n' then
+      vim.cmd('stopinsert')
+    end
+  end)
+
+  it("increments 'i_<C-o>' when the real insert-mode <C-o> is pressed", function()
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'hello world' })
+    -- <C-o>l moves right one column (the one Normal command), then Neovim
+    -- returns to insert mode automatically — no explicit i/a needed.
+    vim.fn.feedkeys('A' .. ctrl_o .. 'l' .. esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_true(logger.get('i_<C-o>').count > 0)
+  end)
+
+  it('does not count the normal-mode jumplist-back <C-o> as the insert-mode command', function()
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'hello world' })
+    vim.fn.feedkeys(ctrl_o, 'xt') -- pure normal-mode <C-o>, never entered insert
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals(0, logger.get('i_<C-o>').count)
+  end)
+
+  it('fires insert_co_oneshot when <Esc> is followed by exactly one motion then back to insert', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      if pattern == 'insert_co_oneshot' then
+        fired = { pattern = pattern, cmd = cmd }
+      end
+    end
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'line one', 'line two', 'line three' })
+    vim.fn.feedkeys('i' .. esc .. 'j' .. 'i', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals('insert_co_oneshot', fired.pattern)
+    assert.equals('i_<C-o>', fired.cmd)
+  end)
+
+  it('does not fire insert_co_oneshot when 2 or more motions are interleaved before returning', function()
+    local fired = false
+    logger.on_pattern = function(pattern)
+      if pattern == 'insert_co_oneshot' then
+        fired = true
+      end
+    end
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'line one', 'line two', 'line three' })
+    vim.fn.feedkeys('i' .. esc .. 'j' .. 'k' .. 'i', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_false(fired)
+  end)
+
+  it('does not fire insert_co_oneshot when returning to insert with no motion at all', function()
+    local fired = false
+    logger.on_pattern = function(pattern)
+      if pattern == 'insert_co_oneshot' then
+        fired = true
+      end
+    end
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'line one' })
+    vim.fn.feedkeys('i' .. esc .. 'i', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_false(fired)
+  end)
+end)
+
 -- (stats rendering has moved to tests/spec/unit/ui_stats_spec.lua)
 
 -- ── save ─────────────────────────────────────────────────────────────────────

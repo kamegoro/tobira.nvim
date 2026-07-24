@@ -329,8 +329,17 @@ local TRACK = build_track_table()
 -- adoption can be measured — this is safe from the normal-mode window-prefix
 -- meaning of Ctrl-W because INSERT_SPECIAL is only consulted while the mode
 -- cache says insert mode (handle_insert_key), never from the normal-mode path.
+--
+-- '<C-o>' (#105) is included for exactly the same reason and resolves the
+-- exact same kind of collision: the raw <C-o> byte already means "jump back
+-- in the jumplist" in Normal mode (commands.lua's '<C-o>' entry, tracked via
+-- TRACK below). Insert-mode <C-o> is a different command bound to that same
+-- physical key. Consulting INSERT_SPECIAL only from handle_insert_key (i.e.
+-- only once the mode cache already says insert mode) is what makes both
+-- meanings safe to coexist — see commands.lua's 'i_<C-o>' registry comment
+-- for the full collision story and why a composite key was needed there too.
 local INSERT_SPECIAL = {}
-for _, name in ipairs({ '<BS>', '<Left>', '<Right>', '<Esc>', '<C-w>' }) do
+for _, name in ipairs({ '<BS>', '<Left>', '<Right>', '<Esc>', '<C-w>', '<C-o>' }) do
   local raw = vim.api.nvim_replace_termcodes(name, true, true, true)
   if raw ~= '' then
     INSERT_SPECIAL[raw] = name
@@ -345,6 +354,13 @@ local function handle_insert_key(key)
   local canonical = INSERT_SPECIAL[key]
   if canonical == '<C-w>' then
     increment('<C-w>')
+  end
+  -- #105: counted explicitly under the composite 'i_<C-o>' key, exactly like
+  -- '<C-w>' above — never under the raw '<C-o>' registry key, which TRACK
+  -- (built from commands.registry) already claims for the Normal-mode
+  -- jumplist-back meaning.
+  if canonical == '<C-o>' then
+    increment('i_<C-o>')
   end
   local result = patterns_insert.feed_insert(insert_seq, canonical)
   if result and M.on_pattern then
@@ -375,6 +391,17 @@ local function handle_key(key)
   end
 
   local line = vim.fn.line('.')
+
+  -- #105: feed the same Normal-mode keystroke into the insert-mode <C-o>
+  -- one-shot watch (armed by feed_insert('<Esc>') — see patterns_insert.lua's
+  -- feed_after_escape doc comment for why this detection has to cross into
+  -- the Normal-mode keystroke stream at all). This mutates only insert_seq's
+  -- watching_co/post_esc_keys fields — seq (patterns.lua's own state) below
+  -- is completely untouched by it, and vice versa.
+  local co_result = patterns_insert.feed_after_escape(insert_seq, key)
+  if co_result and M.on_pattern then
+    M.on_pattern(co_result.pattern, co_result.cmd)
+  end
 
   local result = patterns.feed(seq, key, line)
 

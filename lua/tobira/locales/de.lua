@@ -71,6 +71,7 @@ return {
       insert_left_repeat = 'Du hast im Einfügemodus 5-mal hintereinander <Left> gedrückt',
       insert_right_repeat = 'Du hast im Einfügemodus 5-mal hintereinander <Right> gedrückt',
       insert_bounce = 'Du bist zweimal hintereinander in den Einfügemodus gewechselt und ohne Änderung wieder heraus',
+      insert_co_oneshot = 'Du hast den Einfügemodus verlassen, einen Befehl ausgeführt und bist sofort zurückgekehrt',
       f_repeat = 'Du hast dieselbe f/t-Suche in dieser Zeile wiederholt',
       r_run = 'Du hast 3 Zeichen einzeln nacheinander ersetzt',
       visual_textobj = 'Du hast vor dem Bearbeiten ein Textobjekt im visuellen Modus ausgewählt',
@@ -859,6 +860,11 @@ return {
       title = '_ — erstes Nicht-Leerzeichen der Zeile (relativ)',
       body = 'Bewegt sich zum ersten Nicht-Leerzeichen der aktuellen Zeile\nMit einer Zahl N geht es N-1 Zeilen nach unten und dann zum ersten Nicht-Leerzeichen',
       example = '^ → erstes Nicht-Leerzeichen; 3_ → erstes Nicht-Leerzeichen 2 Zeilen tiefer',
+    },
+    ['i_<C-o>'] = {
+      title = '<C-o> (Einfügemodus) — einen Befehl ausführen, ohne den Einfügemodus zu verlassen',
+      body = 'Führt genau einen Normal-Modus-Befehl aus und kehrt danach sofort in den Einfügemodus zurück — kein erneutes i/a nötig\nAnders als das normale <C-o> (Sprung zurück in der Jumplist), das nur außerhalb des Einfügemodus funktioniert',
+      example = 'tippen…<C-o>dd → löscht die aktuelle Zeile, der Einfügemodus läuft danach automatisch weiter',
     },
 
     -- ── fold: additional commands ─────────────────────────────────────────

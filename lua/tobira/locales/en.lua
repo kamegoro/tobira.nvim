@@ -71,6 +71,7 @@ return {
       insert_left_repeat = 'You pressed <Left> 5 times in a row in insert mode',
       insert_right_repeat = 'You pressed <Right> 5 times in a row in insert mode',
       insert_bounce = 'You entered and left insert mode with no changes, twice in a row',
+      insert_co_oneshot = 'You left insert mode, ran one command, and came right back in',
       f_repeat = 'You repeated the same f/t search on this line',
       r_run = 'You replaced 3 characters one at a time',
       visual_textobj = 'You selected a text object in visual mode before editing',
@@ -860,6 +861,11 @@ return {
       title = '_ — first non-blank of line (relative)',
       body = 'Moves to the first non-blank character of the current line\nWith a count N, moves N-1 lines down then goes to first non-blank',
       example = '^ → first non-blank; 3_ → first non-blank 2 lines down',
+    },
+    ['i_<C-o>'] = {
+      title = '<C-o> (insert mode) — run one command without leaving insert',
+      body = 'Runs exactly one Normal-mode command, then drops you right back into insert — no need to press i/a again\nDifferent from Normal-mode <C-o> (jump back in the jumplist), which only works outside insert mode',
+      example = 'typing…<C-o>dd → deletes the current line, then insert mode resumes automatically',
     },
 
     -- ── fold: additional commands ─────────────────────────────────────────

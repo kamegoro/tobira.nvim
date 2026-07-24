@@ -314,6 +314,8 @@ local chain_cases = {
   { '|', '0', '0 → |: move to column N' },
   -- first non-blank (current line)
   { '_', '^', '^ → _: first non-blank (N-1 lines lower)' },
+  -- insert-mode <C-o>: one-shot normal command without leaving insert (#105)
+  { 'i_<C-o>', 'i', 'i → i_<C-o>: run one normal command without leaving insert mode' },
 }
 
 describe('teaching chains', function()
@@ -486,5 +488,45 @@ describe('tracking integrity', function()
     end
     table.sort(stale)
     assert.are.same({}, stale, 'entries fixed but still listed in KNOWN_DEFERRED: ' .. table.concat(stale, ', '))
+  end)
+end)
+
+-- ── i_<C-o>: insert-mode <C-o> composite key (#105) ──────────────────────────
+-- The normal-mode '<C-o>' entry above already owns that raw key string for
+-- jumplist-back. Insert-mode <C-o> (run exactly one normal command, then
+-- auto-return to insert) is a different command bound to the identical
+-- physical keystroke, and a Lua table can only hold one entry per key
+-- string — so it lives under the composite key 'i_<C-o>' instead (see the
+-- registry comment on that entry for the full collision story).
+
+describe("the 'i_<C-o>' registry entry (insert-mode <C-o>, #105)", function()
+  it('is a distinct entry from the normal-mode jumplist-back <C-o>', function()
+    assert.is_not_nil(commands.registry['i_<C-o>'])
+    assert.is_not_nil(commands.registry['<C-o>'])
+    assert.are_not.equal(commands.registry['i_<C-o>'], commands.registry['<C-o>'])
+  end)
+
+  it('requires plain i (basic insert-mode knowledge), not the normal-mode <C-o>', function()
+    assert.equals('i', commands.registry['i_<C-o>'].requires)
+  end)
+
+  it('is not tracked via the generic single-char TRACK table (counted explicitly in logger.lua instead)', function()
+    assert.is_false(commands.registry['i_<C-o>'].track)
+  end)
+end)
+
+describe('commands.display_key', function()
+  it('strips the i_ disambiguation prefix so the UI shows the real keystroke', function()
+    assert.equals('<C-o>', commands.display_key('i_<C-o>'))
+  end)
+
+  it('returns ordinary registry keys unchanged', function()
+    assert.equals('cw', commands.display_key('cw'))
+    assert.equals('<C-w>', commands.display_key('<C-w>'))
+  end)
+
+  it('returns non-registry keys (basic tracked keys, compound ops) unchanged', function()
+    assert.equals('j', commands.display_key('j'))
+    assert.equals('dd', commands.display_key('dd'))
   end)
 end)

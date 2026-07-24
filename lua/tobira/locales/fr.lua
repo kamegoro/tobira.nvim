@@ -71,6 +71,7 @@ return {
       insert_left_repeat = 'Vous avez appuyé 5 fois de suite sur <Left> en mode insertion',
       insert_right_repeat = 'Vous avez appuyé 5 fois de suite sur <Right> en mode insertion',
       insert_bounce = 'Vous êtes entré et sorti du mode insertion sans rien changer, deux fois de suite',
+      insert_co_oneshot = 'Vous avez quitté le mode insertion, exécuté une commande, et êtes revenu aussitôt',
       f_repeat = 'Vous avez répété la même recherche f/t sur cette ligne',
       r_run = 'Vous avez remplacé 3 caractères un par un',
       visual_textobj = "Vous avez sélectionné un objet texte en mode visuel avant d'éditer",
@@ -859,6 +860,11 @@ return {
       title = '_ — premier caractère non blanc de la ligne (relatif)',
       body = 'Se déplace au premier caractère non blanc de la ligne actuelle\nAvec un nombre N, descend de N-1 lignes puis va au premier non blanc',
       example = '^ → premier non blanc ; 3_ → premier non blanc 2 lignes plus bas',
+    },
+    ['i_<C-o>'] = {
+      title = '<C-o> (mode insertion) — exécute une commande sans quitter le mode insertion',
+      body = 'Exécute exactement une commande en mode Normal, puis revient directement en mode insertion — inutile de retaper i/a\nDifférent du <C-o> en mode Normal (retour en arrière dans la jumplist), qui fonctionne seulement en dehors du mode insertion',
+      example = 'en train de taper…<C-o>dd → supprime la ligne actuelle, puis le mode insertion reprend automatiquement',
     },
 
     -- ── fold: additional commands ─────────────────────────────────────────

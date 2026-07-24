@@ -376,3 +376,15 @@ describe('when show() is called', function()
     assert.is_true(stats.is_open(), 'expected window to remain open')
   end)
 end)
+
+-- #105: 'i_<C-o>' is an internal composite registry key (see commands.lua's
+-- registry comment) — the Top-commands leaderboard must show the real
+-- keystroke the user pressed (<C-o>), never the raw internal key.
+describe("the 'i_<C-o>' composite registry key in Top commands (#105)", function()
+  it('renders as <C-o>, not the raw i_<C-o> registry key', function()
+    local r = stats.render({ ['i_<C-o>'] = entry(50) })
+    local row = find_line(r, '<C-o>')
+    assert.is_not_nil(row, 'expected a Top-commands row containing <C-o>')
+    assert.is_nil(row:find('i_<C-o>', 1, true), 'row must not contain the raw internal key: ' .. row)
+  end)
+end)

@@ -527,3 +527,16 @@ describe('M.open / M.close / M.toggle (regression)', function()
     logger.reset()
   end)
 end)
+
+-- #105: 'i_<C-o>' is an internal composite registry key (see commands.lua's
+-- registry comment) — the user only ever presses the real <C-o>, so the key
+-- column must show that, never the raw 'i_<C-o>' string.
+describe("the 'i_<C-o>' composite registry key (#105)", function()
+  it('renders as <C-o> in the key column, not the raw i_<C-o> registry key', function()
+    local usage = usage_with_overrides({ ['i_<C-o>'] = entry({ count = 0 }) })
+    local lines = lines_of(guide.build(usage))
+    local row = find_line(lines, '<C-o>')
+    assert.is_not_nil(row, 'expected a row containing <C-o>')
+    assert.is_nil(row:find('i_<C-o>', 1, true), 'row must not contain the raw internal key: ' .. row)
+  end)
+end)

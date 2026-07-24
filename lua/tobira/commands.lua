@@ -320,6 +320,32 @@ M.registry = {
   -- ── ^ → _ first non-blank (relative) ─────────────────────────────────────────
   ['_'] = { requires = '^', track = true, category = 'motion', level = 'intermediate' },
 
+  -- ── insert-mode <C-o>: one normal command without leaving insert (#105) ────
+  -- The '<C-o>' entry above (in the "* → <C-o> jump back in jumplist" block)
+  -- already owns that raw keystroke for its normal-mode meaning. Insert-mode
+  -- <C-o> is a *different* command bound to the identical physical key: it
+  -- runs exactly one normal-mode command, then returns to insert
+  -- automatically, without the user ever fully leaving insert mode. Two
+  -- distinct registry meanings cannot share one Lua table key (this table can
+  -- only hold one entry per string), so — mirroring the '<C-w>' precedent
+  -- above, which resolves the exact same normal/insert collision shape for
+  -- Ctrl-W — this uses a composite internal key, 'i_<C-o>', rather than
+  -- reusing '<C-o>'.
+  --
+  -- The user never types 'i_<C-o>' — they always press the real <C-o>. This
+  -- key exists purely so graph.lua can derive a second, independent
+  -- M.suggestions entry from it; anywhere the UI would otherwise render this
+  -- raw registry key as "the key to press" (ui/guide.lua, ui/stats.lua,
+  -- core/skills.lua), it must go through commands.display_key(cmd) below,
+  -- which strips the 'i_' prefix back off for display.
+  --
+  -- Usage is counted explicitly from inside logger.lua's handle_insert_key()
+  -- (mode cache confirms insert mode first), exactly like '<C-w>' above —
+  -- see logger.lua's INSERT_SPECIAL table. track = false for the same reason:
+  -- the generic, mode-unaware TRACK table must not also claim the raw <C-o>
+  -- byte, which the real normal-mode '<C-o>' entry already claims.
+  ['i_<C-o>'] = { requires = 'i', track = false, category = 'edit', level = 'intermediate' },
+
   -- ── window management ─────────────────────────────────────────────────────
   ['<C-w>s'] = { requires = '<C-o>', track = false, category = 'window', level = 'intermediate' },
   ['<C-w>v'] = { requires = '<C-w>s', track = false, category = 'window', level = 'intermediate' },
@@ -361,5 +387,18 @@ M.registry = {
   ['{n}>>'] = { requires = '>>', track = false, category = 'edit', level = 'intermediate' },
   ['{n}<<'] = { requires = '<<', track = false, category = 'edit', level = 'intermediate' },
 }
+
+-- Some registry keys are an internal composite, not the literal keystroke
+-- the user presses — see the 'i_<C-o>' entry above for the full story of why
+-- (a Lua table can only hold one value per key string, so two distinct
+-- commands bound to the same physical key need two different registry
+-- strings). UI code that renders a registry key as "the key to press"
+-- (ui/guide.lua, ui/stats.lua, core/skills.lua) must go through this function
+-- so the user sees the real keystroke, never the internal disambiguation
+-- prefix. Ordinary registry keys, and non-registry keys (basic tracked keys
+-- like 'j', compound ops like 'dd') pass through unchanged.
+function M.display_key(cmd)
+  return cmd:match('^i_(.+)$') or cmd
+end
 
 return M
