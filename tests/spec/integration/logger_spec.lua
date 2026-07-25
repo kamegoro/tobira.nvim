@@ -612,6 +612,7 @@ describe('insert-mode inefficiency detection (#58)', function()
   local left = vim.api.nvim_replace_termcodes('<Left>', true, false, true)
   local right = vim.api.nvim_replace_termcodes('<Right>', true, false, true)
   local ctrl_w = vim.api.nvim_replace_termcodes('<C-w>', true, false, true)
+  local ctrl_n = vim.api.nvim_replace_termcodes('<C-n>', true, false, true)
 
   before_each(function()
     logger.reset()
@@ -710,6 +711,65 @@ describe('insert-mode inefficiency detection (#58)', function()
     vim.fn.feedkeys('i' .. esc, 'xt') -- this one alone is not 2 in a row
     vim.api.nvim_feedkeys('', 'x', false)
     assert.is_false(fired)
+  end)
+end)
+
+describe('insert-mode completion detection (#112)', function()
+  local esc = vim.api.nvim_replace_termcodes('<Esc>', true, false, true)
+  local ctrl_n = vim.api.nvim_replace_termcodes('<C-n>', true, false, true)
+
+  before_each(function()
+    logger.reset()
+    logger.on_pattern = nil
+    logger.setup()
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+    if vim.fn.mode() ~= 'n' then
+      vim.cmd('stopinsert')
+    end
+  end)
+
+  it('fires insert_completion_repeat suggesting <C-n> when a 6+ char word is typed twice in full', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      fired = { pattern = pattern, cmd = cmd }
+    end
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { '' })
+    vim.fn.feedkeys('iidentifier identifier' .. esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals('insert_completion_repeat', fired.pattern)
+    assert.equals('<C-n>', fired.cmd)
+  end)
+
+  it('does not fire for a short word retyped several times', function()
+    local fired = false
+    logger.on_pattern = function()
+      fired = true
+    end
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { '' })
+    vim.fn.feedkeys('iif if if' .. esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_false(fired)
+  end)
+
+  it('increments the usage count for <C-n> only while actually in insert mode', function()
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'foo bar' })
+    vim.fn.feedkeys('A' .. ctrl_n .. esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_true(logger.get('<C-n>').count > 0)
+  end)
+
+  it('does not count the normal-mode down-motion <C-n> as the insert-mode completion command', function()
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'foo', 'bar' })
+    vim.fn.feedkeys(ctrl_n, 'xt') -- normal-mode Ctrl-N: move down a line, unrelated command
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals(0, logger.get('<C-n>').count)
   end)
 end)
 

@@ -71,6 +71,7 @@ return {
       insert_left_repeat = 'Du hast im Einfügemodus 5-mal hintereinander <Left> gedrückt',
       insert_right_repeat = 'Du hast im Einfügemodus 5-mal hintereinander <Right> gedrückt',
       insert_bounce = 'Du bist zweimal hintereinander in den Einfügemodus gewechselt und ohne Änderung wieder heraus',
+      insert_completion_repeat = 'Du hast dasselbe Wort ein zweites Mal komplett eingetippt',
       f_repeat = 'Du hast dieselbe f/t-Suche in dieser Zeile wiederholt',
       r_run = 'Du hast 3 Zeichen einzeln nacheinander ersetzt',
       visual_textobj = 'Du hast vor dem Bearbeiten ein Textobjekt im visuellen Modus ausgewählt',
@@ -969,6 +970,13 @@ return {
       title = '{n}<< — Einrückung mehrerer Zeilen auf einmal entfernen',
       body = 'Setze eine Zahl vor <<, um bei so vielen Zeilen in einem Befehl die Einrückung zu entfernen\n3<< entfernt eine Einrückungsebene von 3 Zeilen ab dem Cursor',
       example = '3<< → entfernt die Einrückung von 3 Zeilen auf einmal',
+    },
+
+    -- ── Einfügemodus-Vervollständigung (erkannt von insert_completion_repeat) ──
+    ['<C-n>'] = {
+      title = '<C-n> — Wort vervollständigen statt neu einzutippen',
+      body = 'Tippst du einen Bezeichner erneut komplett ein, den du schon einmal geschrieben hast? <C-n> vervollständigt ihn aus dem, was schon im Puffer steht\n<C-p> durchläuft die Treffer in umgekehrter Reihenfolge, falls der erste Vorschlag nicht passt',
+      example = 'identifier ... iden<C-n> → vervollständigt zu identifier',
     },
   },
 }

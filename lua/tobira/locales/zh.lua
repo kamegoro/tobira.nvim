@@ -71,6 +71,7 @@ return {
       insert_left_repeat = '你在插入模式下连续按了 5 次 <Left>',
       insert_right_repeat = '你在插入模式下连续按了 5 次 <Right>',
       insert_bounce = '你连续两次进入又退出插入模式却没有任何修改',
+      insert_completion_repeat = '你把同一个单词完整地打了第二遍',
       f_repeat = '你在这一行重复了相同的 f/t 查找',
       r_run = '你逐个字符替换了 3 个字符',
       visual_textobj = '你在编辑前用可视模式选中了一个文本对象',
@@ -969,6 +970,13 @@ return {
       title = '{n}<< — 一次取消缩进多行',
       body = '在 << 前加计数即可一次取消缩进多行\n3<< 从光标处的 3 行中移除一级缩进',
       example = '3<< → 一次取消 3 行的缩进',
+    },
+
+    -- ── 插入模式补全（由 insert_completion_repeat 检测）──────────────────────
+    ['<C-n>'] = {
+      title = '<C-n> — 补全单词而不是重新打一遍',
+      body = '又要把已经打过一遍的标识符完整地重打一遍？<C-n> 可以从缓冲区里已有的内容直接补全\n如果第一个候选不对，<C-p> 可以反向切换候选',
+      example = 'identifier ... iden<C-n> → 补全为 identifier',
     },
   },
 }

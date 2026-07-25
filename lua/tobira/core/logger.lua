@@ -329,8 +329,14 @@ local TRACK = build_track_table()
 -- adoption can be measured — this is safe from the normal-mode window-prefix
 -- meaning of Ctrl-W because INSERT_SPECIAL is only consulted while the mode
 -- cache says insert mode (handle_insert_key), never from the normal-mode path.
+-- '<C-n>' (#112) is the same shape of problem: in normal mode it's Vim's
+-- built-in down-motion (never tracked by tobira today), while in insert mode
+-- it's keyword completion — the suggestion this file's insert_completion_repeat
+-- pattern recommends. Listing it here keeps its insert-mode adoption count
+-- (incremented explicitly below) from ever being conflated with the unrelated
+-- normal-mode keystroke, exactly like '<C-w>'.
 local INSERT_SPECIAL = {}
-for _, name in ipairs({ '<BS>', '<Left>', '<Right>', '<Esc>', '<C-w>' }) do
+for _, name in ipairs({ '<BS>', '<Left>', '<Right>', '<Esc>', '<C-w>', '<C-n>' }) do
   local raw = vim.api.nvim_replace_termcodes(name, true, true, true)
   if raw ~= '' then
     INSERT_SPECIAL[raw] = name
@@ -345,8 +351,13 @@ local function handle_insert_key(key)
   local canonical = INSERT_SPECIAL[key]
   if canonical == '<C-w>' then
     increment('<C-w>')
+  elseif canonical == '<C-n>' then
+    increment('<C-n>')
   end
-  local result = patterns_insert.feed_insert(insert_seq, canonical)
+  -- `key` doubles as the ordinary-character payload feed_insert() uses to
+  -- reconstruct tokens (#112) — canonical is nil for anything other than the
+  -- special keys above, and feed_insert() only ever reads `char` in that case.
+  local result = patterns_insert.feed_insert(insert_seq, canonical, key)
   if result and M.on_pattern then
     M.on_pattern(result.pattern, result.cmd)
   end

@@ -71,6 +71,7 @@ return {
       insert_left_repeat = 'You pressed <Left> 5 times in a row in insert mode',
       insert_right_repeat = 'You pressed <Right> 5 times in a row in insert mode',
       insert_bounce = 'You entered and left insert mode with no changes, twice in a row',
+      insert_completion_repeat = 'You typed the same word in full a second time',
       f_repeat = 'You repeated the same f/t search on this line',
       r_run = 'You replaced 3 characters one at a time',
       visual_textobj = 'You selected a text object in visual mode before editing',
@@ -970,6 +971,13 @@ return {
       title = '{n}<< — dedent multiple lines at once',
       body = 'Prefix << with a count to dedent that many lines in one command\n3<< removes one level of indentation from 3 lines starting from the cursor',
       example = '3<< → dedent 3 lines at once',
+    },
+
+    -- ── insert-mode completion (detected by insert_completion_repeat) ───────
+    ['<C-n>'] = {
+      title = '<C-n> — complete the word instead of retyping it',
+      body = 'Retyping an identifier you already typed once? <C-n> completes it from what is already in the buffer\n<C-p> cycles the matches in reverse if the first suggestion is not the one you want',
+      example = 'identifier ... iden<C-n> → completes to identifier',
     },
   },
 }

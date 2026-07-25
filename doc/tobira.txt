@@ -273,6 +273,7 @@ INSERT MODE ~
   `<Left>` × 5                  Suggest `b`     — leave insert, jump back a word
   `<Right>` × 5                 Suggest `w`     — leave insert, jump forward a word
   Empty insert → `<Esc>`, twice Suggest `A`     — stop bouncing in and out, append directly
+  Same 6+ char word, twice     Suggest `<C-n>` — complete the word instead of retyping it
 
 ==============================================================================
 vim:tw=78:ts=8:ft=help:norl:
