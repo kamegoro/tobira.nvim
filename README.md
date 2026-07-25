@@ -77,7 +77,7 @@ Full documentation is available in Neovim via `:help tobira`.
   <img src="docs/demo-guide.gif" alt=":TobiraGuide cheatsheet panel" width="720" />
 </p>
 
-`:TobiraGuide` opens a cheatsheet on the right side of the screen. Commands you've already mastered are automatically hidden, so only your next targets are shown — and if one of them fades from use after you'd gotten comfortable with it, it reappears with a `⟳` (forgotten) marker instead of staying hidden forever. Pinned commands always appear at the top, marked `●`. Covers all 7 categories: motion, edit, search, window, fold, mark, and macro — each capped to 3 unmastered commands (preferring ones you've never tried) so the panel stays a compact reference to glance at while you keep coding, with a `+N more` line if a category has more to show. Opens automatically on first launch.
+`:TobiraGuide` opens a cheatsheet on the right side of the screen. Commands you've already mastered are automatically hidden, so only your next targets are shown — and if one of them fades from use after you'd gotten comfortable with it, it reappears with a `⟳` (forgotten) marker instead of staying hidden forever. Pinned commands always appear at the top, marked `●`. Covers all 8 categories: motion, edit, search, window, fold, mark, macro, and diff — each capped to 3 unmastered commands (preferring ones you've never tried) so the panel stays a compact reference to glance at while you keep coding, with a `+N more` line if a category has more to show. Opens automatically on first launch.
 
 ### Usage stats
 
@@ -132,12 +132,13 @@ require("tobira").setup({
 | `dw` → `i` | `cw` — change word in one command |
 | `v` `i` `w` `c` | `ciw` — text object, no visual needed |
 | `j` × 10 in a row | `}` — jump by paragraph |
+| `j` × 10 in a row while `&diff` is set | `]c` — jump to the next diff hunk |
 | `dd` × 3 in a row | `{n}dd` — delete N lines at once |
 | `r{x}` × 3 in a row | `R` — enter replace mode |
 | `<C-w>q` / `<C-w>c` × 2 in a row | `<C-w>o` — close all other windows |
 | `<BS>` × 5 in insert mode | `<C-w>` — delete the whole word at once |
 
-43 patterns total — see `:help tobira-patterns` for the full list.
+46 patterns total — see `:help tobira-patterns` for the full list.
 
 ## 🆚 Similar plugins
 

@@ -23,7 +23,7 @@ probably already exists.
 tobira's UI uses color for two unrelated purposes. Don't mix them.
 
 **Category color** — *what kind of command is this* (motion / edit / search / window / fold /
-mark / macro). Currently only the suggestion float's border uses it (`ui/float.lua`,
+mark / macro / diff). Currently only the suggestion float's border uses it (`ui/float.lua`,
 `CATEGORY_HL` table). It answers "what kind" and stays constant for a given command regardless of
 how well the user knows it.
 
@@ -46,11 +46,16 @@ category color to represent a state, or vice versa.
 | fold | `TobiraSuggestFold` | `Constant` |
 | mark | `TobiraSuggestMark` | `Identifier` |
 | macro | `TobiraSuggestMacro` | `PreProc` |
+| diff | `TobiraSuggestDiff` | `DiffChange` |
 
 The mapping targets Neovim's own syntax-highlighting groups, not diagnostic or UI groups — the
-intuition being "motion is a keyword-ish thing, edit is function-ish, search is string-ish." If
-you add an 8th category to `commands.lua`, pick the nearest syntax group by the same intuition
-before inventing a new link target.
+intuition being "motion is a keyword-ish thing, edit is function-ish, search is string-ish." `diff`
+(#111) is the one deliberate exception: there is no syntax group that reads as "diff-ish" by that
+same analogy, but Neovim's own `DiffChange` highlight literally **is** the concept this category
+represents, which makes it a more meaningful link than reaching for an arbitrary syntax color. If
+you add another category to `commands.lua`, prefer the nearest syntax group by the motion/edit/
+search intuition first, and only reach for a non-syntax group like `DiffChange` when the category
+already has a Neovim highlight group that IS the concept, not just adjacent to it.
 
 ### State → hlgroup (Guide / Progress mastery symbols)
 

@@ -18,6 +18,7 @@ local CATEGORY_HL = {
   fold = 'TobiraSuggestFold',
   mark = 'TobiraSuggestMark',
   macro = 'TobiraSuggestMacro',
+  diff = 'TobiraSuggestDiff',
 }
 local DEFAULT_BORDER_HL = 'FloatBorder'
 

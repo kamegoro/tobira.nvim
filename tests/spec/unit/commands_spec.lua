@@ -75,8 +75,17 @@ describe('locale coverage', function()
 end)
 
 describe('every non-compound entry in the registry', function()
-  it('has a category field (motion | edit | search | window | fold | mark | macro)', function()
-    local valid = { motion = true, edit = true, search = true, window = true, fold = true, mark = true, macro = true }
+  it('has a category field (motion | edit | search | window | fold | mark | macro | diff)', function()
+    local valid = {
+      motion = true,
+      edit = true,
+      search = true,
+      window = true,
+      fold = true,
+      mark = true,
+      macro = true,
+      diff = true,
+    }
     for cmd, entry in pairs(commands.registry) do
       if not entry.compound then
         assert.is_not_nil(
@@ -314,6 +323,9 @@ local chain_cases = {
   { '|', '0', '0 → |: move to column N' },
   -- first non-blank (current line)
   { '_', '^', '^ → _: first non-blank (N-1 lines lower)' },
+  -- diff-mode hunk navigation (#111)
+  { ']c', 'j', 'j → ]c: jump to next diff hunk (while &diff is set)' },
+  { '[c', 'k', 'k → [c: jump to previous diff hunk (while &diff is set)' },
 }
 
 describe('teaching chains', function()

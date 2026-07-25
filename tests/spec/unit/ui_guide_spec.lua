@@ -412,6 +412,41 @@ describe('category ordering (regression)', function()
   end)
 end)
 
+-- guide.lua keeps its own CATEGORY_ORDER list separate from skills.lua's
+-- (see the module dependency rules in lua/tobira/CLAUDE.md — guide.lua does
+-- not require skills.lua). A category present in commands.registry but
+-- missing from CATEGORY_ORDER is silently dropped from the panel: by_cat
+-- still has the entry (graph.guide_commands() has no category allowlist),
+-- but the render loop below only ever walks CATEGORY_ORDER. #111 caught this
+-- live (the `diff` category rendered fine in :TobiraProgress via skills.lua,
+-- but never appeared in :TobiraGuide) — this test guards against the same
+-- gap recurring for the next new category.
+describe('category coverage (regression, #111)', function()
+  it('renders a section header for every category present in the registry', function()
+    local commands = require('tobira.commands')
+    local loc = require('tobira.i18n').load()
+    local cat_labels = (loc.progress and loc.progress.categories) or {}
+
+    local categories = {}
+    for cmd, e in pairs(commands.registry) do
+      if not e.compound and e.category then
+        categories[e.category] = true
+      end
+    end
+
+    -- Nothing mastered, nothing pinned: every category's beginner-level
+    -- commands are eligible, so every category should get a header.
+    local lines = guide.build({})
+    for cat in pairs(categories) do
+      local label = cat_labels[cat] or cat
+      assert.is_not_nil(
+        find_line(lines, '  ' .. label),
+        cat .. ': no "' .. label .. '" section header rendered in :TobiraGuide (missing from guide.lua CATEGORY_ORDER?)'
+      )
+    end
+  end)
+end)
+
 describe('auto-refresh when switching windows (regression)', function()
   it('schedules a refresh when a different window becomes current', function()
     guide.open()

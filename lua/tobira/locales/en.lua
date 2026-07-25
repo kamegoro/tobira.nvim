@@ -24,6 +24,7 @@ return {
       fold = 'Fold',
       mark = 'Mark',
       macro = 'Macro',
+      diff = 'Diff',
     },
     mastered_total = '%d / %d mastered',
     section_count = '%d / %d',
@@ -95,8 +96,10 @@ return {
       u_repeat = 'You undid 3 times in a row',
       j_repeat = 'You pressed j 5 times in a row',
       j_many = 'You pressed j 10 times in a row',
+      j_many_diff = 'You pressed j 10 times in a row while diffing',
       k_repeat = 'You pressed k 5 times in a row',
       k_many = 'You pressed k 10 times in a row',
+      k_many_diff = 'You pressed k 10 times in a row while diffing',
       n_repeat = 'You repeated a search match 4 times',
       l_repeat = 'You pressed l 5 times in a row',
       h_repeat = 'You pressed h 5 times in a row',
@@ -303,6 +306,18 @@ return {
       title = '{ — jump to start of paragraph',
       body = 'The upward complement of } — moves up to the blank line above\nQuickly navigate between code blocks or paragraphs',
       example = '{ → cursor jumps to the blank line before the current block',
+    },
+
+    -- ── diff mode: manual hunk navigation (#111) ────────────────────────────
+    [']c'] = {
+      title = ']c — jump to next diff hunk',
+      body = 'While &diff is set, jumps straight to the next changed hunk\nFaster than hammering j to hunt for the next difference',
+      example = ']c → cursor jumps to the next hunk of changes',
+    },
+    ['[c'] = {
+      title = '[c — jump to previous diff hunk',
+      body = 'The upward complement of ]c — jumps to the previous changed hunk\nFaster than hammering k to hunt backward for a difference',
+      example = '[c → cursor jumps to the previous hunk of changes',
     },
 
     -- ── screen centering chain ─────────────────────────────────────────────

@@ -24,6 +24,7 @@ return {
       fold = 'Pliage',
       mark = 'Marque',
       macro = 'Macro',
+      diff = 'Diff',
     },
     mastered_total = '%d / %d maîtrisées',
     section_count = '%d / %d',
@@ -95,8 +96,10 @@ return {
       u_repeat = 'Vous avez annulé 3 fois de suite',
       j_repeat = 'Vous avez appuyé sur j 5 fois de suite',
       j_many = 'Vous avez appuyé sur j 10 fois de suite',
+      j_many_diff = 'Vous avez appuyé sur j 10 fois de suite en mode diff',
       k_repeat = 'Vous avez appuyé sur k 5 fois de suite',
       k_many = 'Vous avez appuyé sur k 10 fois de suite',
+      k_many_diff = 'Vous avez appuyé sur k 10 fois de suite en mode diff',
       n_repeat = 'Vous avez répété une correspondance de recherche 4 fois',
       l_repeat = 'Vous avez appuyé sur l 5 fois de suite',
       h_repeat = 'Vous avez appuyé sur h 5 fois de suite',
@@ -303,6 +306,18 @@ return {
       title = '{ — sauter au début du paragraphe',
       body = "Le complément vers le haut de } — monte jusqu'à la ligne vide au-dessus\nNaviguez rapidement entre blocs de code ou paragraphes",
       example = '{ → le curseur saute à la ligne vide avant le bloc actuel',
+    },
+
+    -- ── mode diff : navigation manuelle entre blocs (#111) ──────────────────
+    [']c'] = {
+      title = ']c — sauter au bloc de différences suivant',
+      body = "Pendant que &diff est actif, saute directement au bloc modifié suivant\nPlus rapide que d'appuyer sur j de façon répétée pour chercher la différence suivante",
+      example = ']c → le curseur saute au bloc de modifications suivant',
+    },
+    ['[c'] = {
+      title = '[c — sauter au bloc de différences précédent',
+      body = "Le complément de ]c — saute au bloc modifié précédent\nPlus rapide que d'appuyer sur k de façon répétée pour chercher en arrière une différence",
+      example = '[c → le curseur saute au bloc de modifications précédent',
     },
 
     -- ── screen centering chain ─────────────────────────────────────────────

@@ -218,6 +218,53 @@ describe('when k is pressed 10 times in a row', function()
   end)
 end)
 
+-- ── j / k in diff mode: prefer ]c / [c hunk navigation over }/{ (#111) ────────
+-- feed()'s 4th argument is the caller-supplied "is &diff set on this window?"
+-- flag. patterns.lua stays vim.*-free (see lua/tobira/CLAUDE.md's module
+-- dependency rules), so it never reads vim.wo.diff itself — logger.lua reads
+-- it and passes the boolean in. These tests inject that flag directly,
+-- exactly as patterns_spec.lua's own template for unit-testing pure functions
+-- prescribes (see tests/CLAUDE.md).
+
+describe('when j is pressed 10 times in a row while &diff is set', function()
+  it('fires j_many_diff at 10 suggesting ]c instead of }', function()
+    local s = seq()
+    for _ = 1, 9 do
+      patterns.feed(s, 'j', 1, true)
+    end
+    local at10 = patterns.feed(s, 'j', 1, true)
+    assert.is_not_nil(at10)
+    assert.equals('j_many_diff', at10.pattern)
+    assert.equals(']c', at10.cmd)
+  end)
+end)
+
+describe('when k is pressed 10 times in a row while &diff is set', function()
+  it('fires k_many_diff at 10 suggesting [c instead of {', function()
+    local s = seq()
+    for _ = 1, 9 do
+      patterns.feed(s, 'k', 1, true)
+    end
+    local at10 = patterns.feed(s, 'k', 1, true)
+    assert.is_not_nil(at10)
+    assert.equals('k_many_diff', at10.pattern)
+    assert.equals('[c', at10.cmd)
+  end)
+end)
+
+describe('when j is pressed 10 times in a row outside diff mode', function()
+  it('still fires j_many suggesting } (regression check against gating logic)', function()
+    local s = seq()
+    for _ = 1, 9 do
+      patterns.feed(s, 'j', 1, false)
+    end
+    local at10 = patterns.feed(s, 'j', 1, false)
+    assert.is_not_nil(at10)
+    assert.equals('j_many', at10.pattern)
+    assert.equals('}', at10.cmd)
+  end)
+end)
+
 -- ── D → insert (delete to EOL then re-enter insert) ──────────────────────────
 
 describe('when the user deletes to end of line then enters insert mode', function()

@@ -110,7 +110,7 @@ two-character command prefix.
 
 1. Add one entry to `commands.lua`
    - If `requires` is multi-char, add a `compound = true` entry for it first
-   - `requires`, `category` (motion|edit|search|window|fold|mark|macro), and `level`
+   - `requires`, `category` (motion|edit|search|window|fold|mark|macro|diff), and `level`
      (beginner|intermediate|advanced) are required fields
 2. **Write tests first** (see `tests/CLAUDE.md`)
    - `track = true` → add a tracking smoke test to `logger_spec.lua`
