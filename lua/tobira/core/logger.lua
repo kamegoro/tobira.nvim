@@ -285,6 +285,10 @@ end
 local function build_track_table()
   -- Base single-char ASCII keys (not in registry but needed for level detection).
   -- 'g' omitted: it's always part of a compound (gg, gj…) tracked via last_op.
+  -- 'y' added for #59: graph.is_register_underused() needs a total "how many
+  -- times has the user yanked" count, independent of which compound (yy, yw,
+  -- "+y, …) the operator ends up completing as — see commands.lua's '"+y'
+  -- entry for the other half of that gate.
   local t = {
     f = 'f',
     F = 'F',
@@ -302,6 +306,7 @@ local function build_track_table()
     i = 'i',
     a = 'a',
     o = 'o',
+    y = 'y',
     G = 'G',
     v = 'v',
     ['*'] = '*',

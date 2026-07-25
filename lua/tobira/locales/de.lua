@@ -970,5 +970,12 @@ return {
       body = 'Setze eine Zahl vor <<, um bei so vielen Zeilen in einem Befehl die Einrückung zu entfernen\n3<< entfernt eine Einrückungsebene von 3 Zeilen ab dem Cursor',
       example = '3<< → entfernt die Einrückung von 3 Zeilen auf einmal',
     },
+
+    -- ── "+y (Register-Unternutzung erkennen, #59) ────────────────────────────
+    ['"+y'] = {
+      title = '"+y — in die Systemzwischenablage kopieren',
+      body = 'Du hast oft kopiert, aber nie die Systemzwischenablage benutzt\n"+y kopiert direkt hinein, sodass Einfügen außerhalb von Neovim (oder mit "+p von außen) einfach funktioniert\nMit clipboard=unnamedplus nutzen y/p die Zwischenablage standardmäßig — dann brauchst du das "+ Präfix gar nicht mehr',
+      example = '"+yy eine Zeile → in einer anderen App mit der gewohnten Einfügen-Taste einfügen',
+    },
   },
 }

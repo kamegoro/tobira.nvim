@@ -44,6 +44,10 @@ function M.new_seq()
     pending_register = false, -- " or @ (register / macro name)
     pending_mark = false, -- m / ' / ` (mark name or target)
     pending_bracket = false, -- [ or ] (navigation pair)
+    -- "+ register-select immediately followed by y → "+y system-clipboard
+    -- yank compound (#59). Set by the pending_register consumer below only
+    -- when the register name was '+'; consumed by the very next key.
+    pending_clipboard_yank = false,
     -- p / P → rightward motion: cursor skipped past a paste, suggest gp/gP (#106)
     pending_paste = nil, -- 'p' | 'P' | nil
     paste_motion_streak = 0,
@@ -243,6 +247,21 @@ local function inner_feed(seq, key, line)
     return nil
   end
 
+  -- ── pending_clipboard_yank: "+ immediately followed by y (#59) ────────────
+  -- Must precede f/F/t/T for the same "waiting on the very next key" reason
+  -- pending_g / pending_z / pending_ctrl_w do above. Only 'y' completes the
+  -- "+y compound; any other key means the user did something else with the +
+  -- register (e.g. "+p) and falls through to that key's normal meaning —
+  -- this state never survives past the one key right after "+.
+  if seq.pending_clipboard_yank then
+    seq.pending_clipboard_yank = false
+    if key == 'y' then
+      seq.last_op = '"+y'
+      seq.op_completed = true
+      return nil
+    end
+  end
+
   -- ── f / F / t / T ────────────────────────────────────────────────────────
   if key == 'f' or key == 'F' or key == 't' or key == 'T' then
     seq.pending_f = key
@@ -318,6 +337,12 @@ local function inner_feed(seq, key, line)
   if seq.pending_register then
     seq.pending_register = false
     seq.key_consumed = true
+    -- "+ specifically arms pending_clipboard_yank (#59); every other register
+    -- name (including "* — see the issue's scope note) keeps the existing
+    -- consume-and-forget behavior below.
+    if key == '+' then
+      seq.pending_clipboard_yank = true
+    end
     return nil
   end
 

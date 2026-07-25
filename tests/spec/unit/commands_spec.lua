@@ -314,6 +314,8 @@ local chain_cases = {
   { '|', '0', '0 → |: move to column N' },
   -- first non-blank (current line)
   { '_', '^', '^ → _: first non-blank (N-1 lines lower)' },
+  -- register underuse: system clipboard (#59)
+  { '"+y', 'y', 'y → "+y: yank to the system clipboard register' },
 }
 
 describe('teaching chains', function()

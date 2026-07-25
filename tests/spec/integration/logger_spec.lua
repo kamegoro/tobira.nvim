@@ -1059,6 +1059,15 @@ describe('when a compound operator completes', function()
     assert.is_true(logger.get('gu').count > 0)
   end)
 
+  -- #59: "+y system-clipboard yank, tracked via patterns.lua's
+  -- pending_clipboard_yank compound (see patterns_spec.lua for the pure-logic
+  -- coverage of the state machine itself).
+  it('tracks "+y as a compound command', function()
+    pcall(vim.fn.feedkeys, '"+yy', 'xt')
+    pcall(vim.api.nvim_feedkeys, '', 'x', false)
+    assert.is_true(logger.get('"+y').count > 0)
+  end)
+
   -- #120: <C-w>X window-command compounds — patterns.lua's new pending_ctrl_w
   -- dispatch table. Some of these (s/v split, q close) have real window
   -- side effects; pcall absorbs any resulting error (E444 etc. — same

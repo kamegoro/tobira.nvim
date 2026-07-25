@@ -219,6 +219,33 @@ function M.efficiency_gaps(usage, limit)
   return gaps
 end
 
+-- #59: registers "+y" as a suggestion candidate only when the user has
+-- yanked heavily (y count >= REGISTER_UNDERUSE_TRIGGER) but has never once
+-- reached for the system-clipboard register. This is intentionally NOT the
+-- generic "trigger_count > 0" rule find_best() otherwise uses — that rule
+-- would surface "+y after a single y, far too early for a suggestion this
+-- different from an ordinary operator/motion pair (switching to a named or
+-- system register is a bigger behavioral jump than, say, learning cw). Only
+-- the clipboard heuristic is implemented — the issue's "wrong paste" /
+-- register-0 heuristics are deferred pending design review (see the issue's
+-- own "Phase 2" section).
+local REGISTER_UNDERUSE_TRIGGER = 20
+-- Boost large enough to outrank a normal find_best() score without using
+-- math.huge, which find_best() already reserves as its "no candidate yet"
+-- sentinel (see best_score below). In practice this is more than enough: an
+-- offered candidate is never mastered (cmd_count < 100), so ordinary scores
+-- rarely approach four digits.
+local REGISTER_UNDERUSE_BOOST = 1000
+
+-- True once the user has yanked (y) at least REGISTER_UNDERUSE_TRIGGER times
+-- and has never used the system-clipboard register ("+y count == 0).
+function M.is_register_underused(usage)
+  local y_count = (usage.y and usage.y.count) or 0
+  local clip_data = usage['"+y']
+  local clip_count = (clip_data and clip_data.count) or 0
+  return y_count >= REGISTER_UNDERUSE_TRIGGER and clip_count == 0
+end
+
 -- max_level: 'beginner' | 'intermediate' | 'advanced' | nil (no filter)
 function M.find_best(usage, max_shown, max_level)
   max_shown = max_shown or 3
@@ -239,7 +266,17 @@ function M.find_best(usage, max_shown, max_level)
       local mastered = M.is_mastered(data)
       local offered = not mastered and not data.suppressed and data.shown < max_shown
 
-      if offered then
+      if offered and cmd == '"+y' then
+        -- Register-underuse gate (#59) replaces the generic trigger_count > 0
+        -- rule below — see is_register_underused() and REGISTER_UNDERUSE_BOOST.
+        if M.is_register_underused(usage) then
+          local score = REGISTER_UNDERUSE_BOOST + usage.y.count
+          if score > best_score or (score == best_score and cmd < best_cmd) then
+            best_score = score
+            best_cmd = cmd
+          end
+        end
+      elseif offered then
         local trigger_count = (usage[sug.trigger] and usage[sug.trigger].count) or 0
         local cmd_count = data.count
 

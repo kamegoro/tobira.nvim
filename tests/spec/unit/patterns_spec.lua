@@ -1109,6 +1109,54 @@ describe('when the user specifies a register with "', function()
   end)
 end)
 
+-- ── "+y system-clipboard yank compound (#59) ──────────────────────────────────
+-- Tracked as its own compound (distinct from the generic "consume and forget
+-- the register name" behavior above) so graph.is_register_underused() has a
+-- real "+y count == 0" signal to gate on instead of never knowing this
+-- ever happened.
+
+describe('when the user yanks to the system clipboard with "+y', function()
+  it('tracks "+y as a completed compound', function()
+    local s = seq()
+    patterns.feed(s, '"', 1)
+    patterns.feed(s, '+', 1)
+    local result = patterns.feed(s, 'y', 1)
+    assert.is_nil(result)
+    assert.equals('"+y', s.last_op)
+    assert.is_true(s.op_completed)
+  end)
+
+  it('does not consume the y key (still countable as a standalone y elsewhere)', function()
+    local s = seq()
+    patterns.feed(s, '"', 1)
+    patterns.feed(s, '+', 1)
+    patterns.feed(s, 'y', 1)
+    assert.is_false(s.key_consumed)
+  end)
+end)
+
+describe('when "+ is followed by something other than y', function()
+  it('does not track a "+y compound', function()
+    local s = seq()
+    patterns.feed(s, '"', 1)
+    patterns.feed(s, '+', 1)
+    patterns.feed(s, 'p', 1)
+    assert.is_nil(s.last_op)
+    assert.is_false(s.op_completed)
+  end)
+end)
+
+describe('when a register other than + is selected before y', function()
+  it('does not track a "+y compound for "ay', function()
+    local s = seq()
+    patterns.feed(s, '"', 1)
+    patterns.feed(s, 'a', 1)
+    local result = patterns.feed(s, 'y', 1)
+    assert.is_nil(result)
+    assert.is_nil(s.last_op)
+  end)
+end)
+
 describe('when the user executes a macro with @', function()
   it('swallows the register name so it cannot trigger other patterns', function()
     local s = seq()

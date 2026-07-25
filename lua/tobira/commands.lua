@@ -360,6 +360,18 @@ M.registry = {
   -- ── >> × 3 / << × 3 indent count prefix ─────────────────────────────────────
   ['{n}>>'] = { requires = '>>', track = false, category = 'edit', level = 'intermediate' },
   ['{n}<<'] = { requires = '<<', track = false, category = 'edit', level = 'intermediate' },
+
+  -- ── y → "+y system clipboard register (#59) ──────────────────────────────
+  -- track = false: "+y is a 3-key literal sequence ("+y), tracked as its own
+  -- compound by patterns.lua's pending_clipboard_yank state, not by the
+  -- generic operator grammar or a bare keystroke. Promotion into the
+  -- suggestion pool is NOT gated by the usual "trigger count > 0" rule —
+  -- graph.is_register_underused() applies a much stricter, purpose-built
+  -- threshold instead (see find_best()'s special case for this cmd). category
+  -- = 'mark': no dedicated "register" category exists in the taxonomy, and
+  -- this is the closest existing bucket (registers/marks are grouped together
+  -- in the project's own design notes — see CLAUDE.md's "advanced" scenario).
+  ['"+y'] = { requires = 'y', track = false, category = 'mark', level = 'advanced' },
 }
 
 return M
