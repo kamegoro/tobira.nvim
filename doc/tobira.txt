@@ -236,6 +236,10 @@ MOTION ~
   `^` → `i`                     Suggest `I`    — insert at first non-blank
   `$` → `a`                     Suggest `A`    — append at end of line
   `n` × 4                       Suggest `cgn`  — change next search match
+  `G`/`gg`/`n`/`N`/`<C-d/u/f/b>` → `j`/`k`/`<C-e>`/`<C-y>` × 5 (within 15s)
+                               Suggest `<C-o>` — jump back with the jumplist
+  edit → move → edit elsewhere → `j`/`k` × 5 back (within 15s)
+                               Suggest `g;`   — jump back with the changelist
 
 EDIT ~
 

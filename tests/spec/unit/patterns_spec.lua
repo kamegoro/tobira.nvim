@@ -1775,3 +1775,268 @@ describe('seq.op_completed', function()
     assert.is_false(s.op_completed)
   end)
 end)
+
+-- ── jumplist underuse: G / gg / search → manual scroll back → <C-o> (#61) ────
+-- patterns.feed's 4th argument is a caller-supplied clock reading (ms); real
+-- callers pass vim.loop.now(), these tests pass fixed numbers so the
+-- tolerance-window boundary is deterministic instead of depending on how
+-- fast the test itself runs.
+
+describe('when the user jumps to end of file then scrolls back manually', function()
+  it('fires manual_return suggesting <C-o> after G then 5 k presses', function()
+    local s = seq()
+    patterns.feed(s, 'G', 1, 0)
+    for _ = 1, 4 do
+      patterns.feed(s, 'k', 1, 0)
+    end
+    local result = patterns.feed(s, 'k', 1, 0)
+    assert.is_not_nil(result)
+    assert.equals('manual_return', result.pattern)
+    assert.equals('<C-o>', result.cmd)
+  end)
+
+  it('has fired manual_return by the time 10 k presses have happened', function()
+    -- Plain k_repeat / k_many (5-in-a-row / 10-in-a-row, no jump context
+    -- required) are also legitimately true of this exact keystroke sequence
+    -- and may fire on later presses once manual_return has already reset
+    -- its own streak — this only asserts manual_return fired at least once,
+    -- not that it was the only thing that fired.
+    local s = seq()
+    patterns.feed(s, 'G', 1, 0)
+    local saw_manual_return = false
+    for _ = 1, 10 do
+      local result = patterns.feed(s, 'k', 1, 0)
+      if result and result.pattern == 'manual_return' then
+        saw_manual_return = true
+        assert.equals('<C-o>', result.cmd)
+      end
+    end
+    assert.is_true(saw_manual_return)
+  end)
+
+  it('does not fire after only 2 k presses — not enough evidence', function()
+    local s = seq()
+    patterns.feed(s, 'G', 1, 0)
+    patterns.feed(s, 'k', 1, 0)
+    local result = patterns.feed(s, 'k', 1, 0)
+    assert.is_nil(result)
+  end)
+
+  it('does not fire once the tolerance window has expired (30s later)', function()
+    -- k_repeat is still a legitimate, unrelated fire here (5 k's in a row
+    -- regardless of context) — only manual_return must not have fired.
+    local s = seq()
+    patterns.feed(s, 'G', 1, 0)
+    for _ = 1, 4 do
+      patterns.feed(s, 'k', 1, 30000)
+    end
+    local result = patterns.feed(s, 'k', 1, 30000)
+    if result then
+      assert.is_not_equal('manual_return', result.pattern)
+    end
+  end)
+
+  it('does not fire without a preceding significant jump', function()
+    local s = seq()
+    for _ = 1, 4 do
+      patterns.feed(s, 'k', 1, 0)
+    end
+    local result = patterns.feed(s, 'k', 1, 0)
+    -- k_repeat legitimately fires here — 5 k's in a row is true regardless
+    -- of jump context; manual_return specifically must not.
+    if result then
+      assert.is_not_equal('manual_return', result.pattern)
+    end
+  end)
+
+  it('is suppressed once the user has already pressed <C-o> this session', function()
+    -- k_repeat is still a legitimate, unrelated fire here — only
+    -- manual_return must not have fired.
+    local ctrl_o = '\15'
+    local s = seq()
+    patterns.feed(s, 'G', 1, 0)
+    patterns.feed(s, ctrl_o, 1, 0)
+    for _ = 1, 4 do
+      patterns.feed(s, 'k', 1, 0)
+    end
+    local result = patterns.feed(s, 'k', 1, 0)
+    if result then
+      assert.is_not_equal('manual_return', result.pattern)
+    end
+  end)
+
+  it('also fires after gg (jump to start of file)', function()
+    local s = seq()
+    patterns.feed(s, 'g', 1, 0)
+    patterns.feed(s, 'g', 1, 0)
+    for _ = 1, 4 do
+      patterns.feed(s, 'j', 1, 0)
+    end
+    local result = patterns.feed(s, 'j', 1, 0)
+    assert.is_not_nil(result)
+    assert.equals('manual_return', result.pattern)
+    assert.equals('<C-o>', result.cmd)
+  end)
+
+  it('counts a mix of j / k / <C-e> / <C-y> toward the same streak', function()
+    local ctrl_e = '\5'
+    local ctrl_y = '\25'
+    local s = seq()
+    patterns.feed(s, 'G', 1, 0)
+    patterns.feed(s, 'k', 1, 0)
+    patterns.feed(s, ctrl_e, 1, 0)
+    patterns.feed(s, 'j', 1, 0)
+    patterns.feed(s, ctrl_y, 1, 0)
+    local result = patterns.feed(s, 'k', 1, 0)
+    assert.is_not_nil(result)
+    assert.equals('manual_return', result.pattern)
+  end)
+
+  it('resets the streak when a non-return key interrupts it', function()
+    local s = seq()
+    patterns.feed(s, 'G', 1, 0)
+    patterns.feed(s, 'k', 1, 0)
+    patterns.feed(s, 'k', 1, 0)
+    patterns.feed(s, 'l', 1, 0) -- interrupt: not a return motion
+    patterns.feed(s, 'k', 1, 0)
+    patterns.feed(s, 'k', 1, 0)
+    local result = patterns.feed(s, 'k', 1, 0)
+    assert.is_nil(result)
+  end)
+
+  local significant_motion_cases = {
+    { key = 'n', label = 'n' },
+    { key = 'N', label = 'N' },
+    { key = '\4', label = '<C-d>' },
+    { key = '\21', label = '<C-u>' },
+    { key = '\6', label = '<C-f>' },
+    { key = '\2', label = '<C-b>' },
+  }
+
+  for _, tc in ipairs(significant_motion_cases) do
+    it('also treats ' .. tc.label .. ' as a significant jump motion', function()
+      local s = seq()
+      patterns.feed(s, tc.key, 1, 0)
+      for _ = 1, 4 do
+        patterns.feed(s, 'k', 1, 0)
+      end
+      local result = patterns.feed(s, 'k', 1, 0)
+      assert.is_not_nil(result)
+      assert.equals('manual_return', result.pattern)
+    end)
+  end
+end)
+
+-- ── changelist underuse: edit A, move, edit B, scroll back → g; (#61) ────────
+
+describe('when the user edits two different places then scrolls back', function()
+  local function two_edits(s, at)
+    patterns.feed(s, 'i', 1, at) -- edit #1
+    patterns.feed(s, '\27', 1, at) -- <Esc>
+    patterns.feed(s, 'j', 1, at) -- move away from it
+    patterns.feed(s, 'i', 1, at) -- edit #2, at a different spot
+    patterns.feed(s, '\27', 1, at)
+  end
+
+  it('fires changelist_return suggesting g; after 5 line motions back', function()
+    local s = seq()
+    two_edits(s, 0)
+    for _ = 1, 4 do
+      patterns.feed(s, 'k', 1, 0)
+    end
+    local result = patterns.feed(s, 'k', 1, 0)
+    assert.is_not_nil(result)
+    assert.equals('changelist_return', result.pattern)
+    assert.equals('g;', result.cmd)
+  end)
+
+  it('does not fire after only 2 line motions', function()
+    local s = seq()
+    two_edits(s, 0)
+    patterns.feed(s, 'k', 1, 0)
+    local result = patterns.feed(s, 'k', 1, 0)
+    assert.is_nil(result)
+  end)
+
+  it('does not fire once the tolerance window has expired', function()
+    -- k_repeat is still a legitimate, unrelated fire here (5 k's in a row
+    -- regardless of context) — only changelist_return must not have fired.
+    local s = seq()
+    two_edits(s, 0)
+    for _ = 1, 4 do
+      patterns.feed(s, 'k', 1, 30000)
+    end
+    local result = patterns.feed(s, 'k', 1, 30000)
+    if result then
+      assert.is_not_equal('changelist_return', result.pattern)
+    end
+  end)
+
+  it('does not fire after only a single edit — no second, elsewhere edit yet', function()
+    local s = seq()
+    patterns.feed(s, 'i', 1, 0)
+    patterns.feed(s, '\27', 1, 0)
+    for _ = 1, 4 do
+      patterns.feed(s, 'k', 1, 0)
+    end
+    local result = patterns.feed(s, 'k', 1, 0)
+    if result then
+      assert.is_not_equal('changelist_return', result.pattern)
+    end
+  end)
+
+  it('does not fire when the second edit is at the same spot (no motion in between)', function()
+    local s = seq()
+    patterns.feed(s, 'i', 1, 0)
+    patterns.feed(s, '\27', 1, 0)
+    patterns.feed(s, 'i', 1, 0) -- re-enters insert immediately, nothing moved in between
+    patterns.feed(s, '\27', 1, 0)
+    for _ = 1, 4 do
+      patterns.feed(s, 'k', 1, 0)
+    end
+    local result = patterns.feed(s, 'k', 1, 0)
+    if result then
+      assert.is_not_equal('changelist_return', result.pattern)
+    end
+  end)
+
+  it('is suppressed once the user has already pressed g; this session', function()
+    local s = seq()
+    two_edits(s, 0)
+    patterns.feed(s, 'g', 1, 0)
+    patterns.feed(s, ';', 1, 0)
+    for _ = 1, 4 do
+      patterns.feed(s, 'k', 1, 0)
+    end
+    local result = patterns.feed(s, 'k', 1, 0)
+    if result then
+      assert.is_not_equal('changelist_return', result.pattern)
+    end
+  end)
+
+  it('also fires via x — a direct edit that never enters insert mode', function()
+    local s = seq()
+    patterns.feed(s, 'x', 1, 0) -- edit #1
+    patterns.feed(s, 'j', 1, 0) -- move away
+    patterns.feed(s, 'x', 1, 0) -- edit #2, at a different spot
+    for _ = 1, 4 do
+      patterns.feed(s, 'k', 1, 0)
+    end
+    local result = patterns.feed(s, 'k', 1, 0)
+    assert.is_not_nil(result)
+    assert.equals('changelist_return', result.pattern)
+    assert.equals('g;', result.cmd)
+  end)
+
+  it('resets the streak when a non-line-motion key interrupts it', function()
+    local s = seq()
+    two_edits(s, 0)
+    patterns.feed(s, 'k', 1, 0)
+    patterns.feed(s, 'k', 1, 0)
+    patterns.feed(s, 'l', 1, 0) -- interrupt: not a line motion
+    patterns.feed(s, 'k', 1, 0)
+    patterns.feed(s, 'k', 1, 0)
+    local result = patterns.feed(s, 'k', 1, 0)
+    assert.is_nil(result)
+  end)
+end)

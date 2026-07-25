@@ -111,6 +111,8 @@ return {
       J_repeat = '你连续合并了 3 次行',
       ca_run = '你增加了一个数字、下移一行，并重复了 3 次',
       ctrl_w_close_repeat = '你连续 2 次逐个关闭窗口',
+      manual_return = '你跳转到一个较远的位置，然后手动滚动返回',
+      changelist_return = '你编辑了两个不同的位置，然后手动滚动返回查找第一个位置',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.

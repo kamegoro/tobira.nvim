@@ -111,6 +111,8 @@ return {
       J_repeat = 'Uniste líneas 3 veces seguidas',
       ca_run = 'Incrementaste un número, bajaste una línea y lo repetiste 3 veces',
       ctrl_w_close_repeat = 'Cerraste ventanas una por una, 2 veces seguidas',
+      manual_return = 'Saltaste a un lugar lejano y luego retrocediste desplazándote manualmente',
+      changelist_return = 'Editaste dos lugares distintos y luego retrocediste desplazándote manualmente para encontrar el primero',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.

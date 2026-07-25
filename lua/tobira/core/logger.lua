@@ -376,7 +376,10 @@ local function handle_key(key)
 
   local line = vim.fn.line('.')
 
-  local result = patterns.feed(seq, key, line)
+  -- vim.loop.now() (ms, monotonic) is the real clock for patterns.lua's
+  -- jumplist/changelist tolerance-window detection (#61) — patterns.lua
+  -- itself stays vim.*-free and only ever sees this caller-supplied number.
+  local result = patterns.feed(seq, key, line, vim.loop.now())
 
   -- Track compound operators (dw, dd, gg, >>, …) the moment they complete.
   -- Single-char keys are handled by the TRACK lookup below; compound ones

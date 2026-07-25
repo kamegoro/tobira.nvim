@@ -111,6 +111,8 @@ return {
       J_repeat = 'Du hast 3-mal hintereinander Zeilen zusammengeführt',
       ca_run = 'Du hast eine Zahl erhöht, eine Zeile weiterbewegt und das 3-mal wiederholt',
       ctrl_w_close_repeat = 'Du hast 2-mal hintereinander Fenster einzeln geschlossen',
+      manual_return = 'Du bist zu einer entfernten Stelle gesprungen und dann manuell zurückgescrollt',
+      changelist_return = 'Du hast an zwei verschiedenen Stellen bearbeitet und bist dann manuell zurückgescrollt, um die erste wiederzufinden',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
