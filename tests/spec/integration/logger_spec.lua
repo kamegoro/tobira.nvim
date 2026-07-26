@@ -795,6 +795,88 @@ describe('insert-mode <C-o> one-shot detection (#105)', function()
   end)
 end)
 
+-- patterns.feed() (patterns.lua) and feed_after_escape() (patterns_insert.lua,
+-- #105) are both fed the same Normal-mode keystroke in handle_key and can
+-- both produce a result for it — e.g. <Esc>0i matches patterns.lua's
+-- zero_col_then_insert (0 then i -> suggest gI) AND patterns_insert.lua's
+-- insert_co_oneshot (Esc, one motion, back to insert -> suggest <C-o>).
+-- Before this reconciliation existed, whichever call happened to run second
+-- in handle_key's source order won the race in suggest.queue() by accident.
+-- logger.lua now decides deterministically: patterns.lua's result (a
+-- pre-existing, more specific suggestion) always takes priority over
+-- patterns_insert.lua's generic insert_co_oneshot hint for the same
+-- keystroke. See logger.lua's handle_key for the implementation.
+describe('reconciling insert_co_oneshot with pre-existing specific patterns (priority)', function()
+  local esc = vim.api.nvim_replace_termcodes('<Esc>', true, false, true)
+
+  before_each(function()
+    logger.reset()
+    logger.on_pattern = nil
+    logger.setup()
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+    if vim.fn.mode() ~= 'n' then
+      vim.cmd('stopinsert')
+    end
+  end)
+
+  local function feed_and_collect(keys)
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'hello world' })
+    vim.fn.feedkeys(keys, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    return fired
+  end
+
+  it('fires only zero_col_then_insert (gI) for <Esc>0i, not insert_co_oneshot', function()
+    local fired = feed_and_collect('i' .. esc .. '0i')
+    assert.equals(1, #fired)
+    assert.equals('zero_col_then_insert', fired[1].pattern)
+    assert.equals('gI', fired[1].cmd)
+  end)
+
+  it('fires only x_then_insert (s) for <Esc>xi, not insert_co_oneshot', function()
+    local fired = feed_and_collect('i' .. esc .. 'xi')
+    assert.equals(1, #fired)
+    assert.equals('x_then_insert', fired[1].pattern)
+    assert.equals('s', fired[1].cmd)
+  end)
+
+  it('fires only dollar_then_append (A) for <Esc>$a, not insert_co_oneshot', function()
+    local fired = feed_and_collect('i' .. esc .. '$a')
+    assert.equals(1, #fired)
+    assert.equals('dollar_then_append', fired[1].pattern)
+    assert.equals('A', fired[1].cmd)
+  end)
+
+  it('still fires insert_co_oneshot for <Esc>hi (no competing specific pattern)', function()
+    local fired = feed_and_collect('i' .. esc .. 'hi')
+    assert.equals(1, #fired)
+    assert.equals('insert_co_oneshot', fired[1].pattern)
+    assert.equals('i_<C-o>', fired[1].cmd)
+  end)
+
+  it('still fires insert_co_oneshot for <Esc>li (no competing specific pattern)', function()
+    local fired = feed_and_collect('i' .. esc .. 'li')
+    assert.equals(1, #fired)
+    assert.equals('insert_co_oneshot', fired[1].pattern)
+    assert.equals('i_<C-o>', fired[1].cmd)
+  end)
+
+  it('still fires insert_co_oneshot for <Esc>wi (no competing specific pattern)', function()
+    local fired = feed_and_collect('i' .. esc .. 'wi')
+    assert.equals(1, #fired)
+    assert.equals('insert_co_oneshot', fired[1].pattern)
+    assert.equals('i_<C-o>', fired[1].cmd)
+  end)
+end)
+
 -- (stats rendering has moved to tests/spec/unit/ui_stats_spec.lua)
 
 -- ── save ─────────────────────────────────────────────────────────────────────
