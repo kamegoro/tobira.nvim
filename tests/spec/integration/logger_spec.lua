@@ -809,6 +809,83 @@ describe('Ex command tracking (#57)', function()
   end)
 end)
 
+-- ── Ex command tracking excludes tobira's own commands (QA bug on #57) ──────
+-- Running tobira's own UI commands (:TobiraStats, :TobiraGuide, ...) got
+-- tokenized and tracked as Ex-command usage themselves -- e.g. running
+-- :TobiraReset once made "ex:tobirastats" show up as a top command in
+-- :TobiraStats, even though the user only ever ran :TobiraReset. Any command
+-- whose tokenized name starts with tobira's own command prefix must never be
+-- tracked. See plugin/tobira.lua for the definitive list of registered
+-- commands (all share the 'Tobira' prefix).
+
+describe("Ex command tracking excludes tobira's own commands", function()
+  local esc = vim.api.nvim_replace_termcodes('<Esc>', true, true, true)
+  local cr = vim.api.nvim_replace_termcodes('<CR>', true, true, true)
+
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    logger.on_pattern = nil
+    logger.setup()
+    vim.cmd('enew!')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'foo', 'TODO', 'foo' })
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+    if vim.fn.mode() ~= 'n' then
+      pcall(vim.api.nvim_input, esc)
+    end
+  end)
+
+  -- Asserts no ex:* key exists at all (rather than checking one specific key)
+  -- so this also catches the tokenizer producing an unexpected variant, e.g.
+  -- if a future refactor of tokenize()'s casing broke the prefix match.
+  local function assert_no_ex_key_tracked()
+    for cmd in pairs(logger.get_all()) do
+      assert.is_false(cmd:sub(1, 3) == 'ex:', 'expected no ex:* usage key to be tracked, but found ' .. cmd)
+    end
+  end
+
+  it('does not track :TobiraStats as Ex-command usage', function()
+    pcall(vim.fn.feedkeys, ':TobiraStats' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert_no_ex_key_tracked()
+  end)
+
+  it('does not track :TobiraGuide as Ex-command usage', function()
+    pcall(vim.fn.feedkeys, ':TobiraGuide' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert_no_ex_key_tracked()
+  end)
+
+  it('does not track :TobiraReset as Ex-command usage', function()
+    pcall(vim.fn.feedkeys, ':TobiraReset' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert_no_ex_key_tracked()
+  end)
+
+  it('does not track :Tobira as Ex-command usage', function()
+    pcall(vim.fn.feedkeys, ':Tobira' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert_no_ex_key_tracked()
+  end)
+
+  it('does not track :TobiraProgress as Ex-command usage', function()
+    pcall(vim.fn.feedkeys, ':TobiraProgress' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert_no_ex_key_tracked()
+  end)
+
+  it('still tracks an ordinary Ex command that merely starts with an unrelated word', function()
+    -- Over-broad exclusion guard: only tobira's own prefix should be
+    -- excluded, not every Ex command in general.
+    pcall(vim.fn.feedkeys, ':%s/foo/bar/g' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_true(logger.get('ex:s').count > 0)
+  end)
+end)
+
 -- (stats rendering has moved to tests/spec/unit/ui_stats_spec.lua)
 
 -- ── save ─────────────────────────────────────────────────────────────────────

@@ -24,7 +24,7 @@ it quietly shows you the one command that would have helped. No quizzes. No inte
 
 - 👀 **Fully passive** — reads keystrokes via `vim.on_key()`; no config required, zero impact on your existing mappings
 - 🎯 **43 detected patterns** — repeated `f`, hammering `j`, `dw`→`i` instead of `cw`, insert-mode habits like `<BS>` spam or bouncing in and out with `<Esc>i`, and more across motion, edit, search, window, fold, mark, and macro
-- ⌨️ **Ex commands, too** — `:g`, `:norm`, `:s`, and friends are tracked from the command line itself, not just normal-mode keys, so `:g` / `:norm` can be suggested to users who have never tried them
+- ⌨️ **Ex commands, too** — `:g`, `:norm`, `:s`, and friends are tracked from the command line itself, not just normal-mode keys, so `:g` / `:norm` can be suggested to users who have never tried them (tobira's own `:Tobira*` commands are excluded, so checking your stats never counts as usage)
 - 💬 **One suggestion at a time** — shown after a natural pause, capped per session, with a cooldown between auto-suggestions — never a popup quiz
 - 📈 **Mastery-aware** — once you've used a command ~100 times, tobira stops suggesting it and moves on
 - 🪜 **Level-aware** — beginner commands surface first, advanced ones once you're ready

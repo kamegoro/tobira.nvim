@@ -179,6 +179,9 @@ tracked from the command line itself — not just normal-mode keystrokes — so
 commands like `:g` and `:norm` can be suggested to users who have never used
 them, the same way any other command is. A command line only counts once it
 is actually submitted with <CR>; aborting with <Esc> never counts it.
+tobira's own commands (`:Tobira`, `:TobiraStats`, `:TobiraGuide`,
+`:TobiraProgress`, `:TobiraReset`) are excluded from this tracking, so
+checking your stats or resetting your log never shows up as usage itself.
 
 When a pattern is detected and you are idle for `idle_delay` milliseconds, a
 suggestion appears in tobira's own floating window, near the top-right of the
