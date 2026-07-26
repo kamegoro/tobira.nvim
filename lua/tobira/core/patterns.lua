@@ -723,6 +723,9 @@ local function inner_feed(seq, key, line, now)
   -- Only reached for keys that fell through every operator/compound-pending
   -- state above uncontested — e.g. `dj` never reaches this: pending_op
   -- already consumed the j as part of a linewise delete, not a "return".
+  -- NOTE: this no longer returns early on its own — see the arbitration
+  -- block below for why (#61 follow-up bug).
+  local jump_ready = false
   if key == 'G' or JUMP_MOTION_KEYS[key] then
     seq.jump_last_at = now
     seq.jump_return_streak = 0
@@ -730,9 +733,7 @@ local function inner_feed(seq, key, line, now)
     if seq.jump_last_at and not seq.ctrl_o_seen and (now - seq.jump_last_at) <= JUMP_TOLERANCE_MS then
       seq.jump_return_streak = seq.jump_return_streak + 1
       if seq.jump_return_streak == RETURN_MOTION_THRESHOLD then
-        seq.jump_return_streak = 0
-        seq.jump_last_at = nil
-        return { pattern = 'manual_return', cmd = '<C-o>' }
+        jump_ready = true
       end
     else
       seq.jump_return_streak = 0
@@ -745,7 +746,9 @@ local function inner_feed(seq, key, line, now)
   -- edit_second_seen only becomes true once two edits have happened with a
   -- non-<Esc> key seen in between (see the top-of-function observer) —
   -- i.e. two edits at genuinely different spots, not the same location
-  -- re-entered.
+  -- re-entered. Like the jumplist block above, this does not return early —
+  -- see the arbitration block below.
+  local change_ready = false
   if key == 'j' or key == 'k' then
     if
       seq.edit_second_seen
@@ -755,16 +758,55 @@ local function inner_feed(seq, key, line, now)
     then
       seq.change_return_streak = seq.change_return_streak + 1
       if seq.change_return_streak == RETURN_MOTION_THRESHOLD then
-        seq.change_return_streak = 0
-        seq.edit_second_seen = false
-        seq.edit_last_at = nil
-        return { pattern = 'changelist_return', cmd = 'g;' }
+        change_ready = true
       end
     else
       seq.change_return_streak = 0
     end
   else
     seq.change_return_streak = 0
+  end
+
+  -- ── jumplist vs. changelist arbitration (#61 follow-up bug) ──────────────
+  -- Both patterns key off the same evidence — "5+ consecutive j/k after some
+  -- earlier event" — so a single keystroke can legitimately satisfy both at
+  -- once (e.g. jump far, edit, jump far again, edit, then k×5 back). The two
+  -- blocks above therefore no longer return early on their own: they only
+  -- record whether each pattern's threshold was reached this keystroke
+  -- (jump_ready / change_ready), and this block decides what to do once both
+  -- are known.
+  --
+  -- When only one is ready, it fires exactly as before (no behavior change
+  -- for the existing single-pattern cases). When both are ready on the same
+  -- keystroke, the one whose triggering "away" event — the significant jump
+  -- for manual_return, the second edit for changelist_return — happened MORE
+  -- RECENTLY wins: that's the more likely thing the user is actually trying
+  -- to get back to right now. The other side's streak is reset without
+  -- firing rather than left dangling, so it doesn't immediately re-fire on
+  -- the very next keystroke; it can still build back up and fire later if
+  -- the underlying pattern genuinely repeats.
+  if jump_ready and change_ready then
+    if seq.jump_last_at >= seq.edit_last_at then
+      seq.jump_return_streak = 0
+      seq.jump_last_at = nil
+      seq.change_return_streak = 0
+      return { pattern = 'manual_return', cmd = '<C-o>' }
+    else
+      seq.change_return_streak = 0
+      seq.edit_second_seen = false
+      seq.edit_last_at = nil
+      seq.jump_return_streak = 0
+      return { pattern = 'changelist_return', cmd = 'g;' }
+    end
+  elseif jump_ready then
+    seq.jump_return_streak = 0
+    seq.jump_last_at = nil
+    return { pattern = 'manual_return', cmd = '<C-o>' }
+  elseif change_ready then
+    seq.change_return_streak = 0
+    seq.edit_second_seen = false
+    seq.edit_last_at = nil
+    return { pattern = 'changelist_return', cmd = 'g;' }
   end
 
   -- == (not >=): each threshold fires exactly once, enabling multi-threshold

@@ -2040,3 +2040,42 @@ describe('when the user edits two different places then scrolls back', function(
     assert.is_nil(result)
   end)
 end)
+
+-- ── arbitration when both preconditions are true at once (#61 regression) ───
+-- Reported by live QA: 10G → x (edit) → 40G → x (edit) → k×5 back always
+-- suggested <C-o>, never g;, because the jumplist check ran first in
+-- inner_feed and returned early — changelist_return never even got
+-- evaluated on that keystroke. The fix is to evaluate both conditions before
+-- deciding, and let the more recent "away" event win.
+
+describe('when both the jumplist and changelist preconditions are true on the same keystroke', function()
+  it('fires changelist_return, not manual_return, when the second edit is more recent than the jump', function()
+    local s = seq()
+    patterns.feed(s, 'G', 1, 0) -- jump #1 (e.g. 10G)
+    patterns.feed(s, 'x', 1, 0) -- edit #1
+    patterns.feed(s, 'G', 1, 0) -- jump #2 (e.g. 40G) — most recent jump
+    patterns.feed(s, 'x', 1, 10) -- edit #2, elsewhere, more recent than the jump
+    for _ = 1, 4 do
+      patterns.feed(s, 'k', 1, 20)
+    end
+    local result = patterns.feed(s, 'k', 1, 20)
+    assert.is_not_nil(result)
+    assert.equals('changelist_return', result.pattern)
+    assert.equals('g;', result.cmd)
+  end)
+
+  it('fires manual_return, not changelist_return, when the jump is more recent than the second edit', function()
+    local s = seq()
+    patterns.feed(s, 'x', 1, 0) -- edit #1
+    patterns.feed(s, 'j', 1, 0) -- move away
+    patterns.feed(s, 'x', 1, 0) -- edit #2, elsewhere — most recent edit
+    patterns.feed(s, 'G', 1, 10) -- jump, more recent than the second edit
+    for _ = 1, 4 do
+      patterns.feed(s, 'k', 1, 20)
+    end
+    local result = patterns.feed(s, 'k', 1, 20)
+    assert.is_not_nil(result)
+    assert.equals('manual_return', result.pattern)
+    assert.equals('<C-o>', result.cmd)
+  end)
+end)
