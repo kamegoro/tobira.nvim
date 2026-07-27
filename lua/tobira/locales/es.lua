@@ -24,6 +24,9 @@ return {
       fold = 'Pliegue',
       mark = 'Marca',
       macro = 'Macro',
+      diff = 'Diff',
+      ex = 'Comandos Ex',
+      terminal = 'Terminal',
     },
     mastered_total = '%d / %d dominados',
     section_count = '%d / %d',
@@ -96,8 +99,10 @@ return {
       u_repeat = 'Deshiciste 3 veces seguidas',
       j_repeat = 'Pulsaste j 5 veces seguidas',
       j_many = 'Pulsaste j 10 veces seguidas',
+      j_many_diff = 'Pulsaste j 10 veces seguidas mientras estabas en modo diff',
       k_repeat = 'Pulsaste k 5 veces seguidas',
       k_many = 'Pulsaste k 10 veces seguidas',
+      k_many_diff = 'Pulsaste k 10 veces seguidas mientras estabas en modo diff',
       n_repeat = 'Repetiste una coincidencia de búsqueda 4 veces',
       l_repeat = 'Pulsaste l 5 veces seguidas',
       h_repeat = 'Pulsaste h 5 veces seguidas',
@@ -112,6 +117,7 @@ return {
       J_repeat = 'Uniste líneas 3 veces seguidas',
       ca_run = 'Incrementaste un número, bajaste una línea y lo repetiste 3 veces',
       ctrl_w_close_repeat = 'Cerraste ventanas una por una, 2 veces seguidas',
+      terminal_esc_repeat = 'Presionaste <Esc> dos veces seguidas en modo terminal sin ningún efecto',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -304,6 +310,18 @@ return {
       title = '{ — saltar al inicio del párrafo',
       body = 'El complemento hacia arriba de } — sube hasta la línea en blanco de arriba\nNavega rápido entre bloques de código o párrafos',
       example = '{ → el cursor salta a la línea en blanco antes del bloque actual',
+    },
+
+    -- ── modo diff: navegación manual de bloques (#111) ──────────────────────
+    [']c'] = {
+      title = ']c — saltar al siguiente bloque de diferencias',
+      body = 'Mientras &diff está activo, salta directamente al siguiente bloque modificado\nMás rápido que pulsar j repetidamente para buscar la siguiente diferencia',
+      example = ']c → el cursor salta al siguiente bloque de cambios',
+    },
+    ['[c'] = {
+      title = '[c — saltar al bloque de diferencias anterior',
+      body = 'El complemento de ]c — salta al bloque modificado anterior\nMás rápido que pulsar k repetidamente para buscar hacia atrás una diferencia',
+      example = '[c → el cursor salta al bloque de cambios anterior',
     },
 
     -- ── screen centering chain ─────────────────────────────────────────────
@@ -975,6 +993,25 @@ return {
       title = '{n}<< — quitar sangría a varias líneas a la vez',
       body = 'Antepone un número a << para quitar la sangría a esa cantidad de líneas en un solo comando\n3<< quita un nivel de sangría de 3 líneas desde el cursor',
       example = '3<< → quita la sangría de 3 líneas a la vez',
+    },
+
+    -- ── Ex commands (#57) ─────────────────────────────────────────────────
+    ['ex:g'] = {
+      title = ':g — ejecutar un comando sobre cada línea coincidente',
+      body = 'Encuentra cada línea que coincide con un patrón y ejecuta un comando Ex en cada una\nSustituye repetir n / . manualmente en cada coincidencia',
+      example = ':g/TODO/d → elimina cada línea que contiene TODO',
+    },
+    ['ex:norm'] = {
+      title = ':norm — ejecutar un comando en modo normal en cada línea seleccionada',
+      body = 'Aplica una secuencia de teclas de modo normal a cada línea de un rango\nSustituye grabar una macro cuando la edición es lo bastante simple',
+      example = ':%norm A; → añade un punto y coma al final de cada línea',
+    },
+
+    -- ── modo terminal: <Esc> sin efecto → <C-\><C-n> (#110) ────────────────
+    ['<C-\\><C-n>'] = {
+      title = '<C-\\><C-n> — salir del modo terminal',
+      body = 'Dentro de :terminal, <Esc> se envía directamente al proceso — no sale del modo terminal\n<C-\\><C-n> es la salida real al modo Normal',
+      example = '<C-\\><C-n> → vuelve al modo Normal, el proceso del terminal sigue en ejecución',
     },
   },
 }

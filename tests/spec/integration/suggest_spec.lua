@@ -400,6 +400,78 @@ describe('when :Tobira is invoked manually', function()
   end)
 end)
 
+-- ── ambient exclusion for reactive-only entries (#110 fix) ───────────────────
+-- <C-\><C-n> (exit terminal mode) is marked ambient = false in commands.lua:
+-- its own usage count can never be incremented by anything, so before this
+-- fix it would win find_best() outright from bare 'i' usage alone, and
+-- suggest it with body text presupposing terminal usage that never
+-- happened. These tests cover both ends: find_best-backed paths (manual and
+-- idle-ambient) must never surface it from 'i' usage; the direct reactive
+-- path (a real terminal_esc_repeat firing) must be completely unaffected.
+
+describe('when the user has real i usage but has never triggered a terminal-mode <Esc> streak (#110)', function()
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    config.reset()
+    suggest.reset_session()
+  end)
+
+  it('never shows <C-\\><C-n> via :Tobira manual, even though i is its only trigger', function()
+    local usage = logger.get_all()
+    usage['i'] = { count = 500, sessions = {}, shown = 0, suppressed = false }
+    local shown_cmd = nil
+    suggest.on_show = function(sug)
+      shown_cmd = sug.cmd
+    end
+    local ok, err = pcall(suggest.manual)
+    suggest.on_show = nil
+    assert.is_true(ok, err)
+    assert.not_equals('<C-\\><C-n>', shown_cmd)
+  end)
+
+  it('never shows <C-\\><C-n> via the idle ambient timer, even though i is its only trigger', function()
+    config.setup({ idle_suggestions = true, idle_delay = 10, suggestion_cooldown = 0 })
+    local usage = logger.get_all()
+    usage['i'] = { count = 500, sessions = {}, shown = 0, suppressed = false }
+    local shown_cmd = nil
+    suggest.on_show = function(sug)
+      shown_cmd = sug.cmd
+    end
+    suggest.setup_idle()
+    vim.fn.feedkeys('i', 'xt')
+    vim.wait(500, function()
+      return shown_cmd ~= nil
+    end, 10)
+    suggest.teardown_idle()
+    suggest.on_show = nil
+    assert.not_equals('<C-\\><C-n>', shown_cmd)
+  end)
+end)
+
+describe('when a real terminal_esc_repeat pattern fires (#110 reactive path, must not regress)', function()
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    config.reset()
+    suggest.reset_session()
+  end)
+
+  it('still queues and shows <C-\\><C-n>, unaffected by its ambient = false exclusion', function()
+    config.setup({ idle_delay = 10 })
+    local shown_cmd = nil
+    suggest.on_show = function(sug)
+      shown_cmd = sug.cmd
+    end
+    suggest.queue('terminal_esc_repeat', '<C-\\><C-n>')
+    vim.wait(500, function()
+      return shown_cmd ~= nil
+    end, 10)
+    suggest.on_show = nil
+    assert.equals('<C-\\><C-n>', shown_cmd)
+  end)
+end)
+
 describe('when showing a command that has no suggestion entry', function()
   before_each(function()
     wipe_disk()

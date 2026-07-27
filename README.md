@@ -23,11 +23,12 @@ it quietly shows you the one command that would have helped. No quizzes. No inte
 ## ✨ Features
 
 - 👀 **Fully passive** — reads keystrokes via `vim.on_key()`; no config required, zero impact on your existing mappings
-- 🎯 **45 detected patterns** — repeated `f`, hammering `j`, `dw`→`i` instead of `cw`, insert-mode habits like `<BS>` spam or bouncing in and out with `<Esc>i`, and more across motion, edit, search, window, fold, mark, and macro
+- 🎯 **48 detected patterns** — repeated `f`, hammering `j`, `dw`→`i` instead of `cw`, insert-mode habits like `<BS>` spam, bouncing in and out with `<Esc>i`, or a one-shot `<Esc>`→motion→`i` round trip, getting stuck in terminal mode, and more across motion, edit, search, window, fold, mark, macro, diff, and terminal
+- ⌨️ **Ex commands, too** — `:g`, `:norm`, `:s`, and friends are tracked from the command line itself, not just normal-mode keys, so `:g` / `:norm` can be suggested to users who have never tried them (tobira's own `:Tobira*` commands are excluded, so checking your stats never counts as usage)
 - 💬 **One suggestion at a time** — shown after a natural pause, capped per session, with a cooldown between auto-suggestions — never a popup quiz
 - 📈 **Mastery-aware** — once you've used a command ~100 times, tobira stops suggesting it and moves on
 - 🪜 **Level-aware** — beginner commands surface first, advanced ones once you're ready
-- 🗺️ **154 commands** in the learning graph, covering the full Neovim command surface
+- 🗺️ **161 commands** in the learning graph, covering the full Neovim command surface
 
 ## ⚡️ Requirements
 
@@ -77,7 +78,7 @@ Full documentation is available in Neovim via `:help tobira`.
   <img src="docs/demo-guide.gif" alt=":TobiraGuide cheatsheet panel" width="720" />
 </p>
 
-`:TobiraGuide` opens a cheatsheet on the right side of the screen. Commands you've already mastered are automatically hidden, so only your next targets are shown — and if one of them fades from use after you'd gotten comfortable with it, it reappears with a `⟳` (forgotten) marker instead of staying hidden forever. Pinned commands always appear at the top, marked `●`. Covers all 7 categories: motion, edit, search, window, fold, mark, and macro — each capped to 3 unmastered commands (preferring ones you've never tried) so the panel stays a compact reference to glance at while you keep coding, with a `+N more` line if a category has more to show. Opens automatically on first launch.
+`:TobiraGuide` opens a cheatsheet on the right side of the screen. Commands you've already mastered are automatically hidden, so only your next targets are shown — and if one of them fades from use after you'd gotten comfortable with it, it reappears with a `⟳` (forgotten) marker instead of staying hidden forever. Pinned commands always appear at the top, marked `●`. Covers all 10 categories: motion, edit, search, window, fold, mark, macro, diff, ex, and terminal — each capped to 3 unmastered commands (preferring ones you've never tried) so the panel stays a compact reference to glance at while you keep coding, with a `+N more` line if a category has more to show. Opens automatically on first launch.
 
 ### Usage stats
 
@@ -132,13 +133,15 @@ require("tobira").setup({
 | `dw` → `i` | `cw` — change word in one command |
 | `v` `i` `w` `c` | `ciw` — text object, no visual needed |
 | `j` × 10 in a row | `}` — jump by paragraph |
+| `j` × 10 in a row while `&diff` is set | `]c` — jump to the next diff hunk |
 | `dd` × 3 in a row | `{n}dd` — delete N lines at once |
 | `r{x}` × 3 in a row | `R` — enter replace mode |
 | `<C-w>q` / `<C-w>c` × 2 in a row | `<C-w>o` — close all other windows |
 | `<BS>` × 5 in insert mode | `<C-w>` — delete the whole word at once |
 | `<Esc>` → 1 motion → `i` | insert-mode `<C-o>` — run one command without leaving insert |
+| `<Esc>` × 2 in terminal mode, no effect | `<C-\><C-n>` — exit terminal mode |
 
-45 patterns total — see `:help tobira-patterns` for the full list.
+48 patterns total — see `:help tobira-patterns` for the full list.
 
 ## 🆚 Similar plugins
 

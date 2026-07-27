@@ -386,6 +386,25 @@ end)
 
 -- ── regression: existing behavior preserved ─────────────────────────────────
 
+-- ── Ex command category (#57) ────────────────────────────────────────────────
+
+describe('an unmastered Ex command suggestion', function()
+  it('appears under the Ex category header', function()
+    local usage = usage_with_overrides({ ['ex:g'] = entry({ count = 0 }) })
+    local lines = guide.build(usage)
+    assert.is_not_nil(find_line(lines, '  Ex'))
+    local rows = rows_under_header(lines, '  Ex')
+    assert.is_not_nil(rows)
+    local found = false
+    for _, row in ipairs(rows) do
+      if row:find('ex:g', 1, true) then
+        found = true
+      end
+    end
+    assert.is_true(found, 'expected ex:g to render under the Ex category header')
+  end)
+end)
+
 describe('category ordering (regression)', function()
   it('renders categories in the fixed CATEGORY_ORDER, skipping empty ones', function()
     local commands = require('tobira.commands')
@@ -409,6 +428,67 @@ describe('category ordering (regression)', function()
     assert.is_not_nil(motion_lnum)
     assert.is_not_nil(edit_lnum)
     assert.is_true(motion_lnum < edit_lnum, 'Motion should render before Edit')
+  end)
+end)
+
+-- guide.lua keeps its own CATEGORY_ORDER list separate from skills.lua's
+-- (see the module dependency rules in lua/tobira/CLAUDE.md — guide.lua does
+-- not require skills.lua). A category present in commands.registry but
+-- missing from CATEGORY_ORDER is silently dropped from the panel: by_cat
+-- still has the entry (graph.guide_commands() has no category allowlist),
+-- but the render loop below only ever walks CATEGORY_ORDER. #111 caught this
+-- live (the `diff` category rendered fine in :TobiraProgress via skills.lua,
+-- but never appeared in :TobiraGuide) — this test guards against the same
+-- gap recurring for the next new category.
+describe('category coverage (regression, #111)', function()
+  it('renders a section header for every category present in the registry', function()
+    local commands = require('tobira.commands')
+    local loc = require('tobira.i18n').load()
+    local cat_labels = (loc.progress and loc.progress.categories) or {}
+
+    local categories = {}
+    for cmd, e in pairs(commands.registry) do
+      if not e.compound and e.category then
+        categories[e.category] = true
+      end
+    end
+
+    -- Cannot use a single guide.build({}) call for every category at once
+    -- (the way this test originally worked): core/graph.lua's guide_commands()
+    -- gates categories by a *global* level ceiling that only opens
+    -- intermediate/advanced once every beginner (then intermediate) command
+    -- everywhere in the registry is mastered. A category whose commands are
+    -- all one level above that ceiling — e.g. `ex` (#57), which is entirely
+    -- level = 'advanced' by design, see commands.lua's ex_command comment —
+    -- can never appear under empty usage: reaching ceiling = 3 to reveal it
+    -- requires mastering every beginner/intermediate command everywhere,
+    -- which necessarily empties every beginner/intermediate category's own
+    -- rows out from under it at the same time. No single usage state can
+    -- show every category's header simultaneously, so this test checks each
+    -- category in isolation instead — same "master everything else" fixture
+    -- style as the "an unmastered Ex command suggestion" test above, applied
+    -- to every category rather than just `ex`.
+    for cat in pairs(categories) do
+      local usage = {}
+      local rep_cmd = nil
+      for cmd, e in pairs(commands.registry) do
+        if not e.compound then
+          if e.category == cat and not rep_cmd then
+            rep_cmd = cmd -- left unmastered (default count = 0 via usage[cmd] == nil)
+          else
+            usage[cmd] = entry({ count = 200 })
+          end
+        end
+      end
+      assert.is_not_nil(rep_cmd, cat .. ': registry has no non-compound entry for this category')
+
+      local lines = guide.build(usage)
+      local label = cat_labels[cat] or cat
+      assert.is_not_nil(
+        find_line(lines, '  ' .. label),
+        cat .. ': no "' .. label .. '" section header rendered in :TobiraGuide (missing from guide.lua CATEGORY_ORDER?)'
+      )
+    end
   end)
 end)
 

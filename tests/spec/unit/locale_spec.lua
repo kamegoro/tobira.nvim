@@ -55,8 +55,8 @@ end)
 -- ── dynamic multi-locale sync guard ──────────────────────────────────────────
 -- Discovers every locale file next to en.lua (ja.lua today, fr.lua/es.lua/...
 -- whenever they land) and checks each one's ENTIRE table against en.lua
--- recursively — including `suggestions` (148 commands) and `float.reasons`
--- (34 patterns), which the older hand-picked per-section checks below never
+-- recursively — including `suggestions` (155 commands) and `float.reasons`
+-- (46 patterns), which the older hand-picked per-section checks below never
 -- covered. A new locale is covered automatically; nothing to remember to add.
 
 local function discover_locale_names()

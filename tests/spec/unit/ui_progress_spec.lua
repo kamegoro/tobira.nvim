@@ -585,6 +585,38 @@ describe('M.preview_lines for an item with a title in the locale', function()
   end)
 end)
 
+-- ── preview strip: key/description gap (#154, regression for the bug the #110 ─
+-- Terminal entry exposed) ─────────────────────────────────────────────────────
+
+describe('M.preview_lines for a short key (under the padding width)', function()
+  it('pads the key out to the aligned column before the description', function()
+    local loc = require('tobira.i18n').load()
+    local item = { id = 'cw', keys = 'cw', adopted = 'cw' }
+    local l1 = progress.preview_lines(item, {})
+    local desc = loc.suggestions.cw.title:match(' — (.+)$')
+    assert.equals('  cw    ' .. desc, l1)
+  end)
+end)
+
+describe('M.preview_lines for a key at or beyond the padding width', function()
+  it('still separates the key from the description with a non-zero gap', function()
+    local loc = require('tobira.i18n').load()
+    local cases = { '<C-\\><C-n>', '<C-w>q', 'g<C-a>' }
+    for _, key in ipairs(cases) do
+      assert.is_true(#key >= 6, key .. ' should be >= 6 chars to exercise the bug')
+      local item = { id = key, keys = key, adopted = key }
+      local l1 = progress.preview_lines(item, {})
+      local desc = loc.suggestions[key].title:match(' — (.+)$')
+      -- '  ' prefix + key must be followed by at least one space, never glued
+      -- straight onto the description (the #154 bug: %-6s adds no padding once
+      -- the key already meets/exceeds width 6).
+      local gap_start = 3 + #key
+      assert.equals(' ', l1:sub(gap_start, gap_start), 'expected a gap right after ' .. key .. ' in: ' .. l1)
+      assert.equals('  ' .. key .. ' ' .. desc, l1)
+    end
+  end)
+end)
+
 -- ── preview strip: live update on cursor move (#67) ──────────────────────────
 
 describe('when the cursor moves onto a skill cell in the open window', function()
