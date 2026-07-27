@@ -66,6 +66,13 @@ describe('tobira.setup', function()
     assert.is_true(ok2, err2)
     assert.is_true(celebrate_called)
 
+    -- integrations.setup() (#63): populates the override cache and registers
+    -- its own VimEnter/SourcePost augroup.
+    local integrations = require('tobira.core.integrations')
+    assert.is_table(integrations.get_overrides())
+    local autocmds = vim.api.nvim_get_autocmds({ group = 'tobira_integrations' })
+    assert.is_true(#autocmds > 0)
+
     -- First run: guide wasn't seen yet, so setup() marks it seen and
     -- schedules the guide to open via vim.defer_fn.
     assert.is_true(logger.is_guide_seen())

@@ -6,6 +6,7 @@ return {
     pinned = 'Angepinnt',
     forgotten_suffix = ' (vergessen)',
     more_suffix = '+%d weitere',
+    remapped_suffix = ' (auf %s gemappt)',
   },
   progress = {
     title = 'tobira — deine vim-Reise',
@@ -49,6 +50,7 @@ return {
     reset = 'tobira: Nutzungsprotokoll zurückgesetzt',
     no_suggestions = 'tobira: gerade keine neuen Vorschläge 🎉',
     invalid_config = 'tobira: ungültige Konfiguration — ',
+    remap_detected = 'tobira: %s ist umgemappt (%s) — aus dem Vorschlagspool entfernt',
   },
   stats = {
     title = 'tobira — Nutzungsstatistik',

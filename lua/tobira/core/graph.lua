@@ -250,7 +250,23 @@ function M.is_register_underused(usage)
 end
 
 -- max_level: 'beginner' | 'intermediate' | 'advanced' | nil (no filter)
-function M.find_best(usage, max_shown, max_level)
+-- overrides (#63): optional table of cmd -> { rhs, equivalent } built by
+-- core/integrations.lua from the user's actual :nmap/:nnoremap state (see
+-- that file's header for the full design). Any candidate present as a key
+-- here is excluded from this pool entirely, regardless of `equivalent` --
+-- graph.lua only ever reads this as plain data (no vim.*, no require of
+-- integrations.lua itself, keeping this file pure per lua/tobira/CLAUDE.md's
+-- module dependency rules). Proactively nudging "learn X" is never useful
+-- once the user has deliberately rebound X's physical key to something else,
+-- equivalent or not -- see ui/guide.lua for the one surface where the
+-- equivalent/different distinction actually matters (its persistent
+-- cheat-sheet bypasses find_best entirely).
+-- promotions (#63 phase 2): optional table of cmd -> true built by
+-- integrations.lua from detected-plugin + usage-threshold rules. A promoted
+-- candidate bypasses the ordinary "trigger_count > 0" gate below (reusing the
+-- same priority-pool machinery "+y" already established in #59) but still has
+-- to pass every other gate (mastery / suppression / shown cap).
+function M.find_best(usage, max_shown, max_level, overrides, promotions)
   max_shown = max_shown or 3
   local max_level_num = max_level and (LEVEL_ORDER[max_level] or 3) or 3
   local best_cmd = nil
@@ -281,7 +297,10 @@ function M.find_best(usage, max_shown, max_level)
     -- terminal-mode exit suggestion) are never proactive candidates here —
     -- they only ever reach the user via suggest.queue() called directly
     -- from a pattern module, which does not go through find_best.
-    if cmd_level_num <= max_level_num and sug.ambient ~= false then
+    -- #63: entries whose own key is remapped (overrides[cmd] ~= nil) are
+    -- excluded the same way -- see this function's header comment.
+    local overridden = overrides and overrides[cmd] ~= nil
+    if cmd_level_num <= max_level_num and sug.ambient ~= false and not overridden then
       local data = usage[cmd] or { count = 0, sessions = {}, shown = 0, suppressed = false }
 
       -- #57: Ex-command suggestions use a stricter "never tried at all" gate
@@ -303,6 +322,16 @@ function M.find_best(usage, max_shown, max_level)
             best_priority_score = score
             best_priority_cmd = cmd
           end
+        end
+      elseif offered and promotions and promotions[cmd] then
+        -- #63 phase 2: same priority-pool mechanism as "+y" above -- a
+        -- promoted candidate already has independently-verified usage
+        -- evidence (integrations.lua's own threshold check), so it bypasses
+        -- the ordinary trigger_count > 0 requirement just below.
+        local score = (usage[sug.trigger] and usage[sug.trigger].count) or 0
+        if score > best_priority_score or (score == best_priority_score and cmd < best_priority_cmd) then
+          best_priority_score = score
+          best_priority_cmd = cmd
         end
       elseif offered then
         local trigger_count = (usage[sug.trigger] and usage[sug.trigger].count) or 0

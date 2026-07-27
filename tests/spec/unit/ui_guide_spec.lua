@@ -608,6 +608,57 @@ describe('M.open / M.close / M.toggle (regression)', function()
   end)
 end)
 
+-- ── keymap overrides (#63) ────────────────────────────────────────────────────
+-- Guide's auto section bypasses graph.find_best() entirely (it lists every
+-- unmastered command, not just proactively-worthy ones), so it is the one
+-- surface where the equivalent/different distinction from
+-- core/integrations.lua actually matters -- see graph_spec.lua's "keymap
+-- overrides" describe block for why find_best() itself just excludes both
+-- kinds unconditionally instead.
+
+describe('keymap overrides (#63)', function()
+  local integrations = require('tobira.core.integrations')
+
+  local function fake_keymap(entries)
+    return function(_mode)
+      return entries
+    end
+  end
+
+  before_each(function()
+    integrations.reset()
+  end)
+  after_each(function()
+    integrations.reset()
+  end)
+
+  it('substitutes the description with the remapped_suffix when the remap is functionally equivalent', function()
+    integrations.refresh(fake_keymap({ { lhs = 'Y', rhs = 'y$', noremap = 1 } }))
+    local loc = require('tobira.i18n').load()
+    local lines = guide.build(usage_with_overrides({ ['Y'] = entry({ count = 0 }) }))
+    local row = find_line(lines, 'Y')
+    assert.is_not_nil(row, 'expected a row for Y')
+    assert.is_not_nil(row:find(string.format(loc.guide.remapped_suffix, 'y$'), 1, true))
+  end)
+
+  it('excludes the row entirely when the remap is not functionally equivalent', function()
+    integrations.refresh(fake_keymap({ { lhs = 's', rhs = '<Plug>(some-plugin-thing)', noremap = 0 } }))
+    local lines = guide.build(usage_with_overrides({ ['s'] = entry({ count = 0 }) }))
+    for _, line in ipairs(lines) do
+      assert.is_nil(line:find('substitute character', 1, true), 's must not render its stock description once remapped away')
+    end
+  end)
+
+  it('renders the row normally when the command has not been remapped', function()
+    integrations.refresh(fake_keymap({}))
+    local lines = guide.build(usage_with_overrides({ ['Y'] = entry({ count = 0 }) }))
+    local row = find_line(lines, 'Y')
+    assert.is_not_nil(row)
+    local loc = require('tobira.i18n').load()
+    assert.is_nil(row:find(string.format(loc.guide.remapped_suffix, 'y$'), 1, true))
+  end)
+end)
+
 -- #105: 'i_<C-o>' is an internal composite registry key (see commands.lua's
 -- registry comment) — the user only ever presses the real <C-o>, so the key
 -- column must show that, never the raw 'i_<C-o>' string.

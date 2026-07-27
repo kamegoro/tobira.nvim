@@ -6,6 +6,7 @@ return {
     pinned = 'ピン留め',
     forgotten_suffix = '（忘れかけ）',
     more_suffix = 'ほか%d件',
+    remapped_suffix = '（%s にマップ済み）',
   },
   progress = {
     title = 'tobira — vim の旅',
@@ -49,6 +50,7 @@ return {
     reset = 'tobira: 使用ログをリセットしました',
     no_suggestions = 'tobira: 新しい提案はありません 🎉',
     invalid_config = 'tobira: 設定が不正です — ',
+    remap_detected = 'tobira: %s は再マッピングされています（%s）— 提案候補から除外しました',
   },
   stats = {
     title = 'tobira — 使用統計',
