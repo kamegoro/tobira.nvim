@@ -1284,6 +1284,16 @@ describe('Repeated substitute detection (#115)', function()
   local function run_substitute(text)
     pcall(vim.fn.feedkeys, ':' .. text .. cr, 'xt')
     vim.api.nvim_feedkeys('', 'x', false)
+    -- Verify-before-credit fix (bug found by QA, same problem/timing class as
+    -- #114's ex_file_pingpong fix): the actual credit is now deferred to
+    -- vim.schedule(), which only runs once Neovim has fully processed this
+    -- <CR> (command succeeded, or already failed, against the buffer's
+    -- changedtick snapshotted right before it ran). Each call needs to let
+    -- that settle before the next one starts, otherwise multiple pending
+    -- callbacks in these tests' synthetic back-to-back feedkeys would all
+    -- resolve against whatever changedtick is current by then rather than
+    -- each against the outcome of ITS OWN command.
+    vim.wait(20)
   end
 
   it('fires substitute_repeat / & when the same :s/// runs on a second distinct line', function()
@@ -1381,6 +1391,45 @@ describe('Repeated substitute detection (#115)', function()
     run_substitute('s/foo/bar/')
 
     assert.is_false(fired) -- only one bare (unranged) invocation counted
+  end)
+
+  -- Regression test for a QA-found false positive: track_substitute() used to
+  -- be fed straight from the cmdline TEXT with no check of whether Neovim
+  -- actually executed/matched it. Retyping an identical :s/// that matches
+  -- NOTHING on two different lines (E486 "Pattern not found" both times, zero
+  -- substitutions performed) must never be credited as a real repeated edit.
+  it('does not fire when the identical :s/// fails to match anything on either line (E486)', function()
+    local fired = false
+    logger.on_pattern = function()
+      fired = true
+    end
+
+    goto_line(1)
+    run_substitute('s/nonexistent_pattern_xyz/foo/')
+    goto_line(2)
+    run_substitute('s/nonexistent_pattern_xyz/foo/')
+
+    assert.is_false(fired, 'a substitute that never matched must never credit the &/g& streak')
+  end)
+
+  it('still fires normally once a real match succeeds after an earlier failed attempt', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+
+    -- A failed attempt on line 1 must not poison the state for the real
+    -- (matching) substitute that follows.
+    goto_line(1)
+    run_substitute('s/nonexistent_pattern_xyz/foo/')
+    goto_line(1)
+    run_substitute('s/foo/bar/')
+    goto_line(2)
+    run_substitute('s/foo/bar/')
+
+    assert.equals(1, #fired)
+    assert.equals('substitute_repeat', fired[1].pattern)
+    assert.equals('&', fired[1].cmd)
   end)
 end)
 
