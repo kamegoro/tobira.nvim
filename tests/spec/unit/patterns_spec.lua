@@ -690,6 +690,21 @@ describe('when the user goes up one line then opens a line below', function()
     local result = patterns.feed(s, 'o', 1)
     assert.is_nil(result)
   end)
+
+  it('fires k_then_o again when the same round trip happens twice in a row', function()
+    local s = seq()
+    patterns.feed(s, 'k', 1)
+    local first = patterns.feed(s, 'o', 1)
+    assert.is_not_nil(first)
+    assert.equals('k_then_o', first.pattern)
+    assert.equals('O', first.cmd)
+
+    patterns.feed(s, 'k', 1)
+    local second = patterns.feed(s, 'o', 1)
+    assert.is_not_nil(second)
+    assert.equals('k_then_o', second.pattern)
+    assert.equals('O', second.cmd)
+  end)
 end)
 
 -- ── x (once) → i: suggest s (substitute = delete char + enter insert) ────────
@@ -727,6 +742,25 @@ describe('when the user deletes one character then enters insert mode', function
     patterns.feed(s, 'l', 1)
     local result = patterns.feed(s, 'i', 1)
     assert.is_nil(result)
+  end)
+
+  it('fires x_then_insert again when the same round trip happens twice in a row', function()
+    local s = seq()
+    patterns.feed(s, 'x', 1)
+    local first = patterns.feed(s, 'i', 1)
+    assert.is_not_nil(first)
+    assert.equals('x_then_insert', first.pattern)
+    assert.equals('s', first.cmd)
+
+    -- A second, separate x -> i round trip (e.g. two typo fixes back to back).
+    -- Without resetting seq.run after the first fire, seq.run.count becomes 2
+    -- here, so the second 'i' would fail the count==1 guard and patterns.feed
+    -- would wrongly return nil instead of firing x_then_insert again.
+    patterns.feed(s, 'x', 1)
+    local second = patterns.feed(s, 'i', 1)
+    assert.is_not_nil(second)
+    assert.equals('x_then_insert', second.pattern)
+    assert.equals('s', second.cmd)
   end)
 end)
 

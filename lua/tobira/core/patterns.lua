@@ -567,11 +567,17 @@ local function inner_feed(seq, key, line)
 
   -- ── k (exactly once) → o: suggest O ─────────────────────────────────────
   if key == 'o' and seq.run.key == 'k' and seq.run.count == 1 then
+    -- Reset the run so a second k -> o round trip right after this one still
+    -- sees count == 1 instead of a stale count == 2 from the first k.
+    seq.run = { key = nil, count = 0 }
     return { pattern = 'k_then_o', cmd = 'O' }
   end
 
   -- ── x (exactly once) → insert: suggest s ─────────────────────────────────
   if INSERT_KEYS[key] and seq.run.key == 'x' and seq.run.count == 1 then
+    -- Reset the run so a second x -> insert round trip right after this one
+    -- still sees count == 1 instead of a stale count == 2 from the first x.
+    seq.run = { key = nil, count = 0 }
     return { pattern = 'x_then_insert', cmd = 's' }
   end
 
