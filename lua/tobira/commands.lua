@@ -366,13 +366,45 @@ M.registry = {
   -- (terminal-job mode), independent of any prerequisite command — there is
   -- no tracked "you opened :terminal" signal to require here (ex-command
   -- tracking is a separate, parallel effort — #57). `requires = 'i'` is a
-  -- nominal anchor only, mirroring the '<C-w>' insert-mode entry above: it
-  -- satisfies commands_spec.lua's schema guard (every suggestion needs a
-  -- `requires`) and gives the ambient idle picker (graph.find_best, which
-  -- needs a nonzero-count trigger) something to gate on, but the reactive
-  -- path this pattern actually fires through (logger.on_pattern →
-  -- suggest.queue/show → do_show) never consults it.
-  ['<C-\\><C-n>'] = { requires = 'i', track = false, category = 'terminal', level = 'beginner' },
+  -- nominal anchor only: it satisfies commands_spec.lua's schema guard
+  -- (every suggestion needs a `requires`), but has no real semantic link to
+  -- this command. The reactive path this pattern actually fires through
+  -- (logger.on_pattern → suggest.queue/show → do_show) never consults
+  -- `requires` at all — do_show only needs graph.suggestions[cmd] to exist,
+  -- which it does regardless of the `ambient` flag below.
+  --
+  -- `ambient = false`: excludes this entry from graph.find_best()'s
+  -- candidate pool (both the idle ambient picker and :Tobira's manual pick
+  -- go through find_best — see graph.lua). Without this flag, find_best
+  -- could surface "exit terminal mode" purely because the user pressed `i`
+  -- a few times and has NEVER opened a real :terminal — the suggestion body
+  -- ("Inside :terminal, <Esc> is sent straight to the job...") presupposes
+  -- terminal usage that never happened, which is actively confusing. Worse,
+  -- this command's own usage count can never be incremented by anything
+  -- (there is no tracked path for it — see the comment above), so its
+  -- find_best score (trigger_count - 0) is always the best possible one for
+  -- any 'i'-triggered candidate, and it also wins every alphabetical
+  -- tie-break against '<C-w>'/'gi'/'I' (also requires='i') because
+  -- '<C-\><C-n>' sorts first byte-for-byte — meaning it would dominate
+  -- ambient suggestions from bare `i` usage alone. This command only makes
+  -- sense as a direct reaction to patterns_terminal.lua's terminal_esc_repeat
+  -- actually firing (a real, just-happened stuck-in-terminal moment), never
+  -- as a proactive idle-time nudge — hence excluding it from find_best
+  -- entirely rather than trying to fix its score.
+  --
+  -- Scoped narrowly to this one entry rather than generalizing the flag to
+  -- every `requires = 'i'` nominal anchor: the insert-mode '<C-w>' entry
+  -- above has the exact same "nominal requires='i' anchor" comment, but its
+  -- own usage count IS genuinely incremented (via increment('<C-w>') in
+  -- handle_insert_key()) — its find_best score reflects real usage, and its
+  -- suggestion body is a generic "did you know" tip that doesn't presuppose
+  -- any specific prior event, so ambient surfacing is legitimate for it. No
+  -- other registry entry shares <C-\><C-n>'s specific combination (own count
+  -- structurally stuck at 0 forever + a reactive-only, context-presupposing
+  -- suggestion body), so no other entry needs this flag — see
+  -- commands_spec.lua's "reactive-only ambient exclusion" tests, which
+  -- pin this down as an explicit, reviewable list rather than a silent rule.
+  ['<C-\\><C-n>'] = { requires = 'i', track = false, category = 'terminal', level = 'beginner', ambient = false },
 }
 
 return M

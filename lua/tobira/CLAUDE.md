@@ -115,6 +115,12 @@ two-character command prefix.
    - If `requires` is multi-char, add a `compound = true` entry for it first
    - `requires`, `category` (motion|edit|search|window|fold|mark|macro|terminal), and
      `level` (beginner|intermediate|advanced) are required fields
+   - Optional `ambient = false` (#110): excludes the entry from
+     `graph.find_best()`'s candidate pool (both the idle picker and `:Tobira`
+     manual). Reserved for reactive-only suggestions whose own usage count can
+     never be incremented by any tracking path — see the `<C-\><C-n>` entry's
+     comment in `commands.lua` and `commands_spec.lua`'s "reactive-only ambient
+     exclusion" tests for the full reasoning and the narrow scope of this flag.
 2. **Write tests first** (see `tests/CLAUDE.md`)
    - `track = true` → add a tracking smoke test to `logger_spec.lua`
    - New normal-mode pattern → add a unit test to `patterns_spec.lua`
