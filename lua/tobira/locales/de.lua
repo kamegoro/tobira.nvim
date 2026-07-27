@@ -121,6 +121,8 @@ return {
       manual_return = 'Du bist zu einer entfernten Stelle gesprungen und dann manuell zurückgescrollt',
       changelist_return = 'Du hast an zwei verschiedenen Stellen bearbeitet und bist dann manuell zurückgescrollt, um die erste wiederzufinden',
       terminal_esc_repeat = 'Du hast im Terminal-Modus zweimal hintereinander <Esc> gedrückt, ohne Effekt',
+      substitute_repeat = 'Du hast dieselbe :s///-Ersetzung von Hand auf einer zweiten Zeile ausgeführt',
+      substitute_repeat_wide = 'Du hast dieselbe :s///-Ersetzung von Hand auf einer dritten Zeile ausgeführt',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -1029,6 +1031,18 @@ return {
       title = '<C-\\><C-n> — Terminal-Modus verlassen',
       body = 'Im :terminal wird <Esc> direkt an den Job weitergereicht — der Terminal-Modus wird dadurch nicht verlassen\n<C-\\><C-n> ist der eigentliche Weg zurück in den Normal-Modus',
       example = '<C-\\><C-n> → zurück in den Normal-Modus, der Terminal-Job läuft weiter',
+    },
+
+    -- ── wiederholte :substitute-Erkennung (#115) ─────────────────────────────
+    ['&'] = {
+      title = '& — die letzte :substitute-Ersetzung in dieser Zeile wiederholen',
+      body = 'Du hast dieselbe :s/Muster/Ersetzung/ von Hand in einer anderen Zeile eingegeben\n& wiederholt die letzte Ersetzung in der aktuellen Zeile, ohne erneutes Tippen',
+      example = ':s/foo/bar/, dann in eine andere Zeile springen, & → wiederholt sie dort',
+    },
+    ['g&'] = {
+      title = 'g& — die letzte :substitute-Ersetzung in jeder Zeile wiederholen',
+      body = 'Du hast dieselbe :s/Muster/Ersetzung/ von Hand in mehreren Zeilen eingegeben\ng& wendet sie auf die ganze Datei an, mit demselben Muster und denselben Flags',
+      example = ':s/foo/bar/, dann g& → wendet sie auf jede passende Zeile an',
     },
   },
 }

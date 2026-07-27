@@ -368,6 +368,9 @@ local chain_cases = {
   { 'ex:norm', 'q', 'q → ex:norm: run a normal-mode command per line' },
   -- terminal mode: ineffective <Esc> → exit terminal mode (#110)
   { '<C-\\><C-n>', 'i', 'i → <C-\\><C-n>: exit terminal mode (nominal anchor, see commands.lua comment)' },
+  -- repeated :substitute detection (#115)
+  { '&', 'n', 'n → &: repeat the last substitute on this line' },
+  { 'g&', '&', '& → g&: repeat the last substitute across the whole file' },
 }
 
 describe('teaching chains', function()

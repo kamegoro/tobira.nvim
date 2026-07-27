@@ -1250,6 +1250,140 @@ describe("Ex command tracking excludes tobira's own commands", function()
   end)
 end)
 
+-- ── Repeated substitute detection (#115) ────────────────────────────────────
+-- Builds on #57's cmdline infrastructure: logger.lua's handle_cmdline_key
+-- feeds the same completed cmdline text to
+-- patterns_cmdline.track_substitute() alongside tokenize(). See that
+-- module's header comment for the full parsing scope and the &-vs-g&
+-- threshold heuristic (2nd distinct line -> &, 3rd distinct line -> g&).
+
+describe('Repeated substitute detection (#115)', function()
+  local esc = vim.api.nvim_replace_termcodes('<Esc>', true, true, true)
+  local cr = vim.api.nvim_replace_termcodes('<CR>', true, true, true)
+
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    logger.on_pattern = nil
+    logger.setup()
+    vim.cmd('enew!')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'foo', 'foo', 'foo', 'foo' })
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+    if vim.fn.mode() ~= 'n' then
+      pcall(vim.api.nvim_input, esc)
+    end
+  end)
+
+  local function goto_line(n)
+    vim.api.nvim_win_set_cursor(0, { n, 0 })
+  end
+
+  local function run_substitute(text)
+    pcall(vim.fn.feedkeys, ':' .. text .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+  end
+
+  it('fires substitute_repeat / & when the same :s/// runs on a second distinct line', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+
+    goto_line(1)
+    run_substitute('s/foo/bar/')
+    goto_line(2)
+    run_substitute('s/foo/bar/')
+
+    assert.equals(1, #fired)
+    assert.equals('substitute_repeat', fired[1].pattern)
+    assert.equals('&', fired[1].cmd)
+  end)
+
+  it('fires substitute_repeat_wide / g& when a third distinct line repeats it', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+
+    for i = 1, 3 do
+      goto_line(i)
+      run_substitute('s/foo/bar/')
+    end
+
+    assert.equals(2, #fired)
+    assert.equals('substitute_repeat_wide', fired[2].pattern)
+    assert.equals('g&', fired[2].cmd)
+  end)
+
+  it('does not fire when the pattern differs between invocations', function()
+    local fired = false
+    logger.on_pattern = function()
+      fired = true
+    end
+
+    goto_line(1)
+    run_substitute('s/foo/bar/')
+    goto_line(2)
+    run_substitute('s/food/bar/')
+
+    assert.is_false(fired)
+  end)
+
+  it('does not fire when the replacement differs between invocations', function()
+    local fired = false
+    logger.on_pattern = function()
+      fired = true
+    end
+
+    goto_line(1)
+    run_substitute('s/foo/bar/')
+    goto_line(2)
+    run_substitute('s/foo/baz/')
+
+    assert.is_false(fired)
+  end)
+
+  it('does not count an aborted :s toward the repeat (consistent with #57 abort handling)', function()
+    local fired = false
+    logger.on_pattern = function()
+      fired = true
+    end
+
+    -- Typed but aborted with <Esc> before <CR> -- must not be counted as a
+    -- completed invocation on this line.
+    goto_line(1)
+    pcall(vim.fn.feedkeys, ':s/foo/bar/' .. esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+
+    -- Only one REAL completed substitute so far (below); must not fire yet.
+    goto_line(2)
+    run_substitute('s/foo/bar/')
+    assert.is_false(fired, 'expected no fire after only one completed invocation')
+
+    -- Second real completed substitute on a new distinct line now fires.
+    goto_line(3)
+    run_substitute('s/foo/bar/')
+    assert.is_true(fired)
+  end)
+
+  it('does not track a ranged substitute (:%s) toward the repeat', function()
+    local fired = false
+    logger.on_pattern = function()
+      fired = true
+    end
+
+    run_substitute('%s/foo/bar/')
+
+    goto_line(1)
+    run_substitute('s/foo/bar/')
+
+    assert.is_false(fired) -- only one bare (unranged) invocation counted
+  end)
+end)
+
 -- (stats rendering has moved to tests/spec/unit/ui_stats_spec.lua)
 
 -- ── save ─────────────────────────────────────────────────────────────────────
@@ -1754,6 +1888,7 @@ describe('when single-char track=true keys are pressed', function()
     '*',
     '#',
     '~',
+    '&', -- #115: repeat last :substitute on the current line
     'A',
     'b',
     'C',

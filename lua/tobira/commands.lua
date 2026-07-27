@@ -495,6 +495,41 @@ M.registry = {
   -- commands_spec.lua's "reactive-only ambient exclusion" tests, which
   -- pin this down as an explicit, reviewable list rather than a silent rule.
   ['<C-\\><C-n>'] = { requires = 'i', track = false, category = 'terminal', level = 'beginner', ambient = false },
+
+  -- ── repeated :substitute detection → & / g& (#115) ───────────────────────
+  -- Detected reactively by core/patterns_cmdline.lua's track_substitute():
+  -- the identical :s/{pattern}/{replacement}/ body manually re-run on a 2nd
+  -- distinct line fires '&' (repeat the last substitute on the current
+  -- line); a 3rd distinct line escalates to 'g&' (repeat it on every
+  -- matching line in the file) instead of firing '&' again. See that
+  -- module's header comment for the full parsing scope (delimiter handling,
+  -- range exclusion, abbreviation recognition) and the exact-count firing
+  -- rationale.
+  --
+  -- requires = 'n' for '&': mirrors 'cgn' just above it in spirit (also
+  -- requires = 'n') — repeated search-match navigation without editing is
+  -- the same "doing this by hand" precursor signal search-and-replace
+  -- features build on. track = true: '&' is a single literal keystroke with
+  -- its own real Vim meaning (distinct from tobira's detection of it), so
+  -- build_track_table() must count it like any other single-char command
+  -- (see commands.lua's checklist rule: every #cmd==1 entry needs
+  -- track=true).
+  ['&'] = { requires = 'n', track = true, category = 'edit', level = 'intermediate' },
+
+  -- requires = '&': g& is the natural next step once & itself is known.
+  -- track = false: 'g&' is a 2-char literal sequence with no dedicated
+  -- pending-g dispatch entry recording it (same shape as 'gu'/'g~'/'gg'
+  -- above, all track=false) — nothing else in the registry references 'g&'
+  -- via `requires`, so there is no count>=N threshold depending on it being
+  -- individually trackable. It is NOT marked ambient=false: unlike
+  -- '<C-\><C-n>' (whose suggestion body presupposes a specific just-happened
+  -- terminal-mode event and whose own count is structurally stuck at 0
+  -- forever with a maximal find_best score as a result — see that entry's
+  -- comment), 'g&''s suggestion body is a generic, standalone "did you know"
+  -- tip (same shape as 'cgn'/'ex:g', both also track=false with no
+  -- ambient=false) that reads sensibly even surfaced ambiently from '&'
+  -- usage alone, so no special-case exclusion is warranted here.
+  ['g&'] = { requires = '&', track = false, category = 'edit', level = 'advanced' },
 }
 
 -- Some registry keys are an internal composite, not the literal keystroke

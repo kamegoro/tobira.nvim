@@ -121,6 +121,8 @@ return {
       manual_return = 'You jumped to a distant spot, then scrolled back manually',
       changelist_return = 'You edited two different spots, then scrolled back manually to find the first one',
       terminal_esc_repeat = 'You pressed <Esc> twice in a row in terminal mode with no effect',
+      substitute_repeat = 'You ran the same :s/// substitution manually on a second line',
+      substitute_repeat_wide = 'You ran the same :s/// substitution manually on a third line',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -1030,6 +1032,18 @@ return {
       title = '<C-\\><C-n> — exit terminal mode',
       body = 'Inside :terminal, <Esc> is sent straight to the job — it does not leave terminal mode\n<C-\\><C-n> is the actual escape hatch back to Normal mode',
       example = '<C-\\><C-n> → back to Normal mode, the terminal job keeps running',
+    },
+
+    -- ── repeated :substitute detection (#115) ────────────────────────────────
+    ['&'] = {
+      title = '& — repeat the last :substitute on this line',
+      body = 'You typed the same :s/pattern/replacement/ by hand on another line\n& repeats the last substitute on the current line, no retyping needed',
+      example = ':s/foo/bar/ then move a line, & → repeats it there',
+    },
+    ['g&'] = {
+      title = 'g& — repeat the last :substitute on every line',
+      body = 'You typed the same :s/pattern/replacement/ by hand on several lines\ng& repeats it across the whole file, reusing the last pattern and flags',
+      example = ':s/foo/bar/ then g& → applies it to every matching line',
     },
   },
 }

@@ -13,6 +13,11 @@ local usage = {}
 local meta = { guide_seen = false }
 local _initialized = false
 local seq = patterns.new_seq()
+-- #115: accumulates across the whole session (unlike seq/insert_seq above,
+-- which reset on every cmdline keystroke) — repeated-substitute detection
+-- needs to remember pattern+replacement pairs across separate, distinct :s
+-- invocations that can be minutes apart.
+local substitute_state = patterns_cmdline.new_substitute_state()
 local session_counts = {}
 -- Per-command snapshot of {count, shown, suppressed, pinned, celebrated} as
 -- of the last time `usage` was synced with disk (initial load, or the end of
@@ -436,9 +441,19 @@ local function handle_cmdline_key(key)
   end
 
   if key == CMDLINE_CR then
-    local name = patterns_cmdline.tokenize(vim.fn.getcmdline())
+    local cmdline_text = vim.fn.getcmdline()
+    local name = patterns_cmdline.tokenize(cmdline_text)
     if name and name:sub(1, #OWN_CMD_PREFIX) ~= OWN_CMD_PREFIX then
       increment(name)
+    end
+    -- #115: same completed-cmdline text, fed to the substitute-repeat
+    -- tracker alongside tokenize() above. vim.fn.line('.') at this point is
+    -- still the pre-substitution cursor line — the line the bare (no-range)
+    -- :s is about to run on (see patterns_cmdline.lua's header for why an
+    -- explicit range is out of scope and skipped instead of guessed at).
+    local sub_result = patterns_cmdline.track_substitute(substitute_state, cmdline_text, vim.fn.line('.'))
+    if sub_result and M.on_pattern then
+      M.on_pattern(sub_result.pattern, sub_result.cmd)
     end
     return
   end
@@ -768,6 +783,7 @@ function M.reset()
   seq = patterns.new_seq()
   insert_seq = patterns_insert.new_insert_seq()
   terminal_seq = patterns_terminal.new_terminal_seq()
+  substitute_state = patterns_cmdline.new_substitute_state()
   current_mode = 'n'
   _recording_macro = false
   _initialized = false
