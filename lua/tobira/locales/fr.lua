@@ -118,6 +118,8 @@ return {
       J_repeat = 'Vous avez fusionné des lignes 3 fois de suite',
       ca_run = "Vous avez incrémenté un nombre, déplacé d'une ligne, et répété cela 3 fois",
       ctrl_w_close_repeat = 'Vous avez fermé des fenêtres une par une, 2 fois de suite',
+      manual_return = 'Vous avez sauté à un endroit éloigné, puis êtes revenu en faisant défiler manuellement',
+      changelist_return = 'Vous avez modifié deux endroits différents, puis êtes revenu en faisant défiler manuellement pour retrouver le premier',
       terminal_esc_repeat = 'Vous avez appuyé sur <Esc> deux fois de suite en mode terminal sans effet',
     },
   },

@@ -74,6 +74,27 @@ function M.new_seq()
     -- from "nothing happened", which undercounted back-to-back repeats of
     -- the same compound (dd dd, dw dw, …) — see #119.
     op_completed = false,
+    -- jumplist-underuse tracking (#61): timestamp of the last "significant"
+    -- jump motion (G / gg / n / N / <C-d> / <C-u> / <C-f> / <C-b>), and how
+    -- many consecutive manual "return" motions (j / k / <C-e> / <C-y>) have
+    -- followed it since. now (the 4th M.feed argument) is caller-supplied so
+    -- this file stays vim.*-free — see M.feed's doc comment.
+    jump_last_at = nil,
+    jump_return_streak = 0,
+    -- true once <C-o> has been pressed this session — the user already knows
+    -- about jumplist-back, so manual_return stops suggesting it (#61).
+    ctrl_o_seen = false,
+    -- changelist-underuse tracking (#61): timestamp of the most recent
+    -- edit-op key (i/I/a/A/o/O/s/S/x/X), whether some other key has been
+    -- seen since (a passive proxy for "moved away" from that spot — patterns.lua
+    -- may not snapshot the buffer or read marks), and whether a *second*,
+    -- separately-located edit has happened yet.
+    edit_last_at = nil,
+    edit_moved_away = false,
+    edit_second_seen = false,
+    change_return_streak = 0,
+    -- true once g; has been pressed this session — mirrors ctrl_o_seen (#61).
+    g_semi_seen = false,
   }
 end
 
@@ -99,6 +120,51 @@ local RIGHTWARD_KEYS = {
   ['$'] = true,
 }
 
+-- ── jumplist / changelist underuse detection (#61) ──────────────────────────
+-- Tolerance window: long enough to catch a real "read a few lines, then
+-- scroll back" case, short enough that an unrelated jump from minutes ago
+-- doesn't get blamed for an unrelated manual scroll now.
+local JUMP_TOLERANCE_MS = 15000
+local CHANGE_TOLERANCE_MS = 15000
+local RETURN_MOTION_THRESHOLD = 5
+
+-- Keys that mean "the user just made a big navigational jump" — the same
+-- class of motion that adds a jumplist entry. 'gg' is deliberately absent:
+-- it only resolves inside the pending_g dispatch table below (neither 'g'
+-- keystroke of "gg" ever reaches this table on its own), so it is recorded
+-- there instead. '/' is deliberately absent too — pressing '/' opens the
+-- command-line, and logger.lua resets patterns.lua's whole seq for every
+-- keystroke while mode is neither normal nor insert (see lua/tobira/CLAUDE.md
+-- and logger.lua's handle_key), so a literal '/' key can never reliably
+-- survive long enough to matter here.
+local JUMP_MOTION_KEYS = {
+  G = true,
+  n = true,
+  N = true,
+  ['\4'] = true, -- <C-d>
+  ['\21'] = true, -- <C-u>
+  ['\6'] = true, -- <C-f>
+  ['\2'] = true, -- <C-b>
+}
+
+-- Keys that mean "the user is manually stepping/scrolling back" — the
+-- evidence that <C-o> (jumplist back) would have done in one keystroke.
+local RETURN_MOTION_KEYS = {
+  j = true,
+  k = true,
+  ['\5'] = true, -- <C-e>
+  ['\25'] = true, -- <C-y>
+}
+
+-- Keys that mutate the buffer on their own — either by entering insert mode
+-- (i/I/a/A/o/O/s/S, reusing INSERT_KEYS above) or by editing directly without
+-- ever leaving normal mode (x/X). Each one is a point where Vim would add a
+-- changelist entry.
+local EDIT_OP_KEYS = { x = true, X = true }
+for k in pairs(INSERT_KEYS) do
+  EDIT_OP_KEYS[k] = true
+end
+
 local function track_run(seq, key)
   if seq.run.key == key then
     seq.run.count = seq.run.count + 1
@@ -108,7 +174,34 @@ local function track_run(seq, key)
   return seq.run.count
 end
 
-local function inner_feed(seq, key, line, is_diff)
+local function inner_feed(seq, key, line, is_diff, now)
+  -- ── changelist-underuse bookkeeping (#61) ─────────────────────────────────
+  -- Observes every key unconditionally, before any other handler, and never
+  -- consumes/returns — mirrors pending_paste's "always observe, only
+  -- sometimes fire" shape below. EDIT_OP_KEYS mark "an edit just happened
+  -- here"; any other key (except <Esc>, which only leaves insert mode
+  -- without moving anywhere) marks "the user left that spot" — the closest
+  -- passive proxy for "moved elsewhere" available without snapshotting the
+  -- buffer or reading marks (both forbidden — see lua/tobira/CLAUDE.md).
+  if EDIT_OP_KEYS[key] then
+    if seq.edit_last_at and seq.edit_moved_away then
+      seq.edit_second_seen = true
+    end
+    seq.edit_last_at = now
+    seq.edit_moved_away = false
+  elseif seq.edit_last_at and key ~= '\27' then
+    seq.edit_moved_away = true
+  end
+
+  -- ── <C-o> observation (#61) ────────────────────────────────────────────────
+  -- Raw byte for Ctrl-O (ASCII 15 / 0x0F). Recorded unconditionally (unlike
+  -- the gq_then_jumpback check further down, which only fires its own
+  -- suggestion when last_op == 'gq') so manual_return can permanently stop
+  -- suggesting <C-o> once the user has demonstrably already used it.
+  if key == '\15' then
+    seq.ctrl_o_seen = true
+  end
+
   -- ── p / P → rightward motion: cursor skipped past a paste (#106) ─────────
   -- Checked first, before any other handler, so it observes every key that
   -- follows a paste — including keys other handlers would otherwise consume
@@ -164,6 +257,16 @@ local function inner_feed(seq, key, line, is_diff)
     if g_targets[key] then
       seq.last_op = g_targets[key]
       seq.op_completed = true
+      -- gg / g; are themselves significant jumplist / changelist motions
+      -- (#61), recorded the moment the compound resolves — neither key of
+      -- "gg" (or "g;") ever reaches the bare-key tables below on its own,
+      -- since pending_g consumes both.
+      if seq.last_op == 'gg' then
+        seq.jump_last_at = now
+        seq.jump_return_streak = 0
+      elseif seq.last_op == 'g;' then
+        seq.g_semi_seen = true
+      end
     end
     return nil
   end
@@ -660,11 +763,110 @@ local function inner_feed(seq, key, line, is_diff)
     seq.ctrl_w_close_streak = 0
   end
 
-  -- ── consecutive-run patterns ──────────────────────────────────────────────
-  -- == (not >=): each threshold fires exactly once, enabling multi-threshold
-  -- patterns like j_repeat(5) and j_many(10) for the same key.
+  -- ── consecutive-run patterns (count computed early, #61) ──────────────────
+  -- track_run() must run unconditionally on every key, even one that the
+  -- jumplist/changelist blocks below are about to return early on — skipping
+  -- it here would freeze seq.run's same-key counter for that keystroke, and
+  -- the very next same-key press would then jump it forward by 2 instead of
+  -- 1, making j_repeat/k_repeat/j_many/k_many fire one press "early" right
+  -- after a manual_return/changelist_return — which then cancels and
+  -- replaces the just-shown suggestion via suggest.queue()'s debounce
+  -- (observed via the docs/RECORDING.md-style live regression pass for #61,
+  -- not caught by patterns_spec.lua's per-call assertions).
   local count = track_run(seq, key)
 
+  -- ── jumplist-underuse detection (#61) ────────────────────────────────────
+  -- Only reached for keys that fell through every operator/compound-pending
+  -- state above uncontested — e.g. `dj` never reaches this: pending_op
+  -- already consumed the j as part of a linewise delete, not a "return".
+  -- NOTE: this no longer returns early on its own — see the arbitration
+  -- block below for why (#61 follow-up bug).
+  local jump_ready = false
+  if key == 'G' or JUMP_MOTION_KEYS[key] then
+    seq.jump_last_at = now
+    seq.jump_return_streak = 0
+  elseif RETURN_MOTION_KEYS[key] then
+    if seq.jump_last_at and not seq.ctrl_o_seen and (now - seq.jump_last_at) <= JUMP_TOLERANCE_MS then
+      seq.jump_return_streak = seq.jump_return_streak + 1
+      if seq.jump_return_streak == RETURN_MOTION_THRESHOLD then
+        jump_ready = true
+      end
+    else
+      seq.jump_return_streak = 0
+    end
+  else
+    seq.jump_return_streak = 0
+  end
+
+  -- ── changelist-underuse detection (#61) ──────────────────────────────────
+  -- edit_second_seen only becomes true once two edits have happened with a
+  -- non-<Esc> key seen in between (see the top-of-function observer) —
+  -- i.e. two edits at genuinely different spots, not the same location
+  -- re-entered. Like the jumplist block above, this does not return early —
+  -- see the arbitration block below.
+  local change_ready = false
+  if key == 'j' or key == 'k' then
+    if
+      seq.edit_second_seen
+      and not seq.g_semi_seen
+      and seq.edit_last_at
+      and (now - seq.edit_last_at) <= CHANGE_TOLERANCE_MS
+    then
+      seq.change_return_streak = seq.change_return_streak + 1
+      if seq.change_return_streak == RETURN_MOTION_THRESHOLD then
+        change_ready = true
+      end
+    else
+      seq.change_return_streak = 0
+    end
+  else
+    seq.change_return_streak = 0
+  end
+
+  -- ── jumplist vs. changelist arbitration (#61 follow-up bug) ──────────────
+  -- Both patterns key off the same evidence — "5+ consecutive j/k after some
+  -- earlier event" — so a single keystroke can legitimately satisfy both at
+  -- once (e.g. jump far, edit, jump far again, edit, then k×5 back). The two
+  -- blocks above therefore no longer return early on their own: they only
+  -- record whether each pattern's threshold was reached this keystroke
+  -- (jump_ready / change_ready), and this block decides what to do once both
+  -- are known.
+  --
+  -- When only one is ready, it fires exactly as before (no behavior change
+  -- for the existing single-pattern cases). When both are ready on the same
+  -- keystroke, the one whose triggering "away" event — the significant jump
+  -- for manual_return, the second edit for changelist_return — happened MORE
+  -- RECENTLY wins: that's the more likely thing the user is actually trying
+  -- to get back to right now. The other side's streak is reset without
+  -- firing rather than left dangling, so it doesn't immediately re-fire on
+  -- the very next keystroke; it can still build back up and fire later if
+  -- the underlying pattern genuinely repeats.
+  if jump_ready and change_ready then
+    if seq.jump_last_at >= seq.edit_last_at then
+      seq.jump_return_streak = 0
+      seq.jump_last_at = nil
+      seq.change_return_streak = 0
+      return { pattern = 'manual_return', cmd = '<C-o>' }
+    else
+      seq.change_return_streak = 0
+      seq.edit_second_seen = false
+      seq.edit_last_at = nil
+      seq.jump_return_streak = 0
+      return { pattern = 'changelist_return', cmd = 'g;' }
+    end
+  elseif jump_ready then
+    seq.jump_return_streak = 0
+    seq.jump_last_at = nil
+    return { pattern = 'manual_return', cmd = '<C-o>' }
+  elseif change_ready then
+    seq.change_return_streak = 0
+    seq.edit_second_seen = false
+    seq.edit_last_at = nil
+    return { pattern = 'changelist_return', cmd = 'g;' }
+  end
+
+  -- == (not >=): each threshold fires exactly once, enabling multi-threshold
+  -- patterns like j_repeat(5) and j_many(10) for the same key.
   if key == 'x' and count == 3 then
     return { pattern = 'x_repeat', cmd = '{n}x' }
   elseif key == 'u' and count == 3 then
@@ -721,10 +923,18 @@ end
 -- vim.* dependencies by design (see lua/tobira/CLAUDE.md's module dependency
 -- rules) — it is pure Lua so it can be unit-tested and reasoned about without
 -- a running Neovim instance.
-function M.feed(seq, key, line, is_diff)
+--
+-- now: optional caller-supplied clock reading (milliseconds, any
+-- monotonic-ish source is fine) used only by the jumplist/changelist
+-- tolerance-window checks (#61). Omitted calls behave as if now == 0 on
+-- every call, which keeps every pre-#61 call site (and every test not
+-- exercising the time-sensitive patterns) working unchanged, since a
+-- constant clock never lets a tolerance window "expire". Real callers
+-- (logger.lua) pass vim.loop.now(); tests pass a fake, deterministic value.
+function M.feed(seq, key, line, is_diff, now)
   seq.key_consumed = false -- reset before each call; handlers set true when consuming
   seq.op_completed = false -- reset before each call; handlers set true when last_op is freshly set
-  local result = inner_feed(seq, key, line, is_diff)
+  local result = inner_feed(seq, key, line, is_diff, now or 0)
   return result
 end
 

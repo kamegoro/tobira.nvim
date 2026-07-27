@@ -544,7 +544,10 @@ local function handle_key(key)
   -- vim.*-free (module dependency rules in lua/tobira/CLAUDE.md); this is the
   -- one call site that reads the option and threads it in as a parameter.
   local is_diff = (key == 'j' or key == 'k') and vim.wo.diff or false
-  local result = patterns.feed(seq, key, line, is_diff)
+  -- vim.loop.now() (ms, monotonic) is the real clock for patterns.lua's
+  -- jumplist/changelist tolerance-window detection (#61) — patterns.lua
+  -- itself stays vim.*-free and only ever sees this caller-supplied number.
+  local result = patterns.feed(seq, key, line, is_diff, vim.loop.now())
 
   -- Track compound operators (dw, dd, gg, >>, …) the moment they complete.
   -- Single-char keys are handled by the TRACK lookup below; compound ones
