@@ -643,6 +643,23 @@ describe('when y is yanked heavily but "+y has never been used', function()
     assert.equals('"+y', graph.find_best(usage))
   end)
 
+  it('outranks a realistic long-term trigger count like j = 1030 (<C-d>)', function()
+    -- Regression test: a fixed +1000 additive boost (score = 1000 + y.count)
+    -- used to lose to <C-d>'s own score (trigger_count - cmd_count = 1030 - 0
+    -- = 1030) once j's raw count climbed past ~1000, which is unremarkable
+    -- for a real long-term user. "+y must win regardless of how high any
+    -- ordinary candidate's own count gets.
+    local usage = { y = usage_entry(20), j = usage_entry(1030) }
+    assert.equals('"+y', graph.find_best(usage))
+  end)
+
+  it('outranks an even more extreme competing trigger count (50000)', function()
+    -- Confirms the fix is not just a slightly-larger fixed constant that
+    -- could still eventually be beaten by a big enough raw count.
+    local usage = { y = usage_entry(20), j = usage_entry(50000) }
+    assert.equals('"+y', graph.find_best(usage))
+  end)
+
   it('respects suppression like any other suggestion', function()
     local usage = { y = usage_entry(20), ['"+y'] = usage_entry(0, {}, 0, true) }
     assert.is_nil(graph.find_best(usage))

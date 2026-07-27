@@ -230,12 +230,6 @@ end
 -- register-0 heuristics are deferred pending design review (see the issue's
 -- own "Phase 2" section).
 local REGISTER_UNDERUSE_TRIGGER = 20
--- Boost large enough to outrank a normal find_best() score without using
--- math.huge, which find_best() already reserves as its "no candidate yet"
--- sentinel (see best_score below). In practice this is more than enough: an
--- offered candidate is never mastered (cmd_count < 100), so ordinary scores
--- rarely approach four digits.
-local REGISTER_UNDERUSE_BOOST = 1000
 
 -- True once the user has yanked (y) at least REGISTER_UNDERUSE_TRIGGER times
 -- and has never used the system-clipboard register ("+y count == 0).
@@ -258,6 +252,20 @@ function M.find_best(usage, max_shown, max_level)
   -- non-nil by the time the tie-break branch is reached.
   local best_score = -math.huge
 
+  -- Register-underuse candidates (#59) are collected into their own pool
+  -- instead of being folded into best_score via an additive boost. A fixed
+  -- boost (previously REGISTER_UNDERUSE_BOOST = 1000 added to usage.y.count)
+  -- can never be "big enough": an ordinary candidate's own score
+  -- (trigger_count - cmd_count) grows with the raw trigger count, which for
+  -- a real long-term user routinely reaches the thousands (e.g. j, h) —
+  -- there is no constant that outraces an unbounded competitor. Keeping
+  -- qualified candidates in a separate pool and only falling back to the
+  -- ordinary pool when it's empty makes "qualified always wins" true by
+  -- construction rather than by arithmetic, so it holds no matter how high
+  -- any other command's count climbs.
+  local best_priority_cmd = nil
+  local best_priority_score = -math.huge
+
   for cmd, sug in pairs(M.suggestions) do
     local cmd_level_num = LEVEL_ORDER[sug.level] or 1
     if cmd_level_num <= max_level_num then
@@ -268,12 +276,13 @@ function M.find_best(usage, max_shown, max_level)
 
       if offered and cmd == '"+y' then
         -- Register-underuse gate (#59) replaces the generic trigger_count > 0
-        -- rule below — see is_register_underused() and REGISTER_UNDERUSE_BOOST.
+        -- rule below — see is_register_underused() and the priority-pool
+        -- comment above.
         if M.is_register_underused(usage) then
-          local score = REGISTER_UNDERUSE_BOOST + usage.y.count
-          if score > best_score or (score == best_score and cmd < best_cmd) then
-            best_score = score
-            best_cmd = cmd
+          local score = usage.y.count
+          if score > best_priority_score or (score == best_priority_score and cmd < best_priority_cmd) then
+            best_priority_score = score
+            best_priority_cmd = cmd
           end
         end
       elseif offered then
@@ -289,6 +298,10 @@ function M.find_best(usage, max_shown, max_level)
         end
       end
     end
+  end
+
+  if best_priority_cmd then
+    return best_priority_cmd
   end
 
   return best_cmd
