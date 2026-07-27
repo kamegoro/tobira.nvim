@@ -25,6 +25,8 @@ return {
       mark = 'Mark',
       macro = 'Macro',
       diff = 'Diff',
+      ex = 'Ex',
+      terminal = 'Terminal',
     },
     mastered_total = '%d / %d mastered',
     section_count = '%d / %d',
@@ -114,6 +116,7 @@ return {
       J_repeat = 'You joined lines 3 times in a row',
       ca_run = 'You incremented a number, moved down a line, and repeated it 3 times',
       ctrl_w_close_repeat = 'You closed windows one at a time, 2 times in a row',
+      terminal_esc_repeat = 'You pressed <Esc> twice in a row in terminal mode with no effect',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -985,6 +988,25 @@ return {
       title = '{n}<< — dedent multiple lines at once',
       body = 'Prefix << with a count to dedent that many lines in one command\n3<< removes one level of indentation from 3 lines starting from the cursor',
       example = '3<< → dedent 3 lines at once',
+    },
+
+    -- ── Ex commands (#57) ─────────────────────────────────────────────────
+    ['ex:g'] = {
+      title = ':g — run a command over every matching line',
+      body = 'Finds every line matching a pattern and runs an Ex command on each one\nReplaces manually repeating n / . one match at a time',
+      example = ':g/TODO/d → delete every line containing TODO',
+    },
+    ['ex:norm'] = {
+      title = ':norm — run a normal-mode command on every selected line',
+      body = 'Applies a sequence of normal-mode keystrokes to every line in a range\nReplaces recording a macro when the edit is simple enough to type directly',
+      example = ':%norm A; → append a semicolon to every line',
+    },
+
+    -- ── terminal mode: ineffective <Esc> → <C-\><C-n> (#110) ───────────────
+    ['<C-\\><C-n>'] = {
+      title = '<C-\\><C-n> — exit terminal mode',
+      body = 'Inside :terminal, <Esc> is sent straight to the job — it does not leave terminal mode\n<C-\\><C-n> is the actual escape hatch back to Normal mode',
+      example = '<C-\\><C-n> → back to Normal mode, the terminal job keeps running',
     },
   },
 }

@@ -19,6 +19,8 @@ local CATEGORY_HL = {
   mark = 'TobiraSuggestMark',
   macro = 'TobiraSuggestMacro',
   diff = 'TobiraSuggestDiff',
+  ex = 'TobiraSuggestEx',
+  terminal = 'TobiraSuggestTerminal',
 }
 local DEFAULT_BORDER_HL = 'FloatBorder'
 

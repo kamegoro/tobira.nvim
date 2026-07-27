@@ -33,12 +33,18 @@ function M.setup()
   vim.api.nvim_set_hl(0, 'TobiraSuggestFold', { link = 'Constant' })
   vim.api.nvim_set_hl(0, 'TobiraSuggestMark', { link = 'Identifier' })
   vim.api.nvim_set_hl(0, 'TobiraSuggestMacro', { link = 'PreProc' })
-  -- diff (#111): DiffChange rather than a syntax group like the other 7 —
-  -- unlike "motion is keyword-ish, edit is function-ish", there is no syntax
-  -- group that reads as "diff-ish"; Neovim's own DiffChange highlight IS the
-  -- concept this category is about, so it is a more meaningful link than
-  -- picking an arbitrary syntax color by loose analogy. See ui/CLAUDE.md.
+  -- diff (#111): DiffChange rather than a syntax group like the other
+  -- categories — unlike "motion is keyword-ish, edit is function-ish", there
+  -- is no syntax group that reads as "diff-ish"; Neovim's own DiffChange
+  -- highlight IS the concept this category is about, so it is a more
+  -- meaningful link than picking an arbitrary syntax color by loose analogy.
+  -- See ui/CLAUDE.md.
   vim.api.nvim_set_hl(0, 'TobiraSuggestDiff', { link = 'DiffChange' })
+  -- Ex commands (:g, :norm, ...) are statement-like — the nearest syntax
+  -- group to a colon command, matching the other categories' "what kind of
+  -- thing is this" intuition (#57; see ui/CLAUDE.md's category table).
+  vim.api.nvim_set_hl(0, 'TobiraSuggestEx', { link = 'Statement' })
+  vim.api.nvim_set_hl(0, 'TobiraSuggestTerminal', { link = 'Statement' })
   vim.api.nvim_set_hl(0, 'TobiraSuggestKey', { link = 'Special' })
   vim.api.nvim_set_hl(0, 'TobiraSuggestReason', { link = 'Comment' })
 

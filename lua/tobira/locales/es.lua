@@ -25,6 +25,8 @@ return {
       mark = 'Marca',
       macro = 'Macro',
       diff = 'Diff',
+      ex = 'Comandos Ex',
+      terminal = 'Terminal',
     },
     mastered_total = '%d / %d dominados',
     section_count = '%d / %d',
@@ -114,6 +116,7 @@ return {
       J_repeat = 'Uniste líneas 3 veces seguidas',
       ca_run = 'Incrementaste un número, bajaste una línea y lo repetiste 3 veces',
       ctrl_w_close_repeat = 'Cerraste ventanas una por una, 2 veces seguidas',
+      terminal_esc_repeat = 'Presionaste <Esc> dos veces seguidas en modo terminal sin ningún efecto',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -984,6 +987,25 @@ return {
       title = '{n}<< — quitar sangría a varias líneas a la vez',
       body = 'Antepone un número a << para quitar la sangría a esa cantidad de líneas en un solo comando\n3<< quita un nivel de sangría de 3 líneas desde el cursor',
       example = '3<< → quita la sangría de 3 líneas a la vez',
+    },
+
+    -- ── Ex commands (#57) ─────────────────────────────────────────────────
+    ['ex:g'] = {
+      title = ':g — ejecutar un comando sobre cada línea coincidente',
+      body = 'Encuentra cada línea que coincide con un patrón y ejecuta un comando Ex en cada una\nSustituye repetir n / . manualmente en cada coincidencia',
+      example = ':g/TODO/d → elimina cada línea que contiene TODO',
+    },
+    ['ex:norm'] = {
+      title = ':norm — ejecutar un comando en modo normal en cada línea seleccionada',
+      body = 'Aplica una secuencia de teclas de modo normal a cada línea de un rango\nSustituye grabar una macro cuando la edición es lo bastante simple',
+      example = ':%norm A; → añade un punto y coma al final de cada línea',
+    },
+
+    -- ── modo terminal: <Esc> sin efecto → <C-\><C-n> (#110) ────────────────
+    ['<C-\\><C-n>'] = {
+      title = '<C-\\><C-n> — salir del modo terminal',
+      body = 'Dentro de :terminal, <Esc> se envía directamente al proceso — no sale del modo terminal\n<C-\\><C-n> es la salida real al modo Normal',
+      example = '<C-\\><C-n> → vuelve al modo Normal, el proceso del terminal sigue en ejecución',
     },
   },
 }

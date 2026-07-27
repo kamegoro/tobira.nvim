@@ -310,6 +310,14 @@ describe('when the suggestion has a category', function()
     local border_hl = cfg.border[1][2]
     assert.equals('TobiraSuggestMotion', border_hl)
   end)
+
+  it('colors the border with TobiraSuggestEx for the ex category (#57)', function()
+    float.show(suggestion(';', { category = 'ex' }), true)
+    local win = vim.fn.win_getid()
+    local cfg = vim.api.nvim_win_get_config(win)
+    local border_hl = cfg.border[1][2]
+    assert.equals('TobiraSuggestEx', border_hl)
+  end)
 end)
 
 describe('when the suggestion has no category', function()
