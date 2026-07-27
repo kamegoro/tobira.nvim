@@ -381,6 +381,18 @@ local terminal_seq = patterns_terminal.new_terminal_seq()
 -- minutes apart. Only touched at <CR> time, alongside tokenize().
 local pingpong_seq = patterns_cmdline.new_pingpong_seq()
 
+-- Words command_arg() must return before a switch is even worth verifying
+-- (see the verify-before-credit comment below). Deliberately duplicated from
+-- patterns_cmdline.lua's own private PINGPONG_COMMANDS rather than exported
+-- from there: that module is a pure, generic Ex tokenizer with no vim.*
+-- calls, and feed_pingpong() already re-validates the word itself regardless
+-- of what's checked here (see its own PINGPONG_COMMANDS). A mismatch between
+-- the two tables would only ever waste one vim.schedule() call, never cause
+-- an incorrect credit -- this copy exists purely so logger.lua doesn't
+-- schedule a verification callback (and its vim.fn.expand/fnamemodify calls)
+-- for every Ex command that happens to take an argument (:s, :g, :w, ...).
+local PINGPONG_WORDS = { e = true, b = true }
+
 local _recording_macro = false
 
 -- Raw bytes for the two ways an Ex command line can end (#57). <C-c> is
@@ -454,10 +466,68 @@ local function handle_cmdline_key(key)
     -- discards by design (see tokenize()'s header). A reactive pattern, like
     -- patterns_insert/patterns_terminal's results below: reported via
     -- on_pattern immediately rather than waiting on a usage-count threshold.
+    --
+    -- Verify-before-credit (fix for a QA-found false positive): the on_key
+    -- callback for this <CR> runs BEFORE Neovim has validated or executed the
+    -- command (see this function's header comment and patterns_cmdline.lua's
+    -- header for why <CR> time is when the full string first exists at all).
+    -- Typing and submitting ":e"/":b" is therefore not the same thing as the
+    -- file switch actually happening -- Neovim can still reject the command
+    -- outright (E94 "No matching buffer" for :b on a name with no existing
+    -- buffer; E37 "No write since last change" for :e on a dirty buffer
+    -- without !), in which case the current buffer/file never changes.
+    -- Crediting ex_file_pingpong from the raw argument text regardless of
+    -- outcome could fire a "<C-^>" suggestion whose own reason line ("you
+    -- bounced between the same two files") is simply false, since no bounce
+    -- ever happened.
+    --
+    -- Fix: defer the actual credit to vim.schedule(), which runs only once
+    -- Neovim has fully processed this <CR> -- i.e. after the command has
+    -- either succeeded or already failed with its error shown. At that point,
+    -- verify by comparing the RESULT against the TARGET (is the file this
+    -- command named actually the current buffer now), not by diffing
+    -- bufnr()/expand() before vs. after: a before/after diff would compare
+    -- against a snapshot taken before the command ran, which stops meaning
+    -- "did THIS command succeed" the moment a later command also changes the
+    -- buffer before this callback gets to run (see the ordering note below).
+    -- Checking the actual outcome against this command's own target stays
+    -- correct regardless. The literal `arg` text (not the resolved path) is
+    -- still what gets passed into feed_pingpong() -- verification only gates
+    -- WHETHER to call it, never what value is fed once it does, so this
+    -- fix touches no behavior of patterns_cmdline.lua itself.
+    --
+    -- On vim.schedule() ordering: vim.on_key's callback and vim.schedule()
+    -- callbacks both run on the same single main-loop thread, so there is no
+    -- data race to worry about -- the only real question is ordering
+    -- relative to the NEXT keystroke. If a second :e/:b is submitted so fast
+    -- that its own <CR> is processed before this scheduled callback runs
+    -- (observed in this fix's own test suite when multiple commands are fed
+    -- back-to-back without yielding — see logger_spec.lua), the check above
+    -- still asks the right question for THIS command ("is the file it named
+    -- currently open"), not "did something change since before" — so a
+    -- later, unrelated command changing the buffer again is never misread as
+    -- proof that this one succeeded. The only residual edge case — a later
+    -- command coincidentally targeting the exact same filename this one did,
+    -- inside that same tiny window — would make this command look like it
+    -- succeeded when it didn't, but that means the user is already mid-bounce
+    -- between those exact two files, which is exactly the behavior this
+    -- feature exists to catch; treating it as a real switch is a harmless,
+    -- self-correcting outcome, not a false positive. In real interactive use
+    -- (as opposed to synthetic back-to-back feedkeys in tests) this window
+    -- also never matters: typing a full second ":e file<CR>" takes far more
+    -- real keystrokes/IO than one main-loop tick.
     local word, arg = patterns_cmdline.command_arg(text)
-    local pingpong_result = patterns_cmdline.feed_pingpong(pingpong_seq, word, arg)
-    if pingpong_result and M.on_pattern then
-      M.on_pattern(pingpong_result.pattern, pingpong_result.cmd)
+    if PINGPONG_WORDS[word] and arg then
+      local target = vim.fn.fnamemodify(arg, ':p')
+      vim.schedule(function()
+        if vim.fn.expand('%:p') ~= target then
+          return -- rejected, or never actually switched to this file
+        end
+        local pingpong_result = patterns_cmdline.feed_pingpong(pingpong_seq, word, arg)
+        if pingpong_result and M.on_pattern then
+          M.on_pattern(pingpong_result.pattern, pingpong_result.cmd)
+        end
+      end)
     end
     return
   end

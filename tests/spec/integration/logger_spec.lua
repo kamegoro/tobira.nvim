@@ -1282,12 +1282,21 @@ describe(':e/:b file ping-pong detection (#114)', function()
       table.insert(fired, { pattern = pattern, cmd = cmd })
     end
 
+    -- The actual credit for each switch is now deferred (vim.schedule, #114
+    -- verify-before-credit fix), so each command needs a short vim.wait()
+    -- before the next one starts -- otherwise multiple pending callbacks
+    -- would all resolve at once, against whatever buffer is current by then,
+    -- rather than each against the buffer immediately after ITS OWN command
+    -- (see logger.lua's handle_cmdline_key comment on vim.schedule ordering).
     pcall(vim.fn.feedkeys, ':e tobira_pingpong_a.txt' .. cr, 'xt')
     vim.api.nvim_feedkeys('', 'x', false)
+    vim.wait(20)
     pcall(vim.fn.feedkeys, ':e tobira_pingpong_b.txt' .. cr, 'xt')
     vim.api.nvim_feedkeys('', 'x', false)
+    vim.wait(20)
     pcall(vim.fn.feedkeys, ':e tobira_pingpong_a.txt' .. cr, 'xt')
     vim.api.nvim_feedkeys('', 'x', false)
+    vim.wait(20)
 
     local found = nil
     for _, f in ipairs(fired) do
@@ -1307,10 +1316,13 @@ describe(':e/:b file ping-pong detection (#114)', function()
 
     pcall(vim.fn.feedkeys, ':e tobira_pingpong_c.txt' .. cr, 'xt')
     vim.api.nvim_feedkeys('', 'x', false)
+    vim.wait(20)
     pcall(vim.fn.feedkeys, ':e tobira_pingpong_d.txt' .. cr, 'xt')
     vim.api.nvim_feedkeys('', 'x', false)
+    vim.wait(20)
     pcall(vim.fn.feedkeys, ':b tobira_pingpong_c.txt' .. cr, 'xt')
     vim.api.nvim_feedkeys('', 'x', false)
+    vim.wait(20)
 
     local found = nil
     for _, f in ipairs(fired) do
@@ -1339,6 +1351,7 @@ describe(':e/:b file ping-pong detection (#114)', function()
     for _, name in ipairs(files) do
       pcall(vim.fn.feedkeys, ':e ' .. name .. cr, 'xt')
       vim.api.nvim_feedkeys('', 'x', false)
+      vim.wait(20)
     end
 
     for _, pattern in ipairs(fired) do
@@ -1347,10 +1360,20 @@ describe(':e/:b file ping-pong detection (#114)', function()
   end)
 
   it('resets the ping-pong history on logger.reset()', function()
+    -- Each command's deferred verification (#114 fix) must settle BEFORE
+    -- logger.reset() reassigns the module-local pingpong_seq -- otherwise
+    -- these two commands' still-pending callbacks would run against the
+    -- fresh post-reset seq instead of the one they belong to. In real usage
+    -- there's no way for a stale callback to still be pending by the time a
+    -- user deliberately runs :TobiraReset (see logger.lua's ordering
+    -- comment); this vim.wait() only recreates that natural settling point
+    -- for a synthetic back-to-back test.
     pcall(vim.fn.feedkeys, ':e tobira_pingpong_h.txt' .. cr, 'xt')
     vim.api.nvim_feedkeys('', 'x', false)
+    vim.wait(20)
     pcall(vim.fn.feedkeys, ':e tobira_pingpong_i.txt' .. cr, 'xt')
     vim.api.nvim_feedkeys('', 'x', false)
+    vim.wait(20)
 
     logger.reset()
     logger.setup()
@@ -1364,8 +1387,55 @@ describe(':e/:b file ping-pong detection (#114)', function()
     -- treated as only the 2nd switch ever, in a fresh history.
     pcall(vim.fn.feedkeys, ':e tobira_pingpong_h.txt' .. cr, 'xt')
     vim.api.nvim_feedkeys('', 'x', false)
+    vim.wait(20)
 
     assert.equals(0, #fired, 'ping-pong history must not survive logger.reset()')
+  end)
+
+  -- Regression test for a QA-found false positive (#114 follow-up): tokenize()/
+  -- command_arg() only see the TEXT of the submitted :e/:b command, read at
+  -- <CR> time before Neovim has validated or executed it. Typing and
+  -- submitting the command is not the same thing as the file switch actually
+  -- happening -- Neovim can still reject it outright. This reproduces the
+  -- exact rejected-command shape and confirms no switch is ever credited
+  -- unless it really happened.
+  it('does not fire when the file switches were rejected by Neovim, not real bounces', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+
+    -- 1) :e alpha.txt -- a real, successful switch.
+    pcall(vim.fn.feedkeys, ':e tobira_pingpong_reject_alpha.txt' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.wait(20)
+
+    -- 2) Dirty edit, never saved.
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'unsaved change' })
+    assert.is_true(vim.bo.modified)
+
+    -- 3) :b gamma.txt -- gamma.txt was never opened, so Neovim rejects this
+    --    with E94 ("No matching buffer"). The current buffer stays alpha.txt.
+    local ok_b = pcall(vim.fn.feedkeys, ':b tobira_pingpong_reject_gamma.txt' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.wait(20)
+    assert.is_false(ok_b, 'expected :b on a never-opened name to raise E94')
+    assert.equals('tobira_pingpong_reject_alpha.txt', vim.fn.bufname('%'))
+
+    -- 4) :e alpha.txt again, still dirty and without ! -- Neovim rejects this
+    --    with E37 ("No write since last change"). The buffer never reloads.
+    local ok_e = pcall(vim.fn.feedkeys, ':e tobira_pingpong_reject_alpha.txt' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.wait(20)
+    assert.is_false(ok_e, 'expected :e on a dirty buffer without ! to raise E37')
+    assert.equals('tobira_pingpong_reject_alpha.txt', vim.fn.bufname('%'))
+
+    -- Only one real switch ever happened (step 1). Textually this looks like
+    -- alpha -> gamma -> alpha, but no bounce actually occurred, so
+    -- ex_file_pingpong must never fire.
+    for _, f in ipairs(fired) do
+      assert.are_not.equal('ex_file_pingpong', f.pattern, 'a rejected :e/:b must never be credited as a real file switch')
+    end
   end)
 end)
 
