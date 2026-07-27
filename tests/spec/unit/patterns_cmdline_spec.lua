@@ -6,7 +6,7 @@ local patterns_cmdline = require('tobira.core.patterns_cmdline')
 -- or nil when the text is empty / unparseable. No vim.* calls — see
 -- lua/tobira/CLAUDE.md's "Module splitting policy".
 
-describe('patterns_cmdline.tokenize', function()
+describe('when classifying the text of a command-line buffer into a semantic command name', function()
   it('returns ex:s for a plain substitute command', function()
     assert.equals('ex:s', patterns_cmdline.tokenize('s/foo/bar/g'))
   end)

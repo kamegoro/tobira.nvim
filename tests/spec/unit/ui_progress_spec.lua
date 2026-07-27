@@ -503,7 +503,7 @@ end)
 
 -- ── preview strip: M.preview_lines (#67) ─────────────────────────────────────
 
-describe('M.preview_lines when no item is under the cursor', function()
+describe('when no item is under the cursor', function()
   it('returns two blank lines', function()
     local l1, l2 = progress.preview_lines(nil, {})
     assert.equals('', l1)
@@ -511,7 +511,7 @@ describe('M.preview_lines when no item is under the cursor', function()
   end)
 end)
 
-describe('M.preview_lines for a never-tried item', function()
+describe('when previewing an item that has never been tried', function()
   it('shows the never_tried status tag', function()
     local skills = require('tobira.core.skills')
     local item = { id = ';', keys = ';', adopted = ';' }
@@ -522,7 +522,7 @@ describe('M.preview_lines for a never-tried item', function()
   end)
 end)
 
-describe('M.preview_lines for a learning item (used, not mastered)', function()
+describe('when previewing an item that has been used but not yet mastered', function()
   it('shows the learning status tag and distance to the next milestone', function()
     local loc = require('tobira.i18n').load()
     local item = { id = ';', keys = ';', adopted = ';' }
@@ -535,7 +535,7 @@ describe('M.preview_lines for a learning item (used, not mastered)', function()
   end)
 end)
 
-describe('M.preview_lines for a mastered item', function()
+describe('when previewing a mastered item', function()
   it('shows the mastered status tag and no distance text', function()
     local loc = require('tobira.i18n').load()
     local item = { id = ';', keys = ';', adopted = ';' }
@@ -546,7 +546,7 @@ describe('M.preview_lines for a mastered item', function()
   end)
 end)
 
-describe('M.preview_lines for a forgotten item', function()
+describe('when previewing an item that has been forgotten', function()
   it('shows the forgotten status tag', function()
     local loc = require('tobira.i18n').load()
     local item = { id = ';', keys = ';', adopted = ';' }
@@ -566,7 +566,7 @@ describe('M.preview_lines for a forgotten item', function()
   end)
 end)
 
-describe('M.preview_lines for a composite item', function()
+describe('when previewing a composite (multi-key) item', function()
   it('does not error and shows the composite label', function()
     local item = { id = 'hjkl', keys = 'hjkl', track = { 'h', 'j', 'k', 'l' } }
     local ok, l1 = pcall(progress.preview_lines, item, {})
@@ -575,7 +575,7 @@ describe('M.preview_lines for a composite item', function()
   end)
 end)
 
-describe('M.preview_lines for an item with a title in the locale', function()
+describe('when previewing an item that has a title defined in the locale', function()
   it('shows the description part of the title, not the raw title', function()
     local loc = require('tobira.i18n').load()
     local item = { id = 'cw', keys = 'cw', adopted = 'cw' }
@@ -588,7 +588,7 @@ end)
 -- ── preview strip: key/description gap (#154, regression for the bug the #110 ─
 -- Terminal entry exposed) ─────────────────────────────────────────────────────
 
-describe('M.preview_lines for a short key (under the padding width)', function()
+describe('when previewing an item whose key is shorter than the padding width', function()
   it('pads the key out to the aligned column before the description', function()
     local loc = require('tobira.i18n').load()
     local item = { id = 'cw', keys = 'cw', adopted = 'cw' }
@@ -598,7 +598,7 @@ describe('M.preview_lines for a short key (under the padding width)', function()
   end)
 end)
 
-describe('M.preview_lines for a key at or beyond the padding width', function()
+describe('when previewing an item whose key is at or beyond the padding width', function()
   it('still separates the key from the description with a non-zero gap', function()
     local loc = require('tobira.i18n').load()
     local cases = { '<C-\\><C-n>', '<C-w>q', 'g<C-a>' }

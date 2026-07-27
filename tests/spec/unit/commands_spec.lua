@@ -582,7 +582,7 @@ describe("the 'i_<C-o>' registry entry (insert-mode <C-o>, #105)", function()
   end)
 end)
 
-describe('commands.display_key', function()
+describe('when converting a registry key into the form shown in the UI', function()
   it('strips the i_ disambiguation prefix so the UI shows the real keystroke', function()
     assert.equals('<C-o>', commands.display_key('i_<C-o>'))
   end)
