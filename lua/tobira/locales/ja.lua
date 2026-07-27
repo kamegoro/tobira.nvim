@@ -121,6 +121,7 @@ return {
       manual_return = '遠くへジャンプした後、手動でスクロールして戻りました',
       changelist_return = '2箇所を編集した後、手動でスクロールして最初の場所を探しました',
       terminal_esc_repeat = 'ターミナルモードで <Esc> を2回連続で押しましたが何も起きませんでした',
+      ex_file_pingpong = ':e / :b で同じ2つのファイルを何度も行き来しました',
     },
   },
   -- 提案フロートと :TobiraProgress に表示する文字列。

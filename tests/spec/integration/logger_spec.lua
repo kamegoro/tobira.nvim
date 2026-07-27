@@ -1250,6 +1250,125 @@ describe("Ex command tracking excludes tobira's own commands", function()
   end)
 end)
 
+-- ── :e/:b file ping-pong detection (#114) ────────────────────────────────────
+-- Wires patterns_cmdline.command_arg()/feed_pingpong() into the same <CR>
+-- handling handle_cmdline_key already does for tokenize() (#57). Real :e/:b
+-- commands are run against buffer names that don't exist on disk yet, which
+-- is safe in headless Neovim: :e just opens a new in-memory buffer with that
+-- name, and :b only needs a same-named buffer to already exist (created by
+-- an earlier :e in the same test), so nothing ever touches the filesystem.
+
+describe(':e/:b file ping-pong detection (#114)', function()
+  local cr = vim.api.nvim_replace_termcodes('<CR>', true, true, true)
+
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    logger.on_pattern = nil
+    logger.setup()
+    vim.cmd('enew!')
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+    if vim.fn.mode() ~= 'n' then
+      pcall(vim.api.nvim_input, vim.api.nvim_replace_termcodes('<Esc>', true, true, true))
+    end
+  end)
+
+  it('fires ex_file_pingpong suggesting <C-^> when bouncing :e A -> :e B -> :e A', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+
+    pcall(vim.fn.feedkeys, ':e tobira_pingpong_a.txt' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    pcall(vim.fn.feedkeys, ':e tobira_pingpong_b.txt' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    pcall(vim.fn.feedkeys, ':e tobira_pingpong_a.txt' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+
+    local found = nil
+    for _, f in ipairs(fired) do
+      if f.pattern == 'ex_file_pingpong' then
+        found = f
+      end
+    end
+    assert.is_not_nil(found, 'expected ex_file_pingpong to fire on the A -> B -> A bounce')
+    assert.equals('<C-^>', found.cmd)
+  end)
+
+  it('fires when the return trip is via :b instead of :e', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+
+    pcall(vim.fn.feedkeys, ':e tobira_pingpong_c.txt' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    pcall(vim.fn.feedkeys, ':e tobira_pingpong_d.txt' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    pcall(vim.fn.feedkeys, ':b tobira_pingpong_c.txt' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+
+    local found = nil
+    for _, f in ipairs(fired) do
+      if f.pattern == 'ex_file_pingpong' then
+        found = f
+      end
+    end
+    assert.is_not_nil(found, 'expected :b to count toward the same ping-pong rotation as :e')
+    assert.equals('<C-^>', found.cmd)
+  end)
+
+  it('does not fire when switching between 3+ different files', function()
+    local fired = {}
+    logger.on_pattern = function(pattern)
+      table.insert(fired, pattern)
+    end
+
+    local files = {
+      'tobira_pingpong_e.txt',
+      'tobira_pingpong_f.txt',
+      'tobira_pingpong_g.txt',
+      'tobira_pingpong_e.txt',
+      'tobira_pingpong_f.txt',
+      'tobira_pingpong_g.txt',
+    }
+    for _, name in ipairs(files) do
+      pcall(vim.fn.feedkeys, ':e ' .. name .. cr, 'xt')
+      vim.api.nvim_feedkeys('', 'x', false)
+    end
+
+    for _, pattern in ipairs(fired) do
+      assert.are_not.equal('ex_file_pingpong', pattern, 'a 3+ file rotation must never fire the 2-file ping-pong')
+    end
+  end)
+
+  it('resets the ping-pong history on logger.reset()', function()
+    pcall(vim.fn.feedkeys, ':e tobira_pingpong_h.txt' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    pcall(vim.fn.feedkeys, ':e tobira_pingpong_i.txt' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+
+    logger.reset()
+    logger.setup()
+
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+    -- Without the reset, this would be the 3rd distinct-file switch relative
+    -- to the two :e calls above and would fire; after reset it must be
+    -- treated as only the 2nd switch ever, in a fresh history.
+    pcall(vim.fn.feedkeys, ':e tobira_pingpong_h.txt' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+
+    assert.equals(0, #fired, 'ping-pong history must not survive logger.reset()')
+  end)
+end)
+
 -- (stats rendering has moved to tests/spec/unit/ui_stats_spec.lua)
 
 -- ── save ─────────────────────────────────────────────────────────────────────

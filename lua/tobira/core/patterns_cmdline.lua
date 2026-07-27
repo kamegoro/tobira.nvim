@@ -97,4 +97,127 @@ function M.tokenize(text)
   return nil
 end
 
+-- Argument-aware counterpart to tokenize() (#114): tokenize() deliberately
+-- discards everything after the command word (see its header comment — #57's
+-- scope never needed it), but the ex_file_pingpong detector below needs the
+-- filename argument itself to tell :e A apart from :e B. Reuses the same
+-- strip_range() range handling so a leading range prefix never leaks into
+-- the returned argument, same as tokenize().
+--
+-- Returns word, arg: word is the lowercased command word (same casing rule
+-- as tokenize()); arg is the trimmed remainder, or nil if there wasn't one
+-- (a bare ":e" / ":b" with no filename). Returns nil, nil for anything
+-- tokenize() itself would return nil for (empty / unparseable / range-only
+-- input).
+function M.command_arg(text)
+  if not text then
+    return nil, nil
+  end
+
+  local trimmed = text:match('^%s*(.-)%s*$')
+  if trimmed == '' then
+    return nil, nil
+  end
+
+  local rest = strip_range(trimmed)
+  if rest == '' then
+    return nil, nil
+  end
+
+  local word, remainder = rest:match('^(%a+)(.*)$')
+  if not word then
+    return nil, nil
+  end
+
+  -- A force-bang (:e!, :b!, ...) sits directly after the command word, before
+  -- any argument. Strip it so it never ends up glued onto the argument.
+  remainder = remainder:gsub('^!', '', 1)
+  local arg = remainder:match('^%s*(.-)%s*$')
+  if arg == '' then
+    arg = nil
+  end
+
+  return word:lower(), arg
+end
+
+-- Ex-command ping-pong detection (#114): a user repeatedly bouncing between
+-- the same two files via :e/:b — :e A -> :e B -> :e A (or the equivalent
+-- with :b) — is a direct signal for <C-^>, which jumps straight to the
+-- alternate file in one keystroke. New state kept in this same file rather
+-- than a new sibling one: per lua/tobira/CLAUDE.md's module-splitting
+-- policy, the deciding question is call path, not shared state, and this is
+-- fed from the exact same place tokenize()/command_arg() are (logger.lua's
+-- handle_cmdline_key, at <CR> time) even though it shares no actual state
+-- with either.
+--
+-- Deliberately literal command words only ('e', 'b'), not abbreviation
+-- expansion (:edit, :ed, :buffer, :bu, ...) -- tokenize() above makes the
+-- same "no abbreviation table" call for the same reason (see its header):
+-- this feature's acceptance criteria only exercise :e/:b directly, and
+-- reimplementing Vim's abbreviation-disambiguation table is a lot of surface
+-- area this feature doesn't need. Revisit if usage data ever shows real
+-- users typing :edit/:buffer for this specific habit.
+--
+-- Coexistence with other <C-^> triggers: this is deliberately one signal
+-- among potentially several that can all suggest the same '<C-^>' command
+-- (e.g. a hypothetical :tabnew-habit-based trigger) -- pattern.cmd is just
+-- '<C-^>' like any other reactive pattern, so on_pattern/suggest.lua need no
+-- special-casing to let two independent detectors share one suggested
+-- command; commands.lua has exactly one '<C-^>' registry entry regardless of
+-- how many patterns can recommend it. The only per-trigger difference is the
+-- "why am I seeing this" reason line: 'ex_file_pingpong' gets its own
+-- locales/*.lua float.reasons entry distinct from any other trigger's,
+-- while the suggestion's title/body/example (locales/*.lua
+-- suggestions['<C-^>']) stay shared, since what the command DOES doesn't
+-- change based on how tobira noticed you needed it.
+local PINGPONG_COMMANDS = { e = true, b = true }
+
+-- Only remembers the two most recently *distinct* filenames touched via
+-- :e/:b, not a full history: this is what makes bouncing among 3+ different
+-- files never satisfy "is this the file from two switches ago" below (a
+-- genuinely third file always overwrites the older of the two remembered
+-- names, permanently forgetting it for this rotation).
+function M.new_pingpong_seq()
+  return { first = nil, second = nil, fired = false }
+end
+
+-- word: lowercased Ex command word, as returned by command_arg() above.
+-- arg: the trimmed filename argument, or nil if there wasn't one.
+-- Returns { pattern = 'ex_file_pingpong', cmd = '<C-^>' } the moment the
+-- just-typed filename returns to the file used two distinct switches ago;
+-- nil otherwise.
+function M.feed_pingpong(seq, word, arg)
+  if not (PINGPONG_COMMANDS[word] and arg) then
+    return nil
+  end
+
+  if arg == seq.second then
+    -- Reopening the file that's already current isn't a new switch; leave
+    -- the two-file history (and the fired latch below) untouched so an
+    -- in-progress or already-fired rotation is never disturbed by it.
+    return nil
+  end
+
+  -- True the moment this switch returns to the file used two distinct
+  -- switches ago -- exactly the ':e A' -> ':e B' -> ':e A' shape. Computed
+  -- from state as it stood BEFORE this call updates it below.
+  local is_return = arg == seq.first and seq.second ~= nil
+  local should_fire = is_return and not seq.fired
+
+  seq.first = seq.second
+  seq.second = arg
+  -- Latches true for as long as the user keeps bouncing between exactly
+  -- these two files, so continuing to alternate never re-fires the
+  -- suggestion on every single switch -- the same "fire once per streak"
+  -- precedent as patterns_terminal.lua's terminal_esc_repeat. A switch to a
+  -- genuinely third file clears it, re-arming detection for the next
+  -- two-file rotation.
+  seq.fired = is_return
+
+  if should_fire then
+    return { pattern = 'ex_file_pingpong', cmd = '<C-^>' }
+  end
+  return nil
+end
+
 return M

@@ -374,6 +374,13 @@ end
 
 local terminal_seq = patterns_terminal.new_terminal_seq()
 
+-- :e/:b file ping-pong detection (#114). Persistent module-level state, like
+-- seq/insert_seq/terminal_seq above -- but unlike those, handle_cmdline_key
+-- must NOT reset it on every cmdline keystroke, since the whole point is to
+-- remember the last two distinct files across separate Ex commands typed
+-- minutes apart. Only touched at <CR> time, alongside tokenize().
+local pingpong_seq = patterns_cmdline.new_pingpong_seq()
+
 local _recording_macro = false
 
 -- Raw bytes for the two ways an Ex command line can end (#57). <C-c> is
@@ -436,9 +443,21 @@ local function handle_cmdline_key(key)
   end
 
   if key == CMDLINE_CR then
-    local name = patterns_cmdline.tokenize(vim.fn.getcmdline())
+    local text = vim.fn.getcmdline()
+    local name = patterns_cmdline.tokenize(text)
     if name and name:sub(1, #OWN_CMD_PREFIX) ~= OWN_CMD_PREFIX then
       increment(name)
+    end
+
+    -- #114: independent of the usage-count tracking above -- command_arg()
+    -- re-parses the same cmdline text for the filename argument tokenize()
+    -- discards by design (see tokenize()'s header). A reactive pattern, like
+    -- patterns_insert/patterns_terminal's results below: reported via
+    -- on_pattern immediately rather than waiting on a usage-count threshold.
+    local word, arg = patterns_cmdline.command_arg(text)
+    local pingpong_result = patterns_cmdline.feed_pingpong(pingpong_seq, word, arg)
+    if pingpong_result and M.on_pattern then
+      M.on_pattern(pingpong_result.pattern, pingpong_result.cmd)
     end
     return
   end
@@ -768,6 +787,7 @@ function M.reset()
   seq = patterns.new_seq()
   insert_seq = patterns_insert.new_insert_seq()
   terminal_seq = patterns_terminal.new_terminal_seq()
+  pingpong_seq = patterns_cmdline.new_pingpong_seq()
   current_mode = 'n'
   _recording_macro = false
   _initialized = false
