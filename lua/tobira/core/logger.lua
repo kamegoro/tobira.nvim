@@ -459,9 +459,9 @@ local function handle_cmdline_key(key)
     -- PREVIOUS :tabnew in the streak opened, not the one this keystroke is
     -- about to create.
     if name == 'ex:tabnew' then
-      local has_arg = patterns_cmdline.command_arg(text) ~= ''
+      local arg = patterns_cmdline.command_arg(text)
       local win_count = #vim.api.nvim_tabpage_list_wins(0)
-      local result = patterns_cmdline.feed_tabnew(tabnew_seq, has_arg, win_count)
+      local result = patterns_cmdline.feed_tabnew(tabnew_seq, arg, win_count)
       if result and M.on_pattern then
         M.on_pattern(result.pattern, result.cmd)
       end

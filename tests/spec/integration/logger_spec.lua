@@ -1332,6 +1332,26 @@ describe('tabnew one-file-per-tab habit detection (#113)', function()
     tabnew('a.txt')
     assert.is_true(logger.get('ex:tabnew').count > 0)
   end)
+
+  -- Regression (QA): opening the exact same file 3x via :tabnew used to fire
+  -- the suggestion anyway, because the pre-fix implementation only tracked
+  -- whether :tabnew was given SOME argument, never which filename. Vim
+  -- reuses the existing buffer for a file already open in another tab, so
+  -- this scenario only ever has 1 real buffer — the resulting :b / <C-^>
+  -- suggestion made no sense. See patterns_cmdline.feed_tabnew's doc comment
+  -- for the fix (threading the actual filename, resetting on a repeat).
+  it('does not fire when the exact same file is opened via :tabnew repeatedly', function()
+    local fired_pattern = nil
+    logger.on_pattern = function(pattern)
+      fired_pattern = pattern
+    end
+
+    tabnew('samefile.txt')
+    tabnew('samefile.txt')
+    tabnew('samefile.txt')
+
+    assert.is_nil(fired_pattern, 'reopening a file already open in another tab is not one-tab-per-file browsing')
+  end)
 end)
 
 -- (stats rendering has moved to tests/spec/unit/ui_stats_spec.lua)

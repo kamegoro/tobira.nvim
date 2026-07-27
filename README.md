@@ -142,7 +142,7 @@ require("tobira").setup({
 | `<Esc>` × 2 in terminal mode, no effect | `<C-\><C-n>` — exit terminal mode |
 | `G`, then scroll back manually | `<C-o>` — jump back to where you were |
 | Edit here, edit there, scroll back manually | `g;` — jump to your last edit |
-| `:tabnew {file}` × 3, one tab each | `<C-^>` — switch buffers instead of opening a tab per file |
+| `:tabnew {distinct file}` × 3, one tab each | `<C-^>` — switch buffers instead of opening a tab per file |
 
 52 patterns total — see `:help tobira-patterns` for the full list.
 

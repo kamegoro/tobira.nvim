@@ -303,12 +303,16 @@ TERMINAL MODE ~
 
 EX COMMANDS ~
 
-  `:tabnew {file}` × 3, one window per tab
+  `:tabnew {distinct file}` × 3, one window per tab
                                Suggest `<C-^>` — switch buffers instead of a
                                  tab per file (a window split inside any of
                                  the tabs resets the count — that is a
                                  legitimate multi-window layout, not
-                                 one-tab-per-file browsing)
+                                 one-tab-per-file browsing. Re-opening a file
+                                 you already have open in another tab also
+                                 resets the count, rather than counting
+                                 toward it — Vim reuses the existing buffer,
+                                 so that is not "another file" either)
 
 ==============================================================================
 vim:tw=78:ts=8:ft=help:norl:

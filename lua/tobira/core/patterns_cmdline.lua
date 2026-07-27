@@ -149,11 +149,29 @@ end
 -- complete no-op for this streak, not a reset, since it says nothing about
 -- window layout either way). Evidence passed in at each call:
 --
---   has_arg: true only when :tabnew was given a file argument (see
---     M.command_arg above) — a bare ":tabnew" opens an empty scratch tab,
---     not "one more file browsed", so it resets the streak rather than
---     silently ignoring it: the user just demonstrated they are not
---     currently doing the file-per-tab thing.
+--   arg: the trimmed file argument text (M.command_arg's return value), or
+--     '' when :tabnew was given no argument at all — a bare ":tabnew" opens
+--     an empty scratch tab, not "one more file browsed", so it resets the
+--     streak rather than silently ignoring it: the user just demonstrated
+--     they are not currently doing the file-per-tab thing.
+--
+--     A non-empty arg only advances the streak the FIRST time that exact
+--     filename is seen among the tabs opened so far in the current streak
+--     (tracked in seq.files). This feature's own name is "one-tab-per-FILE"
+--     — Vim reuses the existing buffer when you :tabnew a file that is
+--     already open elsewhere, so there is only ever 1 real buffer behind a
+--     repeated filename, which makes the ":b" / "<C-^>" suggestion this
+--     streak leads to nonsensical (bug reported by QA: opening the same
+--     file 3x via :tabnew used to fire the suggestion anyway, because the
+--     pre-fix version only tracked whether *some* argument was given, never
+--     which one). A repeat RESETS the streak (like the bare-:tabnew case
+--     above) rather than merely being ignored: re-opening a file you already
+--     have open in another tab is a different, unrelated habit — evidence
+--     the user is not (right now) doing one-tab-per-file browsing — not
+--     neutral evidence that deserves to be skipped over. The repeat itself
+--     is not retroactively counted as the first file of a new streak either,
+--     for the same reason a bare :tabnew doesn't count itself: it isn't a
+--     new file being browsed.
 --
 --   win_count: the window count of the CURRENT tabpage, read by the caller
 --     via vim.api.nvim_tabpage_list_wins (logger.lua — patterns_cmdline.lua
@@ -167,14 +185,24 @@ end
 --     before the first :tabnew of a streak (seq.streak == 0, nothing yet to
 --     verify); callers may pass any value in that case.
 function M.new_tabnew_seq()
-  return { streak = 0 }
+  return { streak = 0, files = {} }
 end
 
 local TABNEW_STREAK_THRESHOLD = 3
 
-function M.feed_tabnew(seq, has_arg, win_count)
-  if not has_arg then
+function M.feed_tabnew(seq, arg, win_count)
+  if arg == '' then
     seq.streak = 0
+    seq.files = {}
+    return nil
+  end
+
+  if seq.files[arg] then
+    -- Same filename already seen earlier in this streak: reusing an
+    -- existing buffer, not browsing a new file — reset (see this file's
+    -- feed_tabnew doc comment for why reset, not ignore).
+    seq.streak = 0
+    seq.files = {}
     return nil
   end
 
@@ -186,11 +214,14 @@ function M.feed_tabnew(seq, has_arg, win_count)
     -- through to the streak = streak + 1 below), it just cannot build on
     -- the broken one.
     seq.streak = 0
+    seq.files = {}
   end
 
   seq.streak = seq.streak + 1
+  seq.files[arg] = true
   if seq.streak >= TABNEW_STREAK_THRESHOLD then
     seq.streak = 0
+    seq.files = {}
     return { pattern = 'tabnew_run', cmd = '<C-^>' }
   end
   return nil

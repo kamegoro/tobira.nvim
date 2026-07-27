@@ -123,58 +123,106 @@ end)
 -- new_tabnew_seq()/feed_tabnew() form a second, independent state machine in
 -- this same file (see patterns_cmdline.lua's module comment for why this
 -- lives here rather than a new sibling file). feed_tabnew() is fed evidence
--- gathered at each ":tabnew" <CR> submission: whether a file argument was
--- given, and the window count of the tabpage this invocation is about to
--- leave (read by the caller — see logger.lua).
+-- gathered at each ":tabnew" <CR> submission: the trimmed file argument text
+-- (from command_arg() above, '' when there is none), and the window count of
+-- the tabpage this invocation is about to leave (read by the caller — see
+-- logger.lua).
+--
+-- The feature's own name is "one-tab-per-FILE" — feed_tabnew() only counts an
+-- argument toward the streak the first time that exact filename appears in
+-- it. Every test below therefore uses distinct filenames ('a.txt', 'b.txt',
+-- ...) unless a test is specifically about the repeated-filename case.
 describe('patterns_cmdline tabnew one-file-per-tab habit detection (#113)', function()
   it('does not fire on the first two tabnew calls', function()
     local seq = patterns_cmdline.new_tabnew_seq()
-    assert.is_nil(patterns_cmdline.feed_tabnew(seq, true, 1))
-    assert.is_nil(patterns_cmdline.feed_tabnew(seq, true, 1))
+    assert.is_nil(patterns_cmdline.feed_tabnew(seq, 'a.txt', 1))
+    assert.is_nil(patterns_cmdline.feed_tabnew(seq, 'b.txt', 1))
   end)
 
   it('fires tabnew_run, suggesting <C-^>, on the 3rd tabnew call when every prior tab stayed single-window', function()
     local seq = patterns_cmdline.new_tabnew_seq()
-    patterns_cmdline.feed_tabnew(seq, true, 1)
-    patterns_cmdline.feed_tabnew(seq, true, 1)
-    local result = patterns_cmdline.feed_tabnew(seq, true, 1)
+    patterns_cmdline.feed_tabnew(seq, 'a.txt', 1)
+    patterns_cmdline.feed_tabnew(seq, 'b.txt', 1)
+    local result = patterns_cmdline.feed_tabnew(seq, 'c.txt', 1)
     assert.equals('tabnew_run', result.pattern)
     assert.equals('<C-^>', result.cmd)
   end)
 
   it('does not fire again immediately after firing (streak resets)', function()
     local seq = patterns_cmdline.new_tabnew_seq()
-    patterns_cmdline.feed_tabnew(seq, true, 1)
-    patterns_cmdline.feed_tabnew(seq, true, 1)
-    patterns_cmdline.feed_tabnew(seq, true, 1) -- fires here
-    assert.is_nil(patterns_cmdline.feed_tabnew(seq, true, 1))
+    patterns_cmdline.feed_tabnew(seq, 'a.txt', 1)
+    patterns_cmdline.feed_tabnew(seq, 'b.txt', 1)
+    patterns_cmdline.feed_tabnew(seq, 'c.txt', 1) -- fires here
+    assert.is_nil(patterns_cmdline.feed_tabnew(seq, 'd.txt', 1))
   end)
 
   it('does not extend the streak for a bare :tabnew with no file argument', function()
     local seq = patterns_cmdline.new_tabnew_seq()
-    patterns_cmdline.feed_tabnew(seq, true, 1)
-    assert.is_nil(patterns_cmdline.feed_tabnew(seq, false, 1))
-    patterns_cmdline.feed_tabnew(seq, true, 1)
+    patterns_cmdline.feed_tabnew(seq, 'a.txt', 1)
+    assert.is_nil(patterns_cmdline.feed_tabnew(seq, '', 1))
+    patterns_cmdline.feed_tabnew(seq, 'b.txt', 1)
     -- streak is only 2 (the bare tabnew reset it) — one more call is needed
-    assert.is_nil(patterns_cmdline.feed_tabnew(seq, true, 1))
+    assert.is_nil(patterns_cmdline.feed_tabnew(seq, 'c.txt', 1))
   end)
 
   it('does not fire when an earlier tabnew-opened tab picked up a second window (e.g. a :split)', function()
     local seq = patterns_cmdline.new_tabnew_seq()
-    patterns_cmdline.feed_tabnew(seq, true, 1) -- tab 1 opened
+    patterns_cmdline.feed_tabnew(seq, 'a.txt', 1) -- tab 1 opened
     -- tab 1 now has 2 windows (a :split happened) by the time tab 2's tabnew fires
-    patterns_cmdline.feed_tabnew(seq, true, 2)
-    local result = patterns_cmdline.feed_tabnew(seq, true, 1)
+    patterns_cmdline.feed_tabnew(seq, 'b.txt', 2)
+    local result = patterns_cmdline.feed_tabnew(seq, 'c.txt', 1)
     assert.is_nil(result, 'the split should have reset the streak, not counted toward it')
   end)
 
   it('resumes counting from the tabnew right after a window split reset the streak', function()
     local seq = patterns_cmdline.new_tabnew_seq()
-    patterns_cmdline.feed_tabnew(seq, true, 1)
-    patterns_cmdline.feed_tabnew(seq, true, 2) -- split detected, streak resets to 1
-    patterns_cmdline.feed_tabnew(seq, true, 1) -- streak 2
-    local result = patterns_cmdline.feed_tabnew(seq, true, 1) -- streak 3, fires
+    patterns_cmdline.feed_tabnew(seq, 'a.txt', 1)
+    patterns_cmdline.feed_tabnew(seq, 'b.txt', 2) -- split detected, streak resets to 1
+    patterns_cmdline.feed_tabnew(seq, 'c.txt', 1) -- streak 2
+    local result = patterns_cmdline.feed_tabnew(seq, 'd.txt', 1) -- streak 3, fires
     assert.equals('tabnew_run', result.pattern)
     assert.equals('<C-^>', result.cmd)
+  end)
+
+  -- ── regression: repeated filename must not count as "another file" (QA) ──
+  -- Bug: feed_tabnew() used to receive only a has_arg boolean, so re-opening
+  -- the exact same file 3 times via :tabnew fired the "switch to buffers"
+  -- suggestion even though Vim reuses the existing buffer for a file already
+  -- open — there is only ever 1 real buffer in that scenario, making the
+  -- :b / <C-^> suggestion nonsensical. The fix threads the actual filename
+  -- through and resets the streak the moment a repeat is seen: re-opening a
+  -- file you already have open in another tab is a different, unrelated
+  -- habit, not "one-tab-per-file browsing" (see patterns_cmdline.lua's
+  -- feed_tabnew doc comment for the full reasoning).
+  describe('when the exact same filename is opened via :tabnew repeatedly', function()
+    it('never fires no matter how many times the same file is reopened', function()
+      local seq = patterns_cmdline.new_tabnew_seq()
+      assert.is_nil(patterns_cmdline.feed_tabnew(seq, 'samefile.txt', 1))
+      assert.is_nil(patterns_cmdline.feed_tabnew(seq, 'samefile.txt', 1))
+      assert.is_nil(patterns_cmdline.feed_tabnew(seq, 'samefile.txt', 1))
+    end)
+
+    it('resets the streak (not merely ignores the repeat) — 2 distinct files after a repeat do not fire', function()
+      local seq = patterns_cmdline.new_tabnew_seq()
+      patterns_cmdline.feed_tabnew(seq, 'a.txt', 1)
+      patterns_cmdline.feed_tabnew(seq, 'a.txt', 1) -- repeat: resets the streak to 0
+      patterns_cmdline.feed_tabnew(seq, 'b.txt', 1)
+      local result = patterns_cmdline.feed_tabnew(seq, 'c.txt', 1)
+      assert.is_nil(
+        result,
+        'if the repeat had merely been ignored (streak left at 1) these 2 more distinct files would have reached 3 and fired'
+      )
+    end)
+
+    it('fires once 3 full distinct files follow the reset, proving the reset truly zeroed the streak', function()
+      local seq = patterns_cmdline.new_tabnew_seq()
+      patterns_cmdline.feed_tabnew(seq, 'a.txt', 1)
+      patterns_cmdline.feed_tabnew(seq, 'a.txt', 1) -- repeat: resets the streak to 0
+      patterns_cmdline.feed_tabnew(seq, 'b.txt', 1)
+      patterns_cmdline.feed_tabnew(seq, 'c.txt', 1)
+      local result = patterns_cmdline.feed_tabnew(seq, 'd.txt', 1)
+      assert.equals('tabnew_run', result.pattern)
+      assert.equals('<C-^>', result.cmd)
+    end)
   end)
 end)
