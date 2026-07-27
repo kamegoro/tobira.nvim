@@ -995,6 +995,13 @@ return {
       example = "3<< → désindente 3 lignes d'un coup",
     },
 
+    -- ── "+y (détection de sous-utilisation des registres, #59) ──────────────
+    ['"+y'] = {
+      title = '"+y — copier vers le presse-papiers système',
+      body = 'Vous avez beaucoup copié sans jamais utiliser le presse-papiers système\n"+y copie directement dedans, donc coller en dehors de Neovim (ou coller depuis l\'extérieur avec "+p) fonctionne tout simplement\nDéfinissez clipboard=unnamedplus pour que y/p utilisent le presse-papiers par défaut et évitez le préfixe "+',
+      example = '"+yy une ligne → collez-la dans une autre application avec votre touche de collage habituelle',
+    },
+
     -- ── Ex commands (#57) ─────────────────────────────────────────────────
     ['ex:g'] = {
       title = ':g — exécuter une commande sur chaque ligne correspondante',

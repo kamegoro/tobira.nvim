@@ -228,6 +228,27 @@ function M.efficiency_gaps(usage, limit)
   return gaps
 end
 
+-- #59: registers "+y" as a suggestion candidate only when the user has
+-- yanked heavily (y count >= REGISTER_UNDERUSE_TRIGGER) but has never once
+-- reached for the system-clipboard register. This is intentionally NOT the
+-- generic "trigger_count > 0" rule find_best() otherwise uses — that rule
+-- would surface "+y after a single y, far too early for a suggestion this
+-- different from an ordinary operator/motion pair (switching to a named or
+-- system register is a bigger behavioral jump than, say, learning cw). Only
+-- the clipboard heuristic is implemented — the issue's "wrong paste" /
+-- register-0 heuristics are deferred pending design review (see the issue's
+-- own "Phase 2" section).
+local REGISTER_UNDERUSE_TRIGGER = 20
+
+-- True once the user has yanked (y) at least REGISTER_UNDERUSE_TRIGGER times
+-- and has never used the system-clipboard register ("+y count == 0).
+function M.is_register_underused(usage)
+  local y_count = (usage.y and usage.y.count) or 0
+  local clip_data = usage['"+y']
+  local clip_count = (clip_data and clip_data.count) or 0
+  return y_count >= REGISTER_UNDERUSE_TRIGGER and clip_count == 0
+end
+
 -- max_level: 'beginner' | 'intermediate' | 'advanced' | nil (no filter)
 function M.find_best(usage, max_shown, max_level)
   max_shown = max_shown or 3
@@ -239,6 +260,20 @@ function M.find_best(usage, max_shown, max_level)
   -- (#121). -math.huge can never tie a real score, so best_cmd is always
   -- non-nil by the time the tie-break branch is reached.
   local best_score = -math.huge
+
+  -- Register-underuse candidates (#59) are collected into their own pool
+  -- instead of being folded into best_score via an additive boost. A fixed
+  -- boost (previously REGISTER_UNDERUSE_BOOST = 1000 added to usage.y.count)
+  -- can never be "big enough": an ordinary candidate's own score
+  -- (trigger_count - cmd_count) grows with the raw trigger count, which for
+  -- a real long-term user routinely reaches the thousands (e.g. j, h) —
+  -- there is no constant that outraces an unbounded competitor. Keeping
+  -- qualified candidates in a separate pool and only falling back to the
+  -- ordinary pool when it's empty makes "qualified always wins" true by
+  -- construction rather than by arithmetic, so it holds no matter how high
+  -- any other command's count climbs.
+  local best_priority_cmd = nil
+  local best_priority_score = -math.huge
 
   for cmd, sug in pairs(M.suggestions) do
     local cmd_level_num = LEVEL_ORDER[sug.level] or 1
@@ -258,7 +293,18 @@ function M.find_best(usage, max_shown, max_level)
       local not_yet_known = sug.ex_command and data.count == 0 or (not sug.ex_command and not M.is_mastered(data))
       local offered = not_yet_known and not data.suppressed and data.shown < max_shown
 
-      if offered then
+      if offered and cmd == '"+y' then
+        -- Register-underuse gate (#59) replaces the generic trigger_count > 0
+        -- rule below — see is_register_underused() and the priority-pool
+        -- comment above.
+        if M.is_register_underused(usage) then
+          local score = usage.y.count
+          if score > best_priority_score or (score == best_priority_score and cmd < best_priority_cmd) then
+            best_priority_score = score
+            best_priority_cmd = cmd
+          end
+        end
+      elseif offered then
         local trigger_count = (usage[sug.trigger] and usage[sug.trigger].count) or 0
         local cmd_count = data.count
 
@@ -271,6 +317,10 @@ function M.find_best(usage, max_shown, max_level)
         end
       end
     end
+  end
+
+  if best_priority_cmd then
+    return best_priority_cmd
   end
 
   return best_cmd

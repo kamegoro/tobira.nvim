@@ -28,7 +28,7 @@ it quietly shows you the one command that would have helped. No quizzes. No inte
 - 💬 **One suggestion at a time** — shown after a natural pause, capped per session, with a cooldown between auto-suggestions — never a popup quiz
 - 📈 **Mastery-aware** — once you've used a command ~100 times, tobira stops suggesting it and moves on
 - 🪜 **Level-aware** — beginner commands surface first, advanced ones once you're ready
-- 🗺️ **161 commands** in the learning graph, covering the full Neovim command surface
+- 🗺️ **162 commands** in the learning graph, covering the full Neovim command surface
 
 ## ⚡️ Requirements
 

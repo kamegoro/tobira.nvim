@@ -44,6 +44,23 @@ function M.new_seq()
     pending_register = false, -- " or @ (register / macro name)
     pending_mark = false, -- m / ' / ` (mark name or target)
     pending_bracket = false, -- [ or ] (navigation pair)
+    -- "+ register-select immediately followed by y → "+y system-clipboard
+    -- yank compound (#59). Set by the pending_register consumer below only
+    -- when the register name was '+'; consumed by the very next key.
+    pending_clipboard_yank = false,
+    -- True for exactly one key right after the "+y compound above fires.
+    -- "+y is deliberately tracked as complete the moment the register-select
+    -- 'y' arrives (3 keystrokes total), without waiting for the further
+    -- motion a bare 'y' operator would normally need. In real Vim that same
+    -- 'y' is still operator-pending, so its most common completion — another
+    -- 'y', forming "+yy (yank current line to the system clipboard) — is
+    -- still coming right behind it. Without this guard that trailing 'y'
+    -- falls through to the generic "d/c/y operator start" branch below and
+    -- sets pending_op = 'y', which then silently swallows whatever key comes
+    -- after THAT as if it were y's motion (bug: dangling pending_op eats the
+    -- next real keystroke, e.g. "+yy followed by 5 j's needed a 6th to fire
+    -- j_repeat).
+    clipboard_yank_tail = false,
     -- p / P → rightward motion: cursor skipped past a paste, suggest gp/gP (#106)
     pending_paste = nil, -- 'p' | 'P' | nil
     paste_motion_streak = 0,
@@ -243,6 +260,33 @@ local function inner_feed(seq, key, line, is_diff)
     return nil
   end
 
+  -- ── pending_clipboard_yank: "+ immediately followed by y (#59) ────────────
+  -- Must precede f/F/t/T for the same "waiting on the very next key" reason
+  -- pending_g / pending_z / pending_ctrl_w do above. Only 'y' completes the
+  -- "+y compound; any other key means the user did something else with the +
+  -- register (e.g. "+p) and falls through to that key's normal meaning —
+  -- this state never survives past the one key right after "+.
+  if seq.pending_clipboard_yank then
+    seq.pending_clipboard_yank = false
+    if key == 'y' then
+      seq.last_op = '"+y'
+      seq.op_completed = true
+      seq.clipboard_yank_tail = true
+      return nil
+    end
+  end
+
+  -- ── clipboard_yank_tail: the key right after "+y completes (#59) ──────────
+  -- See clipboard_yank_tail's declaration in new_seq() for why this exists.
+  -- Only 'y' needs guarding — it is the only key the generic operator-start
+  -- branch below would otherwise turn into a fresh, dangling pending_op.
+  if seq.clipboard_yank_tail then
+    seq.clipboard_yank_tail = false
+    if key == 'y' then
+      return nil
+    end
+  end
+
   -- ── f / F / t / T ────────────────────────────────────────────────────────
   if key == 'f' or key == 'F' or key == 't' or key == 'T' then
     seq.pending_f = key
@@ -318,6 +362,12 @@ local function inner_feed(seq, key, line, is_diff)
   if seq.pending_register then
     seq.pending_register = false
     seq.key_consumed = true
+    -- "+ specifically arms pending_clipboard_yank (#59); every other register
+    -- name (including "* — see the issue's scope note) keeps the existing
+    -- consume-and-forget behavior below.
+    if key == '+' then
+      seq.pending_clipboard_yank = true
+    end
     return nil
   end
 

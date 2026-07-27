@@ -356,6 +356,8 @@ local chain_cases = {
   { '|', '0', '0 → |: move to column N' },
   -- first non-blank (current line)
   { '_', '^', '^ → _: first non-blank (N-1 lines lower)' },
+  -- register underuse: system clipboard (#59)
+  { '"+y', 'y', 'y → "+y: yank to the system clipboard register' },
   -- insert-mode <C-o>: one-shot normal command without leaving insert (#105)
   { 'i_<C-o>', 'i', 'i → i_<C-o>: run one normal command without leaving insert mode' },
   -- diff-mode hunk navigation (#111)

@@ -1190,6 +1190,92 @@ describe('when the user specifies a register with "', function()
   end)
 end)
 
+-- ── "+y system-clipboard yank compound (#59) ──────────────────────────────────
+-- Tracked as its own compound (distinct from the generic "consume and forget
+-- the register name" behavior above) so graph.is_register_underused() has a
+-- real "+y count == 0" signal to gate on instead of never knowing this
+-- ever happened.
+
+describe('when the user yanks to the system clipboard with "+y', function()
+  it('tracks "+y as a completed compound', function()
+    local s = seq()
+    patterns.feed(s, '"', 1)
+    patterns.feed(s, '+', 1)
+    local result = patterns.feed(s, 'y', 1)
+    assert.is_nil(result)
+    assert.equals('"+y', s.last_op)
+    assert.is_true(s.op_completed)
+  end)
+
+  it('does not consume the y key (still countable as a standalone y elsewhere)', function()
+    local s = seq()
+    patterns.feed(s, '"', 1)
+    patterns.feed(s, '+', 1)
+    patterns.feed(s, 'y', 1)
+    assert.is_false(s.key_consumed)
+  end)
+end)
+
+describe('when "+yy completes (register-select, then a full linewise yank)', function()
+  it('does not leave a dangling pending_op that swallows the next keystroke', function()
+    -- Regression test: the trailing y of "+yy used to fall through to the
+    -- generic "d/c/y operator start" branch and set pending_op = 'y', which
+    -- then silently consumed the very next keystroke as if it were y's
+    -- motion. That swallowed keystroke never reached run-tracking, so
+    -- j_repeat (count == 5) needed a 6th j instead of 5.
+    local s = seq()
+    patterns.feed(s, '"', 1)
+    patterns.feed(s, '+', 1)
+    patterns.feed(s, 'y', 1)
+    patterns.feed(s, 'y', 1)
+
+    local result
+    for _ = 1, 4 do
+      result = patterns.feed(s, 'j', 1)
+      assert.is_nil(result)
+    end
+    result = patterns.feed(s, 'j', 1)
+    assert.equals('j_repeat', result.pattern)
+    assert.equals('{n}j', result.cmd)
+  end)
+
+  it('still registers "+y as the completed compound, unaffected by the trailing y', function()
+    local s = seq()
+    patterns.feed(s, '"', 1)
+    patterns.feed(s, '+', 1)
+    patterns.feed(s, 'y', 1)
+    assert.equals('"+y', s.last_op)
+    assert.is_true(s.op_completed)
+
+    local result = patterns.feed(s, 'y', 1)
+    assert.is_nil(result)
+    assert.is_nil(s.pending_op)
+    assert.equals('"+y', s.last_op)
+  end)
+end)
+
+describe('when "+ is followed by something other than y', function()
+  it('does not track a "+y compound', function()
+    local s = seq()
+    patterns.feed(s, '"', 1)
+    patterns.feed(s, '+', 1)
+    patterns.feed(s, 'p', 1)
+    assert.is_nil(s.last_op)
+    assert.is_false(s.op_completed)
+  end)
+end)
+
+describe('when a register other than + is selected before y', function()
+  it('does not track a "+y compound for "ay', function()
+    local s = seq()
+    patterns.feed(s, '"', 1)
+    patterns.feed(s, 'a', 1)
+    local result = patterns.feed(s, 'y', 1)
+    assert.is_nil(result)
+    assert.is_nil(s.last_op)
+  end)
+end)
+
 describe('when the user executes a macro with @', function()
   it('swallows the register name so it cannot trigger other patterns', function()
     local s = seq()

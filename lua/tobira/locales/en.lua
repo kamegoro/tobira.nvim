@@ -996,6 +996,13 @@ return {
       example = '3<< → dedent 3 lines at once',
     },
 
+    -- ── "+y (register-underuse gate, #59) ────────────────────────────────────
+    ['"+y'] = {
+      title = '"+y — yank to the system clipboard',
+      body = 'You\'ve yanked a lot without ever reaching for the system clipboard\n"+y yanks straight into it, so pasting outside Neovim (or from outside into it with "+p) just works\nSet clipboard=unnamedplus to make y/p use it by default and skip the "+ prefix entirely',
+      example = '"+yy a line → paste it into another app with your normal paste key',
+    },
+
     -- ── Ex commands (#57) ─────────────────────────────────────────────────
     ['ex:g'] = {
       title = ':g — run a command over every matching line',

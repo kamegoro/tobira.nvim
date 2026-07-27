@@ -696,3 +696,82 @@ describe('efficiency_gaps', function()
     end
   end)
 end)
+
+-- ── register underuse: "+y system-clipboard promotion (#59) ─────────────────
+-- Scope note: only the clipboard heuristic (y count >= 20, "+y count == 0) is
+-- implemented here. The issue's "wrong paste" / register-0 heuristics are
+-- explicitly deferred to a follow-up pending design review — see the issue's
+-- own "Phase 2 (later, needs discussion)" section.
+
+describe('is_register_underused', function()
+  it('is false when y has never been used', function()
+    assert.is_false(graph.is_register_underused({}))
+  end)
+
+  it('is false when y count is below the 20-use threshold', function()
+    assert.is_false(graph.is_register_underused({ y = usage_entry(19) }))
+  end)
+
+  it('is true once y count reaches the 20-use threshold and "+y has never been used', function()
+    assert.is_true(graph.is_register_underused({ y = usage_entry(20) }))
+  end)
+
+  it('is true for y counts well above the threshold too', function()
+    assert.is_true(graph.is_register_underused({ y = usage_entry(500) }))
+  end)
+
+  it('is false once "+y has been used even once, no matter how high y count is', function()
+    local usage = { y = usage_entry(500), ['"+y'] = usage_entry(1) }
+    assert.is_false(graph.is_register_underused(usage))
+  end)
+end)
+
+describe('when y is yanked heavily but "+y has never been used', function()
+  it('does not suggest "+y below the 20-use threshold', function()
+    local usage = { y = usage_entry(19) }
+    assert.not_equals('"+y', graph.find_best(usage))
+  end)
+
+  it('suggests "+y once y count reaches 20', function()
+    local usage = { y = usage_entry(20) }
+    assert.equals('"+y', graph.find_best(usage))
+  end)
+
+  it('stops suggesting "+y once the user has used it even once', function()
+    local usage = { y = usage_entry(50), ['"+y'] = usage_entry(1) }
+    assert.not_equals('"+y', graph.find_best(usage))
+  end)
+
+  it('outranks an ordinary, lower-scoring suggestion once eligible', function()
+    -- f=10 makes ';' score 10 (10-0); "+y's boosted score must still win.
+    local usage = { y = usage_entry(20), f = usage_entry(10) }
+    assert.equals('"+y', graph.find_best(usage))
+  end)
+
+  it('outranks a realistic long-term trigger count like j = 1030 (<C-d>)', function()
+    -- Regression test: a fixed +1000 additive boost (score = 1000 + y.count)
+    -- used to lose to <C-d>'s own score (trigger_count - cmd_count = 1030 - 0
+    -- = 1030) once j's raw count climbed past ~1000, which is unremarkable
+    -- for a real long-term user. "+y must win regardless of how high any
+    -- ordinary candidate's own count gets.
+    local usage = { y = usage_entry(20), j = usage_entry(1030) }
+    assert.equals('"+y', graph.find_best(usage))
+  end)
+
+  it('outranks an even more extreme competing trigger count (50000)', function()
+    -- Confirms the fix is not just a slightly-larger fixed constant that
+    -- could still eventually be beaten by a big enough raw count.
+    local usage = { y = usage_entry(20), j = usage_entry(50000) }
+    assert.equals('"+y', graph.find_best(usage))
+  end)
+
+  it('respects suppression like any other suggestion', function()
+    local usage = { y = usage_entry(20), ['"+y'] = usage_entry(0, {}, 0, true) }
+    assert.is_nil(graph.find_best(usage))
+  end)
+
+  it('respects the shown-count cap like any other suggestion', function()
+    local usage = { y = usage_entry(20), ['"+y'] = usage_entry(0, {}, 3) }
+    assert.is_nil(graph.find_best(usage))
+  end)
+end)

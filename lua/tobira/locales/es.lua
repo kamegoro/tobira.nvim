@@ -995,6 +995,13 @@ return {
       example = '3<< → quita la sangría de 3 líneas a la vez',
     },
 
+    -- ── "+y (detección de registro infrautilizado, #59) ─────────────────────
+    ['"+y'] = {
+      title = '"+y — copiar al portapapeles del sistema',
+      body = 'Has copiado muchas veces sin usar nunca el portapapeles del sistema\n"+y copia directamente a él, así que pegar fuera de Neovim (o pegar desde fuera con "+p) simplemente funciona\nConfigura clipboard=unnamedplus para que y/p usen el portapapeles por defecto y evitar el prefijo "+',
+      example = '"+yy una línea → pégala en otra aplicación con tu tecla de pegar habitual',
+    },
+
     -- ── Ex commands (#57) ─────────────────────────────────────────────────
     ['ex:g'] = {
       title = ':g — ejecutar un comando sobre cada línea coincidente',
