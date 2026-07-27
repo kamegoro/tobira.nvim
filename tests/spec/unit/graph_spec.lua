@@ -697,6 +697,55 @@ describe('efficiency_gaps', function()
   end)
 end)
 
+-- ── efficiency_gaps keymap overrides (#164) ──────────────────────────────────
+-- efficiency_gaps() powers :TobiraStats's "Try these next" section -- the
+-- panel's own headline actionable section, and unlike find_best() it does not
+-- go through find_best's gates at all, so it needs its own override filter
+-- rather than inheriting one for free. Mirrors find_best's own filter (see
+-- its header comment / the "keymap overrides (#63)" describe block below): a
+-- candidate whose own key is remapped is excluded regardless of whether the
+-- remap is functionally equivalent to what tobira would otherwise teach.
+
+describe('when a gap candidate has been remapped by the user', function()
+  it('is excluded from efficiency_gaps, even though its trigger count would otherwise qualify it', function()
+    local usage = { f = { count = 200, sessions = {} } }
+    local without = graph.efficiency_gaps(usage)
+    local found_without = false
+    for _, g in ipairs(without) do
+      if g.child == ';' then
+        found_without = true
+      end
+    end
+    assert.is_true(found_without, 'expected f -> ; to be a gap before any override is applied')
+
+    local overrides = { [';'] = { rhs = '<Plug>(something)', equivalent = false } }
+    local with = graph.efficiency_gaps(usage, nil, overrides)
+    for _, g in ipairs(with) do
+      assert.not_equals(';', g.child, '; must be excluded from gaps once its key is remapped')
+    end
+  end)
+
+  it('does not affect an unrelated gap when a different key is overridden (regression guard)', function()
+    local usage = { f = { count = 200, sessions = {} } }
+    local overrides = { j = { rhs = 'gj', equivalent = false } }
+    local without = graph.efficiency_gaps(usage)
+    local with = graph.efficiency_gaps(usage, nil, overrides)
+    assert.equals(#without, #with)
+  end)
+
+  it('still returns the candidate normally when no overrides table is passed (nil is a no-op)', function()
+    local usage = { f = { count = 200, sessions = {} } }
+    local gaps = graph.efficiency_gaps(usage, nil, nil)
+    local found = false
+    for _, g in ipairs(gaps) do
+      if g.child == ';' then
+        found = true
+      end
+    end
+    assert.is_true(found)
+  end)
+end)
+
 -- ── keymap overrides (#63) ────────────────────────────────────────────────────
 -- find_best() is the proactive (ambient / :Tobira manual) suggestion pool.
 -- Any candidate whose own key has been remapped by the user is filtered out

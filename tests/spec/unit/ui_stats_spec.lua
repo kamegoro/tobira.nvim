@@ -200,6 +200,49 @@ describe('when there are no efficiency gaps', function()
   end)
 end)
 
+-- ── keymap overrides (#164) ───────────────────────────────────────────────────
+-- "Try these next" is :TobiraStats's own headline actionable section -- it
+-- must honor the same "never suggest a command whose key you've remapped
+-- away" rule find_best() and Guide's auto section already enforce (#63).
+
+describe('when a "Try these next" candidate has been remapped by the user', function()
+  local integrations = require('tobira.core.integrations')
+
+  local function fake_keymap(entries)
+    return function(_mode)
+      return entries
+    end
+  end
+
+  before_each(function()
+    integrations.reset()
+  end)
+  after_each(function()
+    integrations.reset()
+  end)
+
+  it('excludes the gap row for a remapped-away child command', function()
+    -- 'f' triggers several gap candidates (';', 't', 'F'), so this asserts on
+    -- the specific remapped child rather than the mere absence of any '→' —
+    -- the other f-triggered gaps are expected to keep rendering normally.
+    integrations.refresh(fake_keymap({ { lhs = ';', rhs = '<Plug>(something)', noremap = 0 } }))
+    local r = stats.render({ f = entry(200) })
+    local semicolon_gap = nil
+    for _, line in ipairs(lines_of(r)) do
+      if line:match('→%s+;%s') then
+        semicolon_gap = line
+      end
+    end
+    assert.is_nil(semicolon_gap, 'a remapped-away child (;) must not appear as a "Try these next" gap')
+  end)
+
+  it('still shows the gap row normally when nothing has been remapped', function()
+    integrations.refresh(fake_keymap({}))
+    local r = stats.render({ f = entry(200) })
+    assert.is_not_nil(find_line(r, '→'), 'the gap should render normally with no overrides in place')
+  end)
+end)
+
 -- ── section order (#74): actionable info first, vanity metric last ──────────
 
 describe('section order', function()

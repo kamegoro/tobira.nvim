@@ -76,10 +76,36 @@ end
 -- makes: a pinned command that was once mastered and has since gone quiet
 -- gets the ⟳ glyph + forgotten_suffix here too, instead of staying a plain
 -- ● row forever regardless of whether it still needs review — see #123.
+--
+-- #164: a pinned command whose key gets remapped needs the same
+-- override-awareness auto_suffix() already gives the auto section below --
+-- but unlike the auto section (which drops a non-equivalent remap entirely,
+-- see auto_suffix's header comment), a pinned row is never *omitted*: the
+-- user pinned this command on purpose, so it silently vanishing from its own
+-- section would read as tobira losing track of their pin, not as tobira
+-- being correct. An equivalent remap (e.g. `nnoremap Y y$`) still substitutes
+-- wording via remapped_suffix, identical to the auto section. A *different*
+-- remap invalidates commands.lua's stock description outright, so instead of
+-- appending a correction after text that is now flatly wrong, the
+-- description is replaced with remapped_invalid — the row (● marker + key)
+-- stays visible, just with an accurate note instead of a stale one.
 local function format_pinned_row(cmd, data, desc, str)
   local graph = require('tobira.core.graph')
+  local integrations = require('tobira.core.integrations')
   local commands = require('tobira.commands')
   local forgotten = graph.is_forgotten(data)
+
+  local override = integrations.get_override(cmd)
+  if override then
+    if integrations.is_equivalent_override(cmd) then
+      desc = desc .. string.format(str.remapped_suffix, override.rhs)
+    else
+      desc = string.format(str.remapped_invalid, override.rhs)
+    end
+  end
+  if forgotten then
+    desc = desc .. str.forgotten_suffix
+  end
 
   local pos = 0
   local parts = {}
@@ -101,8 +127,7 @@ local function format_pinned_row(cmd, data, desc, str)
   if forgotten then
     emit('⟳ ', 'TobiraGuideForgotten')
   end
-  local suffix = forgotten and str.forgotten_suffix or ''
-  emit(desc .. suffix)
+  emit(desc)
 
   return table.concat(parts), hls
 end

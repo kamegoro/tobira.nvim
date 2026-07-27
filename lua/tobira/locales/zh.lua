@@ -7,6 +7,7 @@ return {
     forgotten_suffix = '（已生疏）',
     more_suffix = '还有 %d 项',
     remapped_suffix = '（已映射到 %s）',
+    remapped_invalid = '已重新映射到 %s — 该说明已不再适用',
   },
   progress = {
     title = 'tobira — 你的 vim 之旅',

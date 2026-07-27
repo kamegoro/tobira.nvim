@@ -659,6 +659,67 @@ describe('keymap overrides (#63)', function()
   end)
 end)
 
+-- ── Pinned section + keymap overrides (#164) ─────────────────────────────────
+-- format_pinned_row() previously never consulted core/integrations.lua at all,
+-- unlike this same file's auto section (auto_suffix() above). A pinned
+-- command whose key gets remapped kept showing its stock (possibly now-wrong)
+-- description forever. Unlike the auto section, a pinned row is never simply
+-- omitted when the remap is not equivalent -- the user pinned it on purpose,
+-- and it silently disappearing from its own section would read as tobira
+-- losing track of it, not as tobira being correct. Design choice: an
+-- equivalent remap still substitutes wording via remapped_suffix, identical
+-- to the auto section; a different remap keeps the row (● marker + key still
+-- visible) but replaces the now-inaccurate description with remapped_invalid
+-- instead of appending a correction after text that is flatly wrong.
+
+describe('pinned row + keymap overrides (#164)', function()
+  local integrations = require('tobira.core.integrations')
+
+  local function fake_keymap(entries)
+    return function(_mode)
+      return entries
+    end
+  end
+
+  before_each(function()
+    integrations.reset()
+  end)
+  after_each(function()
+    integrations.reset()
+  end)
+
+  it('substitutes the description with remapped_suffix on a pinned row, like the auto section', function()
+    integrations.refresh(fake_keymap({ { lhs = 'Y', rhs = 'y$', noremap = 1 } }))
+    local loc = require('tobira.i18n').load()
+    local lines = guide.build(usage_with_overrides({ ['Y'] = entry({ pinned = true, count = 0 }) }))
+    local row = find_line(lines, 'Y')
+    assert.is_not_nil(row, 'expected a pinned row for Y')
+    assert.is_not_nil(row:find(string.format(loc.guide.remapped_suffix, 'y$'), 1, true))
+  end)
+
+  it('keeps a non-equivalent remap visible with a "no longer valid" note instead of omitting it', function()
+    integrations.refresh(fake_keymap({ { lhs = 's', rhs = '<Plug>(some-plugin-thing)', noremap = 0 } }))
+    local loc = require('tobira.i18n').load()
+    local lines = guide.build(usage_with_overrides({ ['s'] = entry({ pinned = true, count = 0 }) }))
+    local row = find_line(lines, 's')
+    assert.is_not_nil(row, 'a pinned command must never disappear from the Pinned section, even when remapped away')
+    assert.is_not_nil(row:find('●', 1, true), 'the row must keep its pinned marker')
+    assert.is_nil(row:find('substitute character', 1, true), 'stock (now-wrong) description must not remain')
+    assert.is_not_nil(
+      row:find(string.format(loc.guide.remapped_invalid, '<Plug>(some-plugin-thing)'), 1, true),
+      'expected the remapped_invalid annotation in place of the stock description'
+    )
+  end)
+
+  it('renders the pinned row normally when the command has not been remapped', function()
+    integrations.refresh(fake_keymap({}))
+    local lines = guide.build(usage_with_overrides({ ['s'] = entry({ pinned = true, count = 0 }) }))
+    local row = find_line(lines, 's')
+    assert.is_not_nil(row)
+    assert.is_not_nil(row:find('substitute character', 1, true))
+  end)
+end)
+
 -- #105: 'i_<C-o>' is an internal composite registry key (see commands.lua's
 -- registry comment) — the user only ever presses the real <C-o>, so the key
 -- column must show that, never the raw 'i_<C-o>' string.

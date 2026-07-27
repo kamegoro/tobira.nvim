@@ -7,6 +7,7 @@ return {
     forgotten_suffix = ' (oublié)',
     more_suffix = '+%d de plus',
     remapped_suffix = ' (associé à %s)',
+    remapped_invalid = 'associé à %s — description obsolète',
   },
   progress = {
     title = 'tobira — votre parcours vim',

@@ -7,6 +7,7 @@ return {
     forgotten_suffix = ' (forgotten)',
     more_suffix = '+%d more',
     remapped_suffix = ' (mapped to %s)',
+    remapped_invalid = 'remapped to %s — no longer valid',
   },
   progress = {
     title = 'tobira — your vim journey',

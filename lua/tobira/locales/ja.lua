@@ -7,6 +7,7 @@ return {
     forgotten_suffix = '（忘れかけ）',
     more_suffix = 'ほか%d件',
     remapped_suffix = '（%s にマップ済み）',
+    remapped_invalid = '%s にリマップ済み — この説明はもう当てはまりません',
   },
   progress = {
     title = 'tobira — vim の旅',

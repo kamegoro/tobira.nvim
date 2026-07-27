@@ -190,11 +190,22 @@ end
 -- is rarely or never used, sorted by ratio descending.
 -- Only includes pairs where trigger count >= 50 and child mastery_level < 2.
 -- limit: optional cap on returned results.
-function M.efficiency_gaps(usage, limit)
+-- overrides (#63/#164): optional table of cmd -> { rhs, equivalent } built by
+-- core/integrations.lua, identical in shape to find_best's own `overrides`
+-- parameter (see find_best's header comment for the full design -- this
+-- mirrors it rather than reinventing it). Any candidate (child) present as a
+-- key here is excluded from this pool entirely, regardless of `equivalent` --
+-- this function powers :TobiraStats's "Try these next" section, which is
+-- exactly as proactive a suggestion as anything find_best offers, so it must
+-- honor the same "never suggest a command whose key you've remapped away"
+-- rule. graph.lua stays pure/integrations-agnostic either way: this is only
+-- ever read as plain data, never required from integrations.lua itself.
+function M.efficiency_gaps(usage, limit, overrides)
   local cmds = require('tobira.commands')
   local gaps = {}
   for cmd, entry in pairs(cmds.registry) do
-    if not entry.compound and entry.requires then
+    local overridden = overrides and overrides[cmd] ~= nil
+    if not entry.compound and entry.requires and not overridden then
       local parent = entry.requires
       local parent_data = usage[parent] or { count = 0 }
       local child_data = usage[cmd] or { count = 0 }

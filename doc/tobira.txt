@@ -246,10 +246,21 @@ If you have remapped a command tobira would otherwise suggest (for example
 `nnoremap Y y$`, or a plugin binding like `nmap s <Plug>(some-plugin-thing)`),
 tobira never offers that command as a suggestion — introducing something you
 have already deliberately bound to a different behavior would not teach you
-anything. |:TobiraGuide|'s cheat-sheet still lists a remapped command if the
-remap is functionally equivalent to what tobira documents (shown with a
+anything. This applies to every proactive suggestion path, including the
+"Try these next" efficiency-gap list in |:TobiraStats| — a command whose key
+you have remapped never appears there either, even if its trigger's usage
+count would otherwise qualify it.
+
+|:TobiraGuide|'s auto-generated cheat-sheet still lists a remapped command if
+the remap is functionally equivalent to what tobira documents (shown with a
 "mapped to ..." note), but omits it entirely when the remap does something
-unrelated (e.g. a `<Plug>` mapping into a different plugin).
+unrelated (e.g. a `<Plug>` mapping into a different plugin). The Pinned
+section at the top of the same panel is the one exception to "omit it
+entirely": since you pinned that command on purpose, tobira never makes it
+disappear silently. A functionally-equivalent remap still substitutes
+wording exactly like the auto section; a different remap instead keeps the
+row (so you can see your pin is still there) but replaces its description
+with a "remapped to ... — no longer valid" note.
 
 Because this check only runs at startup/`VimEnter`/`SourcePost`, a mapping
 you create interactively afterwards (typing `:nnoremap` directly at the
