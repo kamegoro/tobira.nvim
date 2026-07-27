@@ -44,6 +44,23 @@ function M.new_seq()
     pending_register = false, -- " or @ (register / macro name)
     pending_mark = false, -- m / ' / ` (mark name or target)
     pending_bracket = false, -- [ or ] (navigation pair)
+    -- "+ register-select immediately followed by y → "+y system-clipboard
+    -- yank compound (#59). Set by the pending_register consumer below only
+    -- when the register name was '+'; consumed by the very next key.
+    pending_clipboard_yank = false,
+    -- True for exactly one key right after the "+y compound above fires.
+    -- "+y is deliberately tracked as complete the moment the register-select
+    -- 'y' arrives (3 keystrokes total), without waiting for the further
+    -- motion a bare 'y' operator would normally need. In real Vim that same
+    -- 'y' is still operator-pending, so its most common completion — another
+    -- 'y', forming "+yy (yank current line to the system clipboard) — is
+    -- still coming right behind it. Without this guard that trailing 'y'
+    -- falls through to the generic "d/c/y operator start" branch below and
+    -- sets pending_op = 'y', which then silently swallows whatever key comes
+    -- after THAT as if it were y's motion (bug: dangling pending_op eats the
+    -- next real keystroke, e.g. "+yy followed by 5 j's needed a 6th to fire
+    -- j_repeat).
+    clipboard_yank_tail = false,
     -- p / P → rightward motion: cursor skipped past a paste, suggest gp/gP (#106)
     pending_paste = nil, -- 'p' | 'P' | nil
     paste_motion_streak = 0,
@@ -91,7 +108,7 @@ local function track_run(seq, key)
   return seq.run.count
 end
 
-local function inner_feed(seq, key, line)
+local function inner_feed(seq, key, line, is_diff)
   -- ── p / P → rightward motion: cursor skipped past a paste (#106) ─────────
   -- Checked first, before any other handler, so it observes every key that
   -- follows a paste — including keys other handlers would otherwise consume
@@ -243,6 +260,33 @@ local function inner_feed(seq, key, line)
     return nil
   end
 
+  -- ── pending_clipboard_yank: "+ immediately followed by y (#59) ────────────
+  -- Must precede f/F/t/T for the same "waiting on the very next key" reason
+  -- pending_g / pending_z / pending_ctrl_w do above. Only 'y' completes the
+  -- "+y compound; any other key means the user did something else with the +
+  -- register (e.g. "+p) and falls through to that key's normal meaning —
+  -- this state never survives past the one key right after "+.
+  if seq.pending_clipboard_yank then
+    seq.pending_clipboard_yank = false
+    if key == 'y' then
+      seq.last_op = '"+y'
+      seq.op_completed = true
+      seq.clipboard_yank_tail = true
+      return nil
+    end
+  end
+
+  -- ── clipboard_yank_tail: the key right after "+y completes (#59) ──────────
+  -- See clipboard_yank_tail's declaration in new_seq() for why this exists.
+  -- Only 'y' needs guarding — it is the only key the generic operator-start
+  -- branch below would otherwise turn into a fresh, dangling pending_op.
+  if seq.clipboard_yank_tail then
+    seq.clipboard_yank_tail = false
+    if key == 'y' then
+      return nil
+    end
+  end
+
   -- ── f / F / t / T ────────────────────────────────────────────────────────
   if key == 'f' or key == 'F' or key == 't' or key == 'T' then
     seq.pending_f = key
@@ -318,6 +362,12 @@ local function inner_feed(seq, key, line)
   if seq.pending_register then
     seq.pending_register = false
     seq.key_consumed = true
+    -- "+ specifically arms pending_clipboard_yank (#59); every other register
+    -- name (including "* — see the issue's scope note) keeps the existing
+    -- consume-and-forget behavior below.
+    if key == '+' then
+      seq.pending_clipboard_yank = true
+    end
     return nil
   end
 
@@ -567,11 +617,17 @@ local function inner_feed(seq, key, line)
 
   -- ── k (exactly once) → o: suggest O ─────────────────────────────────────
   if key == 'o' and seq.run.key == 'k' and seq.run.count == 1 then
+    -- Reset the run so a second k -> o round trip right after this one still
+    -- sees count == 1 instead of a stale count == 2 from the first k.
+    seq.run = { key = nil, count = 0 }
     return { pattern = 'k_then_o', cmd = 'O' }
   end
 
   -- ── x (exactly once) → insert: suggest s ─────────────────────────────────
   if INSERT_KEYS[key] and seq.run.key == 'x' and seq.run.count == 1 then
+    -- Reset the run so a second x -> insert round trip right after this one
+    -- still sees count == 1 instead of a stale count == 2 from the first x.
+    seq.run = { key = nil, count = 0 }
     return { pattern = 'x_then_insert', cmd = 's' }
   end
 
@@ -616,10 +672,22 @@ local function inner_feed(seq, key, line)
   elseif key == 'j' and count == 5 then
     return { pattern = 'j_repeat', cmd = '{n}j' }
   elseif key == 'j' and count == 10 then
+    -- #111: while &diff is set, hunting for the next changed hunk with plain
+    -- j is better served by ]c (jump to next hunk) than } (paragraph jump).
+    -- is_diff is a plain parameter, not seq state, because it reflects the
+    -- window's CURRENT &diff value at the moment of the 10th press, not
+    -- anything accumulated over the streak — see logger.lua for where it's
+    -- read (vim.wo.diff) and passed in.
+    if is_diff then
+      return { pattern = 'j_many_diff', cmd = ']c' }
+    end
     return { pattern = 'j_many', cmd = '}' }
   elseif key == 'k' and count == 5 then
     return { pattern = 'k_repeat', cmd = '{n}k' }
   elseif key == 'k' and count == 10 then
+    if is_diff then
+      return { pattern = 'k_many_diff', cmd = '[c' }
+    end
     return { pattern = 'k_many', cmd = '{' }
   elseif key == 'n' and count == 4 then
     return { pattern = 'n_repeat', cmd = 'cgn' }
@@ -646,10 +714,17 @@ local function inner_feed(seq, key, line)
   return nil
 end
 
-function M.feed(seq, key, line)
+-- is_diff: optional boolean — true when &diff is set on the window the
+-- keystroke came from (#111). Only consulted by the j_many/k_many branches
+-- above; every other pattern ignores it. Passed in by the caller (logger.lua
+-- reads vim.wo.diff) rather than read here, because patterns.lua has zero
+-- vim.* dependencies by design (see lua/tobira/CLAUDE.md's module dependency
+-- rules) — it is pure Lua so it can be unit-tested and reasoned about without
+-- a running Neovim instance.
+function M.feed(seq, key, line, is_diff)
   seq.key_consumed = false -- reset before each call; handlers set true when consuming
   seq.op_completed = false -- reset before each call; handlers set true when last_op is freshly set
-  local result = inner_feed(seq, key, line)
+  local result = inner_feed(seq, key, line, is_diff)
   return result
 end
 

@@ -218,6 +218,53 @@ describe('when k is pressed 10 times in a row', function()
   end)
 end)
 
+-- ── j / k in diff mode: prefer ]c / [c hunk navigation over }/{ (#111) ────────
+-- feed()'s 4th argument is the caller-supplied "is &diff set on this window?"
+-- flag. patterns.lua stays vim.*-free (see lua/tobira/CLAUDE.md's module
+-- dependency rules), so it never reads vim.wo.diff itself — logger.lua reads
+-- it and passes the boolean in. These tests inject that flag directly,
+-- exactly as patterns_spec.lua's own template for unit-testing pure functions
+-- prescribes (see tests/CLAUDE.md).
+
+describe('when j is pressed 10 times in a row while &diff is set', function()
+  it('fires j_many_diff at 10 suggesting ]c instead of }', function()
+    local s = seq()
+    for _ = 1, 9 do
+      patterns.feed(s, 'j', 1, true)
+    end
+    local at10 = patterns.feed(s, 'j', 1, true)
+    assert.is_not_nil(at10)
+    assert.equals('j_many_diff', at10.pattern)
+    assert.equals(']c', at10.cmd)
+  end)
+end)
+
+describe('when k is pressed 10 times in a row while &diff is set', function()
+  it('fires k_many_diff at 10 suggesting [c instead of {', function()
+    local s = seq()
+    for _ = 1, 9 do
+      patterns.feed(s, 'k', 1, true)
+    end
+    local at10 = patterns.feed(s, 'k', 1, true)
+    assert.is_not_nil(at10)
+    assert.equals('k_many_diff', at10.pattern)
+    assert.equals('[c', at10.cmd)
+  end)
+end)
+
+describe('when j is pressed 10 times in a row outside diff mode', function()
+  it('still fires j_many suggesting } (regression check against gating logic)', function()
+    local s = seq()
+    for _ = 1, 9 do
+      patterns.feed(s, 'j', 1, false)
+    end
+    local at10 = patterns.feed(s, 'j', 1, false)
+    assert.is_not_nil(at10)
+    assert.equals('j_many', at10.pattern)
+    assert.equals('}', at10.cmd)
+  end)
+end)
+
 -- ── D → insert (delete to EOL then re-enter insert) ──────────────────────────
 
 describe('when the user deletes to end of line then enters insert mode', function()
@@ -690,6 +737,21 @@ describe('when the user goes up one line then opens a line below', function()
     local result = patterns.feed(s, 'o', 1)
     assert.is_nil(result)
   end)
+
+  it('fires k_then_o again when the same round trip happens twice in a row', function()
+    local s = seq()
+    patterns.feed(s, 'k', 1)
+    local first = patterns.feed(s, 'o', 1)
+    assert.is_not_nil(first)
+    assert.equals('k_then_o', first.pattern)
+    assert.equals('O', first.cmd)
+
+    patterns.feed(s, 'k', 1)
+    local second = patterns.feed(s, 'o', 1)
+    assert.is_not_nil(second)
+    assert.equals('k_then_o', second.pattern)
+    assert.equals('O', second.cmd)
+  end)
 end)
 
 -- ── x (once) → i: suggest s (substitute = delete char + enter insert) ────────
@@ -727,6 +789,25 @@ describe('when the user deletes one character then enters insert mode', function
     patterns.feed(s, 'l', 1)
     local result = patterns.feed(s, 'i', 1)
     assert.is_nil(result)
+  end)
+
+  it('fires x_then_insert again when the same round trip happens twice in a row', function()
+    local s = seq()
+    patterns.feed(s, 'x', 1)
+    local first = patterns.feed(s, 'i', 1)
+    assert.is_not_nil(first)
+    assert.equals('x_then_insert', first.pattern)
+    assert.equals('s', first.cmd)
+
+    -- A second, separate x -> i round trip (e.g. two typo fixes back to back).
+    -- Without resetting seq.run after the first fire, seq.run.count becomes 2
+    -- here, so the second 'i' would fail the count==1 guard and patterns.feed
+    -- would wrongly return nil instead of firing x_then_insert again.
+    patterns.feed(s, 'x', 1)
+    local second = patterns.feed(s, 'i', 1)
+    assert.is_not_nil(second)
+    assert.equals('x_then_insert', second.pattern)
+    assert.equals('s', second.cmd)
   end)
 end)
 
@@ -1106,6 +1187,92 @@ describe('when the user specifies a register with "', function()
     patterns.feed(s, '"', 1)
     local result = patterns.feed(s, 'a', 1)
     assert.is_nil(result)
+  end)
+end)
+
+-- ── "+y system-clipboard yank compound (#59) ──────────────────────────────────
+-- Tracked as its own compound (distinct from the generic "consume and forget
+-- the register name" behavior above) so graph.is_register_underused() has a
+-- real "+y count == 0" signal to gate on instead of never knowing this
+-- ever happened.
+
+describe('when the user yanks to the system clipboard with "+y', function()
+  it('tracks "+y as a completed compound', function()
+    local s = seq()
+    patterns.feed(s, '"', 1)
+    patterns.feed(s, '+', 1)
+    local result = patterns.feed(s, 'y', 1)
+    assert.is_nil(result)
+    assert.equals('"+y', s.last_op)
+    assert.is_true(s.op_completed)
+  end)
+
+  it('does not consume the y key (still countable as a standalone y elsewhere)', function()
+    local s = seq()
+    patterns.feed(s, '"', 1)
+    patterns.feed(s, '+', 1)
+    patterns.feed(s, 'y', 1)
+    assert.is_false(s.key_consumed)
+  end)
+end)
+
+describe('when "+yy completes (register-select, then a full linewise yank)', function()
+  it('does not leave a dangling pending_op that swallows the next keystroke', function()
+    -- Regression test: the trailing y of "+yy used to fall through to the
+    -- generic "d/c/y operator start" branch and set pending_op = 'y', which
+    -- then silently consumed the very next keystroke as if it were y's
+    -- motion. That swallowed keystroke never reached run-tracking, so
+    -- j_repeat (count == 5) needed a 6th j instead of 5.
+    local s = seq()
+    patterns.feed(s, '"', 1)
+    patterns.feed(s, '+', 1)
+    patterns.feed(s, 'y', 1)
+    patterns.feed(s, 'y', 1)
+
+    local result
+    for _ = 1, 4 do
+      result = patterns.feed(s, 'j', 1)
+      assert.is_nil(result)
+    end
+    result = patterns.feed(s, 'j', 1)
+    assert.equals('j_repeat', result.pattern)
+    assert.equals('{n}j', result.cmd)
+  end)
+
+  it('still registers "+y as the completed compound, unaffected by the trailing y', function()
+    local s = seq()
+    patterns.feed(s, '"', 1)
+    patterns.feed(s, '+', 1)
+    patterns.feed(s, 'y', 1)
+    assert.equals('"+y', s.last_op)
+    assert.is_true(s.op_completed)
+
+    local result = patterns.feed(s, 'y', 1)
+    assert.is_nil(result)
+    assert.is_nil(s.pending_op)
+    assert.equals('"+y', s.last_op)
+  end)
+end)
+
+describe('when "+ is followed by something other than y', function()
+  it('does not track a "+y compound', function()
+    local s = seq()
+    patterns.feed(s, '"', 1)
+    patterns.feed(s, '+', 1)
+    patterns.feed(s, 'p', 1)
+    assert.is_nil(s.last_op)
+    assert.is_false(s.op_completed)
+  end)
+end)
+
+describe('when a register other than + is selected before y', function()
+  it('does not track a "+y compound for "ay', function()
+    local s = seq()
+    patterns.feed(s, '"', 1)
+    patterns.feed(s, 'a', 1)
+    local result = patterns.feed(s, 'y', 1)
+    assert.is_nil(result)
+    assert.is_nil(s.last_op)
   end)
 end)
 

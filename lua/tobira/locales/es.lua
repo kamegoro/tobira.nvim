@@ -24,6 +24,9 @@ return {
       fold = 'Pliegue',
       mark = 'Marca',
       macro = 'Macro',
+      diff = 'Diff',
+      ex = 'Comandos Ex',
+      terminal = 'Terminal',
     },
     mastered_total = '%d / %d dominados',
     section_count = '%d / %d',
@@ -72,6 +75,7 @@ return {
       insert_right_repeat = 'Pulsaste <Right> 5 veces seguidas en modo inserción',
       insert_bounce = 'Entraste y saliste del modo inserción sin cambios, dos veces seguidas',
       insert_completion_repeat = 'Escribiste la misma palabra completa por segunda vez',
+      insert_co_oneshot = 'Saliste del modo inserción, ejecutaste un comando y volviste enseguida',
       f_repeat = 'Repetiste la misma búsqueda f/t en esta línea',
       r_run = 'Reemplazaste 3 caracteres uno por uno',
       visual_textobj = 'Seleccionaste un objeto de texto en modo visual antes de editar',
@@ -96,8 +100,10 @@ return {
       u_repeat = 'Deshiciste 3 veces seguidas',
       j_repeat = 'Pulsaste j 5 veces seguidas',
       j_many = 'Pulsaste j 10 veces seguidas',
+      j_many_diff = 'Pulsaste j 10 veces seguidas mientras estabas en modo diff',
       k_repeat = 'Pulsaste k 5 veces seguidas',
       k_many = 'Pulsaste k 10 veces seguidas',
+      k_many_diff = 'Pulsaste k 10 veces seguidas mientras estabas en modo diff',
       n_repeat = 'Repetiste una coincidencia de búsqueda 4 veces',
       l_repeat = 'Pulsaste l 5 veces seguidas',
       h_repeat = 'Pulsaste h 5 veces seguidas',
@@ -112,6 +118,7 @@ return {
       J_repeat = 'Uniste líneas 3 veces seguidas',
       ca_run = 'Incrementaste un número, bajaste una línea y lo repetiste 3 veces',
       ctrl_w_close_repeat = 'Cerraste ventanas una por una, 2 veces seguidas',
+      terminal_esc_repeat = 'Presionaste <Esc> dos veces seguidas en modo terminal sin ningún efecto',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -304,6 +311,18 @@ return {
       title = '{ — saltar al inicio del párrafo',
       body = 'El complemento hacia arriba de } — sube hasta la línea en blanco de arriba\nNavega rápido entre bloques de código o párrafos',
       example = '{ → el cursor salta a la línea en blanco antes del bloque actual',
+    },
+
+    -- ── modo diff: navegación manual de bloques (#111) ──────────────────────
+    [']c'] = {
+      title = ']c — saltar al siguiente bloque de diferencias',
+      body = 'Mientras &diff está activo, salta directamente al siguiente bloque modificado\nMás rápido que pulsar j repetidamente para buscar la siguiente diferencia',
+      example = ']c → el cursor salta al siguiente bloque de cambios',
+    },
+    ['[c'] = {
+      title = '[c — saltar al bloque de diferencias anterior',
+      body = 'El complemento de ]c — salta al bloque modificado anterior\nMás rápido que pulsar k repetidamente para buscar hacia atrás una diferencia',
+      example = '[c → el cursor salta al bloque de cambios anterior',
     },
 
     -- ── screen centering chain ─────────────────────────────────────────────
@@ -861,6 +880,11 @@ return {
       body = 'Se mueve al primer carácter no en blanco de la línea actual\nCon un número N, baja N-1 líneas y luego va al primer carácter no en blanco',
       example = '^ → primer no en blanco; 3_ → primer no en blanco 2 líneas abajo',
     },
+    ['i_<C-o>'] = {
+      title = '<C-o> (modo inserción) — ejecuta un comando sin salir del modo inserción',
+      body = 'Ejecuta exactamente un comando en modo Normal y vuelve directamente al modo inserción — sin necesidad de pulsar i/a de nuevo\nDistinto del <C-o> en modo Normal (volver atrás en la jumplist), que solo funciona fuera del modo inserción',
+      example = 'escribiendo…<C-o>dd → borra la línea actual y el modo inserción continúa automáticamente',
+    },
 
     -- ── fold: additional commands ─────────────────────────────────────────
     ['zf'] = {
@@ -977,6 +1001,32 @@ return {
       title = '<C-n> — completa la palabra en lugar de volver a escribirla',
       body = '¿Vuelves a escribir por completo un identificador que ya escribiste antes? <C-n> lo completa a partir de lo que ya está en el búfer\n<C-p> recorre las coincidencias en orden inverso si la primera sugerencia no es la que buscas',
       example = 'identifier ... iden<C-n> → completa a identifier',
+    },
+
+    -- ── "+y (detección de registro infrautilizado, #59) ─────────────────────
+    ['"+y'] = {
+      title = '"+y — copiar al portapapeles del sistema',
+      body = 'Has copiado muchas veces sin usar nunca el portapapeles del sistema\n"+y copia directamente a él, así que pegar fuera de Neovim (o pegar desde fuera con "+p) simplemente funciona\nConfigura clipboard=unnamedplus para que y/p usen el portapapeles por defecto y evitar el prefijo "+',
+      example = '"+yy una línea → pégala en otra aplicación con tu tecla de pegar habitual',
+    },
+
+    -- ── Ex commands (#57) ─────────────────────────────────────────────────
+    ['ex:g'] = {
+      title = ':g — ejecutar un comando sobre cada línea coincidente',
+      body = 'Encuentra cada línea que coincide con un patrón y ejecuta un comando Ex en cada una\nSustituye repetir n / . manualmente en cada coincidencia',
+      example = ':g/TODO/d → elimina cada línea que contiene TODO',
+    },
+    ['ex:norm'] = {
+      title = ':norm — ejecutar un comando en modo normal en cada línea seleccionada',
+      body = 'Aplica una secuencia de teclas de modo normal a cada línea de un rango\nSustituye grabar una macro cuando la edición es lo bastante simple',
+      example = ':%norm A; → añade un punto y coma al final de cada línea',
+    },
+
+    -- ── modo terminal: <Esc> sin efecto → <C-\><C-n> (#110) ────────────────
+    ['<C-\\><C-n>'] = {
+      title = '<C-\\><C-n> — salir del modo terminal',
+      body = 'Dentro de :terminal, <Esc> se envía directamente al proceso — no sale del modo terminal\n<C-\\><C-n> es la salida real al modo Normal',
+      example = '<C-\\><C-n> → vuelve al modo Normal, el proceso del terminal sigue en ejecución',
     },
   },
 }

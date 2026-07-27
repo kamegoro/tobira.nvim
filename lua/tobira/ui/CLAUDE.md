@@ -23,9 +23,9 @@ probably already exists.
 tobira's UI uses color for two unrelated purposes. Don't mix them.
 
 **Category color** — *what kind of command is this* (motion / edit / search / window / fold /
-mark / macro). Currently only the suggestion float's border uses it (`ui/float.lua`,
-`CATEGORY_HL` table). It answers "what kind" and stays constant for a given command regardless of
-how well the user knows it.
+mark / macro / diff / ex / terminal). Currently only the suggestion float's border uses it
+(`ui/float.lua`, `CATEGORY_HL` table). It answers "what kind" and stays constant for a given
+command regardless of how well the user knows it.
 
 **State color** — *how well does the user know this command* (never tried / learning / mastered /
 forgotten / pinned). Used by Guide and Progress. It answers "how far along" and changes over time
@@ -46,11 +46,26 @@ category color to represent a state, or vice versa.
 | fold | `TobiraSuggestFold` | `Constant` |
 | mark | `TobiraSuggestMark` | `Identifier` |
 | macro | `TobiraSuggestMacro` | `PreProc` |
+| diff | `TobiraSuggestDiff` | `DiffChange` |
+| ex | `TobiraSuggestEx` | `Statement` |
+| terminal | `TobiraSuggestTerminal` | `Statement` |
 
 The mapping targets Neovim's own syntax-highlighting groups, not diagnostic or UI groups — the
-intuition being "motion is a keyword-ish thing, edit is function-ish, search is string-ish." If
-you add an 8th category to `commands.lua`, pick the nearest syntax group by the same intuition
-before inventing a new link target.
+intuition being "motion is a keyword-ish thing, edit is function-ish, search is string-ish." `ex`
+(#57 — Ex commands like `:g`/`:norm`, tracked from the command line rather than a single
+keystroke) and `terminal` (#110 — the ineffective-`<Esc>`-in-terminal-mode nudge) were added in
+parallel, independently landing on the same `Statement` link by the same "reads like a
+statement/control-flow thing" intuition — `TobiraSuggestEx` and `TobiraSuggestTerminal` are
+still distinct hlgroups so there is no technical conflict, they just currently render as the same
+color. `diff` (#111) is a deliberate exception to the syntax-group intuition rather than a
+coincidence like `ex`/`terminal`: there is no syntax group that reads as "diff-ish" by the
+motion/edit/search analogy, but Neovim's own `DiffChange` highlight literally **is** the concept
+this category represents, which makes it a more meaningful link than reaching for an arbitrary
+syntax color — and it happens not to collide with `Statement` either, so all three new categories
+currently render as visually distinct colors. If you add another category to `commands.lua`,
+check this table first: prefer the nearest unclaimed syntax group by the motion/edit/search
+intuition, and only reach for a non-syntax group like `DiffChange` when the category already has
+a Neovim highlight group that IS the concept, not just adjacent to it.
 
 ### State → hlgroup (Guide / Progress mastery symbols)
 

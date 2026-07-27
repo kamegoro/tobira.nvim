@@ -493,6 +493,146 @@ describe('when the user types while in insert mode', function()
   end)
 end)
 
+-- ── terminal mode: ineffective <Esc> → suggest <C-\><C-n> (#110) ─────────────
+-- mode() == 't' is terminal-job mode: keys go straight to the job, not to
+-- Neovim's own key handling. Headless Neovim can never actually enter 't'
+-- mode (there is no real job to attach to), so these tests use the same
+-- vim.fn.mode() stub + synthetic ModeChanged technique as the 'i' mode
+-- tests above (see tests/CLAUDE.md's "Testing non-normal mode in headless
+-- Neovim").
+
+local function enter_terminal_mode()
+  local real_mode = vim.fn.mode
+  vim.fn.mode = function()
+    return 't'
+  end
+  vim.api.nvim_exec_autocmds('ModeChanged', { modeline = false })
+  vim.fn.mode = real_mode
+end
+
+local function leave_terminal_mode_to_normal()
+  local real_mode = vim.fn.mode
+  vim.fn.mode = function()
+    return 'n'
+  end
+  vim.api.nvim_exec_autocmds('ModeChanged', { modeline = false })
+  vim.fn.mode = real_mode
+end
+
+describe('when the user is stuck in terminal mode', function()
+  local esc = vim.api.nvim_replace_termcodes('<Esc>', true, false, true)
+
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    logger.on_pattern = nil
+    logger.setup()
+    enter_terminal_mode()
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+    leave_terminal_mode_to_normal()
+  end)
+
+  it('does not fire on a single <Esc> with no effect', function()
+    local fired = false
+    logger.on_pattern = function()
+      fired = true
+    end
+    vim.fn.feedkeys(esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_false(fired)
+  end)
+
+  it('fires terminal_esc_repeat suggesting <C-\\><C-n> on the second consecutive <Esc>', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+    vim.fn.feedkeys(esc, 'xt')
+    vim.fn.feedkeys(esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals(1, #fired)
+    assert.equals('terminal_esc_repeat', fired[1].pattern)
+    assert.equals('<C-\\><C-n>', fired[1].cmd)
+  end)
+
+  it('does not spam the suggestion on further <Esc> presses in the same streak', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+    vim.fn.feedkeys(esc, 'xt')
+    vim.fn.feedkeys(esc, 'xt')
+    vim.fn.feedkeys(esc, 'xt')
+    vim.fn.feedkeys(esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals(1, #fired, 'expected exactly one suggestion despite 4 consecutive <Esc> presses')
+  end)
+
+  it('resets the streak once the user actually leaves terminal mode', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+    vim.fn.feedkeys(esc, 'xt') -- 1st Esc, no fire yet
+    vim.api.nvim_feedkeys('', 'x', false)
+    leave_terminal_mode_to_normal() -- successful exit — a real mode change
+    enter_terminal_mode() -- back into a fresh terminal session
+    vim.fn.feedkeys(esc, 'xt') -- only the 1st Esc of the NEW session
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals(0, #fired, 'a single leftover Esc from a previous session must not carry over')
+  end)
+end)
+
+describe('terminal-mode <Esc> detection does not affect other modes (mode isolation)', function()
+  local esc = vim.api.nvim_replace_termcodes('<Esc>', true, false, true)
+
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    logger.on_pattern = nil
+    logger.setup()
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+    if vim.fn.mode() ~= 'n' then
+      vim.cmd('stopinsert')
+    end
+  end)
+
+  it('still fires insert_bounce (not terminal_esc_repeat) for <Esc> <Esc> in insert mode', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+    -- Each enter/escape round-trip fed as one feedkeys call (not separate
+    -- ones) so the mode cache's ModeChanged autocmd has definitely fired by
+    -- the time <Esc> is processed — see the <C-w> test elsewhere in this
+    -- file for the same rule.
+    vim.fn.feedkeys('i' .. esc, 'xt')
+    vim.fn.feedkeys('i' .. esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals(1, #fired)
+    assert.equals('insert_bounce', fired[1].pattern)
+    assert.equals('A', fired[1].cmd)
+  end)
+
+  it('still lets <Esc> cancel a pending operator in normal mode with no pattern fired', function()
+    local fired = false
+    logger.on_pattern = function()
+      fired = true
+    end
+    vim.fn.feedkeys('d', 'xt')
+    vim.fn.feedkeys(esc, 'xt')
+    vim.fn.feedkeys('w', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_false(fired)
+  end)
+end)
+
 describe('when ModeChanged fires to operator-pending before the motion arrives', function()
   before_each(function()
     wipe_disk()
@@ -770,6 +910,343 @@ describe('insert-mode completion detection (#112)', function()
     vim.fn.feedkeys(ctrl_n, 'xt') -- normal-mode Ctrl-N: move down a line, unrelated command
     vim.api.nvim_feedkeys('', 'x', false)
     assert.equals(0, logger.get('<C-n>').count)
+  end)
+end)
+
+-- #105: insert-mode <C-o> (run exactly one Normal-mode command, then return
+-- to insert automatically). See commands.lua's 'i_<C-o>' registry comment for
+-- why this is a distinct composite key from the normal-mode '<C-o>' entry.
+describe('insert-mode <C-o> one-shot detection (#105)', function()
+  local esc = vim.api.nvim_replace_termcodes('<Esc>', true, false, true)
+  local ctrl_o = vim.api.nvim_replace_termcodes('<C-o>', true, false, true)
+
+  before_each(function()
+    logger.reset()
+    logger.on_pattern = nil
+    logger.setup()
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+    if vim.fn.mode() ~= 'n' then
+      vim.cmd('stopinsert')
+    end
+  end)
+
+  it("increments 'i_<C-o>' when the real insert-mode <C-o> is pressed", function()
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'hello world' })
+    -- <C-o>l moves right one column (the one Normal command), then Neovim
+    -- returns to insert mode automatically — no explicit i/a needed.
+    vim.fn.feedkeys('A' .. ctrl_o .. 'l' .. esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_true(logger.get('i_<C-o>').count > 0)
+  end)
+
+  it('does not count the normal-mode jumplist-back <C-o> as the insert-mode command', function()
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'hello world' })
+    vim.fn.feedkeys(ctrl_o, 'xt') -- pure normal-mode <C-o>, never entered insert
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals(0, logger.get('i_<C-o>').count)
+  end)
+
+  it('fires insert_co_oneshot when <Esc> is followed by exactly one motion then back to insert', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      if pattern == 'insert_co_oneshot' then
+        fired = { pattern = pattern, cmd = cmd }
+      end
+    end
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'line one', 'line two', 'line three' })
+    vim.fn.feedkeys('i' .. esc .. 'j' .. 'i', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals('insert_co_oneshot', fired.pattern)
+    assert.equals('i_<C-o>', fired.cmd)
+  end)
+
+  it('does not fire insert_co_oneshot when 2 or more motions are interleaved before returning', function()
+    local fired = false
+    logger.on_pattern = function(pattern)
+      if pattern == 'insert_co_oneshot' then
+        fired = true
+      end
+    end
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'line one', 'line two', 'line three' })
+    vim.fn.feedkeys('i' .. esc .. 'j' .. 'k' .. 'i', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_false(fired)
+  end)
+
+  it('does not fire insert_co_oneshot when returning to insert with no motion at all', function()
+    local fired = false
+    logger.on_pattern = function(pattern)
+      if pattern == 'insert_co_oneshot' then
+        fired = true
+      end
+    end
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'line one' })
+    vim.fn.feedkeys('i' .. esc .. 'i', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_false(fired)
+  end)
+end)
+
+-- patterns.feed() (patterns.lua) and feed_after_escape() (patterns_insert.lua,
+-- #105) are both fed the same Normal-mode keystroke in handle_key and can
+-- both produce a result for it — e.g. <Esc>0i matches patterns.lua's
+-- zero_col_then_insert (0 then i -> suggest gI) AND patterns_insert.lua's
+-- insert_co_oneshot (Esc, one motion, back to insert -> suggest <C-o>).
+-- Before this reconciliation existed, whichever call happened to run second
+-- in handle_key's source order won the race in suggest.queue() by accident.
+-- logger.lua now decides deterministically: patterns.lua's result (a
+-- pre-existing, more specific suggestion) always takes priority over
+-- patterns_insert.lua's generic insert_co_oneshot hint for the same
+-- keystroke. See logger.lua's handle_key for the implementation.
+describe('reconciling insert_co_oneshot with pre-existing specific patterns (priority)', function()
+  local esc = vim.api.nvim_replace_termcodes('<Esc>', true, false, true)
+
+  before_each(function()
+    logger.reset()
+    logger.on_pattern = nil
+    logger.setup()
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+    if vim.fn.mode() ~= 'n' then
+      vim.cmd('stopinsert')
+    end
+  end)
+
+  local function feed_and_collect(keys)
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'hello world' })
+    vim.fn.feedkeys(keys, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    return fired
+  end
+
+  it('fires only zero_col_then_insert (gI) for <Esc>0i, not insert_co_oneshot', function()
+    local fired = feed_and_collect('i' .. esc .. '0i')
+    assert.equals(1, #fired)
+    assert.equals('zero_col_then_insert', fired[1].pattern)
+    assert.equals('gI', fired[1].cmd)
+  end)
+
+  it('fires only x_then_insert (s) for <Esc>xi, not insert_co_oneshot', function()
+    local fired = feed_and_collect('i' .. esc .. 'xi')
+    assert.equals(1, #fired)
+    assert.equals('x_then_insert', fired[1].pattern)
+    assert.equals('s', fired[1].cmd)
+  end)
+
+  it('fires only dollar_then_append (A) for <Esc>$a, not insert_co_oneshot', function()
+    local fired = feed_and_collect('i' .. esc .. '$a')
+    assert.equals(1, #fired)
+    assert.equals('dollar_then_append', fired[1].pattern)
+    assert.equals('A', fired[1].cmd)
+  end)
+
+  it('still fires insert_co_oneshot for <Esc>hi (no competing specific pattern)', function()
+    local fired = feed_and_collect('i' .. esc .. 'hi')
+    assert.equals(1, #fired)
+    assert.equals('insert_co_oneshot', fired[1].pattern)
+    assert.equals('i_<C-o>', fired[1].cmd)
+  end)
+
+  it('still fires insert_co_oneshot for <Esc>li (no competing specific pattern)', function()
+    local fired = feed_and_collect('i' .. esc .. 'li')
+    assert.equals(1, #fired)
+    assert.equals('insert_co_oneshot', fired[1].pattern)
+    assert.equals('i_<C-o>', fired[1].cmd)
+  end)
+
+  it('still fires insert_co_oneshot for <Esc>wi (no competing specific pattern)', function()
+    local fired = feed_and_collect('i' .. esc .. 'wi')
+    assert.equals(1, #fired)
+    assert.equals('insert_co_oneshot', fired[1].pattern)
+    assert.equals('i_<C-o>', fired[1].cmd)
+  end)
+end)
+
+-- ── Ex command tracking (#57) ────────────────────────────────────────────────
+-- vim.on_key sees every keystroke including cmdline ones. Confirmed
+-- empirically (not just assumed): querying vim.fn.getcmdtype()/getcmdline()
+-- from inside the on_key callback for the terminating <CR>/<Esc> keystroke
+-- still reports the PRE-submission state (mode/cmdtype have not flipped back
+-- to normal yet, and getcmdline() still holds the full buffer content) —
+-- same timing property patterns_insert.lua's bounce-detection design note
+-- relies on for <Esc> vs insert mode. Unlike insert mode, cmdline mode is
+-- genuinely enterable via feedkeys in headless Neovim, so these tests need
+-- no vim.fn.mode() stubbing.
+
+describe('Ex command tracking (#57)', function()
+  local esc = vim.api.nvim_replace_termcodes('<Esc>', true, true, true)
+  local cr = vim.api.nvim_replace_termcodes('<CR>', true, true, true)
+  local up = vim.api.nvim_replace_termcodes('<Up>', true, true, true)
+  local ctrl_c = vim.api.nvim_replace_termcodes('<C-c>', true, true, true)
+
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    logger.on_pattern = nil
+    logger.setup()
+    vim.cmd('enew!')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'foo', 'TODO', 'foo' })
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+    if vim.fn.mode() ~= 'n' then
+      pcall(vim.api.nvim_input, esc)
+    end
+  end)
+
+  it('increments usage["ex:s"] when a %s/../../ substitute command is completed', function()
+    pcall(vim.fn.feedkeys, ':%s/foo/bar/g' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_true(logger.get('ex:s').count > 0)
+  end)
+
+  it('increments usage["ex:g"] when a global command is completed', function()
+    pcall(vim.fn.feedkeys, ':g/TODO/d' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_true(logger.get('ex:g').count > 0)
+  end)
+
+  it('does not increment usage["ex:s"] when the command is aborted with <Esc> before <CR>', function()
+    pcall(vim.fn.feedkeys, ':s/foo' .. esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals(0, logger.get('ex:s').count)
+  end)
+
+  it('does not increment anything when the command is canceled mid-typing with <C-c>', function()
+    pcall(vim.fn.feedkeys, ':g/TOD' .. ctrl_c, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals(0, logger.get('ex:g').count)
+  end)
+
+  it('increments the recalled command when it is submitted via <Up> history recall', function()
+    -- Prime recall by typing (and aborting) a target command first. Neovim's
+    -- <Up> recalls the most recently edited command line regardless of
+    -- whether it was submitted or aborted — this is exactly why reading
+    -- vim.fn.getcmdline() at <CR> time (not reconstructing keystrokes
+    -- ourselves) is the right design: <Up> never "types" characters that a
+    -- manual accumulator could append.
+    pcall(vim.fn.feedkeys, ':g/TODO/d' .. esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals(0, logger.get('ex:g').count) -- the primer itself was aborted
+
+    pcall(vim.fn.feedkeys, ':' .. up .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_true(logger.get('ex:g').count > 0)
+  end)
+
+  it('does not track a search (/) cmdline as an Ex command', function()
+    pcall(vim.fn.feedkeys, '/foo' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    local has_ex_key = false
+    for cmd in pairs(logger.get_all()) do
+      if cmd:sub(1, 3) == 'ex:' then
+        has_ex_key = true
+      end
+    end
+    assert.is_false(has_ex_key, 'a / search must never be tokenized as an Ex command')
+  end)
+
+  it('does not fire an on_pattern callback (usage-based tracking, not a reactive pattern)', function()
+    local fired = false
+    logger.on_pattern = function()
+      fired = true
+    end
+    pcall(vim.fn.feedkeys, ':g/TODO/d' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_false(fired)
+  end)
+end)
+
+-- ── Ex command tracking excludes tobira's own commands (QA bug on #57) ──────
+-- Running tobira's own UI commands (:TobiraStats, :TobiraGuide, ...) got
+-- tokenized and tracked as Ex-command usage themselves -- e.g. running
+-- :TobiraReset once made "ex:tobirastats" show up as a top command in
+-- :TobiraStats, even though the user only ever ran :TobiraReset. Any command
+-- whose tokenized name starts with tobira's own command prefix must never be
+-- tracked. See plugin/tobira.lua for the definitive list of registered
+-- commands (all share the 'Tobira' prefix).
+
+describe("Ex command tracking excludes tobira's own commands", function()
+  local esc = vim.api.nvim_replace_termcodes('<Esc>', true, true, true)
+  local cr = vim.api.nvim_replace_termcodes('<CR>', true, true, true)
+
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    logger.on_pattern = nil
+    logger.setup()
+    vim.cmd('enew!')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'foo', 'TODO', 'foo' })
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+    if vim.fn.mode() ~= 'n' then
+      pcall(vim.api.nvim_input, esc)
+    end
+  end)
+
+  -- Asserts no ex:* key exists at all (rather than checking one specific key)
+  -- so this also catches the tokenizer producing an unexpected variant, e.g.
+  -- if a future refactor of tokenize()'s casing broke the prefix match.
+  local function assert_no_ex_key_tracked()
+    for cmd in pairs(logger.get_all()) do
+      assert.is_false(cmd:sub(1, 3) == 'ex:', 'expected no ex:* usage key to be tracked, but found ' .. cmd)
+    end
+  end
+
+  it('does not track :TobiraStats as Ex-command usage', function()
+    pcall(vim.fn.feedkeys, ':TobiraStats' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert_no_ex_key_tracked()
+  end)
+
+  it('does not track :TobiraGuide as Ex-command usage', function()
+    pcall(vim.fn.feedkeys, ':TobiraGuide' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert_no_ex_key_tracked()
+  end)
+
+  it('does not track :TobiraReset as Ex-command usage', function()
+    pcall(vim.fn.feedkeys, ':TobiraReset' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert_no_ex_key_tracked()
+  end)
+
+  it('does not track :Tobira as Ex-command usage', function()
+    pcall(vim.fn.feedkeys, ':Tobira' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert_no_ex_key_tracked()
+  end)
+
+  it('does not track :TobiraProgress as Ex-command usage', function()
+    pcall(vim.fn.feedkeys, ':TobiraProgress' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert_no_ex_key_tracked()
+  end)
+
+  it('still tracks an ordinary Ex command that merely starts with an unrelated word', function()
+    -- Over-broad exclusion guard: only tobira's own prefix should be
+    -- excluded, not every Ex command in general.
+    pcall(vim.fn.feedkeys, ':%s/foo/bar/g' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_true(logger.get('ex:s').count > 0)
   end)
 end)
 
@@ -1117,6 +1594,15 @@ describe('when a compound operator completes', function()
     pcall(vim.fn.feedkeys, 'guu', 'xt')
     pcall(vim.api.nvim_feedkeys, '', 'x', false)
     assert.is_true(logger.get('gu').count > 0)
+  end)
+
+  -- #59: "+y system-clipboard yank, tracked via patterns.lua's
+  -- pending_clipboard_yank compound (see patterns_spec.lua for the pure-logic
+  -- coverage of the state machine itself).
+  it('tracks "+y as a compound command', function()
+    pcall(vim.fn.feedkeys, '"+yy', 'xt')
+    pcall(vim.api.nvim_feedkeys, '', 'x', false)
+    assert.is_true(logger.get('"+y').count > 0)
   end)
 
   -- #120: <C-w>X window-command compounds — patterns.lua's new pending_ctrl_w

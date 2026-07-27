@@ -24,6 +24,9 @@ return {
       fold = 'Faltung',
       mark = 'Marke',
       macro = 'Makro',
+      diff = 'Diff',
+      ex = 'Ex-Befehle',
+      terminal = 'Terminal',
     },
     mastered_total = '%d / %d gemeistert',
     section_count = '%d / %d',
@@ -72,6 +75,7 @@ return {
       insert_right_repeat = 'Du hast im Einfügemodus 5-mal hintereinander <Right> gedrückt',
       insert_bounce = 'Du bist zweimal hintereinander in den Einfügemodus gewechselt und ohne Änderung wieder heraus',
       insert_completion_repeat = 'Du hast dasselbe Wort ein zweites Mal komplett eingetippt',
+      insert_co_oneshot = 'Du hast den Einfügemodus verlassen, einen Befehl ausgeführt und bist sofort zurückgekehrt',
       f_repeat = 'Du hast dieselbe f/t-Suche in dieser Zeile wiederholt',
       r_run = 'Du hast 3 Zeichen einzeln nacheinander ersetzt',
       visual_textobj = 'Du hast vor dem Bearbeiten ein Textobjekt im visuellen Modus ausgewählt',
@@ -96,8 +100,10 @@ return {
       u_repeat = 'Du hast 3-mal hintereinander rückgängig gemacht',
       j_repeat = 'Du hast 5-mal hintereinander j gedrückt',
       j_many = 'Du hast 10-mal hintereinander j gedrückt',
+      j_many_diff = 'Du hast 10-mal hintereinander j gedrückt, während der Diff-Modus aktiv war',
       k_repeat = 'Du hast 5-mal hintereinander k gedrückt',
       k_many = 'Du hast 10-mal hintereinander k gedrückt',
+      k_many_diff = 'Du hast 10-mal hintereinander k gedrückt, während der Diff-Modus aktiv war',
       n_repeat = 'Du hast einen Suchtreffer 4-mal wiederholt',
       l_repeat = 'Du hast 5-mal hintereinander l gedrückt',
       h_repeat = 'Du hast 5-mal hintereinander h gedrückt',
@@ -112,6 +118,7 @@ return {
       J_repeat = 'Du hast 3-mal hintereinander Zeilen zusammengeführt',
       ca_run = 'Du hast eine Zahl erhöht, eine Zeile weiterbewegt und das 3-mal wiederholt',
       ctrl_w_close_repeat = 'Du hast 2-mal hintereinander Fenster einzeln geschlossen',
+      terminal_esc_repeat = 'Du hast im Terminal-Modus zweimal hintereinander <Esc> gedrückt, ohne Effekt',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -304,6 +311,18 @@ return {
       title = '{ — zum Absatzanfang springen',
       body = 'Die Gegenrichtung zu } — geht nach oben zur Leerzeile darüber\nSchnelles Navigieren zwischen Codeblöcken oder Absätzen',
       example = '{ → Cursor springt zur Leerzeile vor dem aktuellen Block',
+    },
+
+    -- ── Diff-Modus: manuelle Hunk-Navigation (#111) ─────────────────────────
+    [']c'] = {
+      title = ']c — zum nächsten Diff-Hunk springen',
+      body = 'Während &diff aktiv ist, springt direkt zum nächsten geänderten Hunk\nSchneller als wiederholtes j, um den nächsten Unterschied zu suchen',
+      example = ']c → Cursor springt zum nächsten geänderten Hunk',
+    },
+    ['[c'] = {
+      title = '[c — zum vorherigen Diff-Hunk springen',
+      body = 'Die Gegenrichtung zu ]c — springt zum vorherigen geänderten Hunk\nSchneller als wiederholtes k, um rückwärts nach einem Unterschied zu suchen',
+      example = '[c → Cursor springt zum vorherigen geänderten Hunk',
     },
 
     -- ── screen centering chain ─────────────────────────────────────────────
@@ -861,6 +880,11 @@ return {
       body = 'Bewegt sich zum ersten Nicht-Leerzeichen der aktuellen Zeile\nMit einer Zahl N geht es N-1 Zeilen nach unten und dann zum ersten Nicht-Leerzeichen',
       example = '^ → erstes Nicht-Leerzeichen; 3_ → erstes Nicht-Leerzeichen 2 Zeilen tiefer',
     },
+    ['i_<C-o>'] = {
+      title = '<C-o> (Einfügemodus) — einen Befehl ausführen, ohne den Einfügemodus zu verlassen',
+      body = 'Führt genau einen Normal-Modus-Befehl aus und kehrt danach sofort in den Einfügemodus zurück — kein erneutes i/a nötig\nAnders als das normale <C-o> (Sprung zurück in der Jumplist), das nur außerhalb des Einfügemodus funktioniert',
+      example = 'tippen…<C-o>dd → löscht die aktuelle Zeile, der Einfügemodus läuft danach automatisch weiter',
+    },
 
     -- ── fold: additional commands ─────────────────────────────────────────
     ['zf'] = {
@@ -977,6 +1001,32 @@ return {
       title = '<C-n> — Wort vervollständigen statt neu einzutippen',
       body = 'Tippst du einen Bezeichner erneut komplett ein, den du schon einmal geschrieben hast? <C-n> vervollständigt ihn aus dem, was schon im Puffer steht\n<C-p> durchläuft die Treffer in umgekehrter Reihenfolge, falls der erste Vorschlag nicht passt',
       example = 'identifier ... iden<C-n> → vervollständigt zu identifier',
+    },
+
+    -- ── "+y (Register-Unternutzung erkennen, #59) ────────────────────────────
+    ['"+y'] = {
+      title = '"+y — in die Systemzwischenablage kopieren',
+      body = 'Du hast oft kopiert, aber nie die Systemzwischenablage benutzt\n"+y kopiert direkt hinein, sodass Einfügen außerhalb von Neovim (oder mit "+p von außen) einfach funktioniert\nMit clipboard=unnamedplus nutzen y/p die Zwischenablage standardmäßig — dann brauchst du das "+ Präfix gar nicht mehr',
+      example = '"+yy eine Zeile → in einer anderen App mit der gewohnten Einfügen-Taste einfügen',
+    },
+
+    -- ── Ex commands (#57) ─────────────────────────────────────────────────
+    ['ex:g'] = {
+      title = ':g — einen Befehl auf jede passende Zeile anwenden',
+      body = 'Findet jede Zeile, die auf ein Muster passt, und führt einen Ex-Befehl auf jeder aus\nErsetzt das manuelle Wiederholen von n / . für jede Fundstelle einzeln',
+      example = ':g/TODO/d → löscht jede Zeile, die TODO enthält',
+    },
+    ['ex:norm'] = {
+      title = ':norm — einen Normal-Modus-Befehl auf jede ausgewählte Zeile anwenden',
+      body = 'Wendet eine Folge von Normal-Modus-Tasten auf jede Zeile im Bereich an\nErsetzt das Aufnehmen eines Makros, wenn die Änderung einfach genug ist',
+      example = ':%norm A; → hängt an jede Zeile ein Semikolon an',
+    },
+
+    -- ── Terminal-Modus: wirkungsloses <Esc> → <C-\><C-n> (#110) ────────────
+    ['<C-\\><C-n>'] = {
+      title = '<C-\\><C-n> — Terminal-Modus verlassen',
+      body = 'Im :terminal wird <Esc> direkt an den Job weitergereicht — der Terminal-Modus wird dadurch nicht verlassen\n<C-\\><C-n> ist der eigentliche Weg zurück in den Normal-Modus',
+      example = '<C-\\><C-n> → zurück in den Normal-Modus, der Terminal-Job läuft weiter',
     },
   },
 }
