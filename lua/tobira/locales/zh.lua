@@ -25,6 +25,7 @@ return {
       mark = '标记',
       macro = '宏',
       ex = '命令行',
+      terminal = '终端',
     },
     mastered_total = '%d / %d 已掌握',
     section_count = '%d / %d',
@@ -112,6 +113,7 @@ return {
       J_repeat = '你连续合并了 3 次行',
       ca_run = '你增加了一个数字、下移一行，并重复了 3 次',
       ctrl_w_close_repeat = '你连续 2 次逐个关闭窗口',
+      terminal_esc_repeat = '你在终端模式下连续按了两次 <Esc> 但没有效果',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -982,6 +984,13 @@ return {
       title = ':norm — 对每一选中行执行普通模式命令',
       body = '将一段普通模式按键序列应用到范围内的每一行\n当编辑足够简单时，可取代录制宏',
       example = ':%norm A; → 在每一行末尾追加一个分号',
+    },
+
+    -- ── 终端模式：<Esc> 无效 → <C-\><C-n> (#110) ─────────────────────────
+    ['<C-\\><C-n>'] = {
+      title = '<C-\\><C-n> — 退出终端模式',
+      body = '在 :terminal 中，<Esc> 会直接发送给任务 — 并不会退出终端模式\n<C-\\><C-n> 才是真正返回普通模式的方式',
+      example = '<C-\\><C-n> → 返回普通模式，终端任务继续运行',
     },
   },
 }

@@ -25,6 +25,7 @@ return {
       mark = 'Marke',
       macro = 'Makro',
       ex = 'Ex-Befehle',
+      terminal = 'Terminal',
     },
     mastered_total = '%d / %d gemeistert',
     section_count = '%d / %d',
@@ -112,6 +113,7 @@ return {
       J_repeat = 'Du hast 3-mal hintereinander Zeilen zusammengeführt',
       ca_run = 'Du hast eine Zahl erhöht, eine Zeile weiterbewegt und das 3-mal wiederholt',
       ctrl_w_close_repeat = 'Du hast 2-mal hintereinander Fenster einzeln geschlossen',
+      terminal_esc_repeat = 'Du hast im Terminal-Modus zweimal hintereinander <Esc> gedrückt, ohne Effekt',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -982,6 +984,13 @@ return {
       title = ':norm — einen Normal-Modus-Befehl auf jede ausgewählte Zeile anwenden',
       body = 'Wendet eine Folge von Normal-Modus-Tasten auf jede Zeile im Bereich an\nErsetzt das Aufnehmen eines Makros, wenn die Änderung einfach genug ist',
       example = ':%norm A; → hängt an jede Zeile ein Semikolon an',
+    },
+
+    -- ── Terminal-Modus: wirkungsloses <Esc> → <C-\><C-n> (#110) ────────────
+    ['<C-\\><C-n>'] = {
+      title = '<C-\\><C-n> — Terminal-Modus verlassen',
+      body = 'Im :terminal wird <Esc> direkt an den Job weitergereicht — der Terminal-Modus wird dadurch nicht verlassen\n<C-\\><C-n> ist der eigentliche Weg zurück in den Normal-Modus',
+      example = '<C-\\><C-n> → zurück in den Normal-Modus, der Terminal-Job läuft weiter',
     },
   },
 }

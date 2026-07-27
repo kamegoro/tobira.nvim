@@ -21,6 +21,11 @@ for cmd, entry in pairs(commands.registry) do
       -- gate instead of the generic mastery-level gate. Only ever true for
       -- Ex-command suggestions (see commands.lua's 'ex:g' / 'ex:norm').
       ex_command = entry.ex_command == true,
+      -- nil (default) means eligible; only `ambient = false` in commands.lua
+      -- opts an entry out of find_best()'s candidate pool. The reactive path
+      -- (suggest.queue called directly from a pattern module) never reads
+      -- this field, so it is unaffected either way — see find_best() below.
+      ambient = entry.ambient,
     }
   end
 end
@@ -237,7 +242,11 @@ function M.find_best(usage, max_shown, max_level)
 
   for cmd, sug in pairs(M.suggestions) do
     local cmd_level_num = LEVEL_ORDER[sug.level] or 1
-    if cmd_level_num <= max_level_num then
+    -- #110: entries marked ambient = false (reactive-only, e.g. the
+    -- terminal-mode exit suggestion) are never proactive candidates here —
+    -- they only ever reach the user via suggest.queue() called directly
+    -- from a pattern module, which does not go through find_best.
+    if cmd_level_num <= max_level_num and sug.ambient ~= false then
       local data = usage[cmd] or { count = 0, sessions = {}, shown = 0, suppressed = false }
 
       -- #57: Ex-command suggestions use a stricter "never tried at all" gate

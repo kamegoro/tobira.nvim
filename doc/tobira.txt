@@ -188,8 +188,8 @@ suggestion appears in tobira's own floating window, near the top-right of the
 screen. The window shows what you just did (when a specific pattern
 triggered it), the command to try instead, and a short example. Its border
 is colored by category (motion / edit / search / window / fold / mark /
-macro / ex) so a returning user can recognize the kind of suggestion at a
-glance.
+macro / ex / terminal) so a returning user can recognize the kind of
+suggestion at a glance.
 The window auto-dismisses on its own after a few seconds — roughly
 scaled to how much text it is showing — and never steals focus or blocks
 input.
@@ -283,6 +283,10 @@ INSERT MODE ~
   `<Left>` × 5                  Suggest `b`     — leave insert, jump back a word
   `<Right>` × 5                 Suggest `w`     — leave insert, jump forward a word
   Empty insert → `<Esc>`, twice Suggest `A`     — stop bouncing in and out, append directly
+
+TERMINAL MODE ~
+
+  `<Esc>` × 2, no effect        Suggest `<C-\><C-n>` — exit terminal mode
 
 ==============================================================================
 vim:tw=78:ts=8:ft=help:norl:

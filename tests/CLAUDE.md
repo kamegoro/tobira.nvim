@@ -12,6 +12,7 @@
 |---|---|
 | New normal-mode pattern in `patterns.lua` | `patterns_spec.lua`: unit test for the pure function |
 | New insert-mode pattern in `patterns_insert.lua` | `patterns_insert_spec.lua`: unit test for the pure function |
+| New terminal-mode pattern in `patterns_terminal.lua` | `patterns_terminal_spec.lua`: unit test for the pure function (#110) |
 | New entry in `graph.suggestions` | `graph_spec.lua`: scoring + field validation |
 | Data management change in `logger.lua` | `logger_spec.lua`: mark / get / reset behavior |
 | Suppression or cooldown change in `suggest.lua` | `suggest_spec.lua`: show / suppress boundary conditions |

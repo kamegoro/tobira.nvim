@@ -37,6 +37,7 @@ function M.setup()
   -- group to a colon command, matching the other categories' "what kind of
   -- thing is this" intuition (#57; see ui/CLAUDE.md's category table).
   vim.api.nvim_set_hl(0, 'TobiraSuggestEx', { link = 'Statement' })
+  vim.api.nvim_set_hl(0, 'TobiraSuggestTerminal', { link = 'Statement' })
   vim.api.nvim_set_hl(0, 'TobiraSuggestKey', { link = 'Special' })
   vim.api.nvim_set_hl(0, 'TobiraSuggestReason', { link = 'Comment' })
 

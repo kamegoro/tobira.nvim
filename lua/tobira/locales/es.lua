@@ -25,6 +25,7 @@ return {
       mark = 'Marca',
       macro = 'Macro',
       ex = 'Comandos Ex',
+      terminal = 'Terminal',
     },
     mastered_total = '%d / %d dominados',
     section_count = '%d / %d',
@@ -112,6 +113,7 @@ return {
       J_repeat = 'Uniste líneas 3 veces seguidas',
       ca_run = 'Incrementaste un número, bajaste una línea y lo repetiste 3 veces',
       ctrl_w_close_repeat = 'Cerraste ventanas una por una, 2 veces seguidas',
+      terminal_esc_repeat = 'Presionaste <Esc> dos veces seguidas en modo terminal sin ningún efecto',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -982,6 +984,13 @@ return {
       title = ':norm — ejecutar un comando en modo normal en cada línea seleccionada',
       body = 'Aplica una secuencia de teclas de modo normal a cada línea de un rango\nSustituye grabar una macro cuando la edición es lo bastante simple',
       example = ':%norm A; → añade un punto y coma al final de cada línea',
+    },
+
+    -- ── modo terminal: <Esc> sin efecto → <C-\><C-n> (#110) ────────────────
+    ['<C-\\><C-n>'] = {
+      title = '<C-\\><C-n> — salir del modo terminal',
+      body = 'Dentro de :terminal, <Esc> se envía directamente al proceso — no sale del modo terminal\n<C-\\><C-n> es la salida real al modo Normal',
+      example = '<C-\\><C-n> → vuelve al modo Normal, el proceso del terminal sigue en ejecución',
     },
   },
 }
