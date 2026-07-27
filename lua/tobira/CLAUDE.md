@@ -126,8 +126,8 @@ two-character command prefix.
 
 1. Add one entry to `commands.lua`
    - If `requires` is multi-char, add a `compound = true` entry for it first
-   - `requires`, `category` (motion|edit|search|window|fold|mark|macro|ex|terminal), and
-     `level` (beginner|intermediate|advanced) are required fields
+   - `requires`, `category` (motion|edit|search|window|fold|mark|macro|diff|ex|terminal),
+     and `level` (beginner|intermediate|advanced) are required fields
    - Optional `ambient = false` (#110): excludes the entry from
      `graph.find_best()`'s candidate pool (both the idle picker and `:Tobira`
      manual). Reserved for reactive-only suggestions whose own usage count can

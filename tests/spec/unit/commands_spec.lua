@@ -75,7 +75,7 @@ describe('locale coverage', function()
 end)
 
 describe('every non-compound entry in the registry', function()
-  it('has a category field (motion | edit | search | window | fold | mark | macro | ex | terminal)', function()
+  it('has a category field (motion | edit | search | window | fold | mark | macro | diff | ex | terminal)', function()
     local valid = {
       motion = true,
       edit = true,
@@ -84,6 +84,7 @@ describe('every non-compound entry in the registry', function()
       fold = true,
       mark = true,
       macro = true,
+      diff = true,
       ex = true,
       terminal = true,
     }
@@ -355,6 +356,9 @@ local chain_cases = {
   { '|', '0', '0 → |: move to column N' },
   -- first non-blank (current line)
   { '_', '^', '^ → _: first non-blank (N-1 lines lower)' },
+  -- diff-mode hunk navigation (#111)
+  { ']c', 'j', 'j → ]c: jump to next diff hunk (while &diff is set)' },
+  { '[c', 'k', 'k → [c: jump to previous diff hunk (while &diff is set)' },
   -- Ex commands (#57)
   { 'ex:g', 'n', 'n → ex:g: global command over search matches' },
   { 'ex:norm', 'q', 'q → ex:norm: run a normal-mode command per line' },

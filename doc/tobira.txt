@@ -188,7 +188,7 @@ suggestion appears in tobira's own floating window, near the top-right of the
 screen. The window shows what you just did (when a specific pattern
 triggered it), the command to try instead, and a short example. Its border
 is colored by category (motion / edit / search / window / fold / mark /
-macro / ex / terminal) so a returning user can recognize the kind of
+macro / diff / ex / terminal) so a returning user can recognize the kind of
 suggestion at a glance.
 The window auto-dismisses on its own after a few seconds — roughly
 scaled to how much text it is showing — and never steals focus or blocks
@@ -238,8 +238,10 @@ MOTION ~
   `b` × 5                       Suggest `B`    — jump backward by WORD
   `j` × 5                       Suggest `{n}j` — use a count prefix instead
   `j` × 10                      Suggest `}`    — jump forward by paragraph
+                                 (suggests `]c` instead while `&diff` is set — see DIFF below)
   `k` × 5                       Suggest `{n}k` — use a count prefix instead
   `k` × 10                      Suggest `{`    — jump backward by paragraph
+                                 (suggests `[c` instead while `&diff` is set — see DIFF below)
   `k` (once) → `o`              Suggest `O`    — open new line above directly
   `0` → `w`                     Suggest `^`    — go to first non-blank
   `0` → `i`                     Suggest `gI`   — insert at true column 1
@@ -276,6 +278,11 @@ EDIT ~
 WINDOW ~
 
   `<C-w>q` / `<C-w>c` × 2       Suggest `<C-w>o` — close all other windows
+
+DIFF ~
+
+  `j` × 10 (while `&diff`)      Suggest `]c`    — jump to the next diff hunk
+  `k` × 10 (while `&diff`)      Suggest `[c`    — jump to the previous diff hunk
 
 INSERT MODE ~
 

@@ -24,6 +24,7 @@ return {
       fold = 'Pliegue',
       mark = 'Marca',
       macro = 'Macro',
+      diff = 'Diff',
       ex = 'Comandos Ex',
       terminal = 'Terminal',
     },
@@ -97,8 +98,10 @@ return {
       u_repeat = 'Deshiciste 3 veces seguidas',
       j_repeat = 'Pulsaste j 5 veces seguidas',
       j_many = 'Pulsaste j 10 veces seguidas',
+      j_many_diff = 'Pulsaste j 10 veces seguidas mientras estabas en modo diff',
       k_repeat = 'Pulsaste k 5 veces seguidas',
       k_many = 'Pulsaste k 10 veces seguidas',
+      k_many_diff = 'Pulsaste k 10 veces seguidas mientras estabas en modo diff',
       n_repeat = 'Repetiste una coincidencia de búsqueda 4 veces',
       l_repeat = 'Pulsaste l 5 veces seguidas',
       h_repeat = 'Pulsaste h 5 veces seguidas',
@@ -306,6 +309,18 @@ return {
       title = '{ — saltar al inicio del párrafo',
       body = 'El complemento hacia arriba de } — sube hasta la línea en blanco de arriba\nNavega rápido entre bloques de código o párrafos',
       example = '{ → el cursor salta a la línea en blanco antes del bloque actual',
+    },
+
+    -- ── modo diff: navegación manual de bloques (#111) ──────────────────────
+    [']c'] = {
+      title = ']c — saltar al siguiente bloque de diferencias',
+      body = 'Mientras &diff está activo, salta directamente al siguiente bloque modificado\nMás rápido que pulsar j repetidamente para buscar la siguiente diferencia',
+      example = ']c → el cursor salta al siguiente bloque de cambios',
+    },
+    ['[c'] = {
+      title = '[c — saltar al bloque de diferencias anterior',
+      body = 'El complemento de ]c — salta al bloque modificado anterior\nMás rápido que pulsar k repetidamente para buscar hacia atrás una diferencia',
+      example = '[c → el cursor salta al bloque de cambios anterior',
     },
 
     -- ── screen centering chain ─────────────────────────────────────────────

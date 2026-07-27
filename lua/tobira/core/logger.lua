@@ -492,7 +492,18 @@ local function handle_key(key)
 
   local line = vim.fn.line('.')
 
-  local result = patterns.feed(seq, key, line)
+  -- #111: only read vim.wo.diff (a window-local option lookup) for j/k —
+  -- the only two keys patterns.lua's is_diff branches ever consult. This
+  -- keeps the vim.on_key hot path from paying that read's cost on every one
+  -- of the dozens of other keys a normal editing session sends through here,
+  -- in the same spirit as caching vim.fn.mode() via ModeChanged instead of
+  -- calling it per-keystroke (see "vim.on_key() performance" in this
+  -- project's CLAUDE.md) — except here the existing key check already gates
+  -- it for free, so no separate cache/autocmd is needed. patterns.lua stays
+  -- vim.*-free (module dependency rules in lua/tobira/CLAUDE.md); this is the
+  -- one call site that reads the option and threads it in as a parameter.
+  local is_diff = (key == 'j' or key == 'k') and vim.wo.diff or false
+  local result = patterns.feed(seq, key, line, is_diff)
 
   -- Track compound operators (dw, dd, gg, >>, …) the moment they complete.
   -- Single-char keys are handled by the TRACK lookup below; compound ones

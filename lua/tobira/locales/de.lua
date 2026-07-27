@@ -24,6 +24,7 @@ return {
       fold = 'Faltung',
       mark = 'Marke',
       macro = 'Makro',
+      diff = 'Diff',
       ex = 'Ex-Befehle',
       terminal = 'Terminal',
     },
@@ -97,8 +98,10 @@ return {
       u_repeat = 'Du hast 3-mal hintereinander rückgängig gemacht',
       j_repeat = 'Du hast 5-mal hintereinander j gedrückt',
       j_many = 'Du hast 10-mal hintereinander j gedrückt',
+      j_many_diff = 'Du hast 10-mal hintereinander j gedrückt, während der Diff-Modus aktiv war',
       k_repeat = 'Du hast 5-mal hintereinander k gedrückt',
       k_many = 'Du hast 10-mal hintereinander k gedrückt',
+      k_many_diff = 'Du hast 10-mal hintereinander k gedrückt, während der Diff-Modus aktiv war',
       n_repeat = 'Du hast einen Suchtreffer 4-mal wiederholt',
       l_repeat = 'Du hast 5-mal hintereinander l gedrückt',
       h_repeat = 'Du hast 5-mal hintereinander h gedrückt',
@@ -306,6 +309,18 @@ return {
       title = '{ — zum Absatzanfang springen',
       body = 'Die Gegenrichtung zu } — geht nach oben zur Leerzeile darüber\nSchnelles Navigieren zwischen Codeblöcken oder Absätzen',
       example = '{ → Cursor springt zur Leerzeile vor dem aktuellen Block',
+    },
+
+    -- ── Diff-Modus: manuelle Hunk-Navigation (#111) ─────────────────────────
+    [']c'] = {
+      title = ']c — zum nächsten Diff-Hunk springen',
+      body = 'Während &diff aktiv ist, springt direkt zum nächsten geänderten Hunk\nSchneller als wiederholtes j, um den nächsten Unterschied zu suchen',
+      example = ']c → Cursor springt zum nächsten geänderten Hunk',
+    },
+    ['[c'] = {
+      title = '[c — zum vorherigen Diff-Hunk springen',
+      body = 'Die Gegenrichtung zu ]c — springt zum vorherigen geänderten Hunk\nSchneller als wiederholtes k, um rückwärts nach einem Unterschied zu suchen',
+      example = '[c → Cursor springt zum vorherigen geänderten Hunk',
     },
 
     -- ── screen centering chain ─────────────────────────────────────────────

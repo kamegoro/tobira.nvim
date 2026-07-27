@@ -361,6 +361,21 @@ M.registry = {
   ['{n}>>'] = { requires = '>>', track = false, category = 'edit', level = 'intermediate' },
   ['{n}<<'] = { requires = '<<', track = false, category = 'edit', level = 'intermediate' },
 
+  -- ── diff mode: manual hunk navigation → ]c / [c (#111) ───────────────────────
+  -- vim.wo.diff (a read-only window-local option) is read in logger.lua's
+  -- handle_key and threaded into patterns.feed() as a plain parameter —
+  -- patterns.lua itself stays vim.*-free per the module dependency rules in
+  -- lua/tobira/CLAUDE.md. This gates the *existing* j_many/k_many thresholds
+  -- (10 presses in a row) rather than adding new detection: while &diff is
+  -- set, the same j/k-hammering that would otherwise suggest }/{ suggests
+  -- ]c/[c instead, since jumping straight to the next/previous changed hunk
+  -- beats paragraph motion while diffing. track = false: like most other
+  -- multi-char suggestion-only entries (ddp, {n}j, ...), nothing else in the
+  -- registry references ]c/[c via `requires`, so there's no count>=N
+  -- threshold depending on these being tracked.
+  [']c'] = { requires = 'j', track = false, category = 'diff', level = 'beginner' },
+  ['[c'] = { requires = 'k', track = false, category = 'diff', level = 'beginner' },
+
   -- ── Ex commands (#57) ─────────────────────────────────────────────────────
   -- Tracked via logger.lua's cmdline handler (core/patterns_cmdline.lua
   -- tokenizes the completed command-line buffer), not via a single keystroke

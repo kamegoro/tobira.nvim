@@ -18,6 +18,7 @@ local CATEGORY_HL = {
   fold = 'TobiraSuggestFold',
   mark = 'TobiraSuggestMark',
   macro = 'TobiraSuggestMacro',
+  diff = 'TobiraSuggestDiff',
   ex = 'TobiraSuggestEx',
   terminal = 'TobiraSuggestTerminal',
 }
