@@ -23,12 +23,12 @@ it quietly shows you the one command that would have helped. No quizzes. No inte
 ## ✨ Features
 
 - 👀 **Fully passive** — reads keystrokes via `vim.on_key()`; no config required, zero impact on your existing mappings
-- 🎯 **47 detected patterns** — repeated `f`, hammering `j`, `dw`→`i` instead of `cw`, insert-mode habits like `<BS>` spam or bouncing in and out with `<Esc>i`, getting stuck in terminal mode, and more across motion, edit, search, window, fold, mark, macro, diff, and terminal
+- 🎯 **48 detected patterns** — repeated `f`, hammering `j`, `dw`→`i` instead of `cw`, insert-mode habits like `<BS>` spam, bouncing in and out with `<Esc>i`, or a one-shot `<Esc>`→motion→`i` round trip, getting stuck in terminal mode, and more across motion, edit, search, window, fold, mark, macro, diff, and terminal
 - ⌨️ **Ex commands, too** — `:g`, `:norm`, `:s`, and friends are tracked from the command line itself, not just normal-mode keys, so `:g` / `:norm` can be suggested to users who have never tried them (tobira's own `:Tobira*` commands are excluded, so checking your stats never counts as usage)
 - 💬 **One suggestion at a time** — shown after a natural pause, capped per session, with a cooldown between auto-suggestions — never a popup quiz
 - 📈 **Mastery-aware** — once you've used a command ~100 times, tobira stops suggesting it and moves on
 - 🪜 **Level-aware** — beginner commands surface first, advanced ones once you're ready
-- 🗺️ **160 commands** in the learning graph, covering the full Neovim command surface
+- 🗺️ **161 commands** in the learning graph, covering the full Neovim command surface
 
 ## ⚡️ Requirements
 
@@ -138,9 +138,10 @@ require("tobira").setup({
 | `r{x}` × 3 in a row | `R` — enter replace mode |
 | `<C-w>q` / `<C-w>c` × 2 in a row | `<C-w>o` — close all other windows |
 | `<BS>` × 5 in insert mode | `<C-w>` — delete the whole word at once |
+| `<Esc>` → 1 motion → `i` | insert-mode `<C-o>` — run one command without leaving insert |
 | `<Esc>` × 2 in terminal mode, no effect | `<C-\><C-n>` — exit terminal mode |
 
-47 patterns total — see `:help tobira-patterns` for the full list.
+48 patterns total — see `:help tobira-patterns` for the full list.
 
 ## 🆚 Similar plugins
 

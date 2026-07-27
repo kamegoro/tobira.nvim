@@ -759,3 +759,24 @@ describe('when s is pressed in the progress window', function()
     assert.is_false(progress.is_open())
   end)
 end)
+
+-- #105: 'i_<C-o>' is an internal composite registry key (see commands.lua's
+-- registry comment) — the skill grid must show the real keystroke the user
+-- presses (<C-o>), never the raw internal key. core/skills.lua's tree is
+-- what feeds ui/progress.lua's grid, so this is really a skills.lua fix
+-- verified end-to-end through the rendered panel.
+describe("the 'i_<C-o>' composite registry key on the Progress grid (#105)", function()
+  it('renders as <C-o>, not the raw i_<C-o> registry key', function()
+    setup()
+    local usage = logger.get_all()
+    usage['i_<C-o>'] = entry({ count = 50 })
+    progress.open()
+    local buf = vim.api.nvim_get_current_buf()
+    local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+    assert.is_true(lines_contain(lines, '<C-o>'), 'expected the grid to render <C-o> somewhere')
+    for _, line in ipairs(lines) do
+      assert.is_nil(line:find('i_<C-o>', 1, true), 'line must not contain the raw internal key: ' .. line)
+    end
+    teardown()
+  end)
+end)

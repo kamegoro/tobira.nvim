@@ -74,6 +74,7 @@ return {
       insert_left_repeat = 'Pulsaste <Left> 5 veces seguidas en modo inserción',
       insert_right_repeat = 'Pulsaste <Right> 5 veces seguidas en modo inserción',
       insert_bounce = 'Entraste y saliste del modo inserción sin cambios, dos veces seguidas',
+      insert_co_oneshot = 'Saliste del modo inserción, ejecutaste un comando y volviste enseguida',
       f_repeat = 'Repetiste la misma búsqueda f/t en esta línea',
       r_run = 'Reemplazaste 3 caracteres uno por uno',
       visual_textobj = 'Seleccionaste un objeto de texto en modo visual antes de editar',
@@ -877,6 +878,11 @@ return {
       title = '_ — primer carácter no en blanco de línea (relativo)',
       body = 'Se mueve al primer carácter no en blanco de la línea actual\nCon un número N, baja N-1 líneas y luego va al primer carácter no en blanco',
       example = '^ → primer no en blanco; 3_ → primer no en blanco 2 líneas abajo',
+    },
+    ['i_<C-o>'] = {
+      title = '<C-o> (modo inserción) — ejecuta un comando sin salir del modo inserción',
+      body = 'Ejecuta exactamente un comando en modo Normal y vuelve directamente al modo inserción — sin necesidad de pulsar i/a de nuevo\nDistinto del <C-o> en modo Normal (volver atrás en la jumplist), que solo funciona fuera del modo inserción',
+      example = 'escribiendo…<C-o>dd → borra la línea actual y el modo inserción continúa automáticamente',
     },
 
     -- ── fold: additional commands ─────────────────────────────────────────

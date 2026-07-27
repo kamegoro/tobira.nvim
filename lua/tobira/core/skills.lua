@@ -51,7 +51,13 @@ local function build_tree()
       table.insert(items, item)
     end
     for _, cmd in ipairs(auto_ids) do
-      table.insert(items, { id = cmd, keys = cmd, adopted = cmd })
+      -- keys is the display string; id/adopted stay the real registry key
+      -- (used for usage[] lookups and suppress/pin actions). commands.
+      -- display_key() strips the 'i_' disambiguation prefix some composite
+      -- keys use (see commands.lua's 'i_<C-o>' registry comment, #105) so the
+      -- grid shows the actual keystroke the user presses, not the internal
+      -- registry key.
+      table.insert(items, { id = cmd, keys = commands.display_key(cmd), adopted = cmd })
     end
 
     table.insert(result, { id = cat_id, items = items })
