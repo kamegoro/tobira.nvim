@@ -1,5 +1,6 @@
 local patterns = require('tobira.core.patterns')
 local patterns_insert = require('tobira.core.patterns_insert')
+local patterns_cmdline = require('tobira.core.patterns_cmdline')
 local patterns_terminal = require('tobira.core.patterns_terminal')
 local commands = require('tobira.commands')
 
@@ -355,6 +356,79 @@ local terminal_seq = patterns_terminal.new_terminal_seq()
 
 local _recording_macro = false
 
+-- Raw bytes for the two ways an Ex command line can end (#57). <C-c> is
+-- treated the same as <Esc> — both abort without submitting; nothing else
+-- reliably ends cmdline editing from vim.on_key's vantage point (<C-\><C-n>
+-- exists but is obscure enough to not be worth a third branch here).
+local CMDLINE_CR = vim.api.nvim_replace_termcodes('<CR>', true, true, true)
+local CMDLINE_ESC = vim.api.nvim_replace_termcodes('<Esc>', true, true, true)
+local CMDLINE_CTRL_C = vim.api.nvim_replace_termcodes('<C-c>', true, true, true)
+
+-- Tobira's own UI commands (see plugin/tobira.lua: Tobira, TobiraStats,
+-- TobiraGuide, TobiraProgress, TobiraReset — all share this prefix) must
+-- never be tracked as Ex-command usage. Without this, checking your own
+-- stats (:TobiraStats) becomes tracked usage itself, polluting the very
+-- data being displayed (found by QA: running :TobiraReset once made
+-- "ex:tobirastats" show up as a top command in :TobiraStats).
+--
+-- This lives here rather than in patterns_cmdline.lua because that module
+-- is a generic, reusable Ex-command tokenizer with no knowledge of
+-- tobira-specific concerns (see its header comment) — teaching it about its
+-- own plugin name would break that purity for a concern that's really about
+-- *when to record*, which is this file's job. It also doesn't belong in
+-- commands.lua: that file is explicitly "the master registry of teachable
+-- commands" (things tobira suggests learning), and tobira's own commands are
+-- never suggested — a self-exclusion guard is an unrelated concern.
+--
+-- patterns_cmdline.tokenize() always lowercases the command word into its
+-- 'ex:<word>' result, so a lowercase literal prefix match here is correct
+-- regardless of how the user capitalized the command (':TobiraStats',
+-- ':tobirastats', etc. all resolve to the same Ex command in Vim, and both
+-- tokenize to the same lowercase key).
+local OWN_CMD_PREFIX = 'ex:tobira'
+
+-- Ex-command tracking (#57): vim.on_key sees every cmdline keystroke, but
+-- the actual tokenizable content only exists once, in full, right when the
+-- terminating key arrives — so there is no per-keystroke buffer to
+-- accumulate here (see patterns_cmdline.lua's header for why that's a
+-- deliberate design choice, not a missing feature). vim.fn.getcmdtype() and
+-- vim.fn.getcmdline() are the vim.* half of this feature; patterns_cmdline
+-- stays pure and only ever sees a complete string.
+--
+-- Confirmed empirically (see the PR description / logger_spec.lua's Ex
+-- command tracking tests): vim.on_key's callback for the <CR>/<Esc> keystroke
+-- that ends cmdline mode fires BEFORE Neovim processes that keystroke, so
+-- getcmdtype() still reports ':' and getcmdline() still holds the complete
+-- pre-submission buffer at the exact moment this function inspects them —
+-- the same "on_key runs before the key's effect lands" timing
+-- patterns_insert.lua's <Esc>-vs-insert-mode bounce detection relies on.
+--
+-- Resets seq/insert_seq on every cmdline keystroke, same as the pre-#57
+-- generic "current_mode is neither n nor i" branch this replaces for mode
+-- 'c' — otherwise a stale pending_op from just before the ':' was pressed
+-- (e.g. a stray 'd') would still be sitting there once normal mode resumes.
+local function handle_cmdline_key(key)
+  seq = patterns.new_seq()
+  insert_seq = patterns_insert.new_insert_seq()
+
+  if vim.fn.getcmdtype() ~= ':' then
+    return -- search (/ ?) or expression (=) cmdline — not an Ex command
+  end
+
+  if key == CMDLINE_CR then
+    local name = patterns_cmdline.tokenize(vim.fn.getcmdline())
+    if name and name:sub(1, #OWN_CMD_PREFIX) ~= OWN_CMD_PREFIX then
+      increment(name)
+    end
+    return
+  end
+
+  if key == CMDLINE_ESC or key == CMDLINE_CTRL_C then
+    return -- aborted or canceled — do not count
+  end
+  -- Any other key: still typing. Nothing to do until the terminating key.
+end
+
 local function handle_insert_key(key)
   local canonical = INSERT_SPECIAL[key]
   if canonical == '<C-w>' then
@@ -379,6 +453,17 @@ local function handle_key(key)
     local _re = vim.fn.reg_executing()
     if not (_recording_macro or _re ~= '') then
       handle_insert_key(key)
+    end
+    return
+  end
+
+  if current_mode:sub(1, 1) == 'c' then
+    -- Same macro exclusion as the normal-mode path below: a macro that types
+    -- and runs an Ex command should not double-count it every replay on top
+    -- of whatever recorded the macro invocation itself (q/@).
+    local _re = vim.fn.reg_executing()
+    if not (_recording_macro or _re ~= '') then
+      handle_cmdline_key(key)
     end
     return
   end

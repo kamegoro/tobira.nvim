@@ -24,6 +24,7 @@ return {
       fold = 'Faltung',
       mark = 'Marke',
       macro = 'Makro',
+      ex = 'Ex-Befehle',
       terminal = 'Terminal',
     },
     mastered_total = '%d / %d gemeistert',
@@ -971,6 +972,18 @@ return {
       title = '{n}<< — Einrückung mehrerer Zeilen auf einmal entfernen',
       body = 'Setze eine Zahl vor <<, um bei so vielen Zeilen in einem Befehl die Einrückung zu entfernen\n3<< entfernt eine Einrückungsebene von 3 Zeilen ab dem Cursor',
       example = '3<< → entfernt die Einrückung von 3 Zeilen auf einmal',
+    },
+
+    -- ── Ex commands (#57) ─────────────────────────────────────────────────
+    ['ex:g'] = {
+      title = ':g — einen Befehl auf jede passende Zeile anwenden',
+      body = 'Findet jede Zeile, die auf ein Muster passt, und führt einen Ex-Befehl auf jeder aus\nErsetzt das manuelle Wiederholen von n / . für jede Fundstelle einzeln',
+      example = ':g/TODO/d → löscht jede Zeile, die TODO enthält',
+    },
+    ['ex:norm'] = {
+      title = ':norm — einen Normal-Modus-Befehl auf jede ausgewählte Zeile anwenden',
+      body = 'Wendet eine Folge von Normal-Modus-Tasten auf jede Zeile im Bereich an\nErsetzt das Aufnehmen eines Makros, wenn die Änderung einfach genug ist',
+      example = ':%norm A; → hängt an jede Zeile ein Semikolon an',
     },
 
     -- ── Terminal-Modus: wirkungsloses <Esc> → <C-\><C-n> (#110) ────────────

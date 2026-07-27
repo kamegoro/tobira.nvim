@@ -38,6 +38,10 @@ describe('category highlight groups', function()
     TobiraSuggestFold = 'Constant',
     TobiraSuggestMark = 'Identifier',
     TobiraSuggestMacro = 'PreProc',
+    -- #57: Ex commands (:g, :norm, ...) are statement-like — the nearest
+    -- syntax-group analog to a colon command, matching the "what kind of
+    -- thing is this" intuition the other 7 categories already follow.
+    TobiraSuggestEx = 'Statement',
   }
 
   it('defines a distinct group linked to a standard syntax group for every category', function()

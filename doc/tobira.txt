@@ -174,13 +174,22 @@ such as:
   - Pressing `x` multiple times instead of `{n}x`
   - Using `0` then `w w w` instead of `^`
 
+Ex commands (anything typed after `:`, such as `:g`, `:norm`, or `:s`) are
+tracked from the command line itself — not just normal-mode keystrokes — so
+commands like `:g` and `:norm` can be suggested to users who have never used
+them, the same way any other command is. A command line only counts once it
+is actually submitted with <CR>; aborting with <Esc> never counts it.
+tobira's own commands (`:Tobira`, `:TobiraStats`, `:TobiraGuide`,
+`:TobiraProgress`, `:TobiraReset`) are excluded from this tracking, so
+checking your stats or resetting your log never shows up as usage itself.
+
 When a pattern is detected and you are idle for `idle_delay` milliseconds, a
 suggestion appears in tobira's own floating window, near the top-right of the
 screen. The window shows what you just did (when a specific pattern
 triggered it), the command to try instead, and a short example. Its border
 is colored by category (motion / edit / search / window / fold / mark /
-macro / terminal) so a returning user can recognize the kind of suggestion at
-a glance.
+macro / ex / terminal) so a returning user can recognize the kind of
+suggestion at a glance.
 The window auto-dismisses on its own after a few seconds — roughly
 scaled to how much text it is showing — and never steals focus or blocks
 input.

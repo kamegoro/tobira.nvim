@@ -24,6 +24,7 @@ return {
       fold = 'Pliegue',
       mark = 'Marca',
       macro = 'Macro',
+      ex = 'Comandos Ex',
       terminal = 'Terminal',
     },
     mastered_total = '%d / %d dominados',
@@ -971,6 +972,18 @@ return {
       title = '{n}<< — quitar sangría a varias líneas a la vez',
       body = 'Antepone un número a << para quitar la sangría a esa cantidad de líneas en un solo comando\n3<< quita un nivel de sangría de 3 líneas desde el cursor',
       example = '3<< → quita la sangría de 3 líneas a la vez',
+    },
+
+    -- ── Ex commands (#57) ─────────────────────────────────────────────────
+    ['ex:g'] = {
+      title = ':g — ejecutar un comando sobre cada línea coincidente',
+      body = 'Encuentra cada línea que coincide con un patrón y ejecuta un comando Ex en cada una\nSustituye repetir n / . manualmente en cada coincidencia',
+      example = ':g/TODO/d → elimina cada línea que contiene TODO',
+    },
+    ['ex:norm'] = {
+      title = ':norm — ejecutar un comando en modo normal en cada línea seleccionada',
+      body = 'Aplica una secuencia de teclas de modo normal a cada línea de un rango\nSustituye grabar una macro cuando la edición es lo bastante simple',
+      example = ':%norm A; → añade un punto y coma al final de cada línea',
     },
 
     -- ── modo terminal: <Esc> sin efecto → <C-\><C-n> (#110) ────────────────

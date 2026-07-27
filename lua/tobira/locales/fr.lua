@@ -24,6 +24,7 @@ return {
       fold = 'Pliage',
       mark = 'Marque',
       macro = 'Macro',
+      ex = 'Commandes Ex',
       terminal = 'Terminal',
     },
     mastered_total = '%d / %d maîtrisées',
@@ -971,6 +972,18 @@ return {
       title = "{n}<< — désindenter plusieurs lignes d'un coup",
       body = "Préfixez << avec un nombre pour désindenter autant de lignes en une seule commande\n3<< retire un niveau d'indentation à 3 lignes à partir du curseur",
       example = "3<< → désindente 3 lignes d'un coup",
+    },
+
+    -- ── Ex commands (#57) ─────────────────────────────────────────────────
+    ['ex:g'] = {
+      title = ':g — exécuter une commande sur chaque ligne correspondante',
+      body = 'Trouve chaque ligne correspondant à un motif et exécute une commande Ex sur chacune\nRemplace la répétition manuelle de n / . à chaque occurrence',
+      example = ':g/TODO/d → supprime chaque ligne contenant TODO',
+    },
+    ['ex:norm'] = {
+      title = ':norm — exécuter une commande du mode normal sur chaque ligne sélectionnée',
+      body = "Applique une séquence de touches du mode normal à chaque ligne d'une plage\nRemplace l'enregistrement d'une macro quand la modification est assez simple",
+      example = ':%norm A; → ajoute un point-virgule à la fin de chaque ligne',
     },
 
     -- ── mode terminal : <Esc> sans effet → <C-\><C-n> (#110) ───────────────

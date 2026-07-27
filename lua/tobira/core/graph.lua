@@ -17,6 +17,10 @@ for cmd, entry in pairs(commands.registry) do
       trigger = entry.requires,
       level = entry.level,
       category = entry.category,
+      -- #57: read by find_best() to apply the stricter "never tried" offer
+      -- gate instead of the generic mastery-level gate. Only ever true for
+      -- Ex-command suggestions (see commands.lua's 'ex:g' / 'ex:norm').
+      ex_command = entry.ex_command == true,
       -- nil (default) means eligible; only `ambient = false` in commands.lua
       -- opts an entry out of find_best()'s candidate pool. The reactive path
       -- (suggest.queue called directly from a pattern module) never reads
@@ -245,8 +249,14 @@ function M.find_best(usage, max_shown, max_level)
     if cmd_level_num <= max_level_num and sug.ambient ~= false then
       local data = usage[cmd] or { count = 0, sessions = {}, shown = 0, suppressed = false }
 
-      local mastered = M.is_mastered(data)
-      local offered = not mastered and not data.suppressed and data.shown < max_shown
+      -- #57: Ex-command suggestions use a stricter "never tried at all" gate
+      -- instead of the generic mastery-level gate (count < 100) — a single
+      -- :g or :norm already does the work of many ordinary keystrokes, so
+      -- unlike e.g. cw (fine to keep nudging below 100 uses), continuing to
+      -- suggest one of these after even one real use would read as ignoring
+      -- feedback rather than teaching.
+      local not_yet_known = sug.ex_command and data.count == 0 or (not sug.ex_command and not M.is_mastered(data))
+      local offered = not_yet_known and not data.suppressed and data.shown < max_shown
 
       if offered then
         local trigger_count = (usage[sug.trigger] and usage[sug.trigger].count) or 0

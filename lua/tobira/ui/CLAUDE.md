@@ -46,14 +46,18 @@ category color to represent a state, or vice versa.
 | fold | `TobiraSuggestFold` | `Constant` |
 | mark | `TobiraSuggestMark` | `Identifier` |
 | macro | `TobiraSuggestMacro` | `PreProc` |
+| ex | `TobiraSuggestEx` | `Statement` |
 | terminal | `TobiraSuggestTerminal` | `Statement` |
 
 The mapping targets Neovim's own syntax-highlighting groups, not diagnostic or UI groups — the
-intuition being "motion is a keyword-ish thing, edit is function-ish, search is string-ish,
-terminal is statement/control-flow-ish." `terminal` (#110) was the first category added after the
-original 7 — `Statement` was the nearest unclaimed syntax group by the same intuition. If you add
-a 9th category to `commands.lua`, pick the nearest syntax group the same way before inventing a
-new link target.
+intuition being "motion is a keyword-ish thing, edit is function-ish, search is string-ish." `ex`
+(#57 — Ex commands like `:g`/`:norm`, tracked from the command line rather than a single
+keystroke) and `terminal` (#110 — the ineffective-`<Esc>`-in-terminal-mode nudge) were added in
+parallel, independently landing on the same `Statement` link by the same "reads like a
+statement/control-flow thing" intuition — `TobiraSuggestEx` and `TobiraSuggestTerminal` are
+still distinct hlgroups so there is no technical conflict, they just currently render as the same
+color. If you add a 10th category to `commands.lua`, check this table first and prefer an
+unclaimed syntax group so each category stays visually distinguishable.
 
 ### State → hlgroup (Guide / Progress mastery symbols)
 
