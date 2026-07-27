@@ -174,12 +174,22 @@ such as:
   - Pressing `x` multiple times instead of `{n}x`
   - Using `0` then `w w w` instead of `^`
 
+Ex commands (anything typed after `:`, such as `:g`, `:norm`, or `:s`) are
+tracked from the command line itself — not just normal-mode keystrokes — so
+commands like `:g` and `:norm` can be suggested to users who have never used
+them, the same way any other command is. A command line only counts once it
+is actually submitted with <CR>; aborting with <Esc> never counts it.
+tobira's own commands (`:Tobira`, `:TobiraStats`, `:TobiraGuide`,
+`:TobiraProgress`, `:TobiraReset`) are excluded from this tracking, so
+checking your stats or resetting your log never shows up as usage itself.
+
 When a pattern is detected and you are idle for `idle_delay` milliseconds, a
 suggestion appears in tobira's own floating window, near the top-right of the
 screen. The window shows what you just did (when a specific pattern
 triggered it), the command to try instead, and a short example. Its border
 is colored by category (motion / edit / search / window / fold / mark /
-macro) so a returning user can recognize the kind of suggestion at a glance.
+macro / diff / ex / terminal) so a returning user can recognize the kind of
+suggestion at a glance.
 The window auto-dismisses on its own after a few seconds — roughly
 scaled to how much text it is showing — and never steals focus or blocks
 input.
@@ -228,8 +238,10 @@ MOTION ~
   `b` × 5                       Suggest `B`    — jump backward by WORD
   `j` × 5                       Suggest `{n}j` — use a count prefix instead
   `j` × 10                      Suggest `}`    — jump forward by paragraph
+                                 (suggests `]c` instead while `&diff` is set — see DIFF below)
   `k` × 5                       Suggest `{n}k` — use a count prefix instead
   `k` × 10                      Suggest `{`    — jump backward by paragraph
+                                 (suggests `[c` instead while `&diff` is set — see DIFF below)
   `k` (once) → `o`              Suggest `O`    — open new line above directly
   `0` → `w`                     Suggest `^`    — go to first non-blank
   `0` → `i`                     Suggest `gI`   — insert at true column 1
@@ -271,12 +283,23 @@ WINDOW ~
 
   `<C-w>q` / `<C-w>c` × 2       Suggest `<C-w>o` — close all other windows
 
+DIFF ~
+
+  `j` × 10 (while `&diff`)      Suggest `]c`    — jump to the next diff hunk
+  `k` × 10 (while `&diff`)      Suggest `[c`    — jump to the previous diff hunk
+
 INSERT MODE ~
 
   `<BS>` × 5                    Suggest `<C-w>` — delete the whole word at once
   `<Left>` × 5                  Suggest `b`     — leave insert, jump back a word
   `<Right>` × 5                 Suggest `w`     — leave insert, jump forward a word
   Empty insert → `<Esc>`, twice Suggest `A`     — stop bouncing in and out, append directly
+  Same 6+ char word, twice      Suggest `<C-n>` — complete the word instead of retyping it
+  `<Esc>` → 1 motion → `i`      Suggest insert-mode `<C-o>` — run one command, stay in insert
+
+TERMINAL MODE ~
+
+  `<Esc>` × 2, no effect        Suggest `<C-\><C-n>` — exit terminal mode
 
 ==============================================================================
 vim:tw=78:ts=8:ft=help:norl:

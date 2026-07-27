@@ -132,6 +132,61 @@ describe('when two offered candidates tie at score -1', function()
   end)
 end)
 
+-- ── ambient exclusion for reactive-only, nominal-anchor entries (#110 fix) ───
+-- A registry entry can be marked `ambient = false` when its suggestion only
+-- ever makes sense as a direct reaction to a just-detected pattern (e.g.
+-- terminal_esc_repeat), never as a proactive idle-time nudge. find_best()
+-- powers both the idle ambient picker and :Tobira's manual pick, so this
+-- exclusion must apply to both call sites — see graph.lua's find_best for why.
+
+describe('when a suggestion entry is marked ambient = false', function()
+  it('is never returned by find_best, even with a maximal score (#110)', function()
+    -- trigger used heavily (500) and the candidate's own count is 0 -> this
+    -- would otherwise win find_best outright (score 500, nothing competes).
+    local original_suggestions = graph.suggestions
+    graph.suggestions = {
+      w = { cmd = 'w', trigger = 'l', level = 'beginner', category = 'motion', ambient = false },
+    }
+    local result = graph.find_best({ l = usage_entry(500) })
+    graph.suggestions = original_suggestions
+
+    assert.is_nil(result, 'ambient = false candidates must never be offered by find_best')
+  end)
+
+  it('does not block a different, ambient-eligible candidate from being offered (#110)', function()
+    local original_suggestions = graph.suggestions
+    graph.suggestions = {
+      w = { cmd = 'w', trigger = 'l', level = 'beginner', category = 'motion', ambient = false },
+      b = { cmd = 'b', trigger = 'l', level = 'beginner', category = 'motion' },
+    }
+    local result = graph.find_best({ l = usage_entry(500) })
+    graph.suggestions = original_suggestions
+
+    assert.equals('b', result)
+  end)
+end)
+
+describe('the terminal-mode <C-\\><C-n> suggestion (#110 regression)', function()
+  it(
+    'is never surfaced by find_best from real i usage alone, even though i is the only trigger it shares with <C-w> / gi / I',
+    function()
+      -- Before the fix: cmd_count for <C-\><C-n> is structurally always 0
+      -- (nothing ever increments it — see commands.lua's comment), so its
+      -- score against a heavily-used 'i' trigger is always the maximum
+      -- possible (trigger_count - 0), and it also wins every alphabetical
+      -- tie-break against the other 'i'-triggered entries because
+      -- '<C-\><C-n>' sorts before '<C-w>' byte-for-byte. That combination
+      -- made it dominate find_best() despite the user never having opened
+      -- a terminal.
+      local usage = { i = usage_entry(500) }
+      for _ = 1, 20 do
+        local result = graph.find_best(usage)
+        assert.not_equals('<C-\\><C-n>', result)
+      end
+    end
+  )
+end)
+
 -- ── session-based adoption detection ─────────────────────────────────────────
 
 describe('when a command has high average usage over recent sessions', function()
@@ -226,6 +281,49 @@ describe('when a command is explicitly suppressed', function()
   end)
 end)
 
+-- ── Ex command suggestions (#57): stricter never-tried gate ──────────────────
+-- Ex commands (:g, :norm) do the work of many ordinary keystrokes in one
+-- shot, so continuing to suggest one after the user has tried it even once
+-- would read as ignoring feedback. Suggestions flagged ex_command = true are
+-- gated on "never tried at all" (count == 0) instead of the generic
+-- mastery-level gate (count < 100) every other suggestion uses.
+
+describe('an ex_command-flagged suggestion', function()
+  it('is offered when the user has never tried it', function()
+    local original_suggestions = graph.suggestions
+    graph.suggestions = {
+      ['ex:g'] = { cmd = 'ex:g', trigger = 'n', level = 'advanced', category = 'ex', ex_command = true },
+    }
+    local result = graph.find_best({ n = usage_entry(10) })
+    graph.suggestions = original_suggestions
+    assert.equals('ex:g', result)
+  end)
+
+  it('is not offered once tried even a single time, below the generic mastery threshold', function()
+    local original_suggestions = graph.suggestions
+    graph.suggestions = {
+      ['ex:g'] = { cmd = 'ex:g', trigger = 'n', level = 'advanced', category = 'ex', ex_command = true },
+    }
+    local result = graph.find_best({ n = usage_entry(10), ['ex:g'] = usage_entry(1) })
+    graph.suggestions = original_suggestions
+    assert.is_nil(result)
+  end)
+end)
+
+describe('an ordinary (non ex_command) suggestion', function()
+  it('still uses the generic mastery gate, not a never-tried gate', function()
+    local original_suggestions = graph.suggestions
+    graph.suggestions = {
+      cw = { cmd = 'cw', trigger = 'dw', level = 'beginner', category = 'edit' },
+    }
+    -- cw has been tried once (count=1) but is nowhere near mastered (< 100):
+    -- still offered, unlike an ex_command suggestion in the same situation.
+    local result = graph.find_best({ dw = usage_entry(10), cw = usage_entry(1) })
+    graph.suggestions = original_suggestions
+    assert.equals('cw', result)
+  end)
+end)
+
 -- ── data integrity ────────────────────────────────────────────────────────────
 
 describe('every suggestion in the graph', function()
@@ -245,6 +343,13 @@ describe('every suggestion in the graph', function()
     local commands = require('tobira.commands')
     for key, sug in pairs(graph.suggestions) do
       assert.equals(commands.registry[key].category, sug.category, key .. ': category mismatch')
+    end
+  end)
+
+  it('carries the ex_command flag from its commands.lua entry (#57)', function()
+    local commands = require('tobira.commands')
+    for key, sug in pairs(graph.suggestions) do
+      assert.equals(commands.registry[key].ex_command == true, sug.ex_command == true, key .. ': ex_command mismatch')
     end
   end)
 end)
@@ -589,5 +694,84 @@ describe('efficiency_gaps', function()
     for i = 2, #gaps do
       assert.is_true(gaps[i - 1].ratio >= gaps[i].ratio, 'gaps should be sorted by ratio desc')
     end
+  end)
+end)
+
+-- ── register underuse: "+y system-clipboard promotion (#59) ─────────────────
+-- Scope note: only the clipboard heuristic (y count >= 20, "+y count == 0) is
+-- implemented here. The issue's "wrong paste" / register-0 heuristics are
+-- explicitly deferred to a follow-up pending design review — see the issue's
+-- own "Phase 2 (later, needs discussion)" section.
+
+describe('is_register_underused', function()
+  it('is false when y has never been used', function()
+    assert.is_false(graph.is_register_underused({}))
+  end)
+
+  it('is false when y count is below the 20-use threshold', function()
+    assert.is_false(graph.is_register_underused({ y = usage_entry(19) }))
+  end)
+
+  it('is true once y count reaches the 20-use threshold and "+y has never been used', function()
+    assert.is_true(graph.is_register_underused({ y = usage_entry(20) }))
+  end)
+
+  it('is true for y counts well above the threshold too', function()
+    assert.is_true(graph.is_register_underused({ y = usage_entry(500) }))
+  end)
+
+  it('is false once "+y has been used even once, no matter how high y count is', function()
+    local usage = { y = usage_entry(500), ['"+y'] = usage_entry(1) }
+    assert.is_false(graph.is_register_underused(usage))
+  end)
+end)
+
+describe('when y is yanked heavily but "+y has never been used', function()
+  it('does not suggest "+y below the 20-use threshold', function()
+    local usage = { y = usage_entry(19) }
+    assert.not_equals('"+y', graph.find_best(usage))
+  end)
+
+  it('suggests "+y once y count reaches 20', function()
+    local usage = { y = usage_entry(20) }
+    assert.equals('"+y', graph.find_best(usage))
+  end)
+
+  it('stops suggesting "+y once the user has used it even once', function()
+    local usage = { y = usage_entry(50), ['"+y'] = usage_entry(1) }
+    assert.not_equals('"+y', graph.find_best(usage))
+  end)
+
+  it('outranks an ordinary, lower-scoring suggestion once eligible', function()
+    -- f=10 makes ';' score 10 (10-0); "+y's boosted score must still win.
+    local usage = { y = usage_entry(20), f = usage_entry(10) }
+    assert.equals('"+y', graph.find_best(usage))
+  end)
+
+  it('outranks a realistic long-term trigger count like j = 1030 (<C-d>)', function()
+    -- Regression test: a fixed +1000 additive boost (score = 1000 + y.count)
+    -- used to lose to <C-d>'s own score (trigger_count - cmd_count = 1030 - 0
+    -- = 1030) once j's raw count climbed past ~1000, which is unremarkable
+    -- for a real long-term user. "+y must win regardless of how high any
+    -- ordinary candidate's own count gets.
+    local usage = { y = usage_entry(20), j = usage_entry(1030) }
+    assert.equals('"+y', graph.find_best(usage))
+  end)
+
+  it('outranks an even more extreme competing trigger count (50000)', function()
+    -- Confirms the fix is not just a slightly-larger fixed constant that
+    -- could still eventually be beaten by a big enough raw count.
+    local usage = { y = usage_entry(20), j = usage_entry(50000) }
+    assert.equals('"+y', graph.find_best(usage))
+  end)
+
+  it('respects suppression like any other suggestion', function()
+    local usage = { y = usage_entry(20), ['"+y'] = usage_entry(0, {}, 0, true) }
+    assert.is_nil(graph.find_best(usage))
+  end)
+
+  it('respects the shown-count cap like any other suggestion', function()
+    local usage = { y = usage_entry(20), ['"+y'] = usage_entry(0, {}, 3) }
+    assert.is_nil(graph.find_best(usage))
   end)
 end)

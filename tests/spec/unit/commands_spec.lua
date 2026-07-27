@@ -75,8 +75,19 @@ describe('locale coverage', function()
 end)
 
 describe('every non-compound entry in the registry', function()
-  it('has a category field (motion | edit | search | window | fold | mark | macro)', function()
-    local valid = { motion = true, edit = true, search = true, window = true, fold = true, mark = true, macro = true }
+  it('has a category field (motion | edit | search | window | fold | mark | macro | diff | ex | terminal)', function()
+    local valid = {
+      motion = true,
+      edit = true,
+      search = true,
+      window = true,
+      fold = true,
+      mark = true,
+      macro = true,
+      diff = true,
+      ex = true,
+      terminal = true,
+    }
     for cmd, entry in pairs(commands.registry) do
       if not entry.compound then
         assert.is_not_nil(
@@ -96,6 +107,37 @@ describe('every non-compound entry in the registry', function()
       end
     end
   end)
+end)
+
+-- ── ambient exclusion for reactive-only entries (#110 fix) ───────────────────
+-- `ambient = false` opts a registry entry out of graph.find_best()'s
+-- candidate pool (see graph.lua / graph_spec.lua). It is reserved for
+-- entries that are BOTH: (1) reactive-only — the suggestion only makes
+-- sense as a direct reply to a just-detected pattern, never as a proactive
+-- idle-time nudge — and (2) structurally unable to ever earn a real usage
+-- count of their own, which would otherwise make find_best() score them
+-- unrealistically high forever. This list must only grow deliberately: a
+-- new entry here needs the same reasoning documented in commands.lua next
+-- to it, not just the flag.
+
+describe('reactive-only ambient exclusion', function()
+  it('marks <C-\\><C-n> as ambient = false (#110 fix)', function()
+    assert.is_false(commands.registry['<C-\\><C-n>'].ambient)
+  end)
+
+  it(
+    'is the only registry entry marked ambient = false — see commands.lua for why <C-w> (insert), which shares the same nominal requires="i" anchor comment, is deliberately NOT included',
+    function()
+      local reactive_only = {}
+      for cmd, entry in pairs(commands.registry) do
+        if entry.ambient == false then
+          table.insert(reactive_only, cmd)
+        end
+      end
+      table.sort(reactive_only)
+      assert.are.same({ '<C-\\><C-n>' }, reactive_only)
+    end
+  )
 end)
 
 -- ── compound operators ────────────────────────────────────────────────────────
@@ -314,6 +356,18 @@ local chain_cases = {
   { '|', '0', '0 → |: move to column N' },
   -- first non-blank (current line)
   { '_', '^', '^ → _: first non-blank (N-1 lines lower)' },
+  -- register underuse: system clipboard (#59)
+  { '"+y', 'y', 'y → "+y: yank to the system clipboard register' },
+  -- insert-mode <C-o>: one-shot normal command without leaving insert (#105)
+  { 'i_<C-o>', 'i', 'i → i_<C-o>: run one normal command without leaving insert mode' },
+  -- diff-mode hunk navigation (#111)
+  { ']c', 'j', 'j → ]c: jump to next diff hunk (while &diff is set)' },
+  { '[c', 'k', 'k → [c: jump to previous diff hunk (while &diff is set)' },
+  -- Ex commands (#57)
+  { 'ex:g', 'n', 'n → ex:g: global command over search matches' },
+  { 'ex:norm', 'q', 'q → ex:norm: run a normal-mode command per line' },
+  -- terminal mode: ineffective <Esc> → exit terminal mode (#110)
+  { '<C-\\><C-n>', 'i', 'i → <C-\\><C-n>: exit terminal mode (nominal anchor, see commands.lua comment)' },
 }
 
 describe('teaching chains', function()
@@ -321,6 +375,21 @@ describe('teaching chains', function()
     local cmd, requires, desc = tc[1], tc[2], tc[3]
     it(desc, function()
       assert.equals(requires, commands.registry[cmd].requires)
+    end)
+  end
+end)
+
+-- ── Ex commands (#57) ────────────────────────────────────────────────────────
+
+describe('Ex command registry entries', function()
+  for _, cmd in ipairs({ 'ex:g', 'ex:norm' }) do
+    it(cmd .. ' is flagged ex_command = true with category = "ex"', function()
+      assert.is_true(commands.registry[cmd].ex_command)
+      assert.equals('ex', commands.registry[cmd].category)
+    end)
+
+    it(cmd .. ' is not tracked as a literal keystroke (track = false)', function()
+      assert.is_false(commands.registry[cmd].track)
     end)
   end
 end)
@@ -486,5 +555,45 @@ describe('tracking integrity', function()
     end
     table.sort(stale)
     assert.are.same({}, stale, 'entries fixed but still listed in KNOWN_DEFERRED: ' .. table.concat(stale, ', '))
+  end)
+end)
+
+-- ── i_<C-o>: insert-mode <C-o> composite key (#105) ──────────────────────────
+-- The normal-mode '<C-o>' entry above already owns that raw key string for
+-- jumplist-back. Insert-mode <C-o> (run exactly one normal command, then
+-- auto-return to insert) is a different command bound to the identical
+-- physical keystroke, and a Lua table can only hold one entry per key
+-- string — so it lives under the composite key 'i_<C-o>' instead (see the
+-- registry comment on that entry for the full collision story).
+
+describe("the 'i_<C-o>' registry entry (insert-mode <C-o>, #105)", function()
+  it('is a distinct entry from the normal-mode jumplist-back <C-o>', function()
+    assert.is_not_nil(commands.registry['i_<C-o>'])
+    assert.is_not_nil(commands.registry['<C-o>'])
+    assert.are_not.equal(commands.registry['i_<C-o>'], commands.registry['<C-o>'])
+  end)
+
+  it('requires plain i (basic insert-mode knowledge), not the normal-mode <C-o>', function()
+    assert.equals('i', commands.registry['i_<C-o>'].requires)
+  end)
+
+  it('is not tracked via the generic single-char TRACK table (counted explicitly in logger.lua instead)', function()
+    assert.is_false(commands.registry['i_<C-o>'].track)
+  end)
+end)
+
+describe('commands.display_key', function()
+  it('strips the i_ disambiguation prefix so the UI shows the real keystroke', function()
+    assert.equals('<C-o>', commands.display_key('i_<C-o>'))
+  end)
+
+  it('returns ordinary registry keys unchanged', function()
+    assert.equals('cw', commands.display_key('cw'))
+    assert.equals('<C-w>', commands.display_key('<C-w>'))
+  end)
+
+  it('returns non-registry keys (basic tracked keys, compound ops) unchanged', function()
+    assert.equals('j', commands.display_key('j'))
+    assert.equals('dd', commands.display_key('dd'))
   end)
 end)

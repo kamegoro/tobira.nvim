@@ -54,6 +54,7 @@ end
 function M.render(usage)
   local str = require('tobira.i18n').load().stats
   local graph = require('tobira.core.graph')
+  local commands = require('tobira.commands')
 
   local dist = graph.knowledge_dist(usage)
   local total_cmds = dist.never + dist.tried + dist.familiar + dist.mastered
@@ -111,9 +112,9 @@ function M.render(usage)
       push(
         string.format(
           '    %s %s×  →  %s %s×',
-          rpad(g.parent, 5),
+          rpad(commands.display_key(g.parent), 5),
           lpad(fmt_int_commas(g.parent_count), 5),
-          rpad(g.child, 5),
+          rpad(commands.display_key(g.child), 5),
           lpad(fmt_int_commas(g.child_count), 4)
         )
       )
@@ -142,7 +143,12 @@ function M.render(usage)
         star = STAR_BY_LEVEL[graph.mastery_level(item.data)] or ' '
       end
       push(
-        string.format('    %s  %s  %s×', rpad(star, 5), rpad(item.cmd, 6), lpad(fmt_int_commas(item.data.count), 6))
+        string.format(
+          '    %s  %s  %s×',
+          rpad(star, 5),
+          rpad(commands.display_key(item.cmd), 6),
+          lpad(fmt_int_commas(item.data.count), 6)
+        )
       )
     end
     push('')

@@ -24,6 +24,9 @@ return {
       fold = 'Pliage',
       mark = 'Marque',
       macro = 'Macro',
+      diff = 'Diff',
+      ex = 'Commandes Ex',
+      terminal = 'Terminal',
     },
     mastered_total = '%d / %d maîtrisées',
     section_count = '%d / %d',
@@ -71,6 +74,8 @@ return {
       insert_left_repeat = 'Vous avez appuyé 5 fois de suite sur <Left> en mode insertion',
       insert_right_repeat = 'Vous avez appuyé 5 fois de suite sur <Right> en mode insertion',
       insert_bounce = 'Vous êtes entré et sorti du mode insertion sans rien changer, deux fois de suite',
+      insert_completion_repeat = 'Vous avez retapé le même mot en entier une deuxième fois',
+      insert_co_oneshot = 'Vous avez quitté le mode insertion, exécuté une commande, et êtes revenu aussitôt',
       f_repeat = 'Vous avez répété la même recherche f/t sur cette ligne',
       r_run = 'Vous avez remplacé 3 caractères un par un',
       visual_textobj = "Vous avez sélectionné un objet texte en mode visuel avant d'éditer",
@@ -95,8 +100,10 @@ return {
       u_repeat = 'Vous avez annulé 3 fois de suite',
       j_repeat = 'Vous avez appuyé sur j 5 fois de suite',
       j_many = 'Vous avez appuyé sur j 10 fois de suite',
+      j_many_diff = 'Vous avez appuyé sur j 10 fois de suite en mode diff',
       k_repeat = 'Vous avez appuyé sur k 5 fois de suite',
       k_many = 'Vous avez appuyé sur k 10 fois de suite',
+      k_many_diff = 'Vous avez appuyé sur k 10 fois de suite en mode diff',
       n_repeat = 'Vous avez répété une correspondance de recherche 4 fois',
       l_repeat = 'Vous avez appuyé sur l 5 fois de suite',
       h_repeat = 'Vous avez appuyé sur h 5 fois de suite',
@@ -113,6 +120,7 @@ return {
       ctrl_w_close_repeat = 'Vous avez fermé des fenêtres une par une, 2 fois de suite',
       manual_return = 'Vous avez sauté à un endroit éloigné, puis êtes revenu en faisant défiler manuellement',
       changelist_return = 'Vous avez modifié deux endroits différents, puis êtes revenu en faisant défiler manuellement pour retrouver le premier',
+      terminal_esc_repeat = 'Vous avez appuyé sur <Esc> deux fois de suite en mode terminal sans effet',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -305,6 +313,18 @@ return {
       title = '{ — sauter au début du paragraphe',
       body = "Le complément vers le haut de } — monte jusqu'à la ligne vide au-dessus\nNaviguez rapidement entre blocs de code ou paragraphes",
       example = '{ → le curseur saute à la ligne vide avant le bloc actuel',
+    },
+
+    -- ── mode diff : navigation manuelle entre blocs (#111) ──────────────────
+    [']c'] = {
+      title = ']c — sauter au bloc de différences suivant',
+      body = "Pendant que &diff est actif, saute directement au bloc modifié suivant\nPlus rapide que d'appuyer sur j de façon répétée pour chercher la différence suivante",
+      example = ']c → le curseur saute au bloc de modifications suivant',
+    },
+    ['[c'] = {
+      title = '[c — sauter au bloc de différences précédent',
+      body = "Le complément de ]c — saute au bloc modifié précédent\nPlus rapide que d'appuyer sur k de façon répétée pour chercher en arrière une différence",
+      example = '[c → le curseur saute au bloc de modifications précédent',
     },
 
     -- ── screen centering chain ─────────────────────────────────────────────
@@ -862,6 +882,11 @@ return {
       body = 'Se déplace au premier caractère non blanc de la ligne actuelle\nAvec un nombre N, descend de N-1 lignes puis va au premier non blanc',
       example = '^ → premier non blanc ; 3_ → premier non blanc 2 lignes plus bas',
     },
+    ['i_<C-o>'] = {
+      title = '<C-o> (mode insertion) — exécute une commande sans quitter le mode insertion',
+      body = 'Exécute exactement une commande en mode Normal, puis revient directement en mode insertion — inutile de retaper i/a\nDifférent du <C-o> en mode Normal (retour en arrière dans la jumplist), qui fonctionne seulement en dehors du mode insertion',
+      example = 'en train de taper…<C-o>dd → supprime la ligne actuelle, puis le mode insertion reprend automatiquement',
+    },
 
     -- ── fold: additional commands ─────────────────────────────────────────
     ['zf'] = {
@@ -971,6 +996,39 @@ return {
       title = "{n}<< — désindenter plusieurs lignes d'un coup",
       body = "Préfixez << avec un nombre pour désindenter autant de lignes en une seule commande\n3<< retire un niveau d'indentation à 3 lignes à partir du curseur",
       example = "3<< → désindente 3 lignes d'un coup",
+    },
+
+    -- ── complétion en mode insertion (détecté par insert_completion_repeat) ──
+    ['<C-n>'] = {
+      title = '<C-n> — compléter le mot au lieu de le retaper',
+      body = "Vous retapez en entier un identifiant déjà tapé une fois ? <C-n> le complète à partir de ce qui est déjà dans le tampon\n<C-p> parcourt les correspondances dans l'autre sens si la première suggestion ne convient pas",
+      example = 'identifier ... iden<C-n> → complété en identifier',
+    },
+
+    -- ── "+y (détection de sous-utilisation des registres, #59) ──────────────
+    ['"+y'] = {
+      title = '"+y — copier vers le presse-papiers système',
+      body = 'Vous avez beaucoup copié sans jamais utiliser le presse-papiers système\n"+y copie directement dedans, donc coller en dehors de Neovim (ou coller depuis l\'extérieur avec "+p) fonctionne tout simplement\nDéfinissez clipboard=unnamedplus pour que y/p utilisent le presse-papiers par défaut et évitez le préfixe "+',
+      example = '"+yy une ligne → collez-la dans une autre application avec votre touche de collage habituelle',
+    },
+
+    -- ── Ex commands (#57) ─────────────────────────────────────────────────
+    ['ex:g'] = {
+      title = ':g — exécuter une commande sur chaque ligne correspondante',
+      body = 'Trouve chaque ligne correspondant à un motif et exécute une commande Ex sur chacune\nRemplace la répétition manuelle de n / . à chaque occurrence',
+      example = ':g/TODO/d → supprime chaque ligne contenant TODO',
+    },
+    ['ex:norm'] = {
+      title = ':norm — exécuter une commande du mode normal sur chaque ligne sélectionnée',
+      body = "Applique une séquence de touches du mode normal à chaque ligne d'une plage\nRemplace l'enregistrement d'une macro quand la modification est assez simple",
+      example = ':%norm A; → ajoute un point-virgule à la fin de chaque ligne',
+    },
+
+    -- ── mode terminal : <Esc> sans effet → <C-\><C-n> (#110) ───────────────
+    ['<C-\\><C-n>'] = {
+      title = '<C-\\><C-n> — quitter le mode terminal',
+      body = 'Dans :terminal, <Esc> est transmis directement au job — cela ne quitte pas le mode terminal\n<C-\\><C-n> est le véritable moyen de revenir en mode Normal',
+      example = '<C-\\><C-n> → retour en mode Normal, le job du terminal continue de tourner',
     },
   },
 }

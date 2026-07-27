@@ -142,3 +142,231 @@ describe('insert-mode streaks vs. the bounce counter', function()
     assert.is_nil(result, 'a session with a <BS> press is not an empty bounce')
   end)
 end)
+
+-- #105: <Esc> → exactly one normal-mode command → i/a/A/I is the manual round
+-- trip that insert-mode <C-o> replaces (run one normal command without ever
+-- fully leaving insert mode). feed_insert('<Esc>') arms the watch;
+-- feed_after_escape() is what logger.lua feeds every normal-mode keystroke
+-- while that watch is armed (see the module doc comment on feed_after_escape
+-- for exactly why this crosses into the normal-mode keystroke stream).
+describe('when the user does <Esc> then exactly one normal-mode command then returns to insert', function()
+  it('fires insert_co_oneshot suggesting the insert-mode <C-o>', function()
+    local s = iseq()
+    patterns_insert.feed_insert(s, '<Esc>') -- leaves insert mode; arms the watch
+    local mid = patterns_insert.feed_after_escape(s, 'j') -- the one motion
+    assert.is_nil(mid, 'the motion itself must not fire anything')
+    local result = patterns_insert.feed_after_escape(s, 'i') -- back to insert
+    assert.is_not_nil(result)
+    assert.equals('insert_co_oneshot', result.pattern)
+    assert.equals('i_<C-o>', result.cmd)
+  end)
+
+  it('fires for a / A / I as well as i', function()
+    for _, return_key in ipairs({ 'a', 'A', 'I' }) do
+      local s = iseq()
+      patterns_insert.feed_insert(s, '<Esc>')
+      patterns_insert.feed_after_escape(s, 'j')
+      local result = patterns_insert.feed_after_escape(s, return_key)
+      assert.is_not_nil(result, 'expected a fire for return key ' .. return_key)
+      assert.equals('insert_co_oneshot', result.pattern)
+      assert.equals('i_<C-o>', result.cmd)
+    end
+  end)
+end)
+
+describe('when the user does <Esc> then 2 or more normal-mode commands before returning', function()
+  it('does not fire (this is a genuine multi-step detour, not a one-shot)', function()
+    local s = iseq()
+    patterns_insert.feed_insert(s, '<Esc>')
+    patterns_insert.feed_after_escape(s, 'j')
+    patterns_insert.feed_after_escape(s, 'k')
+    local result = patterns_insert.feed_after_escape(s, 'i')
+    assert.is_nil(result)
+  end)
+
+  it('does not fire even with many more interleaved commands', function()
+    local s = iseq()
+    patterns_insert.feed_insert(s, '<Esc>')
+    for _, key in ipairs({ 'j', 'k', 'l', 'h', 'w' }) do
+      patterns_insert.feed_after_escape(s, key)
+    end
+    local result = patterns_insert.feed_after_escape(s, 'a')
+    assert.is_nil(result)
+  end)
+end)
+
+describe('when the user returns to insert immediately with no motion at all', function()
+  it('does not fire (nothing was done in normal mode, so <C-o> would not have helped)', function()
+    local s = iseq()
+    patterns_insert.feed_insert(s, '<Esc>')
+    local result = patterns_insert.feed_after_escape(s, 'i')
+    assert.is_nil(result)
+  end)
+end)
+
+describe('feed_after_escape when no <Esc> has armed the watch', function()
+  it('does nothing', function()
+    local s = iseq()
+    local result = patterns_insert.feed_after_escape(s, 'i')
+    assert.is_nil(result)
+  end)
+end)
+
+describe('feed_after_escape after the watch has already fired or disarmed once', function()
+  it('does not fire again on a second return-to-insert key without a fresh <Esc>', function()
+    local s = iseq()
+    patterns_insert.feed_insert(s, '<Esc>')
+    patterns_insert.feed_after_escape(s, 'j')
+    patterns_insert.feed_after_escape(s, 'i') -- fires once, disarms
+    local result = patterns_insert.feed_after_escape(s, 'i') -- no new <Esc> since
+    assert.is_nil(result)
+  end)
+
+  it('can fire again after a fresh <Esc> re-arms the watch', function()
+    local s = iseq()
+    patterns_insert.feed_insert(s, '<Esc>')
+    patterns_insert.feed_after_escape(s, 'j')
+    patterns_insert.feed_after_escape(s, 'i') -- 1st fire
+
+    patterns_insert.feed_insert(s, '<Esc>') -- re-arm
+    patterns_insert.feed_after_escape(s, 'k')
+    local result = patterns_insert.feed_after_escape(s, 'a') -- 2nd fire
+    assert.is_not_nil(result)
+    assert.equals('insert_co_oneshot', result.pattern)
+  end)
+end)
+
+-- ── insert-mode completion detection (#112) ──────────────────────────────────
+-- Reconstructs whole tokens from raw keystrokes (no buffer reads — see
+-- lua/tobira/CLAUDE.md's tracking design principle) and remembers the last few
+-- completed tokens of at least TOKEN_LEN_THRESHOLD (6) characters in a small
+-- ring buffer. When the same token is typed out in full a second time, that's
+-- a strong signal the user could have used <C-n>/<C-p> keyword completion
+-- instead of retyping it by hand.
+--
+-- 6 was picked (not e.g. 3-4) specifically to stay clear of short, legitimately
+-- repeated keywords: 'const', 'class', 'value', 'break', 'while' are all 5
+-- characters and would otherwise false-positive constantly in real code.
+
+local function type_str(s, str)
+  for c in str:gmatch('.') do
+    patterns_insert.feed_insert(s, nil, c)
+  end
+end
+
+-- A single space is just one of many valid word-boundary characters here
+-- (whitespace/punctuation/newline all work identically); it's used as the
+-- default boundary throughout these tests purely for readability.
+local function boundary(s)
+  return patterns_insert.feed_insert(s, nil, ' ')
+end
+
+describe('when the user fully retypes the same long identifier a second time', function()
+  it('fires insert_completion_repeat suggesting <C-n> on the second occurrence', function()
+    local s = iseq()
+    type_str(s, 'identifier')
+    assert.is_nil(boundary(s), 'first occurrence must not fire — nothing to repeat yet')
+    type_str(s, 'identifier')
+    local result = boundary(s)
+    assert.is_not_nil(result)
+    assert.equals('insert_completion_repeat', result.pattern)
+    assert.equals('<C-n>', result.cmd)
+  end)
+
+  it('treats <Esc> as a valid token boundary (e.g. ciw, retype, <Esc>)', function()
+    local s = iseq()
+    type_str(s, 'variable')
+    patterns_insert.feed_insert(s, '<Esc>')
+    type_str(s, 'variable')
+    local result = patterns_insert.feed_insert(s, '<Esc>')
+    assert.is_not_nil(result, 'retyping the same word right before <Esc> should still be caught')
+    assert.equals('insert_completion_repeat', result.pattern)
+  end)
+end)
+
+describe('when a typed token is shorter than the length threshold', function()
+  it('does not fire even when the exact same short word is typed repeatedly', function()
+    local s = iseq()
+    type_str(s, 'if')
+    assert.is_nil(boundary(s))
+    type_str(s, 'if')
+    assert.is_nil(boundary(s))
+    type_str(s, 'if')
+    assert.is_nil(boundary(s), 'short common words like "if" must never trigger a suggestion')
+  end)
+
+  it('does not fire for a 3-char token typed twice', function()
+    local s = iseq()
+    type_str(s, 'for')
+    assert.is_nil(boundary(s))
+    type_str(s, 'for')
+    assert.is_nil(boundary(s))
+  end)
+end)
+
+describe('when two different long tokens are typed', function()
+  it('does not treat them as a repeat of each other', function()
+    local s = iseq()
+    type_str(s, 'variable')
+    assert.is_nil(boundary(s))
+    type_str(s, 'constants')
+    assert.is_nil(boundary(s), 'a different identifier must not be treated as a repeat')
+  end)
+end)
+
+describe('when the user backspaces mid-token before finishing it', function()
+  it('only remembers the token as actually typed, not the pre-backspace version', function()
+    local s = iseq()
+    -- Types 'identifierX', then corrects it to 'identifier' via <BS>.
+    type_str(s, 'identifierX')
+    patterns_insert.feed_insert(s, '<BS>')
+    assert.is_nil(boundary(s))
+
+    -- Retyping the corrected (not the original) word should be recognized...
+    type_str(s, 'identifier')
+    local result = boundary(s)
+    assert.is_not_nil(result, 'the corrected token was typed in full twice')
+
+    -- ...but the original pre-backspace spelling was never actually completed,
+    -- so it must not be in the ring buffer at all.
+    type_str(s, 'identifierX')
+    assert.is_nil(boundary(s), 'the pre-backspace spelling was never a completed token')
+  end)
+end)
+
+describe('when the cursor moves with <Left>/<Right> mid-token', function()
+  it('abandons the in-progress token instead of recording a partial one', function()
+    local s = iseq()
+    type_str(s, 'identi')
+    patterns_insert.feed_insert(s, '<Left>')
+    type_str(s, 'fier')
+    assert.is_nil(boundary(s), 'the token was corrupted by cursor movement and must not be recorded')
+
+    -- A subsequent, uninterrupted full retype must not match the abandoned partial.
+    type_str(s, 'identifier')
+    assert.is_nil(boundary(s), 'nothing valid was ever recorded to repeat against')
+  end)
+end)
+
+describe('the insert-completion ring buffer', function()
+  it('only remembers the most recent 8 tokens, evicting the oldest first', function()
+    local s = iseq()
+    local tokens = { 'alphaaa', 'bravooo', 'charlie', 'deltaaa', 'echoooo', 'foxtrot', 'golfooo', 'hotelll', 'indiaaa' }
+    for _, tok in ipairs(tokens) do
+      type_str(s, tok)
+      assert.is_nil(boundary(s), tok .. ': first occurrence must not fire')
+    end
+
+    -- 9 tokens pushed into an 8-slot ring buffer: the 1st ("alphaaa") was
+    -- evicted by the 9th ("indiaaa"), but the 2nd ("bravooo") is still in.
+    -- Check the still-present one first — finalize_token() always pushes the
+    -- token just checked back onto the ring (matched or not), so checking
+    -- "alphaaa" first would itself evict another entry before "bravooo" gets
+    -- a chance to be checked.
+    type_str(s, 'bravooo')
+    assert.is_not_nil(boundary(s), 'bravooo should still be in the ring buffer')
+
+    type_str(s, 'alphaaa')
+    assert.is_nil(boundary(s), 'alphaaa should have been evicted from the ring buffer')
+  end)
+end)
