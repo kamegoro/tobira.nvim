@@ -108,7 +108,7 @@ local function track_run(seq, key)
   return seq.run.count
 end
 
-local function inner_feed(seq, key, line)
+local function inner_feed(seq, key, line, is_diff)
   -- ── p / P → rightward motion: cursor skipped past a paste (#106) ─────────
   -- Checked first, before any other handler, so it observes every key that
   -- follows a paste — including keys other handlers would otherwise consume
@@ -617,11 +617,17 @@ local function inner_feed(seq, key, line)
 
   -- ── k (exactly once) → o: suggest O ─────────────────────────────────────
   if key == 'o' and seq.run.key == 'k' and seq.run.count == 1 then
+    -- Reset the run so a second k -> o round trip right after this one still
+    -- sees count == 1 instead of a stale count == 2 from the first k.
+    seq.run = { key = nil, count = 0 }
     return { pattern = 'k_then_o', cmd = 'O' }
   end
 
   -- ── x (exactly once) → insert: suggest s ─────────────────────────────────
   if INSERT_KEYS[key] and seq.run.key == 'x' and seq.run.count == 1 then
+    -- Reset the run so a second x -> insert round trip right after this one
+    -- still sees count == 1 instead of a stale count == 2 from the first x.
+    seq.run = { key = nil, count = 0 }
     return { pattern = 'x_then_insert', cmd = 's' }
   end
 
@@ -666,10 +672,22 @@ local function inner_feed(seq, key, line)
   elseif key == 'j' and count == 5 then
     return { pattern = 'j_repeat', cmd = '{n}j' }
   elseif key == 'j' and count == 10 then
+    -- #111: while &diff is set, hunting for the next changed hunk with plain
+    -- j is better served by ]c (jump to next hunk) than } (paragraph jump).
+    -- is_diff is a plain parameter, not seq state, because it reflects the
+    -- window's CURRENT &diff value at the moment of the 10th press, not
+    -- anything accumulated over the streak — see logger.lua for where it's
+    -- read (vim.wo.diff) and passed in.
+    if is_diff then
+      return { pattern = 'j_many_diff', cmd = ']c' }
+    end
     return { pattern = 'j_many', cmd = '}' }
   elseif key == 'k' and count == 5 then
     return { pattern = 'k_repeat', cmd = '{n}k' }
   elseif key == 'k' and count == 10 then
+    if is_diff then
+      return { pattern = 'k_many_diff', cmd = '[c' }
+    end
     return { pattern = 'k_many', cmd = '{' }
   elseif key == 'n' and count == 4 then
     return { pattern = 'n_repeat', cmd = 'cgn' }
@@ -696,10 +714,17 @@ local function inner_feed(seq, key, line)
   return nil
 end
 
-function M.feed(seq, key, line)
+-- is_diff: optional boolean — true when &diff is set on the window the
+-- keystroke came from (#111). Only consulted by the j_many/k_many branches
+-- above; every other pattern ignores it. Passed in by the caller (logger.lua
+-- reads vim.wo.diff) rather than read here, because patterns.lua has zero
+-- vim.* dependencies by design (see lua/tobira/CLAUDE.md's module dependency
+-- rules) — it is pure Lua so it can be unit-tested and reasoned about without
+-- a running Neovim instance.
+function M.feed(seq, key, line, is_diff)
   seq.key_consumed = false -- reset before each call; handlers set true when consuming
   seq.op_completed = false -- reset before each call; handlers set true when last_op is freshly set
-  local result = inner_feed(seq, key, line)
+  local result = inner_feed(seq, key, line, is_diff)
   return result
 end
 

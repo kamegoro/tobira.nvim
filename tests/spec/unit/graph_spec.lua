@@ -132,6 +132,61 @@ describe('when two offered candidates tie at score -1', function()
   end)
 end)
 
+-- ── ambient exclusion for reactive-only, nominal-anchor entries (#110 fix) ───
+-- A registry entry can be marked `ambient = false` when its suggestion only
+-- ever makes sense as a direct reaction to a just-detected pattern (e.g.
+-- terminal_esc_repeat), never as a proactive idle-time nudge. find_best()
+-- powers both the idle ambient picker and :Tobira's manual pick, so this
+-- exclusion must apply to both call sites — see graph.lua's find_best for why.
+
+describe('when a suggestion entry is marked ambient = false', function()
+  it('is never returned by find_best, even with a maximal score (#110)', function()
+    -- trigger used heavily (500) and the candidate's own count is 0 -> this
+    -- would otherwise win find_best outright (score 500, nothing competes).
+    local original_suggestions = graph.suggestions
+    graph.suggestions = {
+      w = { cmd = 'w', trigger = 'l', level = 'beginner', category = 'motion', ambient = false },
+    }
+    local result = graph.find_best({ l = usage_entry(500) })
+    graph.suggestions = original_suggestions
+
+    assert.is_nil(result, 'ambient = false candidates must never be offered by find_best')
+  end)
+
+  it('does not block a different, ambient-eligible candidate from being offered (#110)', function()
+    local original_suggestions = graph.suggestions
+    graph.suggestions = {
+      w = { cmd = 'w', trigger = 'l', level = 'beginner', category = 'motion', ambient = false },
+      b = { cmd = 'b', trigger = 'l', level = 'beginner', category = 'motion' },
+    }
+    local result = graph.find_best({ l = usage_entry(500) })
+    graph.suggestions = original_suggestions
+
+    assert.equals('b', result)
+  end)
+end)
+
+describe('the terminal-mode <C-\\><C-n> suggestion (#110 regression)', function()
+  it(
+    'is never surfaced by find_best from real i usage alone, even though i is the only trigger it shares with <C-w> / gi / I',
+    function()
+      -- Before the fix: cmd_count for <C-\><C-n> is structurally always 0
+      -- (nothing ever increments it — see commands.lua's comment), so its
+      -- score against a heavily-used 'i' trigger is always the maximum
+      -- possible (trigger_count - 0), and it also wins every alphabetical
+      -- tie-break against the other 'i'-triggered entries because
+      -- '<C-\><C-n>' sorts before '<C-w>' byte-for-byte. That combination
+      -- made it dominate find_best() despite the user never having opened
+      -- a terminal.
+      local usage = { i = usage_entry(500) }
+      for _ = 1, 20 do
+        local result = graph.find_best(usage)
+        assert.not_equals('<C-\\><C-n>', result)
+      end
+    end
+  )
+end)
+
 -- ── session-based adoption detection ─────────────────────────────────────────
 
 describe('when a command has high average usage over recent sessions', function()
@@ -226,6 +281,49 @@ describe('when a command is explicitly suppressed', function()
   end)
 end)
 
+-- ── Ex command suggestions (#57): stricter never-tried gate ──────────────────
+-- Ex commands (:g, :norm) do the work of many ordinary keystrokes in one
+-- shot, so continuing to suggest one after the user has tried it even once
+-- would read as ignoring feedback. Suggestions flagged ex_command = true are
+-- gated on "never tried at all" (count == 0) instead of the generic
+-- mastery-level gate (count < 100) every other suggestion uses.
+
+describe('an ex_command-flagged suggestion', function()
+  it('is offered when the user has never tried it', function()
+    local original_suggestions = graph.suggestions
+    graph.suggestions = {
+      ['ex:g'] = { cmd = 'ex:g', trigger = 'n', level = 'advanced', category = 'ex', ex_command = true },
+    }
+    local result = graph.find_best({ n = usage_entry(10) })
+    graph.suggestions = original_suggestions
+    assert.equals('ex:g', result)
+  end)
+
+  it('is not offered once tried even a single time, below the generic mastery threshold', function()
+    local original_suggestions = graph.suggestions
+    graph.suggestions = {
+      ['ex:g'] = { cmd = 'ex:g', trigger = 'n', level = 'advanced', category = 'ex', ex_command = true },
+    }
+    local result = graph.find_best({ n = usage_entry(10), ['ex:g'] = usage_entry(1) })
+    graph.suggestions = original_suggestions
+    assert.is_nil(result)
+  end)
+end)
+
+describe('an ordinary (non ex_command) suggestion', function()
+  it('still uses the generic mastery gate, not a never-tried gate', function()
+    local original_suggestions = graph.suggestions
+    graph.suggestions = {
+      cw = { cmd = 'cw', trigger = 'dw', level = 'beginner', category = 'edit' },
+    }
+    -- cw has been tried once (count=1) but is nowhere near mastered (< 100):
+    -- still offered, unlike an ex_command suggestion in the same situation.
+    local result = graph.find_best({ dw = usage_entry(10), cw = usage_entry(1) })
+    graph.suggestions = original_suggestions
+    assert.equals('cw', result)
+  end)
+end)
+
 -- ── data integrity ────────────────────────────────────────────────────────────
 
 describe('every suggestion in the graph', function()
@@ -245,6 +343,13 @@ describe('every suggestion in the graph', function()
     local commands = require('tobira.commands')
     for key, sug in pairs(graph.suggestions) do
       assert.equals(commands.registry[key].category, sug.category, key .. ': category mismatch')
+    end
+  end)
+
+  it('carries the ex_command flag from its commands.lua entry (#57)', function()
+    local commands = require('tobira.commands')
+    for key, sug in pairs(graph.suggestions) do
+      assert.equals(commands.registry[key].ex_command == true, sug.ex_command == true, key .. ': ex_command mismatch')
     end
   end)
 end)

@@ -24,6 +24,9 @@ return {
       fold = 'Fold',
       mark = 'Mark',
       macro = 'Macro',
+      diff = 'Diff',
+      ex = 'Ex',
+      terminal = 'Terminal',
     },
     mastered_total = '%d / %d mastered',
     section_count = '%d / %d',
@@ -71,6 +74,7 @@ return {
       insert_left_repeat = 'You pressed <Left> 5 times in a row in insert mode',
       insert_right_repeat = 'You pressed <Right> 5 times in a row in insert mode',
       insert_bounce = 'You entered and left insert mode with no changes, twice in a row',
+      insert_co_oneshot = 'You left insert mode, ran one command, and came right back in',
       f_repeat = 'You repeated the same f/t search on this line',
       r_run = 'You replaced 3 characters one at a time',
       visual_textobj = 'You selected a text object in visual mode before editing',
@@ -95,8 +99,10 @@ return {
       u_repeat = 'You undid 3 times in a row',
       j_repeat = 'You pressed j 5 times in a row',
       j_many = 'You pressed j 10 times in a row',
+      j_many_diff = 'You pressed j 10 times in a row while diffing',
       k_repeat = 'You pressed k 5 times in a row',
       k_many = 'You pressed k 10 times in a row',
+      k_many_diff = 'You pressed k 10 times in a row while diffing',
       n_repeat = 'You repeated a search match 4 times',
       l_repeat = 'You pressed l 5 times in a row',
       h_repeat = 'You pressed h 5 times in a row',
@@ -111,6 +117,7 @@ return {
       J_repeat = 'You joined lines 3 times in a row',
       ca_run = 'You incremented a number, moved down a line, and repeated it 3 times',
       ctrl_w_close_repeat = 'You closed windows one at a time, 2 times in a row',
+      terminal_esc_repeat = 'You pressed <Esc> twice in a row in terminal mode with no effect',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -303,6 +310,18 @@ return {
       title = '{ — jump to start of paragraph',
       body = 'The upward complement of } — moves up to the blank line above\nQuickly navigate between code blocks or paragraphs',
       example = '{ → cursor jumps to the blank line before the current block',
+    },
+
+    -- ── diff mode: manual hunk navigation (#111) ────────────────────────────
+    [']c'] = {
+      title = ']c — jump to next diff hunk',
+      body = 'While &diff is set, jumps straight to the next changed hunk\nFaster than hammering j to hunt for the next difference',
+      example = ']c → cursor jumps to the next hunk of changes',
+    },
+    ['[c'] = {
+      title = '[c — jump to previous diff hunk',
+      body = 'The upward complement of ]c — jumps to the previous changed hunk\nFaster than hammering k to hunt backward for a difference',
+      example = '[c → cursor jumps to the previous hunk of changes',
     },
 
     -- ── screen centering chain ─────────────────────────────────────────────
@@ -861,6 +880,11 @@ return {
       body = 'Moves to the first non-blank character of the current line\nWith a count N, moves N-1 lines down then goes to first non-blank',
       example = '^ → first non-blank; 3_ → first non-blank 2 lines down',
     },
+    ['i_<C-o>'] = {
+      title = '<C-o> (insert mode) — run one command without leaving insert',
+      body = 'Runs exactly one Normal-mode command, then drops you right back into insert — no need to press i/a again\nDifferent from Normal-mode <C-o> (jump back in the jumplist), which only works outside insert mode',
+      example = 'typing…<C-o>dd → deletes the current line, then insert mode resumes automatically',
+    },
 
     -- ── fold: additional commands ─────────────────────────────────────────
     ['zf'] = {
@@ -977,6 +1001,25 @@ return {
       title = '"+y — yank to the system clipboard',
       body = 'You\'ve yanked a lot without ever reaching for the system clipboard\n"+y yanks straight into it, so pasting outside Neovim (or from outside into it with "+p) just works\nSet clipboard=unnamedplus to make y/p use it by default and skip the "+ prefix entirely',
       example = '"+yy a line → paste it into another app with your normal paste key',
+    },
+
+    -- ── Ex commands (#57) ─────────────────────────────────────────────────
+    ['ex:g'] = {
+      title = ':g — run a command over every matching line',
+      body = 'Finds every line matching a pattern and runs an Ex command on each one\nReplaces manually repeating n / . one match at a time',
+      example = ':g/TODO/d → delete every line containing TODO',
+    },
+    ['ex:norm'] = {
+      title = ':norm — run a normal-mode command on every selected line',
+      body = 'Applies a sequence of normal-mode keystrokes to every line in a range\nReplaces recording a macro when the edit is simple enough to type directly',
+      example = ':%norm A; → append a semicolon to every line',
+    },
+
+    -- ── terminal mode: ineffective <Esc> → <C-\><C-n> (#110) ───────────────
+    ['<C-\\><C-n>'] = {
+      title = '<C-\\><C-n> — exit terminal mode',
+      body = 'Inside :terminal, <Esc> is sent straight to the job — it does not leave terminal mode\n<C-\\><C-n> is the actual escape hatch back to Normal mode',
+      example = '<C-\\><C-n> → back to Normal mode, the terminal job keeps running',
     },
   },
 }

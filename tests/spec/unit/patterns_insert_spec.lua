@@ -142,3 +142,96 @@ describe('insert-mode streaks vs. the bounce counter', function()
     assert.is_nil(result, 'a session with a <BS> press is not an empty bounce')
   end)
 end)
+
+-- #105: <Esc> → exactly one normal-mode command → i/a/A/I is the manual round
+-- trip that insert-mode <C-o> replaces (run one normal command without ever
+-- fully leaving insert mode). feed_insert('<Esc>') arms the watch;
+-- feed_after_escape() is what logger.lua feeds every normal-mode keystroke
+-- while that watch is armed (see the module doc comment on feed_after_escape
+-- for exactly why this crosses into the normal-mode keystroke stream).
+describe('when the user does <Esc> then exactly one normal-mode command then returns to insert', function()
+  it('fires insert_co_oneshot suggesting the insert-mode <C-o>', function()
+    local s = iseq()
+    patterns_insert.feed_insert(s, '<Esc>') -- leaves insert mode; arms the watch
+    local mid = patterns_insert.feed_after_escape(s, 'j') -- the one motion
+    assert.is_nil(mid, 'the motion itself must not fire anything')
+    local result = patterns_insert.feed_after_escape(s, 'i') -- back to insert
+    assert.is_not_nil(result)
+    assert.equals('insert_co_oneshot', result.pattern)
+    assert.equals('i_<C-o>', result.cmd)
+  end)
+
+  it('fires for a / A / I as well as i', function()
+    for _, return_key in ipairs({ 'a', 'A', 'I' }) do
+      local s = iseq()
+      patterns_insert.feed_insert(s, '<Esc>')
+      patterns_insert.feed_after_escape(s, 'j')
+      local result = patterns_insert.feed_after_escape(s, return_key)
+      assert.is_not_nil(result, 'expected a fire for return key ' .. return_key)
+      assert.equals('insert_co_oneshot', result.pattern)
+      assert.equals('i_<C-o>', result.cmd)
+    end
+  end)
+end)
+
+describe('when the user does <Esc> then 2 or more normal-mode commands before returning', function()
+  it('does not fire (this is a genuine multi-step detour, not a one-shot)', function()
+    local s = iseq()
+    patterns_insert.feed_insert(s, '<Esc>')
+    patterns_insert.feed_after_escape(s, 'j')
+    patterns_insert.feed_after_escape(s, 'k')
+    local result = patterns_insert.feed_after_escape(s, 'i')
+    assert.is_nil(result)
+  end)
+
+  it('does not fire even with many more interleaved commands', function()
+    local s = iseq()
+    patterns_insert.feed_insert(s, '<Esc>')
+    for _, key in ipairs({ 'j', 'k', 'l', 'h', 'w' }) do
+      patterns_insert.feed_after_escape(s, key)
+    end
+    local result = patterns_insert.feed_after_escape(s, 'a')
+    assert.is_nil(result)
+  end)
+end)
+
+describe('when the user returns to insert immediately with no motion at all', function()
+  it('does not fire (nothing was done in normal mode, so <C-o> would not have helped)', function()
+    local s = iseq()
+    patterns_insert.feed_insert(s, '<Esc>')
+    local result = patterns_insert.feed_after_escape(s, 'i')
+    assert.is_nil(result)
+  end)
+end)
+
+describe('feed_after_escape when no <Esc> has armed the watch', function()
+  it('does nothing', function()
+    local s = iseq()
+    local result = patterns_insert.feed_after_escape(s, 'i')
+    assert.is_nil(result)
+  end)
+end)
+
+describe('feed_after_escape after the watch has already fired or disarmed once', function()
+  it('does not fire again on a second return-to-insert key without a fresh <Esc>', function()
+    local s = iseq()
+    patterns_insert.feed_insert(s, '<Esc>')
+    patterns_insert.feed_after_escape(s, 'j')
+    patterns_insert.feed_after_escape(s, 'i') -- fires once, disarms
+    local result = patterns_insert.feed_after_escape(s, 'i') -- no new <Esc> since
+    assert.is_nil(result)
+  end)
+
+  it('can fire again after a fresh <Esc> re-arms the watch', function()
+    local s = iseq()
+    patterns_insert.feed_insert(s, '<Esc>')
+    patterns_insert.feed_after_escape(s, 'j')
+    patterns_insert.feed_after_escape(s, 'i') -- 1st fire
+
+    patterns_insert.feed_insert(s, '<Esc>') -- re-arm
+    patterns_insert.feed_after_escape(s, 'k')
+    local result = patterns_insert.feed_after_escape(s, 'a') -- 2nd fire
+    assert.is_not_nil(result)
+    assert.equals('insert_co_oneshot', result.pattern)
+  end)
+end)
