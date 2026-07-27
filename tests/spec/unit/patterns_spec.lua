@@ -1135,6 +1135,44 @@ describe('when the user yanks to the system clipboard with "+y', function()
   end)
 end)
 
+describe('when "+yy completes (register-select, then a full linewise yank)', function()
+  it('does not leave a dangling pending_op that swallows the next keystroke', function()
+    -- Regression test: the trailing y of "+yy used to fall through to the
+    -- generic "d/c/y operator start" branch and set pending_op = 'y', which
+    -- then silently consumed the very next keystroke as if it were y's
+    -- motion. That swallowed keystroke never reached run-tracking, so
+    -- j_repeat (count == 5) needed a 6th j instead of 5.
+    local s = seq()
+    patterns.feed(s, '"', 1)
+    patterns.feed(s, '+', 1)
+    patterns.feed(s, 'y', 1)
+    patterns.feed(s, 'y', 1)
+
+    local result
+    for _ = 1, 4 do
+      result = patterns.feed(s, 'j', 1)
+      assert.is_nil(result)
+    end
+    result = patterns.feed(s, 'j', 1)
+    assert.equals('j_repeat', result.pattern)
+    assert.equals('{n}j', result.cmd)
+  end)
+
+  it('still registers "+y as the completed compound, unaffected by the trailing y', function()
+    local s = seq()
+    patterns.feed(s, '"', 1)
+    patterns.feed(s, '+', 1)
+    patterns.feed(s, 'y', 1)
+    assert.equals('"+y', s.last_op)
+    assert.is_true(s.op_completed)
+
+    local result = patterns.feed(s, 'y', 1)
+    assert.is_nil(result)
+    assert.is_nil(s.pending_op)
+    assert.equals('"+y', s.last_op)
+  end)
+end)
+
 describe('when "+ is followed by something other than y', function()
   it('does not track a "+y compound', function()
     local s = seq()
