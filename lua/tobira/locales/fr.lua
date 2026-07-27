@@ -121,6 +121,7 @@ return {
       manual_return = 'Vous avez sauté à un endroit éloigné, puis êtes revenu en faisant défiler manuellement',
       changelist_return = 'Vous avez modifié deux endroits différents, puis êtes revenu en faisant défiler manuellement pour retrouver le premier',
       terminal_esc_repeat = 'Vous avez appuyé sur <Esc> deux fois de suite en mode terminal sans effet',
+      tabnew_run = 'Vous avez ouvert 3 fichiers ou plus avec :tabnew, chacun dans son propre onglet',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -507,7 +508,7 @@ return {
     },
     ['<C-^>'] = {
       title = '<C-^> — basculer vers le fichier alternatif (précédemment édité)',
-      body = "Bascule entre le fichier actuel et le dernier que vous aviez ouvert\nLe moyen le plus rapide de basculer entre deux fichiers activement en cours d'édition",
+      body = "Bascule entre le fichier actuel et le dernier que vous aviez ouvert\nLe moyen le plus rapide de basculer entre deux fichiers activement en cours d'édition\nVous en avez ouvert trois ou plus dans des onglets séparés ? :b {name} bascule vers n'importe quel buffer ouvert, sans nouvel onglet",
       example = '<C-^> → ouvre le dernier fichier → <C-^> → retour au premier',
     },
     ["''"] = {

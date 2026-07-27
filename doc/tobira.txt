@@ -301,5 +301,14 @@ TERMINAL MODE ~
 
   `<Esc>` × 2, no effect        Suggest `<C-\><C-n>` — exit terminal mode
 
+EX COMMANDS ~
+
+  `:tabnew {file}` × 3, one window per tab
+                               Suggest `<C-^>` — switch buffers instead of a
+                                 tab per file (a window split inside any of
+                                 the tabs resets the count — that is a
+                                 legitimate multi-window layout, not
+                                 one-tab-per-file browsing)
+
 ==============================================================================
 vim:tw=78:ts=8:ft=help:norl:

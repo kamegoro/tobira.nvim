@@ -13,6 +13,13 @@ local usage = {}
 local meta = { guide_seen = false }
 local _initialized = false
 local seq = patterns.new_seq()
+-- Session-scoped tabnew-habit streak (#113) — see
+-- patterns_cmdline.new_tabnew_seq()'s doc comment. Deliberately NOT reset
+-- alongside seq/insert_seq on every cmdline keystroke (see
+-- handle_cmdline_key below): it must persist ACROSS separate :tabnew
+-- submissions within a session, unlike seq/insert_seq which represent
+-- normal/insert-mode grammar that is meaningless while typing a command.
+local tabnew_seq = patterns_cmdline.new_tabnew_seq()
 local session_counts = {}
 -- Per-command snapshot of {count, shown, suppressed, pinned, celebrated} as
 -- of the last time `usage` was synced with disk (initial load, or the end of
@@ -436,9 +443,28 @@ local function handle_cmdline_key(key)
   end
 
   if key == CMDLINE_CR then
-    local name = patterns_cmdline.tokenize(vim.fn.getcmdline())
+    local text = vim.fn.getcmdline()
+    local name = patterns_cmdline.tokenize(text)
     if name and name:sub(1, #OWN_CMD_PREFIX) ~= OWN_CMD_PREFIX then
       increment(name)
+    end
+
+    -- #113: only read command_arg()/nvim_tabpage_list_wins for an actual
+    -- :tabnew submission — every other Ex command is a complete no-op for
+    -- this streak (see patterns_cmdline.feed_tabnew's doc comment), so there
+    -- is no reason to pay a vim.api call reading window state for :s, :g,
+    -- etc. nvim_tabpage_list_wins(0) reads the CURRENT tabpage's windows;
+    -- because vim.on_key runs before this <CR> keystroke's effect lands
+    -- (see this function's own header comment), that is still the tab the
+    -- PREVIOUS :tabnew in the streak opened, not the one this keystroke is
+    -- about to create.
+    if name == 'ex:tabnew' then
+      local has_arg = patterns_cmdline.command_arg(text) ~= ''
+      local win_count = #vim.api.nvim_tabpage_list_wins(0)
+      local result = patterns_cmdline.feed_tabnew(tabnew_seq, has_arg, win_count)
+      if result and M.on_pattern then
+        M.on_pattern(result.pattern, result.cmd)
+      end
     end
     return
   end
@@ -768,6 +794,7 @@ function M.reset()
   seq = patterns.new_seq()
   insert_seq = patterns_insert.new_insert_seq()
   terminal_seq = patterns_terminal.new_terminal_seq()
+  tabnew_seq = patterns_cmdline.new_tabnew_seq()
   current_mode = 'n'
   _recording_macro = false
   _initialized = false

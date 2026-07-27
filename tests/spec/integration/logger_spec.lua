@@ -1250,6 +1250,90 @@ describe("Ex command tracking excludes tobira's own commands", function()
   end)
 end)
 
+-- ── tabnew one-file-per-tab habit detection (#113) ───────────────────────────
+-- logger.lua threads vim.api.nvim_tabpage_list_wins into
+-- patterns_cmdline.feed_tabnew() the same way it threads vim.wo.diff into
+-- patterns.feed() for #111 — see patterns_cmdline.lua's module comment for
+-- the full design. Real :tabnew / :split here (not stubs) so the window
+-- structure feed_tabnew() reads is genuine, not simulated.
+
+describe('tabnew one-file-per-tab habit detection (#113)', function()
+  local cr = vim.api.nvim_replace_termcodes('<CR>', true, true, true)
+
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    logger.on_pattern = nil
+    logger.setup()
+    vim.cmd('silent! tabonly!')
+    vim.cmd('enew!')
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+    if vim.fn.mode() ~= 'n' then
+      pcall(vim.api.nvim_input, vim.api.nvim_replace_termcodes('<Esc>', true, true, true))
+    end
+    vim.cmd('silent! tabonly!')
+  end)
+
+  local function tabnew(name)
+    pcall(vim.fn.feedkeys, ':tabnew tobira_test_' .. name .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+  end
+
+  it('fires tabnew_run, suggesting <C-^>, after 3 :tabnew {file} calls each opening a fresh single-window tab', function()
+    local fired_pattern, fired_cmd = nil, nil
+    logger.on_pattern = function(pattern, cmd)
+      fired_pattern = pattern
+      fired_cmd = cmd
+    end
+
+    tabnew('a.txt')
+    assert.is_nil(fired_pattern)
+    tabnew('b.txt')
+    assert.is_nil(fired_pattern)
+    tabnew('c.txt')
+
+    assert.equals('tabnew_run', fired_pattern)
+    assert.equals('<C-^>', fired_cmd)
+  end)
+
+  it('does not fire when a window was split inside one of the tabs before the streak reached 3', function()
+    local fired_pattern = nil
+    logger.on_pattern = function(pattern)
+      fired_pattern = pattern
+    end
+
+    tabnew('a.txt')
+    tabnew('b.txt')
+    vim.cmd('split') -- the tab :tabnew b.txt opened now has 2 windows
+    tabnew('c.txt')
+
+    assert.is_nil(fired_pattern, 'the split should have reset the streak before it reached 3')
+  end)
+
+  it('does not extend the streak for a bare :tabnew with no file argument', function()
+    local fired_pattern = nil
+    logger.on_pattern = function(pattern)
+      fired_pattern = pattern
+    end
+
+    tabnew('a.txt')
+    pcall(vim.fn.feedkeys, ':tabnew' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    tabnew('b.txt')
+    tabnew('c.txt')
+
+    assert.is_nil(fired_pattern, 'the bare :tabnew should have reset the streak, needing 3 more file tabnews to fire')
+  end)
+
+  it('still tracks ex:tabnew usage the same way every other Ex command is tracked', function()
+    tabnew('a.txt')
+    assert.is_true(logger.get('ex:tabnew').count > 0)
+  end)
+end)
+
 -- (stats rendering has moved to tests/spec/unit/ui_stats_spec.lua)
 
 -- ── save ─────────────────────────────────────────────────────────────────────

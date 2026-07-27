@@ -121,6 +121,7 @@ return {
       manual_return = 'You jumped to a distant spot, then scrolled back manually',
       changelist_return = 'You edited two different spots, then scrolled back manually to find the first one',
       terminal_esc_repeat = 'You pressed <Esc> twice in a row in terminal mode with no effect',
+      tabnew_run = 'You opened 3 or more files with :tabnew, one tab each',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -507,7 +508,7 @@ return {
     },
     ['<C-^>'] = {
       title = '<C-^> — switch to the alternate (previously edited) file',
-      body = 'Toggles between the current file and the last one you had open\nThe quickest way to flip between two files you are actively working on',
+      body = 'Toggles between the current file and the last one you had open\nThe quickest way to flip between two files you are actively working on\nOpened three or more as separate tabs instead? :b {name} switches to any open buffer, no new tab needed',
       example = '<C-^> → open last file → <C-^> → back to the first',
     },
     ["''"] = {
