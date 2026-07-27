@@ -140,7 +140,11 @@ function M.preview_lines(item, usage)
       desc = sug.title:match(' — (.+)$') or sug.title
     end
   end
-  local line1 = string.format('  %-6s%s', item.keys, desc)
+  -- %-6s alone guarantees no minimum gap once item.keys already meets/exceeds
+  -- width 6 (e.g. <C-\><C-n>, <C-w>q, g<C-a>) — the key glues straight onto
+  -- desc. Pad explicitly so at least one separating space always survives (#154).
+  local pad = string.rep(' ', math.max(1, 6 - #item.keys))
+  local line1 = '  ' .. item.keys .. pad .. desc
 
   local spark_str = require('tobira.ui.spark').render(data.sessions or {}, SPARK_W)
   local count = data.count or 0

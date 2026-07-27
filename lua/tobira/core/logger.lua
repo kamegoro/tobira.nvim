@@ -1,5 +1,6 @@
 local patterns = require('tobira.core.patterns')
 local patterns_insert = require('tobira.core.patterns_insert')
+local patterns_terminal = require('tobira.core.patterns_terminal')
 local commands = require('tobira.commands')
 
 local M = {}
@@ -339,6 +340,19 @@ end
 
 local insert_seq = patterns_insert.new_insert_seq()
 
+-- Raw on_key bytes → canonical name, for the one terminal-mode key
+-- patterns_terminal.feed_terminal() cares about (#110). Only <Esc> matters —
+-- see patterns_terminal.lua for why <C-w> is deliberately not detected here.
+local TERMINAL_SPECIAL = {}
+do
+  local raw = vim.api.nvim_replace_termcodes('<Esc>', true, true, true)
+  if raw ~= '' then
+    TERMINAL_SPECIAL[raw] = '<Esc>'
+  end
+end
+
+local terminal_seq = patterns_terminal.new_terminal_seq()
+
 local _recording_macro = false
 
 local function handle_insert_key(key)
@@ -347,6 +361,14 @@ local function handle_insert_key(key)
     increment('<C-w>')
   end
   local result = patterns_insert.feed_insert(insert_seq, canonical)
+  if result and M.on_pattern then
+    M.on_pattern(result.pattern, result.cmd)
+  end
+end
+
+local function handle_terminal_key(key)
+  local canonical = TERMINAL_SPECIAL[key]
+  local result = patterns_terminal.feed_terminal(terminal_seq, canonical)
   if result and M.on_pattern then
     M.on_pattern(result.pattern, result.cmd)
   end
@@ -361,9 +383,18 @@ local function handle_key(key)
     return
   end
 
+  if current_mode == 't' then
+    local _re = vim.fn.reg_executing()
+    if not (_recording_macro or _re ~= '') then
+      handle_terminal_key(key)
+    end
+    return
+  end
+
   if current_mode:sub(1, 1) ~= 'n' then
     seq = patterns.new_seq()
     insert_seq = patterns_insert.new_insert_seq()
+    terminal_seq = patterns_terminal.new_terminal_seq()
     return
   end
   -- Skip keystrokes while recording or replaying a macro so they don't pollute
@@ -420,7 +451,17 @@ function M.setup()
   vim.api.nvim_create_autocmd('ModeChanged', {
     group = mode_group,
     callback = function()
-      current_mode = vim.fn.mode()
+      local new_mode = vim.fn.mode()
+      -- Mode cache extension for #110: terminal_seq's <Esc>-streak is only
+      -- meaningful within one continuous stay in terminal-job mode. Reset it
+      -- the moment mode() actually changes away from 't' (successful escape,
+      -- or the terminal buffer closing under the user), so a leftover
+      -- half-streak from a previous terminal session can never combine with
+      -- the first <Esc> of a later, unrelated one.
+      if current_mode == 't' and new_mode ~= 't' then
+        terminal_seq = patterns_terminal.new_terminal_seq()
+      end
+      current_mode = new_mode
     end,
   })
 
@@ -431,6 +472,7 @@ function M.setup()
       if _recording_macro then
         seq = patterns.new_seq()
         insert_seq = patterns_insert.new_insert_seq()
+        terminal_seq = patterns_terminal.new_terminal_seq()
       end
     end,
   })
@@ -564,6 +606,7 @@ function M.reset()
   meta = { guide_seen = false }
   seq = patterns.new_seq()
   insert_seq = patterns_insert.new_insert_seq()
+  terminal_seq = patterns_terminal.new_terminal_seq()
   current_mode = 'n'
   _recording_macro = false
   _initialized = false
