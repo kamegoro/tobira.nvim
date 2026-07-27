@@ -74,6 +74,7 @@ return {
       insert_left_repeat = 'Vous avez appuyé 5 fois de suite sur <Left> en mode insertion',
       insert_right_repeat = 'Vous avez appuyé 5 fois de suite sur <Right> en mode insertion',
       insert_bounce = 'Vous êtes entré et sorti du mode insertion sans rien changer, deux fois de suite',
+      insert_completion_repeat = 'Vous avez retapé le même mot en entier une deuxième fois',
       insert_co_oneshot = 'Vous avez quitté le mode insertion, exécuté une commande, et êtes revenu aussitôt',
       f_repeat = 'Vous avez répété la même recherche f/t sur cette ligne',
       r_run = 'Vous avez remplacé 3 caractères un par un',
@@ -993,6 +994,13 @@ return {
       title = "{n}<< — désindenter plusieurs lignes d'un coup",
       body = "Préfixez << avec un nombre pour désindenter autant de lignes en une seule commande\n3<< retire un niveau d'indentation à 3 lignes à partir du curseur",
       example = "3<< → désindente 3 lignes d'un coup",
+    },
+
+    -- ── complétion en mode insertion (détecté par insert_completion_repeat) ──
+    ['<C-n>'] = {
+      title = '<C-n> — compléter le mot au lieu de le retaper',
+      body = "Vous retapez en entier un identifiant déjà tapé une fois ? <C-n> le complète à partir de ce qui est déjà dans le tampon\n<C-p> parcourt les correspondances dans l'autre sens si la première suggestion ne convient pas",
+      example = 'identifier ... iden<C-n> → complété en identifier',
     },
 
     -- ── "+y (détection de sous-utilisation des registres, #59) ──────────────

@@ -74,6 +74,7 @@ return {
       insert_left_repeat = 'Pulsaste <Left> 5 veces seguidas en modo inserción',
       insert_right_repeat = 'Pulsaste <Right> 5 veces seguidas en modo inserción',
       insert_bounce = 'Entraste y saliste del modo inserción sin cambios, dos veces seguidas',
+      insert_completion_repeat = 'Escribiste la misma palabra completa por segunda vez',
       insert_co_oneshot = 'Saliste del modo inserción, ejecutaste un comando y volviste enseguida',
       f_repeat = 'Repetiste la misma búsqueda f/t en esta línea',
       r_run = 'Reemplazaste 3 caracteres uno por uno',
@@ -993,6 +994,13 @@ return {
       title = '{n}<< — quitar sangría a varias líneas a la vez',
       body = 'Antepone un número a << para quitar la sangría a esa cantidad de líneas en un solo comando\n3<< quita un nivel de sangría de 3 líneas desde el cursor',
       example = '3<< → quita la sangría de 3 líneas a la vez',
+    },
+
+    -- ── autocompletado en modo inserción (detectado por insert_completion_repeat) ──
+    ['<C-n>'] = {
+      title = '<C-n> — completa la palabra en lugar de volver a escribirla',
+      body = '¿Vuelves a escribir por completo un identificador que ya escribiste antes? <C-n> lo completa a partir de lo que ya está en el búfer\n<C-p> recorre las coincidencias en orden inverso si la primera sugerencia no es la que buscas',
+      example = 'identifier ... iden<C-n> → completa a identifier',
     },
 
     -- ── "+y (detección de registro infrautilizado, #59) ─────────────────────

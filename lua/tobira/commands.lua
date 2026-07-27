@@ -387,6 +387,20 @@ M.registry = {
   ['{n}>>'] = { requires = '>>', track = false, category = 'edit', level = 'intermediate' },
   ['{n}<<'] = { requires = '<<', track = false, category = 'edit', level = 'intermediate' },
 
+  -- ── insert-mode completion (#112) ────────────────────────────────────────
+  -- Detected by insert_completion_repeat (patterns_insert.lua): a fully
+  -- retyped identifier of 6+ characters. category = 'edit' rather than a new
+  -- top-level category — see lua/tobira/CLAUDE.md's category checklist, which
+  -- documents the field as a closed 7-value enum, and #99's precedent of
+  -- reusing existing categories for insert-mode patterns instead of inventing
+  -- an "insert" one (insert_bs_repeat/insert_bounce → <C-w>/A are both
+  -- 'edit' too). track = false: same reasoning as insert-mode <C-w> just
+  -- above — <C-n> already has a normal-mode meaning (Vim's built-in
+  -- down-motion), and build_track_table() can't tell those two meanings of
+  -- the same raw byte apart. Counted explicitly instead, only from inside
+  -- handle_insert_key() — see logger.lua's INSERT_SPECIAL.
+  ['<C-n>'] = { requires = 'i', track = false, category = 'edit', level = 'beginner' },
+
   -- ── y → "+y system clipboard register (#59) ──────────────────────────────
   -- track = false: "+y is a 3-key literal sequence ("+y), tracked as its own
   -- compound by patterns.lua's pending_clipboard_yank state, not by the
