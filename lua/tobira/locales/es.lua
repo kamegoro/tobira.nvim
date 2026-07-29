@@ -6,6 +6,8 @@ return {
     pinned = 'Fijado',
     forgotten_suffix = ' (olvidado)',
     more_suffix = '+%d más',
+    remapped_suffix = ' (asignado a %s)',
+    remapped_invalid = 'asignado a %s — descripción ya no válida',
   },
   progress = {
     title = 'tobira — tu viaje en vim',
@@ -49,6 +51,7 @@ return {
     reset = 'tobira: registro de uso reiniciado',
     no_suggestions = 'tobira: no hay sugerencias nuevas por ahora 🎉',
     invalid_config = 'tobira: configuración inválida — ',
+    remap_detected = 'tobira: %s está remapeado (%s) — eliminado del grupo de sugerencias',
   },
   stats = {
     title = 'tobira — estadísticas de uso',
@@ -122,6 +125,7 @@ return {
       changelist_return = 'Editaste dos lugares distintos y luego retrocediste desplazándote manualmente para encontrar el primero',
       terminal_esc_repeat = 'Presionaste <Esc> dos veces seguidas en modo terminal sin ningún efecto',
       ex_file_pingpong = 'Alternaste varias veces seguidas entre los mismos dos archivos con :e/:b',
+      tabnew_run = 'Abriste 3 o más archivos con :tabnew, cada uno en su propia pestaña',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -508,7 +512,7 @@ return {
     },
     ['<C-^>'] = {
       title = '<C-^> — cambiar al archivo alterno (editado previamente)',
-      body = 'Alterna entre el archivo actual y el último que tenías abierto\nLa forma más rápida de alternar entre dos archivos en los que trabajas activamente',
+      body = 'Alterna entre el archivo actual y el último que tenías abierto\nLa forma más rápida de alternar entre dos archivos en los que trabajas activamente\n¿Abriste tres o más en pestañas separadas? :b {name} cambia a cualquier búfer abierto sin necesidad de una pestaña nueva',
       example = '<C-^> → abre el último archivo → <C-^> → vuelve al primero',
     },
     ["''"] = {

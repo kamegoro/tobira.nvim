@@ -13,6 +13,13 @@ local usage = {}
 local meta = { guide_seen = false }
 local _initialized = false
 local seq = patterns.new_seq()
+-- Session-scoped tabnew-habit streak (#113) — see
+-- patterns_cmdline.new_tabnew_seq()'s doc comment. Deliberately NOT reset
+-- alongside seq/insert_seq on every cmdline keystroke (see
+-- handle_cmdline_key below): it must persist ACROSS separate :tabnew
+-- submissions within a session, unlike seq/insert_seq which represent
+-- normal/insert-mode grammar that is meaningless while typing a command.
+local tabnew_seq = patterns_cmdline.new_tabnew_seq()
 local session_counts = {}
 -- Per-command snapshot of {count, shown, suppressed, pinned, celebrated} as
 -- of the last time `usage` was synced with disk (initial load, or the end of
@@ -461,11 +468,14 @@ local function handle_cmdline_key(key)
       increment(name)
     end
 
-    -- #114: independent of the usage-count tracking above -- command_arg()
-    -- re-parses the same cmdline text for the filename argument tokenize()
-    -- discards by design (see tokenize()'s header). A reactive pattern, like
-    -- patterns_insert/patterns_terminal's results below: reported via
-    -- on_pattern immediately rather than waiting on a usage-count threshold.
+    -- #113/#114: independent of the usage-count tracking above -- both
+    -- detectors below share a single command_arg() call for the filename /
+    -- argument text tokenize() discards by design (see tokenize()'s header
+    -- and patterns_cmdline.command_arg's own doc comment for why the two
+    -- features share one implementation). Both are reactive patterns, like
+    -- patterns_insert/patterns_terminal's results elsewhere in this file:
+    -- reported via on_pattern immediately rather than waiting on a
+    -- usage-count threshold.
     --
     -- Verify-before-credit (fix for a QA-found false positive): the on_key
     -- callback for this <CR> runs BEFORE Neovim has validated or executed the
@@ -528,6 +538,27 @@ local function handle_cmdline_key(key)
           M.on_pattern(pingpong_result.pattern, pingpong_result.cmd)
         end
       end)
+    end
+
+    -- #113: only read nvim_tabpage_list_wins for an actual :tabnew
+    -- submission — every other Ex command is a complete no-op for this
+    -- streak (see patterns_cmdline.feed_tabnew's doc comment), so there is no
+    -- reason to pay a vim.api call reading window state for :s, :g, etc.
+    -- nvim_tabpage_list_wins(0) reads the CURRENT tabpage's windows; because
+    -- vim.on_key runs before this <CR> keystroke's effect lands (see this
+    -- function's own header comment), that is still the tab the PREVIOUS
+    -- :tabnew in the streak opened, not the one this keystroke is about to
+    -- create. Reuses the `arg` already computed above via command_arg(text)
+    -- (converting its nil-for-"no argument" to feed_tabnew's own ''
+    -- contract) instead of re-parsing the same cmdline text a second time —
+    -- when the submitted command is ":tabnew ...", word == 'tabnew' and arg
+    -- is exactly the file argument feed_tabnew needs.
+    if name == 'ex:tabnew' then
+      local win_count = #vim.api.nvim_tabpage_list_wins(0)
+      local result = patterns_cmdline.feed_tabnew(tabnew_seq, arg or '', win_count)
+      if result and M.on_pattern then
+        M.on_pattern(result.pattern, result.cmd)
+      end
     end
     return
   end
@@ -858,6 +889,7 @@ function M.reset()
   insert_seq = patterns_insert.new_insert_seq()
   terminal_seq = patterns_terminal.new_terminal_seq()
   pingpong_seq = patterns_cmdline.new_pingpong_seq()
+  tabnew_seq = patterns_cmdline.new_tabnew_seq()
   current_mode = 'n'
   _recording_macro = false
   _initialized = false

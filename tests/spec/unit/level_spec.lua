@@ -45,7 +45,7 @@ end)
 
 -- ── ceiling ───────────────────────────────────────────────────────────────────
 
-describe('ceiling', function()
+describe('when computing the level one step above the current level', function()
   it('returns beginner for a novice (one step ahead)', function()
     assert.equals('beginner', level.ceiling('novice'))
   end)

@@ -6,7 +6,7 @@ local patterns_cmdline = require('tobira.core.patterns_cmdline')
 -- or nil when the text is empty / unparseable. No vim.* calls — see
 -- lua/tobira/CLAUDE.md's "Module splitting policy".
 
-describe('patterns_cmdline.tokenize', function()
+describe('when classifying the text of a command-line buffer into a semantic command name', function()
   it('returns ex:s for a plain substitute command', function()
     assert.equals('ex:s', patterns_cmdline.tokenize('s/foo/bar/g'))
   end)
@@ -89,10 +89,13 @@ end)
 
 -- patterns_cmdline.command_arg(text) is the argument-aware counterpart to
 -- tokenize() above: tokenize() deliberately discards everything after the
--- command word (#57's scope), but the :e/:b ping-pong detector below (#114)
--- needs the filename argument itself. Reuses the same strip_range() range
--- handling as tokenize() so a leading range prefix never leaks into the
--- returned argument.
+-- command word (#57's scope), but two later detectors need the argument text
+-- itself: #113's tabnew one-tab-per-file streak (below) needs to tell a bare
+-- ":tabnew" apart from ":tabnew foo.txt", and the :e/:b ping-pong detector
+-- (also below, #114) needs the filename argument to tell ":e A" apart from
+-- ":e B". Both share this single implementation. Reuses the same
+-- strip_range() range handling as tokenize() so a leading range prefix never
+-- leaks into the returned argument.
 
 describe('patterns_cmdline.command_arg', function()
   it('returns the lowercased command word and trimmed argument for a plain command', function()
@@ -127,6 +130,18 @@ describe('patterns_cmdline.command_arg', function()
     local word, arg = patterns_cmdline.command_arg("'<,'>norm @a")
     assert.equals('norm', word)
     assert.equals('@a', arg)
+  end)
+
+  it('returns the trimmed argument following the command word for a :tabnew-style command', function()
+    local word, arg = patterns_cmdline.command_arg('tabnew foo.txt')
+    assert.equals('tabnew', word)
+    assert.equals('foo.txt', arg)
+  end)
+
+  it('strips a range prefix before extracting a :tabnew argument', function()
+    local word, arg = patterns_cmdline.command_arg('%tabnew foo.txt')
+    assert.equals('tabnew', word)
+    assert.equals('foo.txt', arg)
   end)
 
   it('returns nil, nil for an empty command line', function()
@@ -272,5 +287,113 @@ describe('patterns_cmdline ex_file_pingpong detection', function()
     assert.is_nil(bare)
     local result = patterns_cmdline.feed_pingpong(s, 'e', 'A')
     assert.is_not_nil(result, 'a bare :e/:b reload has no filename signal and must not disturb the history')
+  end)
+end)
+
+-- ── tabnew one-file-per-tab habit detection (#113) ──────────────────────────
+-- new_tabnew_seq()/feed_tabnew() form a second, independent state machine in
+-- this same file (see patterns_cmdline.lua's module comment for why this
+-- lives here rather than a new sibling file). feed_tabnew() is fed evidence
+-- gathered at each ":tabnew" <CR> submission: the trimmed file argument text
+-- (the second return value of command_arg() above, converted from nil to ''
+-- by the caller — see logger.lua), and the window count of the tabpage this
+-- invocation is about to leave (read by the caller — see logger.lua).
+--
+-- The feature's own name is "one-tab-per-FILE" — feed_tabnew() only counts an
+-- argument toward the streak the first time that exact filename appears in
+-- it. Every test below therefore uses distinct filenames ('a.txt', 'b.txt',
+-- ...) unless a test is specifically about the repeated-filename case.
+describe('patterns_cmdline tabnew one-file-per-tab habit detection (#113)', function()
+  it('does not fire on the first two tabnew calls', function()
+    local seq = patterns_cmdline.new_tabnew_seq()
+    assert.is_nil(patterns_cmdline.feed_tabnew(seq, 'a.txt', 1))
+    assert.is_nil(patterns_cmdline.feed_tabnew(seq, 'b.txt', 1))
+  end)
+
+  it('fires tabnew_run, suggesting <C-^>, on the 3rd tabnew call when every prior tab stayed single-window', function()
+    local seq = patterns_cmdline.new_tabnew_seq()
+    patterns_cmdline.feed_tabnew(seq, 'a.txt', 1)
+    patterns_cmdline.feed_tabnew(seq, 'b.txt', 1)
+    local result = patterns_cmdline.feed_tabnew(seq, 'c.txt', 1)
+    assert.equals('tabnew_run', result.pattern)
+    assert.equals('<C-^>', result.cmd)
+  end)
+
+  it('does not fire again immediately after firing (streak resets)', function()
+    local seq = patterns_cmdline.new_tabnew_seq()
+    patterns_cmdline.feed_tabnew(seq, 'a.txt', 1)
+    patterns_cmdline.feed_tabnew(seq, 'b.txt', 1)
+    patterns_cmdline.feed_tabnew(seq, 'c.txt', 1) -- fires here
+    assert.is_nil(patterns_cmdline.feed_tabnew(seq, 'd.txt', 1))
+  end)
+
+  it('does not extend the streak for a bare :tabnew with no file argument', function()
+    local seq = patterns_cmdline.new_tabnew_seq()
+    patterns_cmdline.feed_tabnew(seq, 'a.txt', 1)
+    assert.is_nil(patterns_cmdline.feed_tabnew(seq, '', 1))
+    patterns_cmdline.feed_tabnew(seq, 'b.txt', 1)
+    -- streak is only 2 (the bare tabnew reset it) — one more call is needed
+    assert.is_nil(patterns_cmdline.feed_tabnew(seq, 'c.txt', 1))
+  end)
+
+  it('does not fire when an earlier tabnew-opened tab picked up a second window (e.g. a :split)', function()
+    local seq = patterns_cmdline.new_tabnew_seq()
+    patterns_cmdline.feed_tabnew(seq, 'a.txt', 1) -- tab 1 opened
+    -- tab 1 now has 2 windows (a :split happened) by the time tab 2's tabnew fires
+    patterns_cmdline.feed_tabnew(seq, 'b.txt', 2)
+    local result = patterns_cmdline.feed_tabnew(seq, 'c.txt', 1)
+    assert.is_nil(result, 'the split should have reset the streak, not counted toward it')
+  end)
+
+  it('resumes counting from the tabnew right after a window split reset the streak', function()
+    local seq = patterns_cmdline.new_tabnew_seq()
+    patterns_cmdline.feed_tabnew(seq, 'a.txt', 1)
+    patterns_cmdline.feed_tabnew(seq, 'b.txt', 2) -- split detected, streak resets to 1
+    patterns_cmdline.feed_tabnew(seq, 'c.txt', 1) -- streak 2
+    local result = patterns_cmdline.feed_tabnew(seq, 'd.txt', 1) -- streak 3, fires
+    assert.equals('tabnew_run', result.pattern)
+    assert.equals('<C-^>', result.cmd)
+  end)
+
+  -- ── regression: repeated filename must not count as "another file" (QA) ──
+  -- Bug: feed_tabnew() used to receive only a has_arg boolean, so re-opening
+  -- the exact same file 3 times via :tabnew fired the "switch to buffers"
+  -- suggestion even though Vim reuses the existing buffer for a file already
+  -- open — there is only ever 1 real buffer in that scenario, making the
+  -- :b / <C-^> suggestion nonsensical. The fix threads the actual filename
+  -- through and resets the streak the moment a repeat is seen: re-opening a
+  -- file you already have open in another tab is a different, unrelated
+  -- habit, not "one-tab-per-file browsing" (see patterns_cmdline.lua's
+  -- feed_tabnew doc comment for the full reasoning).
+  describe('when the exact same filename is opened via :tabnew repeatedly', function()
+    it('never fires no matter how many times the same file is reopened', function()
+      local seq = patterns_cmdline.new_tabnew_seq()
+      assert.is_nil(patterns_cmdline.feed_tabnew(seq, 'samefile.txt', 1))
+      assert.is_nil(patterns_cmdline.feed_tabnew(seq, 'samefile.txt', 1))
+      assert.is_nil(patterns_cmdline.feed_tabnew(seq, 'samefile.txt', 1))
+    end)
+
+    it('resets the streak (not merely ignores the repeat) — 2 distinct files after a repeat do not fire', function()
+      local seq = patterns_cmdline.new_tabnew_seq()
+      patterns_cmdline.feed_tabnew(seq, 'a.txt', 1)
+      patterns_cmdline.feed_tabnew(seq, 'a.txt', 1) -- repeat: resets the streak to 0
+      patterns_cmdline.feed_tabnew(seq, 'b.txt', 1)
+      local result = patterns_cmdline.feed_tabnew(seq, 'c.txt', 1)
+      assert.is_nil(
+        result,
+        'if the repeat had merely been ignored (streak left at 1) these 2 more distinct files would have reached 3 and fired'
+      )
+    end)
+
+    it('fires once 3 full distinct files follow the reset, proving the reset truly zeroed the streak', function()
+      local seq = patterns_cmdline.new_tabnew_seq()
+      patterns_cmdline.feed_tabnew(seq, 'a.txt', 1)
+      patterns_cmdline.feed_tabnew(seq, 'a.txt', 1) -- repeat: resets the streak to 0
+      patterns_cmdline.feed_tabnew(seq, 'b.txt', 1)
+      patterns_cmdline.feed_tabnew(seq, 'c.txt', 1)
+      local result = patterns_cmdline.feed_tabnew(seq, 'd.txt', 1)
+      assert.equals('tabnew_run', result.pattern)
+      assert.equals('<C-^>', result.cmd)
+    end)
   end)
 end)
