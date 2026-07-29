@@ -1,9 +1,9 @@
 -- Pure insert-mode key-streak detection. No vim.* calls.
 --
--- A separate, much simpler state machine from patterns.lua's seq/feed (#99:
--- these two share no state and are never called from the same code path, so
--- they live in separate files rather than one file with two unrelated
--- concerns — see lua/tobira/CLAUDE.md's "Module splitting policy").
+-- A separate, much simpler state machine from patterns.lua's seq/feed: these
+-- two share no state and are never called from the same code path, so they
+-- live in separate files rather than one file with two unrelated concerns —
+-- see lua/tobira/CLAUDE.md's "Module splitting policy".
 --
 -- logger.lua only calls feed_insert() while its mode cache says the user is
 -- in insert mode, passing a canonical key name ('<BS>', '<Left>', '<Right>',
@@ -17,7 +17,7 @@
 -- time feed_insert() sees '<Esc>', it is still routed as an insert-mode key,
 -- exactly like every other key this function cares about.
 --
--- #105 — insert-mode <C-o> one-shot detection (feed_after_escape, below):
+-- Insert-mode <C-o> one-shot detection (feed_after_escape, below):
 -- unlike every other pattern in this file, this one's state lives here (it
 -- is bookkeeping about leaving/returning to insert mode, the same concern
 -- bounce detection already owns) but is *fed* from logger.lua's NORMAL-mode
@@ -29,7 +29,7 @@
 -- → increment → persist). See feed_after_escape's own doc comment for why the
 -- detection has to cross the mode boundary this way.
 --
--- Completion-repeat detection (#112): logger.lua now also passes the raw
+-- Completion-repeat detection: logger.lua now also passes the raw
 -- typed character as a third argument whenever canonical is nil (an ordinary
 -- key). This reconstructs whole tokens purely from keystrokes — never from
 -- buffer content, per the "on_key only" tracking principle in
@@ -59,12 +59,13 @@
 -- risk. <BS> instead truncates the last accumulated character, since deleting
 -- backward from the end keeps the append-only assumption valid.
 --
--- #105 and #112 both react to <Esc> but touch disjoint fields (watching_co /
--- post_esc_keys vs. token / ring) and neither's result depends on the
--- other's, so feed_insert's <Esc> branch below runs both unconditionally and
--- keeps whichever of bounce/completion-repeat actually fired — see that
--- branch's own comment for why "arm the #105 watch" and "check #112's
--- ring buffer" are safe to do in any order in the same keystroke.
+-- The <C-o> watch and completion-repeat detection both react to <Esc> but
+-- touch disjoint fields (watching_co / post_esc_keys vs. token / ring) and
+-- neither's result depends on the other's, so feed_insert's <Esc> branch
+-- below runs both unconditionally and keeps whichever of
+-- bounce/completion-repeat actually fired — see that branch's own comment
+-- for why arming the <C-o> watch and checking the completion ring buffer
+-- are safe to do in any order in the same keystroke.
 
 local M = {}
 
@@ -78,12 +79,12 @@ function M.new_insert_seq()
     right_streak = 0,
     had_input = false,
     bounce_streak = 0,
-    -- #105: armed by feed_insert('<Esc>'); watches the normal-mode keystroke
+    -- Armed by feed_insert('<Esc>'); watches the normal-mode keystroke
     -- stream (via feed_after_escape) for the <Esc> -> {one command} -> i/a/A/I
     -- round trip that insert-mode <C-o> replaces.
     watching_co = false,
     post_esc_keys = 0,
-    -- #112: accumulates the in-progress token and its ring-buffer history.
+    -- Accumulates the in-progress token and its ring-buffer history.
     token = '',
     ring = {},
   }
@@ -145,14 +146,14 @@ function M.feed_insert(iseq, canonical, char)
     end
     iseq.had_input = false
     reset_streaks(iseq)
-    -- #105: every exit from insert mode (re-)arms the one-shot watch fresh,
+    -- Every exit from insert mode (re-)arms the one-shot watch fresh,
     -- overwriting whatever state a previous, never-resolved arm left behind
     -- (e.g. a normal-mode command that auto-entered insert without ever
     -- passing through feed_after_escape's return-key check — see the
     -- decision log for why this can't go stale).
     iseq.watching_co = true
     iseq.post_esc_keys = 0
-    -- #112: bounce (nothing typed) and completion-repeat (a full token typed
+    -- Bounce (nothing typed) and completion-repeat (a full token typed
     -- twice) are mutually exclusive — if nothing was typed, iseq.token is
     -- already empty and finalize_token() is a guaranteed no-op — so it's
     -- always safe to check both and keep whichever actually fired.
@@ -209,7 +210,7 @@ function M.feed_insert(iseq, canonical, char)
   return finalize_token(iseq)
 end
 
--- #105: called by logger.lua for every NORMAL-mode keystroke — not just while
+-- Called by logger.lua for every NORMAL-mode keystroke — not just while
 -- iseq is "in insert mode" — for as long as iseq.watching_co stays armed
 -- (i.e. since the most recent <Esc> out of insert). This is necessary
 -- because the detection target spans the mode boundary: <Esc> exits insert,

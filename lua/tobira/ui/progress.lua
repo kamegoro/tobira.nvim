@@ -70,7 +70,7 @@ local SYM_FORGOTTEN = '⟳' -- U+27F3, 3 bytes, 1 display col
 -- Forgotten takes priority over the numeric level (mirrors ui/guide.lua's
 -- mastery_glyph()) so a command that was once mastered and has since gone
 -- quiet reads as "come back to this" here too, instead of still showing
--- whatever star count it reached before going quiet — see #123.
+-- whatever star count it reached before going quiet.
 local function mastery_sym(data)
   local graph = require('tobira.core.graph')
   if data.suppressed then
@@ -142,7 +142,7 @@ function M.preview_lines(item, usage)
   end
   -- %-6s alone guarantees no minimum gap once item.keys already meets/exceeds
   -- width 6 (e.g. <C-\><C-n>, <C-w>q, g<C-a>) — the key glues straight onto
-  -- desc. Pad explicitly so at least one separating space always survives (#154).
+  -- desc. Pad explicitly so at least one separating space always survives.
   local pad = string.rep(' ', math.max(1, 6 - #item.keys))
   local line1 = '  ' .. item.keys .. pad .. desc
 
@@ -200,7 +200,7 @@ function M.build(usage)
       -- is_mastered() (not a raw mastery_level >= 2 check) so a command that
       -- crossed the mastery threshold but has since gone quiet doesn't still
       -- count toward the ratio here while Guide already shows it as
-      -- forgotten — see #123.
+      -- forgotten.
       if graph.is_mastered(item_data(item, usage)) then
         total_mastered = total_mastered + 1
       end
@@ -222,7 +222,7 @@ function M.build(usage)
     local cat_label = str.categories[cat.id] or cat.id
     local done = 0
     for _, item in ipairs(cat.items) do
-      -- See the total_mastered loop above (#123) — same is_mastered() switch.
+      -- See the total_mastered loop above — same is_mastered() switch.
       if graph.is_mastered(item_data(item, usage)) then
         done = done + 1
       end
@@ -255,7 +255,7 @@ function M.build(usage)
         if group and data.count > 0 then
           table.insert(row_hls, { cs = byte_pos, ce = byte_pos + sym_bytes, group = group })
         elseif data.count == 0 then
-          -- Level 0: no glyph, whole cell dimmed instead (no ○ marker, no NEW badge — #67).
+          -- Level 0: no glyph, whole cell dimmed instead (no ○ marker, no NEW badge).
           table.insert(
             row_hls,
             { cs = byte_pos + sym_bytes + 1, ce = byte_pos + sym_bytes + 1 + #item.keys, group = 'TobiraDim' }
@@ -318,7 +318,7 @@ local function item_at_cursor()
   -- that in bytes, so byte offset and display column drift apart as more of
   -- these multibyte glyphs accumulate earlier in the same row. Convert to a
   -- display column first so the division by COL_W matches how cells are
-  -- actually laid out (#124).
+  -- actually laid out.
   local line = vim.api.nvim_buf_get_lines(_buf, lnum, lnum + 1, false)[1] or ''
   local disp_col = vim.fn.strdisplaywidth(line:sub(1, col))
   local cell_idx = math.floor((disp_col - 2) / COL_W) + 1

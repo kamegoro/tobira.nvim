@@ -323,7 +323,7 @@ return {
       example = '{ → Cursor springt zur Leerzeile vor dem aktuellen Block',
     },
 
-    -- ── Diff-Modus: manuelle Hunk-Navigation (#111) ─────────────────────────
+    -- ── Diff-Modus: manuelle Hunk-Navigation ─────────────────────────────────
     [']c'] = {
       title = ']c — zum nächsten Diff-Hunk springen',
       body = 'Während &diff aktiv ist, springt direkt zum nächsten geänderten Hunk\nSchneller als wiederholtes j, um den nächsten Unterschied zu suchen',
@@ -1013,14 +1013,14 @@ return {
       example = 'identifier ... iden<C-n> → vervollständigt zu identifier',
     },
 
-    -- ── "+y (Register-Unternutzung erkennen, #59) ────────────────────────────
+    -- ── "+y (Register-Unternutzung erkennen) ──────────────────────────────────
     ['"+y'] = {
       title = '"+y — in die Systemzwischenablage kopieren',
       body = 'Du hast oft kopiert, aber nie die Systemzwischenablage benutzt\n"+y kopiert direkt hinein, sodass Einfügen außerhalb von Neovim (oder mit "+p von außen) einfach funktioniert\nMit clipboard=unnamedplus nutzen y/p die Zwischenablage standardmäßig — dann brauchst du das "+ Präfix gar nicht mehr',
       example = '"+yy eine Zeile → in einer anderen App mit der gewohnten Einfügen-Taste einfügen',
     },
 
-    -- ── Ex commands (#57) ─────────────────────────────────────────────────
+    -- ── Ex commands ───────────────────────────────────────────────────────
     ['ex:g'] = {
       title = ':g — einen Befehl auf jede passende Zeile anwenden',
       body = 'Findet jede Zeile, die auf ein Muster passt, und führt einen Ex-Befehl auf jeder aus\nErsetzt das manuelle Wiederholen von n / . für jede Fundstelle einzeln',
@@ -1032,14 +1032,14 @@ return {
       example = ':%norm A; → hängt an jede Zeile ein Semikolon an',
     },
 
-    -- ── Terminal-Modus: wirkungsloses <Esc> → <C-\><C-n> (#110) ────────────
+    -- ── Terminal-Modus: wirkungsloses <Esc> → <C-\><C-n> ────────────────────
     ['<C-\\><C-n>'] = {
       title = '<C-\\><C-n> — Terminal-Modus verlassen',
       body = 'Im :terminal wird <Esc> direkt an den Job weitergereicht — der Terminal-Modus wird dadurch nicht verlassen\n<C-\\><C-n> ist der eigentliche Weg zurück in den Normal-Modus',
       example = '<C-\\><C-n> → zurück in den Normal-Modus, der Terminal-Job läuft weiter',
     },
 
-    -- ── wiederholte :substitute-Erkennung (#115) ─────────────────────────────
+    -- ── wiederholte :substitute-Erkennung ─────────────────────────────────────
     ['&'] = {
       title = '& — die letzte :substitute-Ersetzung in dieser Zeile wiederholen',
       body = 'Du hast dieselbe :s/Muster/Ersetzung/ von Hand in einer anderen Zeile eingegeben\n& wiederholt die letzte Ersetzung in der aktuellen Zeile, ohne erneutes Tippen',

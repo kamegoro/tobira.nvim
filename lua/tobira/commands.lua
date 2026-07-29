@@ -55,7 +55,7 @@ M.registry = {
   ['A'] = { requires = 'a', track = true, category = 'edit', level = 'beginner' },
   ['O'] = { requires = 'o', track = true, category = 'edit', level = 'beginner' },
 
-  -- ── insert-mode inefficiency (#58) ───────────────────────────────────────
+  -- ── insert-mode inefficiency ─────────────────────────────────────────────
   -- Insert-mode <C-w> (delete word before cursor) — distinct from the
   -- normal-mode <C-w> window-command prefix, which is the exact same raw
   -- byte. track = false here on purpose: build_track_table() in logger.lua
@@ -152,7 +152,7 @@ M.registry = {
   ['<C-a>'] = { requires = 'x', track = true, category = 'edit', level = 'intermediate' },
   ['<C-x>'] = { requires = '<C-a>', track = true, category = 'edit', level = 'intermediate' },
 
-  -- ── <C-a> streak → g<C-a> visual-block sequential increment (#108) ──────
+  -- ── <C-a> streak → g<C-a> visual-block sequential increment ─────────────
   -- Detected via ca_run (patterns.lua): <C-a> → j/k → <C-a> repeated 3+
   -- times. track = false: like the other g-prefixed compounds (gg, gu, …),
   -- there is no pending_g dispatch entry recording literal g<C-a> keypresses.
@@ -238,7 +238,7 @@ M.registry = {
   -- ── . → gq format text ────────────────────────────────────────────────────
   ['gq'] = { requires = '.', track = false, category = 'edit', level = 'advanced' },
 
-  -- ── gq → gw format without moving cursor (#109) ──────────────────────────
+  -- ── gq → gw format without moving cursor ─────────────────────────────────
   ['gw'] = { requires = 'gq', track = false, category = 'edit', level = 'advanced' },
 
   -- ── J → gJ join without space ─────────────────────────────────────────────
@@ -320,7 +320,7 @@ M.registry = {
   -- ── ^ → _ first non-blank (relative) ─────────────────────────────────────────
   ['_'] = { requires = '^', track = true, category = 'motion', level = 'intermediate' },
 
-  -- ── insert-mode <C-o>: one normal command without leaving insert (#105) ────
+  -- ── insert-mode <C-o>: one normal command without leaving insert ───────────
   -- The '<C-o>' entry above (in the "* → <C-o> jump back in jumplist" block)
   -- already owns that raw keystroke for its normal-mode meaning. Insert-mode
   -- <C-o> is a *different* command bound to the identical physical key: it
@@ -356,7 +356,7 @@ M.registry = {
   ['<C-w>l'] = { requires = '<C-w>w', track = false, category = 'window', level = 'intermediate' },
   ['<C-w>q'] = { requires = '<C-w>w', track = false, category = 'window', level = 'intermediate' },
   ['<C-w>='] = { requires = '<C-w>w', track = false, category = 'window', level = 'intermediate' },
-  -- ── <C-w>q / <C-w>c repeated → <C-w>o: close all other windows (#107) ──────
+  -- ── <C-w>q / <C-w>c repeated → <C-w>o: close all other windows ─────────────
   ['<C-w>o'] = { requires = '<C-w>q', track = false, category = 'window', level = 'intermediate' },
 
   -- ── l → w / h → b basic word motion (suggested by l_repeat / h_repeat) ───────
@@ -387,12 +387,12 @@ M.registry = {
   ['{n}>>'] = { requires = '>>', track = false, category = 'edit', level = 'intermediate' },
   ['{n}<<'] = { requires = '<<', track = false, category = 'edit', level = 'intermediate' },
 
-  -- ── insert-mode completion (#112) ────────────────────────────────────────
+  -- ── insert-mode completion ───────────────────────────────────────────────
   -- Detected by insert_completion_repeat (patterns_insert.lua): a fully
   -- retyped identifier of 6+ characters. category = 'edit' rather than a new
   -- top-level category — see lua/tobira/CLAUDE.md's category checklist, which
-  -- documents the field as a closed 7-value enum, and #99's precedent of
-  -- reusing existing categories for insert-mode patterns instead of inventing
+  -- documents the field as a closed 7-value enum, and the existing precedent
+  -- of reusing existing categories for insert-mode patterns instead of inventing
   -- an "insert" one (insert_bs_repeat/insert_bounce → <C-w>/A are both
   -- 'edit' too). track = false: same reasoning as insert-mode <C-w> just
   -- above — <C-n> already has a normal-mode meaning (Vim's built-in
@@ -401,7 +401,7 @@ M.registry = {
   -- handle_insert_key() — see logger.lua's INSERT_SPECIAL.
   ['<C-n>'] = { requires = 'i', track = false, category = 'edit', level = 'beginner' },
 
-  -- ── y → "+y system clipboard register (#59) ──────────────────────────────
+  -- ── y → "+y system clipboard register ────────────────────────────────────
   -- track = false: "+y is a 3-key literal sequence ("+y), tracked as its own
   -- compound by patterns.lua's pending_clipboard_yank state, not by the
   -- generic operator grammar or a bare keystroke. Promotion into the
@@ -412,7 +412,7 @@ M.registry = {
   -- this is the closest existing bucket (registers/marks are grouped together
   -- in the project's own design notes — see CLAUDE.md's "advanced" scenario).
   ['"+y'] = { requires = 'y', track = false, category = 'mark', level = 'advanced' },
-  -- ── diff mode: manual hunk navigation → ]c / [c (#111) ───────────────────────
+  -- ── diff mode: manual hunk navigation → ]c / [c ───────────────────────────────
   -- vim.wo.diff (a read-only window-local option) is read in logger.lua's
   -- handle_key and threaded into patterns.feed() as a plain parameter —
   -- patterns.lua itself stays vim.*-free per the module dependency rules in
@@ -427,7 +427,7 @@ M.registry = {
   [']c'] = { requires = 'j', track = false, category = 'diff', level = 'beginner' },
   ['[c'] = { requires = 'k', track = false, category = 'diff', level = 'beginner' },
 
-  -- ── Ex commands (#57) ─────────────────────────────────────────────────────
+  -- ── Ex commands ───────────────────────────────────────────────────────────
   -- Tracked via logger.lua's cmdline handler (core/patterns_cmdline.lua
   -- tokenizes the completed command-line buffer), not via a single keystroke
   -- or the normal-mode operator grammar — track = false here just like the
@@ -451,11 +451,11 @@ M.registry = {
   ['ex:g'] = { requires = 'n', track = false, category = 'ex', level = 'advanced', ex_command = true },
   ['ex:norm'] = { requires = 'q', track = false, category = 'ex', level = 'advanced', ex_command = true },
 
-  -- ── terminal mode: ineffective <Esc> → exit terminal mode (#110) ─────────
+  -- ── terminal mode: ineffective <Esc> → exit terminal mode ────────────────
   -- Detected reactively by patterns_terminal.lua while mode() == 't'
   -- (terminal-job mode), independent of any prerequisite command — there is
   -- no tracked "you opened :terminal" signal to require here (ex-command
-  -- tracking is a separate, parallel effort — #57). `requires = 'i'` is a
+  -- tracking is a separate, parallel effort). `requires = 'i'` is a
   -- nominal anchor only: it satisfies commands_spec.lua's schema guard
   -- (every suggestion needs a `requires`), but has no real semantic link to
   -- this command. The reactive path this pattern actually fires through
@@ -496,7 +496,7 @@ M.registry = {
   -- pin this down as an explicit, reviewable list rather than a silent rule.
   ['<C-\\><C-n>'] = { requires = 'i', track = false, category = 'terminal', level = 'beginner', ambient = false },
 
-  -- ── repeated :substitute detection → & / g& (#115) ───────────────────────
+  -- ── repeated :substitute detection → & / g& ───────────────────────────────
   -- Detected reactively by core/patterns_cmdline.lua's track_substitute():
   -- the identical :s/{pattern}/{replacement}/ body manually re-run on a 2nd
   -- distinct line fires '&' (repeat the last substitute on the current

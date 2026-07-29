@@ -20,7 +20,7 @@ function M.setup()
   vim.api.nvim_set_hl(0, 'TobiraGuideHint', { link = 'Comment' })
   vim.api.nvim_set_hl(0, 'TobiraGuideSuppressed', { link = 'Comment' })
   vim.api.nvim_set_hl(0, 'TobiraGuidePinned', { link = 'DiagnosticInfo' })
-  -- Guide: "used to know this, gone quiet" signal (#68). Deliberately not
+  -- Guide: "used to know this, gone quiet" signal. Deliberately not
   -- DiagnosticWarn — TobiraGuideLearning already owns that, see ui/CLAUDE.md.
   vim.api.nvim_set_hl(0, 'TobiraGuideForgotten', { link = 'DiagnosticHint' })
 
@@ -33,7 +33,7 @@ function M.setup()
   vim.api.nvim_set_hl(0, 'TobiraSuggestFold', { link = 'Constant' })
   vim.api.nvim_set_hl(0, 'TobiraSuggestMark', { link = 'Identifier' })
   vim.api.nvim_set_hl(0, 'TobiraSuggestMacro', { link = 'PreProc' })
-  -- diff (#111): DiffChange rather than a syntax group like the other
+  -- diff: DiffChange rather than a syntax group like the other
   -- categories — unlike "motion is keyword-ish, edit is function-ish", there
   -- is no syntax group that reads as "diff-ish"; Neovim's own DiffChange
   -- highlight IS the concept this category is about, so it is a more
@@ -42,7 +42,7 @@ function M.setup()
   vim.api.nvim_set_hl(0, 'TobiraSuggestDiff', { link = 'DiffChange' })
   -- Ex commands (:g, :norm, ...) are statement-like — the nearest syntax
   -- group to a colon command, matching the other categories' "what kind of
-  -- thing is this" intuition (#57; see ui/CLAUDE.md's category table).
+  -- thing is this" intuition (see ui/CLAUDE.md's category table).
   vim.api.nvim_set_hl(0, 'TobiraSuggestEx', { link = 'Statement' })
   vim.api.nvim_set_hl(0, 'TobiraSuggestTerminal', { link = 'Statement' })
   vim.api.nvim_set_hl(0, 'TobiraSuggestKey', { link = 'Special' })
@@ -51,7 +51,7 @@ function M.setup()
   -- Adoption celebration: distinct success styling so it never reads as a new suggestion.
   vim.api.nvim_set_hl(0, 'TobiraCelebrate', { link = 'DiagnosticOk' })
 
-  -- Shared foundation for the panel redesigns (#67 Progress, #68 Guide, #74 Stats):
+  -- Shared foundation for the Progress/Guide/Stats panel redesigns:
   -- TobiraDim for never-tried / de-emphasized text, TobiraH1 for section/status headings.
   -- See ui/CLAUDE.md for the full color-language reference before adding another state color.
   vim.api.nvim_set_hl(0, 'TobiraDim', { link = 'Comment' })

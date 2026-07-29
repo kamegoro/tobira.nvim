@@ -15,7 +15,7 @@ function M.setup(opts)
 
   cfg.setup(opts)
   logger.setup()
-  -- #63: populates the keymap-override / plugin-detection cache immediately,
+  -- Populates the keymap-override / plugin-detection cache immediately,
   -- then keeps it fresh on VimEnter (late-loaded plugins) and SourcePost
   -- (lazy-loaded plugin scripts sourced after startup). Self-contained here,
   -- same as logger.setup() registering its own autocmds -- init.lua stays a

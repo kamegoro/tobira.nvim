@@ -10,8 +10,8 @@
 -- tokenize() takes one already-complete string handed to it once, at <CR>
 -- time, rather than a per-keystroke incremental state machine — the same
 -- "shares nothing, never on the same call path" test that split
--- patterns_insert.lua out in #99 (see lua/tobira/CLAUDE.md's "Module
--- splitting policy"). The vim.fn.getcmdtype()/getcmdline() orchestration
+-- patterns_insert.lua out into its own file (see lua/tobira/CLAUDE.md's
+-- "Module splitting policy"). The vim.fn.getcmdtype()/getcmdline() orchestration
 -- that decides *when* to call tokenize() lives in logger.lua instead, which
 -- already does vim.* work — this file stays pure and independently testable.
 --
@@ -97,12 +97,12 @@ function M.tokenize(text)
   return nil
 end
 
--- Argument-aware counterpart to tokenize() (#113/#114): tokenize()
--- deliberately discards everything after the command word (see its header
--- comment — #57's scope never needed it), but two later detectors need the
--- argument text itself: #113's tabnew one-tab-per-file streak needs to tell a
--- bare ":tabnew" apart from ":tabnew foo.txt", and #114's ex_file_pingpong
--- detector needs the filename argument to tell ":e A" apart from ":e B".
+-- Argument-aware counterpart to tokenize(): tokenize() deliberately discards
+-- everything after the command word (see its header comment — Ex-command
+-- tracking never needed it), but two later detectors need the argument text
+-- itself: the tabnew one-tab-per-file streak needs to tell a bare ":tabnew"
+-- apart from ":tabnew foo.txt", and the ex_file_pingpong detector needs the
+-- filename argument to tell ":e A" apart from ":e B".
 -- Both share this single implementation rather than each re-parsing the
 -- cmdline text on their own. Reuses the same strip_range() range handling so
 -- a leading range prefix never leaks into the returned argument, same as
@@ -118,7 +118,7 @@ end
 -- "no argument" (feed_tabnew below, whose contract predates this shared
 -- function) convert that themselves at the call site — see logger.lua.
 --
--- Note: this is NOT reused by track_substitute() below (#115) even though
+-- Note: this is NOT reused by track_substitute() below even though
 -- both parse "the rest of the line after the command word" — command_arg()
 -- treats everything after the word as one opaque trimmed string, but
 -- track_substitute() needs the delimiter-bounded PATTERN and REPLACEMENT
@@ -158,7 +158,7 @@ function M.command_arg(text)
   return word:lower(), arg
 end
 
--- Ex-command ping-pong detection (#114): a user repeatedly bouncing between
+-- Ex-command ping-pong detection: a user repeatedly bouncing between
 -- the same two files via :e/:b — :e A -> :e B -> :e A (or the equivalent
 -- with :b) — is a direct signal for <C-^>, which jumps straight to the
 -- alternate file in one keystroke. New state kept in this same file rather
@@ -238,7 +238,7 @@ function M.feed_pingpong(seq, word, arg)
   return nil
 end
 
--- ── tabnew one-file-per-tab habit detection (#113) ──────────────────────────
+-- ── tabnew one-file-per-tab habit detection ─────────────────────────────────
 -- A second, independent state machine in this same file — new_tabnew_seq()
 -- and feed_tabnew() share no state with M.tokenize() above, but stay here
 -- rather than moving to a new sibling file because they operate on the exact
@@ -254,7 +254,7 @@ end
 -- between, and suggests switching to buffer commands (:b / <C-^>) instead —
 -- see commands.lua's '<C-^>' entry, which this reuses rather than
 -- duplicating (it already exists, tracked, with no reactive trigger of its
--- own — see #113's issue notes).
+-- own).
 --
 -- feed_tabnew() is called only for ":tabnew" submissions (logger.lua checks
 -- M.tokenize()'s result before calling it — an unrelated Ex command is a
@@ -341,7 +341,7 @@ function M.feed_tabnew(seq, arg, win_count)
   return nil
 end
 
--- ── Repeated-substitute detection (#115) ────────────────────────────────────
+-- ── Repeated-substitute detection ───────────────────────────────────────────
 --
 -- M.track_substitute(state, text, line) is a second pure function alongside
 -- tokenize(). Where tokenize() only extracts the semantic command NAME

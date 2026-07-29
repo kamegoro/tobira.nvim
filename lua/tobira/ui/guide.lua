@@ -4,12 +4,12 @@ local _win = nil
 local _buf = nil
 local _ns = vim.api.nvim_create_namespace('tobira_guide')
 
-local WIDTH = 60 -- widened from 54 (#68) to fit the mastery-symbol and count columns
+local WIDTH = 60 -- widened to fit the mastery-symbol and count columns
 local ICON = '' -- nerd font fa-info-circle (matches nvim-notify INFO icon)
 
 -- Caps each category's auto section so the panel stays a small "glance while
 -- you code" sidebar regardless of how many commands a brand-new user hasn't
--- touched yet (#96) instead of growing to fit everything.
+-- touched yet, instead of growing to fit everything.
 local MAX_PER_CATEGORY = 3
 
 local CATEGORY_ORDER = { 'motion', 'edit', 'search', 'window', 'fold', 'mark', 'macro', 'diff', 'ex', 'terminal' }
@@ -21,7 +21,7 @@ local function short_desc(title)
   return title:match(' — (.+)$') or title
 end
 
--- #63: the auto section's suffix, combining the pre-existing forgotten_suffix
+-- The auto section's suffix, combining the pre-existing forgotten_suffix
 -- with a remapped_suffix for commands whose key the user has remapped to
 -- something functionally equivalent to what commands.lua already documents
 -- (e.g. `nnoremap Y y$` -- see core/integrations.lua's EQUIVALENT_REMAPS
@@ -75,9 +75,9 @@ end
 -- `data` drives the same forgotten-state check the auto section's format_row
 -- makes: a pinned command that was once mastered and has since gone quiet
 -- gets the ⟳ glyph + forgotten_suffix here too, instead of staying a plain
--- ● row forever regardless of whether it still needs review — see #123.
+-- ● row forever regardless of whether it still needs review.
 --
--- #164: a pinned command whose key gets remapped needs the same
+-- A pinned command whose key gets remapped needs the same
 -- override-awareness auto_suffix() already gives the auto section below --
 -- but unlike the auto section (which drops a non-equivalent remap entirely,
 -- see auto_suffix's header comment), a pinned row is never *omitted*: the
@@ -205,8 +205,8 @@ function M.build(usage)
   -- each category never-tried-first (Guide's job is surfacing blind spots —
   -- Progress already owns the "close to mastery" goal-gradient signal, see
   -- ui/CLAUDE.md) with an alphabetical tie-break, and cap to MAX_PER_CATEGORY
-  -- so the panel stays bounded no matter how many commands are eligible (#96).
-  -- #63: a command whose key is remapped to something *not* functionally
+  -- so the panel stays bounded no matter how many commands are eligible.
+  -- A command whose key is remapped to something *not* functionally
   -- equivalent to what commands.lua documents (e.g. a <Plug> mapping to an
   -- unrelated plugin command) is dropped from the auto section entirely --
   -- unlike a proactive nudge, this is a persistent reference row, and showing
@@ -259,7 +259,7 @@ function M.build(usage)
 
   -- Per category, not global — a long description in one category (e.g.
   -- motion) must not force every row in a short category (e.g. fold) to pad
-  -- out to match it (#96).
+  -- out to match it.
   local desc_col_w_by_cat = {}
   for _, row in ipairs(auto_rows) do
     local suffix = auto_suffix(row.cmd, row.data, strings)

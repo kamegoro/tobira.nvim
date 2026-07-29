@@ -1,4 +1,4 @@
--- #63: detects the user's real editor environment -- their own keymap
+-- Detects the user's real editor environment -- their own keymap
 -- overrides (phase 1) and any helper plugins they have installed (phase 2) --
 -- and exposes it as plain data for graph.lua and the ui/ layer to consume.
 --
