@@ -6,6 +6,8 @@ return {
     pinned = 'Épinglé',
     forgotten_suffix = ' (oublié)',
     more_suffix = '+%d de plus',
+    remapped_suffix = ' (associé à %s)',
+    remapped_invalid = 'associé à %s — description obsolète',
   },
   progress = {
     title = 'tobira — votre parcours vim',
@@ -49,6 +51,7 @@ return {
     reset = "tobira : journal d'utilisation réinitialisé",
     no_suggestions = 'tobira : aucune nouvelle suggestion pour le moment 🎉',
     invalid_config = 'tobira : configuration invalide — ',
+    remap_detected = 'tobira : %s est remappé (%s) — retiré du pool de suggestions',
   },
   stats = {
     title = "tobira — statistiques d'utilisation",
@@ -123,6 +126,8 @@ return {
       terminal_esc_repeat = 'Vous avez appuyé sur <Esc> deux fois de suite en mode terminal sans effet',
       substitute_repeat = 'Vous avez rejoué la même substitution :s/// à la main sur une deuxième ligne',
       substitute_repeat_wide = 'Vous avez rejoué la même substitution :s/// à la main sur une troisième ligne',
+      ex_file_pingpong = 'Vous avez basculé plusieurs fois de suite entre les deux mêmes fichiers avec :e/:b',
+      tabnew_run = 'Vous avez ouvert 3 fichiers ou plus avec :tabnew, chacun dans son propre onglet',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -509,7 +514,7 @@ return {
     },
     ['<C-^>'] = {
       title = '<C-^> — basculer vers le fichier alternatif (précédemment édité)',
-      body = "Bascule entre le fichier actuel et le dernier que vous aviez ouvert\nLe moyen le plus rapide de basculer entre deux fichiers activement en cours d'édition",
+      body = "Bascule entre le fichier actuel et le dernier que vous aviez ouvert\nLe moyen le plus rapide de basculer entre deux fichiers activement en cours d'édition\nVous en avez ouvert trois ou plus dans des onglets séparés ? :b {name} bascule vers n'importe quel buffer ouvert, sans nouvel onglet",
       example = '<C-^> → ouvre le dernier fichier → <C-^> → retour au premier',
     },
     ["''"] = {

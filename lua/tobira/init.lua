@@ -11,9 +11,16 @@ function M.setup(opts)
   local cfg = require('tobira.core.config')
   local logger = require('tobira.core.logger')
   local suggest = require('tobira.core.suggest')
+  local integrations = require('tobira.core.integrations')
 
   cfg.setup(opts)
   logger.setup()
+  -- #63: populates the keymap-override / plugin-detection cache immediately,
+  -- then keeps it fresh on VimEnter (late-loaded plugins) and SourcePost
+  -- (lazy-loaded plugin scripts sourced after startup). Self-contained here,
+  -- same as logger.setup() registering its own autocmds -- init.lua stays a
+  -- pure wiring layer, it does not register autocmds itself.
+  integrations.setup()
 
   -- Wire cross-layer callbacks here (the only place any module knows about
   -- the others' roles).

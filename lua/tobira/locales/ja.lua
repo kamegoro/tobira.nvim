@@ -6,6 +6,8 @@ return {
     pinned = 'ピン留め',
     forgotten_suffix = '（忘れかけ）',
     more_suffix = 'ほか%d件',
+    remapped_suffix = '（%s にマップ済み）',
+    remapped_invalid = '%s にリマップ済み — この説明はもう当てはまりません',
   },
   progress = {
     title = 'tobira — vim の旅',
@@ -49,6 +51,7 @@ return {
     reset = 'tobira: 使用ログをリセットしました',
     no_suggestions = 'tobira: 新しい提案はありません 🎉',
     invalid_config = 'tobira: 設定が不正です — ',
+    remap_detected = 'tobira: %s は再マッピングされています（%s）— 提案候補から除外しました',
   },
   stats = {
     title = 'tobira — 使用統計',
@@ -123,6 +126,8 @@ return {
       terminal_esc_repeat = 'ターミナルモードで <Esc> を2回連続で押しましたが何も起きませんでした',
       substitute_repeat = '同じ :s/// 置換を手動で2行目にも実行しました',
       substitute_repeat_wide = '同じ :s/// 置換を手動で3行目にも実行しました',
+      ex_file_pingpong = ':e / :b で同じ2つのファイルを何度も行き来しました',
+      tabnew_run = ':tabnew で3つ以上のファイルを、1つずつ別のタブで開きました',
     },
   },
   -- 提案フロートと :TobiraProgress に表示する文字列。
@@ -509,7 +514,7 @@ return {
     },
     ['<C-^>'] = {
       title = '<C-^> — 直前に開いていたファイルへ切り替える',
-      body = '現在のファイルと直前に編集していたファイルをトグルする\n2つのファイルを行き来する最速の方法',
+      body = '現在のファイルと直前に編集していたファイルをトグルする\n2つのファイルを行き来する最速の方法\n3つ以上のファイルを別々のタブで開いてしまった場合は、:b {name} で新しいタブを作らずに任意のバッファへ切り替えられる',
       example = '<C-^> → 前のファイルを開く → <C-^> → 元のファイルへ戻る',
     },
     ["''"] = {

@@ -6,6 +6,8 @@ return {
     pinned = 'Pinned',
     forgotten_suffix = ' (forgotten)',
     more_suffix = '+%d more',
+    remapped_suffix = ' (mapped to %s)',
+    remapped_invalid = 'remapped to %s — no longer valid',
   },
   progress = {
     title = 'tobira — your vim journey',
@@ -49,6 +51,7 @@ return {
     reset = 'tobira: usage log reset',
     no_suggestions = 'tobira: no new suggestions right now 🎉',
     invalid_config = 'tobira: invalid config — ',
+    remap_detected = 'tobira: %s is remapped (%s) — removed from suggestion pool',
   },
   stats = {
     title = 'tobira — usage stats',
@@ -123,6 +126,8 @@ return {
       terminal_esc_repeat = 'You pressed <Esc> twice in a row in terminal mode with no effect',
       substitute_repeat = 'You ran the same :s/// substitution manually on a second line',
       substitute_repeat_wide = 'You ran the same :s/// substitution manually on a third line',
+      ex_file_pingpong = 'You bounced between the same two files with :e/:b a few times in a row',
+      tabnew_run = 'You opened 3 or more files with :tabnew, one tab each',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -509,7 +514,7 @@ return {
     },
     ['<C-^>'] = {
       title = '<C-^> — switch to the alternate (previously edited) file',
-      body = 'Toggles between the current file and the last one you had open\nThe quickest way to flip between two files you are actively working on',
+      body = 'Toggles between the current file and the last one you had open\nThe quickest way to flip between two files you are actively working on\nOpened three or more as separate tabs instead? :b {name} switches to any open buffer, no new tab needed',
       example = '<C-^> → open last file → <C-^> → back to the first',
     },
     ["''"] = {

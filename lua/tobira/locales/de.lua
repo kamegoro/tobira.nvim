@@ -6,6 +6,8 @@ return {
     pinned = 'Angepinnt',
     forgotten_suffix = ' (vergessen)',
     more_suffix = '+%d weitere',
+    remapped_suffix = ' (auf %s gemappt)',
+    remapped_invalid = 'auf %s gemappt — Beschreibung nicht mehr gültig',
   },
   progress = {
     title = 'tobira — deine vim-Reise',
@@ -49,6 +51,7 @@ return {
     reset = 'tobira: Nutzungsprotokoll zurückgesetzt',
     no_suggestions = 'tobira: gerade keine neuen Vorschläge 🎉',
     invalid_config = 'tobira: ungültige Konfiguration — ',
+    remap_detected = 'tobira: %s ist umgemappt (%s) — aus dem Vorschlagspool entfernt',
   },
   stats = {
     title = 'tobira — Nutzungsstatistik',
@@ -123,6 +126,8 @@ return {
       terminal_esc_repeat = 'Du hast im Terminal-Modus zweimal hintereinander <Esc> gedrückt, ohne Effekt',
       substitute_repeat = 'Du hast dieselbe :s///-Ersetzung von Hand auf einer zweiten Zeile ausgeführt',
       substitute_repeat_wide = 'Du hast dieselbe :s///-Ersetzung von Hand auf einer dritten Zeile ausgeführt',
+      ex_file_pingpong = 'Du bist mehrmals hintereinander mit :e/:b zwischen denselben zwei Dateien hin- und hergesprungen',
+      tabnew_run = 'Du hast 3 oder mehr Dateien mit :tabnew geöffnet, jede in einem eigenen Tab',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -509,7 +514,7 @@ return {
     },
     ['<C-^>'] = {
       title = '<C-^> — zur alternativen (zuletzt bearbeiteten) Datei wechseln',
-      body = 'Wechselt zwischen der aktuellen Datei und der zuletzt geöffneten\nDer schnellste Weg, zwischen zwei aktiv bearbeiteten Dateien zu wechseln',
+      body = 'Wechselt zwischen der aktuellen Datei und der zuletzt geöffneten\nDer schnellste Weg, zwischen zwei aktiv bearbeiteten Dateien zu wechseln\nHast du stattdessen drei oder mehr Dateien in eigenen Tabs geöffnet? :b {name} wechselt zu jedem offenen Buffer, ganz ohne neuen Tab',
       example = '<C-^> → letzte Datei öffnen → <C-^> → zurück zur ersten',
     },
     ["''"] = {

@@ -544,7 +544,7 @@ describe('auto-refresh when switching windows (regression)', function()
   end)
 end)
 
-describe('M.open / M.close / M.toggle (regression)', function()
+describe('when the guide window is opened, closed, or toggled', function()
   after_each(function()
     guide.close()
   end)
@@ -605,6 +605,118 @@ describe('M.open / M.close / M.toggle (regression)', function()
     end
     assert.is_true(found, 'expected the pinned ; row to appear after refresh')
     logger.reset()
+  end)
+end)
+
+-- ── keymap overrides (#63) ────────────────────────────────────────────────────
+-- Guide's auto section bypasses graph.find_best() entirely (it lists every
+-- unmastered command, not just proactively-worthy ones), so it is the one
+-- surface where the equivalent/different distinction from
+-- core/integrations.lua actually matters -- see graph_spec.lua's "keymap
+-- overrides" describe block for why find_best() itself just excludes both
+-- kinds unconditionally instead.
+
+describe('keymap overrides (#63)', function()
+  local integrations = require('tobira.core.integrations')
+
+  local function fake_keymap(entries)
+    return function(_mode)
+      return entries
+    end
+  end
+
+  before_each(function()
+    integrations.reset()
+  end)
+  after_each(function()
+    integrations.reset()
+  end)
+
+  it('substitutes the description with the remapped_suffix when the remap is functionally equivalent', function()
+    integrations.refresh(fake_keymap({ { lhs = 'Y', rhs = 'y$', noremap = 1 } }))
+    local loc = require('tobira.i18n').load()
+    local lines = guide.build(usage_with_overrides({ ['Y'] = entry({ count = 0 }) }))
+    local row = find_line(lines, 'Y')
+    assert.is_not_nil(row, 'expected a row for Y')
+    assert.is_not_nil(row:find(string.format(loc.guide.remapped_suffix, 'y$'), 1, true))
+  end)
+
+  it('excludes the row entirely when the remap is not functionally equivalent', function()
+    integrations.refresh(fake_keymap({ { lhs = 's', rhs = '<Plug>(some-plugin-thing)', noremap = 0 } }))
+    local lines = guide.build(usage_with_overrides({ ['s'] = entry({ count = 0 }) }))
+    for _, line in ipairs(lines) do
+      assert.is_nil(line:find('substitute character', 1, true), 's must not render its stock description once remapped away')
+    end
+  end)
+
+  it('renders the row normally when the command has not been remapped', function()
+    integrations.refresh(fake_keymap({}))
+    local lines = guide.build(usage_with_overrides({ ['Y'] = entry({ count = 0 }) }))
+    local row = find_line(lines, 'Y')
+    assert.is_not_nil(row)
+    local loc = require('tobira.i18n').load()
+    assert.is_nil(row:find(string.format(loc.guide.remapped_suffix, 'y$'), 1, true))
+  end)
+end)
+
+-- ── Pinned section + keymap overrides (#164) ─────────────────────────────────
+-- format_pinned_row() previously never consulted core/integrations.lua at all,
+-- unlike this same file's auto section (auto_suffix() above). A pinned
+-- command whose key gets remapped kept showing its stock (possibly now-wrong)
+-- description forever. Unlike the auto section, a pinned row is never simply
+-- omitted when the remap is not equivalent -- the user pinned it on purpose,
+-- and it silently disappearing from its own section would read as tobira
+-- losing track of it, not as tobira being correct. Design choice: an
+-- equivalent remap still substitutes wording via remapped_suffix, identical
+-- to the auto section; a different remap keeps the row (● marker + key still
+-- visible) but replaces the now-inaccurate description with remapped_invalid
+-- instead of appending a correction after text that is flatly wrong.
+
+describe('pinned row + keymap overrides (#164)', function()
+  local integrations = require('tobira.core.integrations')
+
+  local function fake_keymap(entries)
+    return function(_mode)
+      return entries
+    end
+  end
+
+  before_each(function()
+    integrations.reset()
+  end)
+  after_each(function()
+    integrations.reset()
+  end)
+
+  it('substitutes the description with remapped_suffix on a pinned row, like the auto section', function()
+    integrations.refresh(fake_keymap({ { lhs = 'Y', rhs = 'y$', noremap = 1 } }))
+    local loc = require('tobira.i18n').load()
+    local lines = guide.build(usage_with_overrides({ ['Y'] = entry({ pinned = true, count = 0 }) }))
+    local row = find_line(lines, 'Y')
+    assert.is_not_nil(row, 'expected a pinned row for Y')
+    assert.is_not_nil(row:find(string.format(loc.guide.remapped_suffix, 'y$'), 1, true))
+  end)
+
+  it('keeps a non-equivalent remap visible with a "no longer valid" note instead of omitting it', function()
+    integrations.refresh(fake_keymap({ { lhs = 's', rhs = '<Plug>(some-plugin-thing)', noremap = 0 } }))
+    local loc = require('tobira.i18n').load()
+    local lines = guide.build(usage_with_overrides({ ['s'] = entry({ pinned = true, count = 0 }) }))
+    local row = find_line(lines, 's')
+    assert.is_not_nil(row, 'a pinned command must never disappear from the Pinned section, even when remapped away')
+    assert.is_not_nil(row:find('●', 1, true), 'the row must keep its pinned marker')
+    assert.is_nil(row:find('substitute character', 1, true), 'stock (now-wrong) description must not remain')
+    assert.is_not_nil(
+      row:find(string.format(loc.guide.remapped_invalid, '<Plug>(some-plugin-thing)'), 1, true),
+      'expected the remapped_invalid annotation in place of the stock description'
+    )
+  end)
+
+  it('renders the pinned row normally when the command has not been remapped', function()
+    integrations.refresh(fake_keymap({}))
+    local lines = guide.build(usage_with_overrides({ ['s'] = entry({ pinned = true, count = 0 }) }))
+    local row = find_line(lines, 's')
+    assert.is_not_nil(row)
+    assert.is_not_nil(row:find('substitute character', 1, true))
   end)
 end)
 

@@ -6,6 +6,8 @@ return {
     pinned = '已固定',
     forgotten_suffix = '（已生疏）',
     more_suffix = '还有 %d 项',
+    remapped_suffix = '（已映射到 %s）',
+    remapped_invalid = '已重新映射到 %s — 该说明已不再适用',
   },
   progress = {
     title = 'tobira — 你的 vim 之旅',
@@ -49,6 +51,7 @@ return {
     reset = 'tobira: 使用日志已重置',
     no_suggestions = 'tobira: 目前没有新的建议 🎉',
     invalid_config = 'tobira: 配置无效 — ',
+    remap_detected = 'tobira: %s 已被重新映射（%s）— 已从建议池中移除',
   },
   stats = {
     title = 'tobira — 使用统计',
@@ -123,6 +126,8 @@ return {
       terminal_esc_repeat = '你在终端模式下连续按了两次 <Esc> 但没有效果',
       substitute_repeat = '你手动在第二行也执行了同样的 :s/// 替换',
       substitute_repeat_wide = '你手动在第三行也执行了同样的 :s/// 替换',
+      ex_file_pingpong = '你用 :e/:b 连续多次在同两个文件之间来回切换',
+      tabnew_run = '你用 :tabnew 打开了 3 个或更多文件，每个文件单独占一个标签页',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -509,7 +514,7 @@ return {
     },
     ['<C-^>'] = {
       title = '<C-^> — 切换到备用（上一个编辑的）文件',
-      body = '在当前文件和上一个打开的文件之间切换\n在两个正在编辑的文件间快速切换的最佳方式',
+      body = '在当前文件和上一个打开的文件之间切换\n在两个正在编辑的文件间快速切换的最佳方式\n如果用单独的标签页打开了三个或更多文件？:b {name} 无需新建标签页即可切换到任意已打开的缓冲区',
       example = '<C-^> → 打开上一个文件 → <C-^> → 回到第一个',
     },
     ["''"] = {
