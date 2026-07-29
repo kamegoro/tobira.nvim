@@ -1,4 +1,4 @@
--- :checkhealth tobira (#42). Neovim auto-discovers this file by convention —
+-- :checkhealth tobira. Neovim auto-discovers this file by convention —
 -- no registration needed anywhere else.
 local M = {}
 

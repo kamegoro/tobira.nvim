@@ -45,7 +45,7 @@ end
 -- (set by users to match wide CJK fonts). Unlike the 'rounded' string preset
 -- (used by guide.lua/progress.lua/stats.lua), a custom per-segment border
 -- table is validated cell-by-cell, so it hard-errors with "expected only
--- one-cell chars" under ambiwidth='double' (#89). Fall back to plain ASCII
+-- one-cell chars" under ambiwidth='double'. Fall back to plain ASCII
 -- only in that case, so everyone else keeps the nicer rounded border.
 local function border_with_hl(hl)
   if vim.o.ambiwidth == 'double' then

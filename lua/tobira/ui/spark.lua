@@ -1,5 +1,5 @@
 -- Pure Lua. No vim.* calls. Converts a sessions[] usage-count array into a
--- Unicode sparkline string for the Progress preview strip (#67).
+-- Unicode sparkline string for the Progress preview strip.
 local M = {}
 
 local BARS = { '▁', '▂', '▃', '▄', '▅', '▆', '▇', '█' }

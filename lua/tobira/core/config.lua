@@ -6,11 +6,11 @@ local _defaults = {
   suggestion_cooldown = 300,
   max_shown = 2,
   lang = 'en',
-  -- #63 phase 2: gates core/integrations.lua's plugin-detection promotions
-  -- (e.g. boosting a suggestion when surround.nvim/flash.nvim is installed).
-  -- Does NOT gate phase 1 (respecting the user's own keymap overrides) --
-  -- that baseline correctness behavior stays on unconditionally, see
-  -- integrations.lua's header comment for why a flag there would be a footgun.
+  -- Gates core/integrations.lua's plugin-detection promotions (e.g. boosting
+  -- a suggestion when surround.nvim/flash.nvim is installed). Does NOT gate
+  -- respecting the user's own keymap overrides -- that baseline correctness
+  -- behavior stays on unconditionally, see integrations.lua's header comment
+  -- for why a flag there would be a footgun.
   integrations = true,
 }
 

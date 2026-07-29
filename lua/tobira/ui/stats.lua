@@ -48,8 +48,8 @@ local function lpad(s, n)
 end
 
 -- Order follows the dashboard "5-second rule" + actionable-vs-vanity-metrics
--- research from the #74 design review: the one section that changes what the
--- user does next (efficiency gaps) leads; the section that's just a fun
+-- research: the one section that changes what the user does next (efficiency
+-- gaps) leads; the section that's just a fun
 -- number (raw keystroke count) trails as a de-emphasized closing line.
 function M.render(usage)
   local str = require('tobira.i18n').load().stats
@@ -88,9 +88,9 @@ function M.render(usage)
     return a.cmd < b.cmd
   end)
 
-  -- #164: "Try these next" is this panel's own headline actionable section,
+  -- "Try these next" is this panel's own headline actionable section,
   -- so it must honor the same keymap-override rule find_best() and Guide's
-  -- auto section already enforce (#63) -- see graph.efficiency_gaps's header
+  -- auto section already enforce -- see graph.efficiency_gaps's header
   -- comment.
   local gaps = graph.efficiency_gaps(usage, GAPS_N, integrations.get_overrides())
 
@@ -140,7 +140,7 @@ function M.render(usage)
       local item = sorted[i]
       -- Forgotten overrides the mastery-level star (mirrors graph.is_mastered's
       -- own precedence) so a command that decayed doesn't still read as ★★★
-      -- here while Guide already shows it needs review — see #123.
+      -- here while Guide already shows it needs review.
       local star
       if graph.is_forgotten(item.data) then
         star = SYM_FORGOTTEN

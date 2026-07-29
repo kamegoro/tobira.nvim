@@ -54,7 +54,7 @@ local function build_tree()
       -- keys is the display string; id/adopted stay the real registry key
       -- (used for usage[] lookups and suppress/pin actions). commands.
       -- display_key() strips the 'i_' disambiguation prefix some composite
-      -- keys use (see commands.lua's 'i_<C-o>' registry comment, #105) so the
+      -- keys use (see commands.lua's 'i_<C-o>' registry comment) so the
       -- grid shows the actual keystroke the user presses, not the internal
       -- registry key.
       table.insert(items, { id = cmd, keys = commands.display_key(cmd), adopted = cmd })

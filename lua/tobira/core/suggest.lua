@@ -53,7 +53,7 @@ local function buf_matches(cmd, buf)
   return #buf >= #cmd and buf:sub(-#cmd) == cmd
 end
 
--- #63: covers the reactive path (suggest.queue/show called directly with a
+-- Covers the reactive path (suggest.queue/show called directly with a
 -- specific cmd from a pattern module) the same way graph.find_best() covers
 -- the proactive (ambient/manual) path -- neither goes through the other, so
 -- both need their own override check. This is the single choke point every

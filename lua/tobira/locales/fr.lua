@@ -323,7 +323,7 @@ return {
       example = '{ → le curseur saute à la ligne vide avant le bloc actuel',
     },
 
-    -- ── mode diff : navigation manuelle entre blocs (#111) ──────────────────
+    -- ── mode diff : navigation manuelle entre blocs ──────────────────────────
     [']c'] = {
       title = ']c — sauter au bloc de différences suivant',
       body = "Pendant que &diff est actif, saute directement au bloc modifié suivant\nPlus rapide que d'appuyer sur j de façon répétée pour chercher la différence suivante",
@@ -1013,14 +1013,14 @@ return {
       example = 'identifier ... iden<C-n> → complété en identifier',
     },
 
-    -- ── "+y (détection de sous-utilisation des registres, #59) ──────────────
+    -- ── "+y (détection de sous-utilisation des registres) ────────────────────
     ['"+y'] = {
       title = '"+y — copier vers le presse-papiers système',
       body = 'Vous avez beaucoup copié sans jamais utiliser le presse-papiers système\n"+y copie directement dedans, donc coller en dehors de Neovim (ou coller depuis l\'extérieur avec "+p) fonctionne tout simplement\nDéfinissez clipboard=unnamedplus pour que y/p utilisent le presse-papiers par défaut et évitez le préfixe "+',
       example = '"+yy une ligne → collez-la dans une autre application avec votre touche de collage habituelle',
     },
 
-    -- ── Ex commands (#57) ─────────────────────────────────────────────────
+    -- ── Ex commands ───────────────────────────────────────────────────────
     ['ex:g'] = {
       title = ':g — exécuter une commande sur chaque ligne correspondante',
       body = 'Trouve chaque ligne correspondant à un motif et exécute une commande Ex sur chacune\nRemplace la répétition manuelle de n / . à chaque occurrence',
@@ -1032,14 +1032,14 @@ return {
       example = ':%norm A; → ajoute un point-virgule à la fin de chaque ligne',
     },
 
-    -- ── mode terminal : <Esc> sans effet → <C-\><C-n> (#110) ───────────────
+    -- ── mode terminal : <Esc> sans effet → <C-\><C-n> ────────────────────────
     ['<C-\\><C-n>'] = {
       title = '<C-\\><C-n> — quitter le mode terminal',
       body = 'Dans :terminal, <Esc> est transmis directement au job — cela ne quitte pas le mode terminal\n<C-\\><C-n> est le véritable moyen de revenir en mode Normal',
       example = '<C-\\><C-n> → retour en mode Normal, le job du terminal continue de tourner',
     },
 
-    -- ── détection de :substitute répété (#115) ───────────────────────────────
+    -- ── détection de :substitute répété ────────────────────────────────────────
     ['&'] = {
       title = '& — répéter la dernière substitution sur cette ligne',
       body = 'Vous avez retapé à la main le même :s/motif/remplacement/ sur une autre ligne\n& répète la dernière substitution sur la ligne courante, sans avoir à la retaper',

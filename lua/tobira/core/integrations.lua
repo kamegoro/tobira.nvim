@@ -1,4 +1,4 @@
--- #63: detects the user's real editor environment -- their own keymap
+-- Detects the user's real editor environment -- their own keymap
 -- overrides (phase 1) and any helper plugins they have installed (phase 2) --
 -- and exposes it as plain data for graph.lua and the ui/ layer to consume.
 --
@@ -69,18 +69,15 @@ local KNOWN_PLUGINS = {
   { module = 'mini.comment', tag = 'comment' },
 }
 
--- Phase 2 promotion rules: plugin tag + a real, already-tracked trigger count
+-- Phase 2 promotion rules: plugin tag + an already-tracked trigger-count
 -- threshold -> an existing graph.suggestions cmd to promote into find_best's
 -- priority pool. Deliberately reuses existing commands.lua entries rather
--- than inventing new ones (e.g. a literal "cs<char><char>" surround-change
--- suggestion, or a flash-specific "s<char><char>" jump suggestion) -- adding
--- new teachable commands is a commands.lua registry change with its own
--- locale-string and test-coverage footprint across every locale file, and is
--- out of scope for this issue (see the issue's own file list, which does not
--- include commands.lua). ciw/ci" (surround's natural "you already reach for
--- text objects a lot" signal) and ; (flash's own jump model builds directly
--- on the repeat-search convention ; already teaches) are the closest existing
--- stand-ins.
+-- than inventing new ones (a literal "cs<char><char>" surround-change
+-- suggestion, or a flash-specific jump suggestion) — new teachable commands
+-- are a commands.lua registry change with its own locale-string and
+-- test-coverage footprint, out of scope here. ciw/ci" (surround's "you
+-- already reach for text objects" signal) and ; (flash's jump model builds
+-- on the repeat-search convention ; already teaches) are the closest stand-ins.
 local PROMOTION_RULES = {
   { plugin = 'surround', trigger = 'dw', cmd = 'ci"', threshold = 30 },
   { plugin = 'flash', trigger = 'f', cmd = ';', threshold = 30 },

@@ -13,12 +13,12 @@ local usage = {}
 local meta = { guide_seen = false }
 local _initialized = false
 local seq = patterns.new_seq()
--- #115: accumulates across the whole session (unlike seq/insert_seq above,
--- which reset on every cmdline keystroke) — repeated-substitute detection
--- needs to remember pattern+replacement pairs across separate, distinct :s
+-- Accumulates across the whole session (unlike seq/insert_seq above, which
+-- reset on every cmdline keystroke) — repeated-substitute detection needs
+-- to remember pattern+replacement pairs across separate, distinct :s
 -- invocations that can be minutes apart.
 local substitute_state = patterns_cmdline.new_substitute_state()
--- Session-scoped tabnew-habit streak (#113) — see
+-- Session-scoped tabnew-habit streak — see
 -- patterns_cmdline.new_tabnew_seq()'s doc comment. Deliberately NOT reset
 -- alongside seq/insert_seq on every cmdline keystroke (see
 -- handle_cmdline_key below): it must persist ACROSS separate :tabnew
@@ -30,7 +30,7 @@ local session_counts = {}
 -- of the last time `usage` was synced with disk (initial load, or the end of
 -- a previous save()'s merge). merge_with_disk() diffs against this to tell
 -- "I changed this locally" apart from "this has always been the default" —
--- see merge_with_disk()'s comment for why that distinction matters (#122).
+-- see merge_with_disk()'s comment for why that distinction matters.
 local _baseline = {}
 -- Per-command count of sessions[] entries appended locally since _baseline
 -- was last synced. An array-length diff can't recover this once the rolling
@@ -141,54 +141,38 @@ local function load()
 end
 
 -- Merge in-memory `usage` with whatever is currently on disk before writing,
--- so a concurrent Neovim instance's writes are never silently overwritten
--- (#122). Every save-triggering function (mark_shown, mark_adopted,
--- set_suppressed, set_pinned, mark_celebrated, close_session, ...) goes
--- through save() → this single merge point, instead of each duplicating its
--- own merge logic. Previously only close_session() merged anything, and
--- only its `.count` field.
+-- so a concurrent Neovim instance's writes are never silently overwritten.
+-- Every save-triggering function goes through save() → this single merge
+-- point instead of duplicating its own merge logic.
 --
--- Per-field strategy, decided deliberately field by field:
+-- Per-field strategy:
 --
---   .count : additive. This instance's growth since ITS OWN last sync with
---     disk (`_baseline`) is real new data (keystrokes counted) that
---     happened in this process; stacking that delta on top of disk's
---     current value preserves what every other concurrently running
---     instance already contributed. This generalizes the delta logic
---     close_session() already had.
+--   .count : additive. This instance's growth since its own last sync
+--     (`_baseline`) is real new data from this process; stacking that delta
+--     on disk's current value preserves what other concurrent instances
+--     already contributed.
 --
---   .shown : local value only, never combined with disk. `load()` always
---     resets in-memory `shown` to 0 so the max_shown display cap is
---     per-launch, not lifetime. Folding disk's old `.shown` back in the way
---     `.count` does would quietly turn a per-launch counter into a
---     cumulative-forever one, which is not what "reset shown so max_shown
---     is per-session" (see load()) means.
+--   .shown : local only, never combined with disk. `load()` always resets
+--     in-memory `shown` to 0 so the max_shown display cap is per-launch, not
+--     lifetime — folding disk's old value back in would make it cumulative.
 --
---   .sessions : union, not overwrite. Two concurrently running instances
---     can each close a real session; both entries are meaningful input to
---     the decay/mastery scoring in graph.lua, and neither should be
---     dropped. Disk's current array (which may already include another
---     instance's entries) is kept as-is, and only the entries THIS instance
---     appended since its own baseline are added on top — tracked via
---     `_sessions_appended` rather than an array-length diff, because the
---     rolling MAX_SESSIONS cap can evict old entries from either side
---     without that meaning "no new data". The rolling cap is then
---     re-applied to the merged result.
+--   .sessions : union, not overwrite. Two concurrent instances can each
+--     close a real session; both entries matter to graph.lua's
+--     decay/mastery scoring. Disk's array is kept as-is, and only the
+--     entries THIS instance appended since its own baseline are added —
+--     tracked via `_sessions_appended` rather than an array-length diff,
+--     since the rolling MAX_SESSIONS cap can evict entries from either side
+--     without meaning "no new data". The cap is re-applied after merging.
 --
 --   .suppressed / .pinned / .celebrated : sticky booleans. If THIS instance
---     changed the flag since its own baseline, that's a deliberate local
---     decision (e.g. the user just un-suppressed a command from
---     :TobiraGuide) and wins outright — this is what keeps the existing
---     "suppress then un-suppress" round trip working within one instance.
---     If this instance never touched the flag, whatever is currently on
---     disk is adopted as-is, which is what lets instance A's set_suppressed
---     survive instance B's unrelated save. In the pure concurrent-write
---     case (neither instance touches the other's flag) this behaves like an
---     OR: once suppressed/pinned by any instance, it stays that way.
---     `.celebrated` gets the same treatment: it is only ever set, never
---     unset (there is no "uncelebrate" call anywhere in the codebase — see
---     suggest.lua's `not logger.is_celebrated(cmd)` guard), so the same
---     OR-like stickiness matches how it's actually used.
+--     changed the flag since its baseline, that's a deliberate local
+--     decision and wins outright (keeps "suppress then un-suppress" working
+--     within one instance). Otherwise disk's current value is adopted
+--     as-is, so instance A's change survives instance B's unrelated save.
+--     In the pure concurrent-write case this behaves like an OR: once set
+--     by any instance, it stays set. `.celebrated` is only ever set, never
+--     unset (no "uncelebrate" call exists), so the same stickiness matches
+--     how it's actually used.
 local function merge_with_disk(disk_data)
   local merged = {}
 
@@ -299,10 +283,10 @@ end
 local function build_track_table()
   -- Base single-char ASCII keys (not in registry but needed for level detection).
   -- 'g' omitted: it's always part of a compound (gg, gj…) tracked via last_op.
-  -- 'y' added for #59: graph.is_register_underused() needs a total "how many
-  -- times has the user yanked" count, independent of which compound (yy, yw,
-  -- "+y, …) the operator ends up completing as — see commands.lua's '"+y'
-  -- entry for the other half of that gate.
+  -- 'y' is added because graph.is_register_underused() needs a total "how
+  -- many times has the user yanked" count, independent of which compound
+  -- (yy, yw, "+y, …) the operator ends up completing as — see commands.lua's
+  -- '"+y' entry for the other half of that gate.
   local t = {
     f = 'f',
     F = 'F',
@@ -343,26 +327,13 @@ end
 local TRACK = build_track_table()
 
 -- Raw on_key bytes → canonical name, for the handful of insert-mode keys
--- patterns_insert.feed_insert() cares about (#58). Built once via the same
--- nvim_replace_termcodes approach as TRACK above. '<C-w>' is included so its
--- adoption can be measured — this is safe from the normal-mode window-prefix
--- meaning of Ctrl-W because INSERT_SPECIAL is only consulted while the mode
--- cache says insert mode (handle_insert_key), never from the normal-mode path.
--- '<C-n>' (#112) is the same shape of problem: in normal mode it's Vim's
--- built-in down-motion (never tracked by tobira today), while in insert mode
--- it's keyword completion — the suggestion this file's insert_completion_repeat
--- pattern recommends. Listing it here keeps its insert-mode adoption count
--- (incremented explicitly below) from ever being conflated with the unrelated
--- normal-mode keystroke, exactly like '<C-w>'.
---
--- '<C-o>' (#105) is included for exactly the same reason and resolves the
--- exact same kind of collision: the raw <C-o> byte already means "jump back
--- in the jumplist" in Normal mode (commands.lua's '<C-o>' entry, tracked via
--- TRACK below). Insert-mode <C-o> is a different command bound to that same
--- physical key. Consulting INSERT_SPECIAL only from handle_insert_key (i.e.
--- only once the mode cache already says insert mode) is what makes both
--- meanings safe to coexist — see commands.lua's 'i_<C-o>' registry comment
--- for the full collision story and why a composite key was needed there too.
+-- patterns_insert.feed_insert() cares about (built via nvim_replace_termcodes,
+-- like TRACK above). '<C-w>', '<C-n>', and '<C-o>' each mean something
+-- different in Normal mode (window-prefix, down-motion, jumplist-back) than
+-- they do in insert mode (delete-word, completion, one-shot command) — safe
+-- to coexist only because INSERT_SPECIAL is consulted exclusively from
+-- handle_insert_key, once the mode cache already says insert mode. See
+-- commands.lua's 'i_<C-o>' registry comment for the full collision story.
 local INSERT_SPECIAL = {}
 for _, name in ipairs({ '<BS>', '<Left>', '<Right>', '<Esc>', '<C-w>', '<C-n>', '<C-o>' }) do
   local raw = vim.api.nvim_replace_termcodes(name, true, true, true)
@@ -374,7 +345,7 @@ end
 local insert_seq = patterns_insert.new_insert_seq()
 
 -- Raw on_key bytes → canonical name, for the one terminal-mode key
--- patterns_terminal.feed_terminal() cares about (#110). Only <Esc> matters —
+-- patterns_terminal.feed_terminal() cares about. Only <Esc> matters —
 -- see patterns_terminal.lua for why <C-w> is deliberately not detected here.
 local TERMINAL_SPECIAL = {}
 do
@@ -386,28 +357,24 @@ end
 
 local terminal_seq = patterns_terminal.new_terminal_seq()
 
--- :e/:b file ping-pong detection (#114). Persistent module-level state, like
+-- :e/:b file ping-pong detection. Persistent module-level state, like
 -- seq/insert_seq/terminal_seq above -- but unlike those, handle_cmdline_key
 -- must NOT reset it on every cmdline keystroke, since the whole point is to
 -- remember the last two distinct files across separate Ex commands typed
 -- minutes apart. Only touched at <CR> time, alongside tokenize().
 local pingpong_seq = patterns_cmdline.new_pingpong_seq()
 
--- Words command_arg() must return before a switch is even worth verifying
--- (see the verify-before-credit comment below). Deliberately duplicated from
--- patterns_cmdline.lua's own private PINGPONG_COMMANDS rather than exported
--- from there: that module is a pure, generic Ex tokenizer with no vim.*
--- calls, and feed_pingpong() already re-validates the word itself regardless
--- of what's checked here (see its own PINGPONG_COMMANDS). A mismatch between
--- the two tables would only ever waste one vim.schedule() call, never cause
--- an incorrect credit -- this copy exists purely so logger.lua doesn't
--- schedule a verification callback (and its vim.fn.expand/fnamemodify calls)
--- for every Ex command that happens to take an argument (:s, :g, :w, ...).
+-- Words command_arg() must return before a switch is worth verifying (see
+-- the verify-before-credit comment below). Duplicated from
+-- patterns_cmdline.lua's private PINGPONG_COMMANDS rather than exported —
+-- that module stays a pure, vim.*-free tokenizer, and feed_pingpong()
+-- re-validates the word itself regardless, so a mismatch here would only
+-- waste one vim.schedule() call, never cause an incorrect credit.
 local PINGPONG_WORDS = { e = true, b = true }
 
 local _recording_macro = false
 
--- Raw bytes for the two ways an Ex command line can end (#57). <C-c> is
+-- Raw bytes for the two ways an Ex command line can end. <C-c> is
 -- treated the same as <Esc> — both abort without submitting; nothing else
 -- reliably ends cmdline editing from vim.on_key's vantage point (<C-\><C-n>
 -- exists but is obscure enough to not be worth a third branch here).
@@ -415,68 +382,49 @@ local CMDLINE_CR = vim.api.nvim_replace_termcodes('<CR>', true, true, true)
 local CMDLINE_ESC = vim.api.nvim_replace_termcodes('<Esc>', true, true, true)
 local CMDLINE_CTRL_C = vim.api.nvim_replace_termcodes('<C-c>', true, true, true)
 
--- Tobira's own UI commands (see plugin/tobira.lua: Tobira, TobiraStats,
--- TobiraGuide, TobiraProgress, TobiraReset — all share this prefix) must
--- never be tracked as Ex-command usage. Without this, checking your own
--- stats (:TobiraStats) becomes tracked usage itself, polluting the very
--- data being displayed (found by QA: running :TobiraReset once made
--- "ex:tobirastats" show up as a top command in :TobiraStats).
+-- Tobira's own UI commands (:Tobira, :TobiraStats, :TobiraGuide,
+-- :TobiraProgress, :TobiraReset) must never be tracked as Ex-command usage —
+-- otherwise checking your own stats becomes tracked usage itself, polluting
+-- the data being displayed (QA found :TobiraReset making "ex:tobirastats"
+-- show up as a top command in :TobiraStats).
 --
--- This lives here rather than in patterns_cmdline.lua because that module
--- is a generic, reusable Ex-command tokenizer with no knowledge of
--- tobira-specific concerns (see its header comment) — teaching it about its
--- own plugin name would break that purity for a concern that's really about
--- *when to record*, which is this file's job. It also doesn't belong in
--- commands.lua: that file is explicitly "the master registry of teachable
--- commands" (things tobira suggests learning), and tobira's own commands are
--- never suggested — a self-exclusion guard is an unrelated concern.
+-- Lives here rather than patterns_cmdline.lua (a generic tokenizer with no
+-- tobira-specific knowledge) or commands.lua (the registry of *teachable*
+-- commands — tobira's own are never suggested, so excluding them is an
+-- unrelated concern) — this is purely a "when to record" decision, which is
+-- this file's job.
 --
--- patterns_cmdline.tokenize() always lowercases the command word into its
--- 'ex:<word>' result, so a lowercase literal prefix match here is correct
--- regardless of how the user capitalized the command (':TobiraStats',
--- ':tobirastats', etc. all resolve to the same Ex command in Vim, and both
--- tokenize to the same lowercase key).
+-- tokenize() always lowercases the command word, so a lowercase prefix match
+-- here is correct regardless of how the user capitalized it.
 local OWN_CMD_PREFIX = 'ex:tobira'
 
--- #115 fix (verify-before-credit): cheap gate deciding whether a completed
--- Ex command is even worth deferring a changedtick-based success check for
--- at all (see the full fix comment at the call site below). Deliberately
--- duplicates track_substitute()'s own "is the word a prefix of 'substitute'"
--- check rather than exporting it from patterns_cmdline.lua — same
--- duplication precedent as #114's ex_file_pingpong fix's PINGPONG_WORDS
--- table: that module stays a pure, vim.*-free tokenizer, and
--- track_substitute() already re-validates the full command (range,
--- delimiters, ...) for real regardless of what this gate decides. A
--- mismatch here (e.g. this matching a ranged ":%s/foo/bar/" that
--- track_substitute() will go on to reject anyway) only ever costs one
--- unnecessary changedtick snapshot + scheduled callback, never an incorrect
--- credit — tokenize()'s 'name' already strips any range the same way
--- track_substitute() does, so this only has to check the command word.
+-- Cheap gate deciding whether a completed Ex command is even worth deferring
+-- a changedtick-based success check for (see the fix comment at the call
+-- site below). Deliberately duplicates track_substitute()'s own "is the word
+-- a prefix of 'substitute'" check rather than exporting it — same precedent
+-- as PINGPONG_WORDS below: the tokenizer module stays pure, and
+-- track_substitute() re-validates the full command regardless, so a mismatch
+-- here only ever costs one unnecessary snapshot, never an incorrect credit.
 local function looks_like_substitute(tokenized_name)
   local word = tokenized_name and tokenized_name:match('^ex:(%a+)$')
   return word ~= nil and ('substitute'):sub(1, #word) == word
 end
 
--- Ex-command tracking (#57): vim.on_key sees every cmdline keystroke, but
--- the actual tokenizable content only exists once, in full, right when the
--- terminating key arrives — so there is no per-keystroke buffer to
--- accumulate here (see patterns_cmdline.lua's header for why that's a
--- deliberate design choice, not a missing feature). vim.fn.getcmdtype() and
--- vim.fn.getcmdline() are the vim.* half of this feature; patterns_cmdline
--- stays pure and only ever sees a complete string.
+-- Ex-command tracking: vim.on_key sees every cmdline keystroke, but the
+-- tokenizable content only exists once, in full, at the terminating key —
+-- so there is no per-keystroke buffer here (see patterns_cmdline.lua's
+-- header for why). vim.fn.getcmdtype()/getcmdline() are the vim.* half;
+-- patterns_cmdline stays pure and only ever sees a complete string.
 --
--- Confirmed empirically (see the PR description / logger_spec.lua's Ex
--- command tracking tests): vim.on_key's callback for the <CR>/<Esc> keystroke
--- that ends cmdline mode fires BEFORE Neovim processes that keystroke, so
--- getcmdtype() still reports ':' and getcmdline() still holds the complete
--- pre-submission buffer at the exact moment this function inspects them —
--- the same "on_key runs before the key's effect lands" timing
--- patterns_insert.lua's <Esc>-vs-insert-mode bounce detection relies on.
+-- Confirmed empirically: vim.on_key's callback for the terminating keystroke
+-- fires BEFORE Neovim processes it, so getcmdtype()/getcmdline() still
+-- report the pre-submission state at the exact moment this function
+-- inspects them — the same timing patterns_insert.lua's <Esc>-vs-insert-mode
+-- bounce detection relies on.
 --
--- Resets seq/insert_seq on every cmdline keystroke, same as the pre-#57
--- generic "current_mode is neither n nor i" branch this replaces for mode
--- 'c' — otherwise a stale pending_op from just before the ':' was pressed
--- (e.g. a stray 'd') would still be sitting there once normal mode resumes.
+-- Resets seq/insert_seq on every cmdline keystroke — otherwise a stale
+-- pending_op from just before ':' was pressed would still be sitting there
+-- once normal mode resumes.
 local function handle_cmdline_key(key)
   seq = patterns.new_seq()
   insert_seq = patterns_insert.new_insert_seq()
@@ -491,88 +439,45 @@ local function handle_cmdline_key(key)
     if name and name:sub(1, #OWN_CMD_PREFIX) ~= OWN_CMD_PREFIX then
       increment(name)
     end
-    -- #115: same completed-cmdline text, fed to the substitute-repeat
-    -- tracker alongside tokenize() above. vim.fn.line('.') at this point is
+    -- Same completed-cmdline text, fed to the substitute-repeat tracker
+    -- alongside tokenize() above. vim.fn.line('.') at this point is
     -- still the pre-substitution cursor line — the line the bare (no-range)
     -- :s is about to run on (see patterns_cmdline.lua's header for why an
     -- explicit range is out of scope and skipped instead of guessed at).
     --
     -- Verify-before-credit (fix for a QA-found false positive, same problem
-    -- class and same timing fix as #114's ex_file_pingpong verify-before-
-    -- credit): this on_key callback for <CR> runs BEFORE Neovim validates or
-    -- executes the command (see this function's header comment above), so
-    -- `cmdline_text` says nothing about whether the substitution actually
-    -- matched anything. Typing and submitting ":s/pat/repl/" is not the same
-    -- thing as a replacement actually happening — Neovim can run the command
-    -- and still do nothing (E486 "Pattern not found" when {pattern} matches
-    -- nothing on the target line), yet the pre-<CR> text alone is
-    -- indistinguishable from a real successful repeat of the same edit.
+    -- class and timing fix as ex_file_pingpong's below): this on_key callback
+    -- runs BEFORE Neovim validates or executes the command (see this
+    -- function's header comment), so `cmdline_text` alone can't tell whether
+    -- the substitution actually matched anything — E486 "Pattern not found"
+    -- lets Neovim run the command and still change nothing.
     --
-    -- Signal chosen: the target buffer's changedtick (nvim_buf_get_changedtick),
-    -- snapshotted here (before <CR> is processed) and re-checked inside
-    -- vim.schedule() (after Neovim has fully executed or rejected the
-    -- command) — credit only if it increased.
+    -- Signal chosen: the target buffer's changedtick, snapshotted here and
+    -- re-checked inside vim.schedule() once Neovim has fully processed the
+    -- command — credit only if it increased.
     --
-    -- v:errmsg was tried first (it's the obvious "did the last command fail"
-    -- signal, and is what the original bug report suggested), but was
-    -- empirically found unusable in THIS codebase: every way this project's
-    -- test suite can simulate a keystroke (vim.fn.feedkeys / nvim_feedkeys /
-    -- vim.cmd, used throughout logger_spec.lua — there is no other way to
-    -- drive Ex commands from a headless test) executes the command through
-    -- Neovim's API/RPC dispatch layer, which internally wraps command
-    -- execution in the same try_start()/try_end() mechanism :try/:catch uses.
-    -- An error caught that way is converted straight into a Lua-catchable
-    -- exception and NEVER touches v:errmsg — confirmed by hand: a failing
-    -- ":s/nonexistent/x/" driven via feedkeys leaves v:errmsg as '' even
-    -- though the same command run via a plain Vimscript path (e.g. a timer
-    -- callback, with no Lua API call anywhere in its stack) does set it to
-    -- "E486: Pattern not found: nonexistent" as documented. Since a
-    -- regression test is mandatory for every bug fix here (see this repo's
-    -- CLAUDE.md) and this project's entire test harness is built on the API
-    -- path that suppresses v:errmsg, that signal could not be verified by
-    -- the very tests this fix is required to ship with — and there is no
-    -- confidence it would even behave correctly for other Lua-driven
-    -- automation (macros calling into Lua, other plugins scripting :s via
-    -- vim.cmd) that shares the same dispatch path as the tests do.
+    -- v:errmsg was tried first and rejected: every way this test suite drives
+    -- keystrokes (feedkeys/nvim_feedkeys/vim.cmd) goes through the API/RPC
+    -- dispatch layer, which wraps execution in try_start()/try_end() and
+    -- converts errors straight into Lua exceptions without ever touching
+    -- v:errmsg (confirmed by hand) — a signal this fix's own mandatory
+    -- regression test could never observe.
     --
-    -- changedtick has none of that ambiguity: it is a plain per-buffer
-    -- counter Neovim increments on every real content mutation, regardless
-    -- of what triggered it (typed, fed, or scripted) — not routed through
-    -- the message/error subsystem at all. It also captures this feature's
-    -- actual intent ("was a replacement really performed") more precisely
-    -- than "did an error occur" would: confirmed by hand that a successful
-    -- but textually-identical substitution (":s/foo/foo/", matching text
-    -- replaced with itself) still increments changedtick, while a failed
-    -- E486 substitution leaves it unchanged — through this exact feedkeys-
-    -- driven harness. It also does the right thing for flag combinations
-    -- outside v:errmsg's reach entirely: ":s///n" (report-only, no text
-    -- ever replaced) or a ":s///c" where the user declines every confirm
-    -- prompt raise no error at all, yet correctly leave changedtick flat, so
-    -- neither would wrongly credit the streak — an errmsg-based check would
-    -- have missed both, since "no error" is not the same question as "was
-    -- anything actually replaced". Diffing the buffer's TEXT instead of its
-    -- changedtick was considered and rejected for the same byte-identical
-    -- case (":s/foo/foo/" performs a real substitution while leaving the
-    -- text unchanged, which a text diff would misread as a failure).
+    -- changedtick avoids that and also gets the edge cases right where
+    -- errmsg (or a plain text diff) wouldn't: ":s/foo/foo/" (text unchanged
+    -- but a real substitution) still increments it, while ":s///n"
+    -- (report-only) and a ":s///c" where every confirm is declined correctly
+    -- leave it flat — none of those raise an error or change the text, so
+    -- neither "no error" nor "no text diff" was ever the right question.
     --
-    -- Ordering: the only realistic risk is a single-main-loop-tick race,
-    -- identical in shape to the one #114's fix already accepts (see that
-    -- fix's comment) — if something else mutates this same buffer in the
-    -- gap between the snapshot below and this scheduled check running, a
-    -- failed :s could look like it succeeded. In real interactive use that
-    -- gap is one tick wide and nothing else runs inside it besides this
-    -- command's own execution; it only matters for synthetic back-to-back
-    -- feedkeys in tests (handled there via a short vim.wait() between
-    -- commands, same as #114's test suite).
+    -- Ordering: the only realistic risk is a single-main-loop-tick race
+    -- (same shape ex_file_pingpong's fix already accepts) if something else
+    -- mutates this buffer between the snapshot and the scheduled check —
+    -- negligible in real use, handled in tests via a short vim.wait().
     --
-    -- The actual credit (the track_substitute() call itself, not just the
-    -- on_pattern notification) is what's deferred, not just the
-    -- notification — track_substitute() mutates substitute_state and must
-    -- not mark a failed line as tracked.
-    --
-    -- The `looks_like_substitute` gate above avoids paying this snapshot +
-    -- scheduled-callback cost for every unrelated completed Ex command (:w,
-    -- :qa, ...) — mirroring #114's PINGPONG_WORDS gate for the same reason.
+    -- The credit itself (track_substitute(), not just the notification) is
+    -- what's deferred. `looks_like_substitute` above gates this whole cost
+    -- so it's only paid for commands that could plausibly be a :s.
     if looks_like_substitute(name) then
       local target_line = vim.fn.line('.')
       local bufnr = vim.api.nvim_get_current_buf()
@@ -588,64 +493,35 @@ local function handle_cmdline_key(key)
       end)
     end
 
-    -- #113/#114: independent of the usage-count tracking above -- both
-    -- detectors below share a single command_arg() call for the filename /
-    -- argument text tokenize() discards by design (see tokenize()'s header
-    -- and patterns_cmdline.command_arg's own doc comment for why the two
-    -- features share one implementation). Both are reactive patterns, like
-    -- patterns_insert/patterns_terminal's results elsewhere in this file:
-    -- reported via on_pattern immediately rather than waiting on a
+    -- Independent of the usage-count tracking above — both detectors below
+    -- share a single command_arg() call for the filename/argument text
+    -- tokenize() discards by design (see tokenize()'s header and
+    -- patterns_cmdline.command_arg's doc comment). Both are reactive
+    -- patterns, like patterns_insert/patterns_terminal elsewhere in this
+    -- file: reported via on_pattern immediately rather than waiting on a
     -- usage-count threshold.
     --
-    -- Verify-before-credit (fix for a QA-found false positive): the on_key
-    -- callback for this <CR> runs BEFORE Neovim has validated or executed the
-    -- command (see this function's header comment and patterns_cmdline.lua's
-    -- header for why <CR> time is when the full string first exists at all).
-    -- Typing and submitting ":e"/":b" is therefore not the same thing as the
-    -- file switch actually happening -- Neovim can still reject the command
-    -- outright (E94 "No matching buffer" for :b on a name with no existing
-    -- buffer; E37 "No write since last change" for :e on a dirty buffer
-    -- without !), in which case the current buffer/file never changes.
-    -- Crediting ex_file_pingpong from the raw argument text regardless of
-    -- outcome could fire a "<C-^>" suggestion whose own reason line ("you
-    -- bounced between the same two files") is simply false, since no bounce
-    -- ever happened.
+    -- Verify-before-credit (fix for a QA-found false positive, same timing
+    -- issue as the substitute fix above): this <CR> callback runs BEFORE
+    -- Neovim validates/executes the command, so typing ":e"/":b" isn't the
+    -- same as the file switch actually happening — Neovim can still reject
+    -- it (E94 "No matching buffer", E37 "No write since last change").
     --
-    -- Fix: defer the actual credit to vim.schedule(), which runs only once
-    -- Neovim has fully processed this <CR> -- i.e. after the command has
-    -- either succeeded or already failed with its error shown. At that point,
-    -- verify by comparing the RESULT against the TARGET (is the file this
-    -- command named actually the current buffer now), not by diffing
-    -- bufnr()/expand() before vs. after: a before/after diff would compare
-    -- against a snapshot taken before the command ran, which stops meaning
-    -- "did THIS command succeed" the moment a later command also changes the
-    -- buffer before this callback gets to run (see the ordering note below).
-    -- Checking the actual outcome against this command's own target stays
-    -- correct regardless. The literal `arg` text (not the resolved path) is
-    -- still what gets passed into feed_pingpong() -- verification only gates
-    -- WHETHER to call it, never what value is fed once it does, so this
-    -- fix touches no behavior of patterns_cmdline.lua itself.
+    -- Fix: defer credit to vim.schedule(), then verify by comparing the
+    -- RESULT against the TARGET (is the named file the current buffer now),
+    -- not a before/after diff — a before/after diff stops meaning "did THIS
+    -- command succeed" once a later command changes the buffer first. The
+    -- literal `arg` text still goes into feed_pingpong(); verification only
+    -- gates whether to call it.
     --
-    -- On vim.schedule() ordering: vim.on_key's callback and vim.schedule()
-    -- callbacks both run on the same single main-loop thread, so there is no
-    -- data race to worry about -- the only real question is ordering
-    -- relative to the NEXT keystroke. If a second :e/:b is submitted so fast
-    -- that its own <CR> is processed before this scheduled callback runs
-    -- (observed in this fix's own test suite when multiple commands are fed
-    -- back-to-back without yielding — see logger_spec.lua), the check above
-    -- still asks the right question for THIS command ("is the file it named
-    -- currently open"), not "did something change since before" — so a
-    -- later, unrelated command changing the buffer again is never misread as
-    -- proof that this one succeeded. The only residual edge case — a later
-    -- command coincidentally targeting the exact same filename this one did,
-    -- inside that same tiny window — would make this command look like it
-    -- succeeded when it didn't, but that means the user is already mid-bounce
-    -- between those exact two files, which is exactly the behavior this
-    -- feature exists to catch; treating it as a real switch is a harmless,
-    -- self-correcting outcome, not a false positive. In real interactive use
-    -- (as opposed to synthetic back-to-back feedkeys in tests) this window
-    -- also never matters: typing a full second ":e file<CR>" takes far more
-    -- real keystrokes/IO than one main-loop tick.
+    -- Ordering: on_key and vim.schedule() share the main-loop thread, so
+    -- there's no data race — only the question of a second :e/:b landing
+    -- before this callback runs. The RESULT-vs-TARGET check still asks the
+    -- right question for THIS command in that case; the only residual edge
+    -- case (a later command coincidentally targeting the same filename) is
+    -- self-correcting, since the user really is mid-bounce between those two
+    -- files. This window essentially never matters outside synthetic
+    -- back-to-back feedkeys in tests.
     local word, arg = patterns_cmdline.command_arg(cmdline_text)
     if PINGPONG_WORDS[word] and arg then
       local target = vim.fn.fnamemodify(arg, ':p')
@@ -660,19 +536,13 @@ local function handle_cmdline_key(key)
       end)
     end
 
-    -- #113: only read nvim_tabpage_list_wins for an actual :tabnew
-    -- submission — every other Ex command is a complete no-op for this
-    -- streak (see patterns_cmdline.feed_tabnew's doc comment), so there is no
-    -- reason to pay a vim.api call reading window state for :s, :g, etc.
-    -- nvim_tabpage_list_wins(0) reads the CURRENT tabpage's windows; because
-    -- vim.on_key runs before this <CR> keystroke's effect lands (see this
-    -- function's own header comment), that is still the tab the PREVIOUS
-    -- :tabnew in the streak opened, not the one this keystroke is about to
-    -- create. Reuses the `arg` already computed above via command_arg(cmdline_text)
-    -- (converting its nil-for-"no argument" to feed_tabnew's own ''
-    -- contract) instead of re-parsing the same cmdline text a second time —
-    -- when the submitted command is ":tabnew ...", word == 'tabnew' and arg
-    -- is exactly the file argument feed_tabnew needs.
+    -- Only reads nvim_tabpage_list_wins for an actual :tabnew submission —
+    -- every other command is a no-op for this streak, so there's no reason
+    -- to pay that vim.api call for :s, :g, etc. It reads the CURRENT
+    -- tabpage's windows; since on_key runs before this <CR>'s effect lands,
+    -- that's still the tab the PREVIOUS :tabnew opened, not the one about to
+    -- be created. Reuses `arg` from command_arg() above (nil → '') instead
+    -- of re-parsing the cmdline.
     if name == 'ex:tabnew' then
       local win_count = #vim.api.nvim_tabpage_list_wins(0)
       local result = patterns_cmdline.feed_tabnew(tabnew_seq, arg or '', win_count)
@@ -696,7 +566,7 @@ local function handle_insert_key(key)
   elseif canonical == '<C-n>' then
     increment('<C-n>')
   end
-  -- #105: counted explicitly under the composite 'i_<C-o>' key, exactly like
+  -- Counted explicitly under the composite 'i_<C-o>' key, exactly like
   -- '<C-w>' above — never under the raw '<C-o>' registry key, which TRACK
   -- (built from commands.registry) already claims for the Normal-mode
   -- jumplist-back meaning.
@@ -704,11 +574,11 @@ local function handle_insert_key(key)
     increment('i_<C-o>')
   end
   -- `key` doubles as the ordinary-character payload feed_insert() uses to
-  -- reconstruct tokens (#112) — canonical is nil for anything other than the
+  -- reconstruct tokens — canonical is nil for anything other than the
   -- special keys above, and feed_insert() only ever reads `char` in that case.
   local result = patterns_insert.feed_insert(insert_seq, canonical, key)
 
-  -- #60: macro-opportunity detection spans the mode boundary — the repeated
+  -- Macro-opportunity detection spans the mode boundary — the repeated
   -- *edit* it watches for (e.g. "cwFooBar<Esc>") includes the insert-mode
   -- typed replacement text, not just the normal-mode c/w/<Esc> keys around
   -- it. Same cross-file orchestration shape as feed_after_escape() above:
@@ -783,7 +653,7 @@ local function handle_key(key)
 
   local line = vim.fn.line('.')
 
-  -- #105: feed the same Normal-mode keystroke into the insert-mode <C-o>
+  -- Feed the same Normal-mode keystroke into the insert-mode <C-o>
   -- one-shot watch (armed by feed_insert('<Esc>') — see patterns_insert.lua's
   -- feed_after_escape doc comment for why this detection has to cross into
   -- the Normal-mode keystroke stream at all). This mutates only insert_seq's
@@ -792,7 +662,7 @@ local function handle_key(key)
   -- reported via on_pattern yet — see the priority reconciliation below.
   local co_result = patterns_insert.feed_after_escape(insert_seq, key)
 
-  -- #111: only read vim.wo.diff (a window-local option lookup) for j/k —
+  -- Only read vim.wo.diff (a window-local option lookup) for j/k —
   -- the only two keys patterns.lua's is_diff branches ever consult. This
   -- keeps the vim.on_key hot path from paying that read's cost on every one
   -- of the dozens of other keys a normal editing session sends through here,
@@ -804,14 +674,14 @@ local function handle_key(key)
   -- one call site that reads the option and threads it in as a parameter.
   local is_diff = (key == 'j' or key == 'k') and vim.wo.diff or false
   -- vim.loop.now() (ms, monotonic) is the real clock for patterns.lua's
-  -- jumplist/changelist tolerance-window detection (#61) — patterns.lua
-  -- itself stays vim.*-free and only ever sees this caller-supplied number.
-  -- Read once and reused for feed_macro() below too (#60) — no reason to
-  -- pay for a second vim.loop.now() call for the same keystroke.
+  -- jumplist/changelist tolerance-window detection — patterns.lua itself
+  -- stays vim.*-free and only ever sees this caller-supplied number. Read
+  -- once and reused for feed_macro() below too — no reason to pay for a
+  -- second vim.loop.now() call for the same keystroke.
   local now = vim.loop.now()
   local result = patterns.feed(seq, key, line, is_diff, now)
 
-  -- #60: see handle_insert_key()'s matching call for why this has to be fed
+  -- See handle_insert_key()'s matching call for why this has to be fed
   -- from both branches. Normal-mode keys are passed through as-is (no
   -- canonical translation needed — every key this branch ever sees is
   -- already a plain, single-token raw byte, exactly what inner_feed() above
@@ -824,41 +694,31 @@ local function handle_key(key)
   -- sets on the exact call that freshly assigns seq.last_op. This must NOT
   -- be a before/after value comparison on seq.last_op — two identical
   -- compounds back-to-back (dd dd, dw dw, …) re-assign the same string, so
-  -- a value-change check would silently drop the second occurrence (#119).
+  -- a value-change check would silently drop the second occurrence.
   if seq.op_completed then
     increment(seq.last_op)
   end
 
-  -- Priority reconciliation between patterns.lua's `result` and
-  -- patterns_insert.lua's `co_result` (#105): both are fed the same
-  -- keystroke above and can both produce a suggestion for it — e.g. <Esc>0i
-  -- matches both patterns.lua's zero_col_then_insert (-> gI) and
-  -- patterns_insert.lua's generic insert_co_oneshot (-> insert-mode <C-o>).
-  -- Without an explicit rule, whichever call happened to run second in this
-  -- function's source order would win the race in suggest.queue() (it
-  -- cancels any pending timer and starts a new one) purely by accident of
-  -- code order — not by design.
+  -- Priority reconciliation between patterns.lua's `result`, patterns_insert's
+  -- `co_result`, and `macro_result` — all three are fed the same keystroke
+  -- and can all produce a suggestion for it (e.g. <Esc>0i matches both
+  -- zero_col_then_insert (-> gI) and insert_co_oneshot (-> insert-mode
+  -- <C-o>)), so an explicit priority is needed rather than letting
+  -- source-code order decide by accident.
   --
-  -- `result` always wins when both fire: patterns.lua's suggestions here are
-  -- pre-existing, specific, single-purpose tips (gI for 0i, s for xi, A for
-  -- $a) that are objectively more direct than the generic "you could have
-  -- done this without leaving insert mode" hint — e.g. `A` (1 keystroke)
-  -- beats teaching <C-o> for a `$a` round trip that <C-o> would still take 2
-  -- keystrokes to replace. `co_result` is only ever reported when `result`
-  -- is nil, which is also the common case: motions with no competing
-  -- specific pattern (h, l, w, b, e, j, k, …) still report insert_co_oneshot
-  -- exactly as before, since patterns.feed() returns nil for those.
+  -- `result` wins over `co_result`: patterns.lua's suggestions here are
+  -- specific, single-purpose tips (gI for 0i, s for xi, A for $a) that are
+  -- objectively more direct than the generic "you could have stayed in
+  -- insert mode" hint. `co_result` only fires when `result` is nil, the
+  -- common case for motions with no competing specific pattern (h, l, w, b,
+  -- e, j, k, …).
   --
-  -- macro_result (#60) is deliberately checked FIRST, ahead of both: it only
-  -- ever fires after 3 full repetitions of an entire edit sequence, which is
-  -- a rarer and strictly more valuable signal than any single-keystroke
-  -- pattern that also happens to be true on the same key — e.g. retyping the
-  -- same 6+ character replacement text as part of retyping the same whole
-  -- "cwFooBar<Esc>" sequence 3 times also satisfies
-  -- patterns_insert.lua's insert_completion_repeat (#112) on that same final
-  -- <Esc>. "You've retyped this whole edit 3 times, record a macro" is a
-  -- bigger win than "you retyped one word, use <C-n>", so macro_result must
-  -- not be starved by it.
+  -- macro_result is checked FIRST, ahead of both: it only fires after 3 full
+  -- repetitions of an entire edit sequence, a rarer and bigger win than any
+  -- single-keystroke pattern that also happens to match the same key (e.g.
+  -- retyping "cwFooBar<Esc>" 3 times also satisfies
+  -- patterns_insert.lua's insert_completion_repeat on that same final <Esc>,
+  -- but "you retyped this whole edit 3 times" beats "you retyped one word").
   if macro_result and M.on_pattern then
     M.on_pattern(macro_result.pattern, macro_result.cmd)
   elseif result and M.on_pattern then
@@ -895,7 +755,7 @@ function M.setup()
     group = mode_group,
     callback = function()
       local new_mode = vim.fn.mode()
-      -- Mode cache extension for #110: terminal_seq's <Esc>-streak is only
+      -- Mode cache extension: terminal_seq's <Esc>-streak is only
       -- meaningful within one continuous stay in terminal-job mode. Reset it
       -- the moment mode() actually changes away from 't' (successful escape,
       -- or the terminal buffer closing under the user), so a leftover
@@ -951,7 +811,7 @@ function M.close_session()
 
   -- Zero-pad every already-known command that went untouched this session, so
   -- sessions[] reflects real elapsed sessions rather than only sessions where
-  -- the command happened to be used. Without this, decay-based scoring (#62)
+  -- the command happened to be used. Without this, decay-based scoring
   -- has no signal that time passed with no use — "idle" was previously
   -- invisible, not recorded as 0. Runs once per VimLeave, never on the
   -- vim.on_key hot path.
@@ -1078,14 +938,13 @@ end
 -- explicit "erase everything" user action, not an incremental update — if it
 -- went through the normal merge, an empty in-memory `usage` would just
 -- resurrect every entry a concurrent instance (or a previous run) still has
--- on disk, and :TobiraReset would silently stop actually resetting anything
--- (#122).
+-- on disk, and :TobiraReset would silently stop actually resetting anything.
 function M.clear_disk()
   write_file()
   sync_baseline()
 end
 
--- Exposed for :checkhealth (#42) so health.lua doesn't recompute or duplicate
+-- Exposed for :checkhealth so health.lua doesn't recompute or duplicate
 -- this path independently.
 function M.data_dir()
   return data_dir

@@ -323,7 +323,7 @@ return {
       example = '{ → cursor jumps to the blank line before the current block',
     },
 
-    -- ── diff mode: manual hunk navigation (#111) ────────────────────────────
+    -- ── diff mode: manual hunk navigation ────────────────────────────────────
     [']c'] = {
       title = ']c — jump to next diff hunk',
       body = 'While &diff is set, jumps straight to the next changed hunk\nFaster than hammering j to hunt for the next difference',
@@ -635,7 +635,7 @@ return {
       example = 'gqip → current paragraph is reflowed to fit the configured line width',
     },
 
-    -- ── format text without moving the cursor (#109) ────────────────────────
+    -- ── format text without moving the cursor ────────────────────────────────
     ['gw'] = {
       title = 'gw{motion} — reflow text without moving the cursor',
       body = 'Same as gq, but the cursor returns to where it started instead of landing at the end of the formatted text\nUseful if you find yourself jumping back with `` or <C-o> right after gq',
@@ -1014,14 +1014,14 @@ return {
       example = 'identifier ... iden<C-n> → completes to identifier',
     },
 
-    -- ── "+y (register-underuse gate, #59) ────────────────────────────────────
+    -- ── "+y (register-underuse gate) ─────────────────────────────────────────
     ['"+y'] = {
       title = '"+y — yank to the system clipboard',
       body = 'You\'ve yanked a lot without ever reaching for the system clipboard\n"+y yanks straight into it, so pasting outside Neovim (or from outside into it with "+p) just works\nSet clipboard=unnamedplus to make y/p use it by default and skip the "+ prefix entirely',
       example = '"+yy a line → paste it into another app with your normal paste key',
     },
 
-    -- ── Ex commands (#57) ─────────────────────────────────────────────────
+    -- ── Ex commands ───────────────────────────────────────────────────────
     ['ex:g'] = {
       title = ':g — run a command over every matching line',
       body = 'Finds every line matching a pattern and runs an Ex command on each one\nReplaces manually repeating n / . one match at a time',
@@ -1033,14 +1033,14 @@ return {
       example = ':%norm A; → append a semicolon to every line',
     },
 
-    -- ── terminal mode: ineffective <Esc> → <C-\><C-n> (#110) ───────────────
+    -- ── terminal mode: ineffective <Esc> → <C-\><C-n> ───────────────────────
     ['<C-\\><C-n>'] = {
       title = '<C-\\><C-n> — exit terminal mode',
       body = 'Inside :terminal, <Esc> is sent straight to the job — it does not leave terminal mode\n<C-\\><C-n> is the actual escape hatch back to Normal mode',
       example = '<C-\\><C-n> → back to Normal mode, the terminal job keeps running',
     },
 
-    -- ── repeated :substitute detection (#115) ────────────────────────────────
+    -- ── repeated :substitute detection ───────────────────────────────────────
     ['&'] = {
       title = '& — repeat the last :substitute on this line',
       body = 'You typed the same :s/pattern/replacement/ by hand on another line\n& repeats the last substitute on the current line, no retyping needed',

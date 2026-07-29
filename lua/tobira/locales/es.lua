@@ -323,7 +323,7 @@ return {
       example = '{ → el cursor salta a la línea en blanco antes del bloque actual',
     },
 
-    -- ── modo diff: navegación manual de bloques (#111) ──────────────────────
+    -- ── modo diff: navegación manual de bloques ──────────────────────────────
     [']c'] = {
       title = ']c — saltar al siguiente bloque de diferencias',
       body = 'Mientras &diff está activo, salta directamente al siguiente bloque modificado\nMás rápido que pulsar j repetidamente para buscar la siguiente diferencia',
@@ -1013,14 +1013,14 @@ return {
       example = 'identifier ... iden<C-n> → completa a identifier',
     },
 
-    -- ── "+y (detección de registro infrautilizado, #59) ─────────────────────
+    -- ── "+y (detección de registro infrautilizado) ───────────────────────────
     ['"+y'] = {
       title = '"+y — copiar al portapapeles del sistema',
       body = 'Has copiado muchas veces sin usar nunca el portapapeles del sistema\n"+y copia directamente a él, así que pegar fuera de Neovim (o pegar desde fuera con "+p) simplemente funciona\nConfigura clipboard=unnamedplus para que y/p usen el portapapeles por defecto y evitar el prefijo "+',
       example = '"+yy una línea → pégala en otra aplicación con tu tecla de pegar habitual',
     },
 
-    -- ── Ex commands (#57) ─────────────────────────────────────────────────
+    -- ── Ex commands ───────────────────────────────────────────────────────
     ['ex:g'] = {
       title = ':g — ejecutar un comando sobre cada línea coincidente',
       body = 'Encuentra cada línea que coincide con un patrón y ejecuta un comando Ex en cada una\nSustituye repetir n / . manualmente en cada coincidencia',
@@ -1032,14 +1032,14 @@ return {
       example = ':%norm A; → añade un punto y coma al final de cada línea',
     },
 
-    -- ── modo terminal: <Esc> sin efecto → <C-\><C-n> (#110) ────────────────
+    -- ── modo terminal: <Esc> sin efecto → <C-\><C-n> ────────────────────────
     ['<C-\\><C-n>'] = {
       title = '<C-\\><C-n> — salir del modo terminal',
       body = 'Dentro de :terminal, <Esc> se envía directamente al proceso — no sale del modo terminal\n<C-\\><C-n> es la salida real al modo Normal',
       example = '<C-\\><C-n> → vuelve al modo Normal, el proceso del terminal sigue en ejecución',
     },
 
-    -- ── detección de :substitute repetido (#115) ─────────────────────────────
+    -- ── detección de :substitute repetido ─────────────────────────────────────
     ['&'] = {
       title = '& — repetir la última sustitución en esta línea',
       body = 'Escribiste a mano el mismo :s/patrón/reemplazo/ en otra línea\n& repite la última sustitución en la línea actual, sin volver a escribirla',

@@ -1,11 +1,12 @@
--- Pure terminal-mode key-streak detection (#110). No vim.* calls.
+-- Pure terminal-mode key-streak detection. No vim.* calls.
 --
 -- A separate, much simpler state machine from patterns.lua's normal-mode
--- seq/feed and patterns_insert.lua's insert-mode iseq/feed_insert (#99's
--- precedent, applied again here): this shares no state with either and is
--- never called from the same code path, so it lives in its own sibling file
--- rather than growing an unrelated third concern onto one of them — see
--- lua/tobira/CLAUDE.md's "Module splitting policy".
+-- seq/feed and patterns_insert.lua's insert-mode iseq/feed_insert (the same
+-- "shares no state, never called from the same code path" precedent applied
+-- again here): this shares no state with either and is never called from the
+-- same code path, so it lives in its own sibling file rather than growing an
+-- unrelated third concern onto one of them — see lua/tobira/CLAUDE.md's
+-- "Module splitting policy".
 --
 -- logger.lua only calls feed_terminal() while its mode cache says the user
 -- is in terminal-job mode (mode() == 't'), passing the canonical key name
@@ -41,15 +42,14 @@
 -- suggest.lua never even sees the repeat attempts.
 --
 -- Deliberately NOT implemented: detecting repeated <C-w> "sent straight
--- through to the job" as an alternative trigger (mentioned as a possible
--- signal in #110's design discussion). <C-w> (delete word before cursor) is
--- an extremely common, legitimate, *repeated* shell-editing action — typing
--- `<C-w><C-w>` to delete the last two words of a half-written command line
--- is completely ordinary. Counting repeated <C-w> the same way repeated
--- <Esc> is counted would false-positive constantly for routine shell use,
--- which the <Esc> signal does not suffer from (see above). #110's
--- acceptance criteria only requires the <Esc> case, so only that is
--- implemented.
+-- through to the job" as an alternative trigger. <C-w> (delete word before
+-- cursor) is an extremely common, legitimate, *repeated* shell-editing
+-- action — typing `<C-w><C-w>` to delete the last two words of a
+-- half-written command line is completely ordinary. Counting repeated
+-- <C-w> the same way repeated <Esc> is counted would false-positive
+-- constantly for routine shell use, which the <Esc> signal does not suffer
+-- from (see above). This feature's acceptance criteria only requires the
+-- <Esc> case, so only that is implemented.
 
 local M = {}
 
