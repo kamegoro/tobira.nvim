@@ -1,6 +1,6 @@
 local config = require('tobira.core.config')
 
-describe('config.values', function()
+describe('the config values available to the rest of the plugin after setup or reset', function()
   before_each(function()
     config.reset()
   end)
@@ -31,7 +31,7 @@ describe('config.values', function()
   end)
 end)
 
-describe('config.setup validation', function()
+describe('when setup is called with an invalid config value', function()
   before_each(function()
     config.reset()
   end)

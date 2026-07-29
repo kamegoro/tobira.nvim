@@ -144,7 +144,7 @@ end)
 
 -- ── get_session_counts ────────────────────────────────────────────────────────
 
-describe('get_session_counts', function()
+describe('when checking in-session keystroke counts before the session closes', function()
   before_each(function()
     wipe_disk()
     logger.reset()
@@ -1479,7 +1479,7 @@ end)
 
 -- ── data_dir / data_file accessors (for :checkhealth, #42) ──────────────────
 
-describe('data_dir and data_file', function()
+describe('when locating the on-disk usage data directory and file (for :checkhealth)', function()
   it('data_file is data_dir with /usage.json appended', function()
     assert.equals(logger.data_dir() .. '/usage.json', logger.data_file())
   end)

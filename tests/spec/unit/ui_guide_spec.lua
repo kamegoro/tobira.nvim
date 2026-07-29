@@ -544,7 +544,7 @@ describe('auto-refresh when switching windows (regression)', function()
   end)
 end)
 
-describe('M.open / M.close / M.toggle (regression)', function()
+describe('when the guide window is opened, closed, or toggled', function()
   after_each(function()
     guide.close()
   end)

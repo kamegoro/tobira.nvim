@@ -432,7 +432,7 @@ end)
 
 -- ── mastery_level ─────────────────────────────────────────────────────────────
 
-describe('mastery_level', function()
+describe('when computing how mastered a command is from its usage count', function()
   it('returns 0 when the command has never been used', function()
     assert.equals(0, graph.mastery_level({ count = 0, sessions = {} }))
   end)
@@ -468,7 +468,7 @@ end)
 
 -- ── is_mastered ───────────────────────────────────────────────────────────────
 
-describe('is_mastered', function()
+describe('when checking whether a command counts as mastered', function()
   it('returns true when count reaches the mastered threshold (100)', function()
     assert.is_true(graph.is_mastered({ count = 100, sessions = {} }))
   end)
@@ -484,7 +484,7 @@ end)
 
 -- ── guide_commands ────────────────────────────────────────────────────────────
 
-describe('guide_commands', function()
+describe('when building the list of commands to show in the guide', function()
   local commands = require('tobira.commands')
 
   local function mastered()
@@ -603,7 +603,7 @@ end)
 
 -- ── knowledge_dist ────────────────────────────────────────────────────────────
 
-describe('knowledge_dist', function()
+describe('when summarizing how many commands are never tried, tried, familiar, or mastered', function()
   it('counts every non-compound command as never when usage is empty', function()
     local dist = graph.knowledge_dist({})
     local commands = require('tobira.commands')
@@ -637,7 +637,7 @@ end)
 
 -- ── efficiency_gaps ───────────────────────────────────────────────────────────
 
-describe('efficiency_gaps', function()
+describe('when a command is used heavily but a more efficient follow-up command is not', function()
   it('returns empty list when usage is empty', function()
     local gaps = graph.efficiency_gaps({})
     assert.equals(0, #gaps)
@@ -703,7 +703,7 @@ end)
 -- explicitly deferred to a follow-up pending design review — see the issue's
 -- own "Phase 2 (later, needs discussion)" section.
 
-describe('is_register_underused', function()
+describe('when checking whether y is used heavily but "+y (system clipboard) is not', function()
   it('is false when y has never been used', function()
     assert.is_false(graph.is_register_underused({}))
   end)
