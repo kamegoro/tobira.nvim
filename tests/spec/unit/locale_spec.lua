@@ -157,6 +157,7 @@ describe('float.reasons locale', function()
     'k_repeat',
     'k_then_o',
     'l_repeat',
+    'macro_opportunity',
     'manual_return',
     'n_repeat',
     'p_repeat',

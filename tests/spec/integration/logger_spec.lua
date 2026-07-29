@@ -2364,3 +2364,160 @@ describe('when the user records a macro', function()
     assert.equals(0, logger.get('j').count)
   end)
 end)
+
+-- ── macro opportunity detection (#60) ────────────────────────────────────────
+-- End-to-end regression pass for the reactive detector added in patterns.lua
+-- (M.feed_macro) and wired into both the normal- and insert-mode branches of
+-- handle_key() here in logger.lua. patterns_spec.lua already covers the pure
+-- detection logic directly; these tests confirm the real keystroke path
+-- (vim.on_key -> handle_key -> patterns.feed_macro) actually reaches it,
+-- through real Neovim edits rather than direct patterns.feed_macro() calls.
+describe('macro opportunity detection (#60)', function()
+  local esc = vim.api.nvim_replace_termcodes('<Esc>', true, false, true)
+
+  before_each(function()
+    logger.reset()
+    logger.on_pattern = nil
+    logger.setup()
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+    if vim.fn.mode() ~= 'n' then
+      vim.cmd('stopinsert')
+    end
+  end)
+
+  local function feed_and_collect(keys)
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+    vim.fn.feedkeys(keys, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    return fired
+  end
+
+  it('fires macro_opportunity suggesting @q when cwFooBar<Esc> is repeated 3x with j navigation between', function()
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'aaaaaa', 'aaaaaa', 'aaaaaa' })
+    vim.api.nvim_win_set_cursor(0, { 1, 0 })
+    local rep = 'cwFooBar' .. esc
+    local fired = feed_and_collect(rep .. 'j' .. rep .. 'j' .. rep)
+    local macro_fired = nil
+    for _, f in ipairs(fired) do
+      if f.pattern == 'macro_opportunity' then
+        macro_fired = f
+      end
+    end
+    assert.is_not_nil(macro_fired, 'expected macro_opportunity to fire')
+    assert.equals('@q', macro_fired.cmd)
+  end)
+
+  it('does not fire macro_opportunity when the same edit sequence happens only twice', function()
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'aaaaaa', 'aaaaaa', 'aaaaaa' })
+    vim.api.nvim_win_set_cursor(0, { 1, 0 })
+    local rep = 'cwFooBar' .. esc
+    local fired = feed_and_collect(rep .. 'j' .. rep)
+    for _, f in ipairs(fired) do
+      assert.are_not.equal('macro_opportunity', f.pattern)
+    end
+  end)
+
+  it('does not fire macro_opportunity when the repeated sequence itself types the letter q', function()
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'aaaaaa', 'aaaaaa', 'aaaaaa' })
+    vim.api.nvim_win_set_cursor(0, { 1, 0 })
+    local rep = 'cwq' .. esc
+    local fired = feed_and_collect(rep .. 'j' .. rep .. 'j' .. rep)
+    for _, f in ipairs(fired) do
+      assert.are_not.equal('macro_opportunity', f.pattern)
+    end
+  end)
+
+  it('fires macro_opportunity for a repeated edit sequence entirely within Normal mode', function()
+    -- x / X never enter insert mode — this exercises the branch of
+    -- handle_key() where macro_result is the ONLY candidate pattern for the
+    -- keystroke (patterns.feed()'s own `result` and feed_after_escape's
+    -- `co_result` are both nil), as opposed to the cw-based tests above
+    -- which fire from inside handle_insert_key().
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'aaaaaaaaaaaa', 'aaaaaaaaaaaa', 'aaaaaaaaaaaa' })
+    vim.api.nvim_win_set_cursor(0, { 1, 5 })
+    local rep = 'xXx'
+    local fired = feed_and_collect(rep .. 'j' .. rep .. 'j' .. rep)
+    local macro_fired = nil
+    for _, f in ipairs(fired) do
+      if f.pattern == 'macro_opportunity' then
+        macro_fired = f
+      end
+    end
+    assert.is_not_nil(macro_fired, 'expected macro_opportunity to fire')
+    assert.equals('@q', macro_fired.cmd)
+  end)
+
+  it(
+    'does not fire macro_opportunity for 12x bare j, and fires j_repeat instead (#60 follow-up bug: '
+      .. 'holding j to scroll used to steal priority from j_repeat)',
+    function()
+      vim.cmd('enew')
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'aaaaaa', 'aaaaaa', 'aaaaaa', 'aaaaaa', 'aaaaaa', 'aaaaaa' })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+      local fired = feed_and_collect(string.rep('j', 12))
+      local j_repeat_fired = false
+      for _, f in ipairs(fired) do
+        assert.are_not.equal('macro_opportunity', f.pattern)
+        if f.pattern == 'j_repeat' then
+          j_repeat_fired = true
+        end
+      end
+      assert.is_true(j_repeat_fired, 'expected j_repeat to fire')
+    end
+  )
+
+  it(
+    'does not fire macro_opportunity for 0fh repeated 4x, and fires f_repeat instead (#60 follow-up bug: '
+      .. 'multi-key navigation repeated back-to-back used to steal priority from f_repeat)',
+    function()
+      vim.cmd('enew')
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'hhhhhh', 'hhhhhh', 'hhhhhh', 'hhhhhh' })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+      local fired = feed_and_collect(string.rep('0fh', 4))
+      local f_repeat_fired = false
+      for _, f in ipairs(fired) do
+        assert.are_not.equal('macro_opportunity', f.pattern)
+        if f.pattern == 'f_repeat' then
+          f_repeat_fired = true
+        end
+      end
+      assert.is_true(f_repeat_fired, 'expected f_repeat to fire')
+    end
+  )
+
+  it('is suppressed while the user is recording a macro (reg_recording() ~= "")', function()
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'aaaaaa', 'aaaaaa', 'aaaaaa' })
+    vim.api.nvim_win_set_cursor(0, { 1, 0 })
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+    local rep = 'cwFooBar' .. esc
+
+    vim.fn.feedkeys('qa', 'xt') -- start recording into register a
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys(rep .. 'j', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys(rep .. 'j', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys(rep, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('q', 'xt') -- stop recording
+    vim.api.nvim_feedkeys('', 'x', false)
+
+    for _, f in ipairs(fired) do
+      assert.are_not.equal('macro_opportunity', f.pattern)
+    end
+  end)
+end)

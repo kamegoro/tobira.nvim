@@ -124,6 +124,7 @@ return {
       manual_return = 'You jumped to a distant spot, then scrolled back manually',
       changelist_return = 'You edited two different spots, then scrolled back manually to find the first one',
       terminal_esc_repeat = 'You pressed <Esc> twice in a row in terminal mode with no effect',
+      macro_opportunity = 'You typed the same edit sequence 3 times in a row by hand',
       substitute_repeat = 'You ran the same :s/// substitution manually on a second line',
       substitute_repeat_wide = 'You ran the same :s/// substitution manually on a third line',
       ex_file_pingpong = 'You bounced between the same two files with :e/:b a few times in a row',

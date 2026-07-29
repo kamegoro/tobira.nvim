@@ -124,6 +124,7 @@ return {
       manual_return = 'Saltaste a un lugar lejano y luego retrocediste desplazándote manualmente',
       changelist_return = 'Editaste dos lugares distintos y luego retrocediste desplazándote manualmente para encontrar el primero',
       terminal_esc_repeat = 'Presionaste <Esc> dos veces seguidas en modo terminal sin ningún efecto',
+      macro_opportunity = 'Escribiste la misma secuencia de edición 3 veces seguidas a mano',
       substitute_repeat = 'Ejecutaste la misma sustitución :s/// a mano en una segunda línea',
       substitute_repeat_wide = 'Ejecutaste la misma sustitución :s/// a mano en una tercera línea',
       ex_file_pingpong = 'Alternaste varias veces seguidas entre los mismos dos archivos con :e/:b',

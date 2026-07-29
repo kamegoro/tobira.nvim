@@ -23,7 +23,7 @@ it quietly shows you the one command that would have helped. No quizzes. No inte
 ## ✨ Features
 
 - 👀 **Fully passive** — reads keystrokes via `vim.on_key()`; no config required, zero impact on your existing mappings
-- 🎯 **55 detected patterns** — repeated `f`, hammering `j`, `dw`→`i` instead of `cw`, insert-mode habits like `<BS>` spam, bouncing in and out with `<Esc>i`, a one-shot `<Esc>`→motion→`i` round trip, retyping the same identifier instead of using `<C-n>`, getting stuck in terminal mode, manually scrolling back to a place you jumped or edited before, retyping the same `:s///` substitution across lines instead of using `&`/`g&`, bouncing between the same two files with `:e`/`:b` instead of `<C-^>`, using `:tabnew` as a one-tab-per-file browser, and more across motion, edit, search, window, fold, mark, macro, diff, ex, and terminal
+- 🎯 **54 detected patterns** — repeated `f`, hammering `j`, `dw`→`i` instead of `cw`, insert-mode habits like `<BS>` spam, bouncing in and out with `<Esc>i`, a one-shot `<Esc>`→motion→`i` round trip, retyping the same identifier instead of using `<C-n>`, getting stuck in terminal mode, manually scrolling back to a place you jumped or edited before, manually repeating the same edit sequence 3 times instead of recording a macro, retyping the same `:s///` substitution across lines instead of using `&`/`g&`, bouncing between the same two files with `:e`/`:b` instead of `<C-^>`, using `:tabnew` as a one-tab-per-file browser, and more across motion, edit, search, window, fold, mark, macro, diff, ex, and terminal
 - ⌨️ **Ex commands, too** — `:g`, `:norm`, `:s`, and friends are tracked from the command line itself, not just normal-mode keys, so `:g` / `:norm` can be suggested to users who have never tried them (tobira's own `:Tobira*` commands are excluded, so checking your stats never counts as usage)
 - 💬 **One suggestion at a time** — shown after a natural pause, capped per session, with a cooldown between auto-suggestions — never a popup quiz
 - 📈 **Mastery-aware** — once you've used a command ~100 times, tobira stops suggesting it and moves on
@@ -147,12 +147,13 @@ plugin-detection boost, not that baseline behavior (see `:help tobira-integratio
 | `<Esc>` × 2 in terminal mode, no effect | `<C-\><C-n>` — exit terminal mode |
 | `G`, then scroll back manually | `<C-o>` — jump back to where you were |
 | Edit here, edit there, scroll back manually | `g;` — jump to your last edit |
+| `cwFooBar<Esc>` repeated 3× (navigation allowed between) | `qq...q` / `@q` — record and replay a macro |
 | Same `:s/pat/repl/` retyped on a 2nd line | `&` — repeat the last substitute here |
 | Same `:s/pat/repl/` retyped on a 3rd line | `g&` — repeat it across the whole file |
 | `:e A` → `:e B` → `:e A` (or the equivalent with `:b`) | `<C-^>` — jump straight to the alternate file |
 | `:tabnew {distinct file}` × 3, one tab each | `<C-^>` — switch buffers instead of opening a tab per file |
 
-55 patterns total — see `:help tobira-patterns` for the full list.
+54 patterns total — see `:help tobira-patterns` for the full list.
 
 ## 🆚 Similar plugins
 

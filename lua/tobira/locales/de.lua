@@ -124,6 +124,7 @@ return {
       manual_return = 'Du bist zu einer entfernten Stelle gesprungen und dann manuell zurückgescrollt',
       changelist_return = 'Du hast an zwei verschiedenen Stellen bearbeitet und bist dann manuell zurückgescrollt, um die erste wiederzufinden',
       terminal_esc_repeat = 'Du hast im Terminal-Modus zweimal hintereinander <Esc> gedrückt, ohne Effekt',
+      macro_opportunity = 'Du hast dieselbe Bearbeitungsfolge 3-mal hintereinander von Hand eingegeben',
       substitute_repeat = 'Du hast dieselbe :s///-Ersetzung von Hand auf einer zweiten Zeile ausgeführt',
       substitute_repeat_wide = 'Du hast dieselbe :s///-Ersetzung von Hand auf einer dritten Zeile ausgeführt',
       ex_file_pingpong = 'Du bist mehrmals hintereinander mit :e/:b zwischen denselben zwei Dateien hin- und hergesprungen',
