@@ -122,8 +122,13 @@ require("tobira").setup({
   idle_suggestions    = true,    -- enable ambient idle suggestions
   suggestion_cooldown = 300,     -- s between automatic suggestions (default: 5 min)
   max_shown           = 2,       -- max times to suggest the same command per session
+  integrations        = true,    -- boost suggestions when a known helper plugin is installed
 })
 ```
+
+tobira always respects your own `:nmap`/`:nnoremap` overrides — it never suggests a
+command you've remapped away, and `integrations` above only gates the optional
+plugin-detection boost, not that baseline behavior (see `:help tobira-integrations`).
 
 ## 🎯 Detected patterns (examples)
 

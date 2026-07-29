@@ -134,6 +134,7 @@ Default configuration: >lua
     idle_suggestions   = true,
     suggestion_cooldown = 300,
     max_shown          = 2,
+    integrations       = true,
   })
 <
 
@@ -160,6 +161,15 @@ Default configuration: >lua
 `max_shown` (number, default: `2`)
   Maximum number of times the same command suggestion is shown per session.
   Resets to 0 on each Neovim startup.
+
+                                                    *tobira-config-integrations*
+`integrations` (boolean, default: `true`)
+  Whether to boost a suggestion when a relevant helper plugin
+  (surround.nvim/mini.surround, flash.nvim, leap.nvim, hop.nvim, and their
+  mini.nvim/nvim-surround equivalents) is detected and its usage threshold is
+  met. Set to `false` to disable this optional boost.
+  This does NOT control whether tobira respects your own keymap overrides —
+  that is always on, see |tobira-integrations|.
 
 ==============================================================================
 5. USAGE                                                           *tobira-usage*
@@ -222,6 +232,50 @@ Usage data is stored locally at: >
   ~/.local/share/nvim/tobira/usage.json
 <
 No data is sent externally. The file is updated on |VimLeave|.
+
+                                                          *tobira-integrations*
+KEYMAP OVERRIDES AND PLUGIN INTEGRATIONS ~
+
+tobira never intercepts or changes your keymaps — it only observes them
+(see |tobira-introduction|). At startup, and again whenever Neovim finishes
+starting up (`VimEnter`) or a plugin script finishes loading (`SourcePost`),
+tobira reads your current normal-mode `:map`/`:nmap`/`:nnoremap` state to
+find out which of its own teachable commands you have personally remapped.
+
+If you have remapped a command tobira would otherwise suggest (for example
+`nnoremap Y y$`, or a plugin binding like `nmap s <Plug>(some-plugin-thing)`),
+tobira never offers that command as a suggestion — introducing something you
+have already deliberately bound to a different behavior would not teach you
+anything. This applies to every proactive suggestion path, including the
+"Try these next" efficiency-gap list in |:TobiraStats| — a command whose key
+you have remapped never appears there either, even if its trigger's usage
+count would otherwise qualify it.
+
+|:TobiraGuide|'s auto-generated cheat-sheet still lists a remapped command if
+the remap is functionally equivalent to what tobira documents (shown with a
+"mapped to ..." note), but omits it entirely when the remap does something
+unrelated (e.g. a `<Plug>` mapping into a different plugin). The Pinned
+section at the top of the same panel is the one exception to "omit it
+entirely": since you pinned that command on purpose, tobira never makes it
+disappear silently. A functionally-equivalent remap still substitutes
+wording exactly like the auto section; a different remap instead keeps the
+row (so you can see your pin is still there) but replaces its description
+with a "remapped to ... — no longer valid" note.
+
+Because this check only runs at startup/`VimEnter`/`SourcePost`, a mapping
+you create interactively afterwards (typing `:nnoremap` directly at the
+command line) may cause one stale suggestion before tobira notices on its
+next automatic refresh. This is expected and considered an acceptable
+trade-off against re-checking keymaps on every keystroke.
+
+Separately, when `integrations` (see |tobira-config-integrations|) is
+enabled and tobira detects a supported helper plugin
+(surround.nvim/mini.surround, flash.nvim, leap.nvim, or hop.nvim) alongside
+enough usage of a related built-in command, it boosts a related suggestion
+so it surfaces sooner. Plugin presence is detected by checking the
+`runtimepath` for the plugin's Lua module — tobira never calls `require()`
+on a plugin itself, so checking for it never forces a lazily-loaded plugin
+to load.
 
 ==============================================================================
 6. DETECTED PATTERNS                                              *tobira-patterns*

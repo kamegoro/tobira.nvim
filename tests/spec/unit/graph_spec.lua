@@ -697,6 +697,167 @@ describe('when a command is used heavily but a more efficient follow-up command 
   end)
 end)
 
+-- ── efficiency_gaps keymap overrides (#164) ──────────────────────────────────
+-- efficiency_gaps() powers :TobiraStats's "Try these next" section -- the
+-- panel's own headline actionable section, and unlike find_best() it does not
+-- go through find_best's gates at all, so it needs its own override filter
+-- rather than inheriting one for free. Mirrors find_best's own filter (see
+-- its header comment / the "keymap overrides (#63)" describe block below): a
+-- candidate whose own key is remapped is excluded regardless of whether the
+-- remap is functionally equivalent to what tobira would otherwise teach.
+
+describe('when a gap candidate has been remapped by the user', function()
+  it('is excluded from efficiency_gaps, even though its trigger count would otherwise qualify it', function()
+    local usage = { f = { count = 200, sessions = {} } }
+    local without = graph.efficiency_gaps(usage)
+    local found_without = false
+    for _, g in ipairs(without) do
+      if g.child == ';' then
+        found_without = true
+      end
+    end
+    assert.is_true(found_without, 'expected f -> ; to be a gap before any override is applied')
+
+    local overrides = { [';'] = { rhs = '<Plug>(something)', equivalent = false } }
+    local with = graph.efficiency_gaps(usage, nil, overrides)
+    for _, g in ipairs(with) do
+      assert.not_equals(';', g.child, '; must be excluded from gaps once its key is remapped')
+    end
+  end)
+
+  it('does not affect an unrelated gap when a different key is overridden (regression guard)', function()
+    local usage = { f = { count = 200, sessions = {} } }
+    local overrides = { j = { rhs = 'gj', equivalent = false } }
+    local without = graph.efficiency_gaps(usage)
+    local with = graph.efficiency_gaps(usage, nil, overrides)
+    assert.equals(#without, #with)
+  end)
+
+  it('still returns the candidate normally when no overrides table is passed (nil is a no-op)', function()
+    local usage = { f = { count = 200, sessions = {} } }
+    local gaps = graph.efficiency_gaps(usage, nil, nil)
+    local found = false
+    for _, g in ipairs(gaps) do
+      if g.child == ';' then
+        found = true
+      end
+    end
+    assert.is_true(found)
+  end)
+end)
+
+-- ── keymap overrides (#63) ────────────────────────────────────────────────────
+-- find_best() is the proactive (ambient / :Tobira manual) suggestion pool.
+-- Any candidate whose own key has been remapped by the user is filtered out
+-- of this pool entirely, regardless of whether the remap is functionally
+-- equivalent to what tobira would teach -- introducing a concept the user has
+-- already deliberately bound to that key teaches nothing new. (ui/guide.lua's
+-- persistent cheat-sheet, which bypasses find_best entirely, is where the
+-- equivalent/different distinction actually matters -- see ui_guide_spec.lua.)
+
+describe('when a candidate command has been remapped by the user', function()
+  it('is never returned by find_best, even though it would otherwise win outright', function()
+    -- nnoremap Y y$ (#63 AC1): Y requires 'p' and would otherwise win with
+    -- score 10 (10 - 0); tobira's own commands.lua entry already documents Y
+    -- as "same as y$", so a user who bound Y to literally run y$ has already
+    -- established this on their own -- the override marks it `equivalent`,
+    -- but find_best excludes it regardless (see this describe block's header).
+    local original_suggestions = graph.suggestions
+    graph.suggestions = {
+      Y = { cmd = 'Y', trigger = 'p', level = 'beginner', category = 'edit' },
+    }
+    local usage = { p = usage_entry(10) }
+    local without = graph.find_best(usage)
+    local overrides = { Y = { rhs = 'y$', equivalent = true } }
+    local with = graph.find_best(usage, nil, nil, overrides)
+    graph.suggestions = original_suggestions
+    assert.equals('Y', without)
+    assert.is_nil(with)
+  end)
+
+  it('removes it from the pool even when the remap is not functionally equivalent', function()
+    local original_suggestions = graph.suggestions
+    graph.suggestions = {
+      s = { cmd = 's', trigger = 'x', level = 'beginner', category = 'edit' },
+    }
+    local overrides = { s = { rhs = '<Plug>(some-plugin-thing)', equivalent = false } }
+    local result = graph.find_best({ x = usage_entry(10) }, nil, nil, overrides)
+    graph.suggestions = original_suggestions
+    assert.is_nil(result, 's must be excluded once its key is remapped, even to something semantically different')
+  end)
+
+  it('does not affect an unrelated candidate when a different key is overridden (#63 AC3 regression guard)', function()
+    -- 'j' is only ever a trigger, never a candidate's own key, so overriding
+    -- it must never change find_best's ordinary behavior for j-triggered
+    -- suggestions like <C-d> (nnoremap j gj must not disturb <C-d>'s scoring).
+    local original_suggestions = graph.suggestions
+    graph.suggestions = {
+      ['<C-d>'] = { cmd = '<C-d>', trigger = 'j', level = 'beginner', category = 'motion' },
+    }
+    local usage = { j = usage_entry(10) }
+    local overrides = { j = { rhs = 'gj', equivalent = false } }
+    local without = graph.find_best(usage)
+    local with = graph.find_best(usage, nil, nil, overrides)
+    graph.suggestions = original_suggestions
+    assert.equals('<C-d>', without)
+    assert.equals(without, with)
+  end)
+
+  it('still returns the candidate normally when no overrides table is passed (nil is a no-op, not "everything filtered")', function()
+    local original_suggestions = graph.suggestions
+    graph.suggestions = {
+      Y = { cmd = 'Y', trigger = 'p', level = 'beginner', category = 'edit' },
+    }
+    local usage = { p = usage_entry(10) }
+    local result = graph.find_best(usage, nil, nil, nil)
+    graph.suggestions = original_suggestions
+    assert.equals('Y', result)
+  end)
+end)
+
+-- ── phase 2: integration promotions (#63) ────────────────────────────────────
+-- graph.find_best() consumes a plain `promotions` table (cmd -> true) computed
+-- by core/integrations.lua -- graph.lua itself never detects plugins or reads
+-- config, keeping it pure (see lua/tobira/CLAUDE.md's module dependency
+-- rules). A promoted candidate bypasses the ordinary "trigger_count > 0" gate
+-- (integrations.lua already verified real usage evidence before promoting),
+-- but still has to pass every other gate (mastery / suppression / shown cap).
+
+describe('when a suggestion is promoted by the integrations layer', function()
+  it('is offered even though its trigger has never been used', function()
+    assert.is_nil(graph.find_best({}))
+    local promotions = { [';'] = true }
+    assert.equals(';', graph.find_best({}, nil, nil, nil, promotions))
+  end)
+
+  it('still respects suppression', function()
+    local usage = { [';'] = usage_entry(0, {}, 0, true) }
+    local promotions = { [';'] = true }
+    assert.is_nil(graph.find_best(usage, nil, nil, nil, promotions))
+  end)
+
+  it('still respects the mastery gate', function()
+    -- Isolated so ';' being mastered can't also make some other real
+    -- ';'-triggered suggestion (',') win ordinarily and mask the assertion.
+    local original_suggestions = graph.suggestions
+    graph.suggestions = {
+      [';'] = { cmd = ';', trigger = 'f', level = 'beginner', category = 'motion' },
+    }
+    local usage = { [';'] = usage_entry(100, {}), f = usage_entry(10) }
+    local promotions = { [';'] = true }
+    local result = graph.find_best(usage, nil, nil, nil, promotions)
+    graph.suggestions = original_suggestions
+    assert.is_nil(result)
+  end)
+
+  it('only promotes the exact candidate named in the promotions table', function()
+    -- ',' requires ';', and ';' has never been used -- promoting ';' (not ',')
+    -- must not accidentally let ',' bypass its own trigger gate too.
+    local promotions = { [';'] = true }
+    assert.equals(';', graph.find_best({}, nil, nil, nil, promotions))
+  end)
+end)
+
 -- ── register underuse: "+y system-clipboard promotion (#59) ─────────────────
 -- Scope note: only the clipboard heuristic (y count >= 20, "+y count == 0) is
 -- implemented here. The issue's "wrong paste" / register-0 heuristics are

@@ -6,6 +6,12 @@ local _defaults = {
   suggestion_cooldown = 300,
   max_shown = 2,
   lang = 'en',
+  -- #63 phase 2: gates core/integrations.lua's plugin-detection promotions
+  -- (e.g. boosting a suggestion when surround.nvim/flash.nvim is installed).
+  -- Does NOT gate phase 1 (respecting the user's own keymap overrides) --
+  -- that baseline correctness behavior stays on unconditionally, see
+  -- integrations.lua's header comment for why a flag there would be a footgun.
+  integrations = true,
 }
 
 M.values = vim.deepcopy(_defaults)
@@ -18,6 +24,7 @@ function M.setup(opts)
     suggestion_cooldown = { cfg.suggestion_cooldown, 'number' },
     max_shown = { cfg.max_shown, 'number' },
     lang = { cfg.lang, 'string' },
+    integrations = { cfg.integrations, 'boolean' },
   })
   if not ok then
     -- Use i18n.load() with the *incoming* (possibly invalid) lang value:

@@ -6,6 +6,8 @@ return {
     pinned = '已固定',
     forgotten_suffix = '（已生疏）',
     more_suffix = '还有 %d 项',
+    remapped_suffix = '（已映射到 %s）',
+    remapped_invalid = '已重新映射到 %s — 该说明已不再适用',
   },
   progress = {
     title = 'tobira — 你的 vim 之旅',
@@ -49,6 +51,7 @@ return {
     reset = 'tobira: 使用日志已重置',
     no_suggestions = 'tobira: 目前没有新的建议 🎉',
     invalid_config = 'tobira: 配置无效 — ',
+    remap_detected = 'tobira: %s 已被重新映射（%s）— 已从建议池中移除',
   },
   stats = {
     title = 'tobira — 使用统计',

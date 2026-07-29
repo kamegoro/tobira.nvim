@@ -2,6 +2,7 @@ local config = require('tobira.core.config')
 local logger = require('tobira.core.logger')
 local graph = require('tobira.core.graph')
 local level = require('tobira.core.level')
+local integrations = require('tobira.core.integrations')
 
 local M = {}
 
@@ -52,9 +53,18 @@ local function buf_matches(cmd, buf)
   return #buf >= #cmd and buf:sub(-#cmd) == cmd
 end
 
+-- #63: covers the reactive path (suggest.queue/show called directly with a
+-- specific cmd from a pattern module) the same way graph.find_best() covers
+-- the proactive (ambient/manual) path -- neither goes through the other, so
+-- both need their own override check. This is the single choke point every
+-- call to do_show goes through, so ui/float.lua never has to special-case a
+-- remapped command itself.
 local function should_suppress(cmd)
   local data = logger.get(cmd)
-  return graph.is_mastered(data) or data.suppressed or data.shown >= config.values.max_shown
+  return graph.is_mastered(data)
+    or data.suppressed
+    or data.shown >= config.values.max_shown
+    or integrations.is_overridden(cmd)
 end
 
 local function cancel_timer()
@@ -127,7 +137,14 @@ local function fire_ambient()
   if over_auto_limit() then
     return
   end
-  local best = graph.find_best(logger.get_all(), config.values.max_shown, level.ceiling(level.get()))
+  local usage = logger.get_all()
+  local best = graph.find_best(
+    usage,
+    config.values.max_shown,
+    level.ceiling(level.get()),
+    integrations.get_overrides(),
+    integrations.get_promotions(usage)
+  )
   if best then
     M.show(best)
   end
@@ -200,7 +217,14 @@ function M.reset_session()
 end
 
 function M.manual()
-  local best = graph.find_best(logger.get_all(), config.values.max_shown, level.ceiling(level.get()))
+  local usage = logger.get_all()
+  local best = graph.find_best(
+    usage,
+    config.values.max_shown,
+    level.ceiling(level.get()),
+    integrations.get_overrides(),
+    integrations.get_promotions(usage)
+  )
   if not best then
     local str = require('tobira.i18n').load()
     vim.notify(str.notifications.no_suggestions, vim.log.levels.INFO)
