@@ -283,6 +283,13 @@ WINDOW ~
 
   `<C-w>q` / `<C-w>c` × 2       Suggest `<C-w>o` — close all other windows
 
+MACRO ~
+
+  Same edit sequence × 3        Suggest `qq...q` / `@q` — record and replay a macro
+                                 (navigation allowed between repeats; not suggested
+                                 while already recording, or if the sequence itself
+                                 contains `q` or `@`)
+
 DIFF ~
 
   `j` × 10 (while `&diff`)      Suggest `]c`    — jump to the next diff hunk

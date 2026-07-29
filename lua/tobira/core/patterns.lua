@@ -95,6 +95,11 @@ function M.new_seq()
     change_return_streak = 0,
     -- true once g; has been pressed this session — mirrors ctrl_o_seen (#61).
     g_semi_seen = false,
+    -- macro opportunity detection (#60) — see M.feed_macro() above. Array of
+    -- { tok, t, nav_run } entries, one per keystroke fed via M.feed_macro();
+    -- fed from BOTH the normal- and insert-mode branches of logger.lua's
+    -- handle_key(), unlike seq's other fields which are normal-mode only.
+    macro_buf = {},
   }
 end
 
@@ -163,6 +168,209 @@ local RETURN_MOTION_KEYS = {
 local EDIT_OP_KEYS = { x = true, X = true }
 for k in pairs(INSERT_KEYS) do
   EDIT_OP_KEYS[k] = true
+end
+
+-- ── macro opportunity detection (#60) ────────────────────────────────────────
+-- Watches for the user manually repeating an identical edit sequence 3+ times
+-- — exactly the case where recording a macro (qq...q, then @q) would pay off.
+--
+-- This is a second, independent rolling buffer (seq.macro_buf), NOT the
+-- 20-char one in suggest.lua — that buffer is normalised/capped for a
+-- completely different purpose (watching for adoption of one already-shown
+-- suggestion) and is far too short to hold 3 repetitions of a 15-key
+-- sequence.
+--
+-- It is fed through its own M.feed_macro() entry point rather than folded
+-- into M.feed()/inner_feed(): inner_feed() only ever sees normal-mode keys,
+-- but the repeated *edit* this feature cares about (e.g. "cwFooBar<Esc>")
+-- spans into insert mode for the typed replacement text. Piping insert-mode
+-- characters through inner_feed would corrupt its normal-mode
+-- operator-pending grammar (a stray "F" arriving while seq.pending_op
+-- happens to be set would misfire as a find-command). This is the exact same
+-- shape of problem #105's feed_after_escape() solves one file over in
+-- patterns_insert.lua — a detector whose target crosses the mode boundary
+-- gets its own entry point, fed by logger.lua's orchestration layer from
+-- whichever branch(es) of handle_key() see the relevant keys, independently
+-- of the mode-specific grammar state machine. See logger.lua's
+-- handle_macro_key() for where M.feed_macro() is called from both the
+-- normal- and insert-mode branches of handle_key().
+--
+-- The pitfall this is deliberately designed around: a naive per-character
+-- classifier ("h/j/k/l/w/b/e/W/B/E/0/$/^ are motion keys — scan the whole
+-- buffer for motion runs") misfires on this very feature's headline example.
+-- `cwFooBar<Esc>` itself contains a lowercase `w` and an uppercase `B`, both
+-- in that same motion-key set, so a naive scanner would wrongly treat
+-- characters INSIDE the repeated sequence as if they were navigation
+-- BETWEEN repetitions.
+--
+-- The fix used here: first find anchored, exact matches of a candidate
+-- length-L window against EARLIER buffer content (i.e. locate where the
+-- sequence actually, literally repeats), and only apply the "gap must be
+-- pure navigation" check to the keys strictly BETWEEN two already-matched
+-- occurrences — never to characters inside an occurrence itself.
+--
+-- Performance: bounded, not a rescan-the-whole-buffer-per-keystroke search.
+-- Candidate length L ranges only over [MACRO_MIN_LEN, MACRO_MAX_LEN] (13
+-- values). For each L, how far back to look for the previous occurrence is
+-- bounded by that position's actual navigation-key streak (nav_run, tracked
+-- incrementally in O(1) per keystroke exactly like seq.run elsewhere in this
+-- file) capped at MACRO_MAX_GAP — so the common case (no navigation streak
+-- in progress right before the candidate window) tries exactly one
+-- candidate position per L, and the search only widens when the buffer
+-- itself shows a real navigation streak to search across. See the PR
+-- description for the measured per-keystroke cost.
+local MACRO_MIN_LEN = 3
+local MACRO_MAX_LEN = 15
+local MACRO_MAX_GAP = 20 -- max navigation keys allowed in one gap between reps
+local MACRO_WINDOW_MS = 30000 -- all 3 occurrences must fall within this span
+local MACRO_BUF_SOFT_CAP = 100 -- trimmed back down to this once the hard cap is hit
+local MACRO_BUF_HARD_CAP = 150
+
+-- Keys allowed in the gap BETWEEN two matched occurrences of S. Deliberately
+-- the exact set named in the pitfall description above — membership in this
+-- set is only ever consulted for gap positions, never used to decide whether
+-- characters inside an already-anchored S count as "the same edit" or not.
+local MACRO_NAV_KEYS = {
+  h = true,
+  j = true,
+  k = true,
+  l = true,
+  w = true,
+  b = true,
+  e = true,
+  W = true,
+  B = true,
+  E = true,
+  ['0'] = true,
+  ['$'] = true,
+  ['^'] = true,
+}
+for d = 1, 9 do
+  MACRO_NAV_KEYS[tostring(d)] = true
+end
+
+-- Slides seq.macro_buf's contents down by `drop` slots once it has grown
+-- past MACRO_BUF_HARD_CAP, so the array never grows unbounded. Only runs
+-- once every (HARD_CAP - SOFT_CAP) appends, so it is O(1) amortised.
+local function macro_trim(buf)
+  local n = #buf
+  if n <= MACRO_BUF_HARD_CAP then
+    return
+  end
+  local drop = n - MACRO_BUF_SOFT_CAP
+  for i = drop + 1, n do
+    buf[i - drop] = buf[i]
+  end
+  for i = n - drop + 1, n do
+    buf[i] = nil
+  end
+end
+
+local function macro_windows_equal(buf, a_start, b_start, len)
+  for i = 0, len - 1 do
+    if buf[a_start + i].tok ~= buf[b_start + i].tok then
+      return false
+    end
+  end
+  return true
+end
+
+-- S must not itself contain a register/macro key — recording a macro to
+-- replay a sequence that already plays or records a macro is not a sane
+-- suggestion.
+local function macro_contains_bad(buf, s_start, s_end)
+  for i = s_start, s_end do
+    local tok = buf[i].tok
+    if tok == 'q' or tok == '@' then
+      return true
+    end
+  end
+  return false
+end
+
+-- Anchored search: does buf end (at index n) with 3 occurrences of some
+-- length-L window, each pair separated only by navigation keys? Only
+-- examines the GAP between matched windows for navigation-key membership —
+-- the windows themselves are compared by exact token equality.
+local function macro_check_len(buf, n, l)
+  local s_start = n - l + 1
+  if s_start < 1 then
+    return false
+  end
+  if macro_contains_bad(buf, s_start, n) then
+    return false
+  end
+
+  local before1 = buf[s_start - 1]
+  local gap1_max = before1 and math.min(before1.nav_run, MACRO_MAX_GAP) or 0
+  local occ2_start = nil
+  for g = 0, gap1_max do
+    local j_end = s_start - 1 - g
+    local j_start = j_end - l + 1
+    if j_start < 1 then
+      break
+    end
+    if macro_windows_equal(buf, j_start, s_start, l) then
+      occ2_start = j_start
+      break
+    end
+  end
+  if not occ2_start then
+    return false
+  end
+
+  local before2 = buf[occ2_start - 1]
+  local gap2_max = before2 and math.min(before2.nav_run, MACRO_MAX_GAP) or 0
+  local occ1_start = nil
+  for g = 0, gap2_max do
+    local k_end = occ2_start - 1 - g
+    local k_start = k_end - l + 1
+    if k_start < 1 then
+      break
+    end
+    if macro_windows_equal(buf, k_start, s_start, l) then
+      occ1_start = k_start
+      break
+    end
+  end
+  if not occ1_start then
+    return false
+  end
+
+  return (buf[n].t - buf[occ1_start].t) <= MACRO_WINDOW_MS
+end
+
+local function macro_detect(seq)
+  local buf = seq.macro_buf
+  local n = #buf
+  for l = MACRO_MIN_LEN, MACRO_MAX_LEN do
+    if macro_check_len(buf, n, l) then
+      return { pattern = 'macro_opportunity', cmd = '@q' }
+    end
+  end
+  return nil
+end
+
+-- token: the key/canonical-name logger.lua wants recorded for this
+-- keystroke — the same raw key for ordinary characters, or a readable name
+-- like '<Esc>' for the handful of special keys logger.lua already resolves
+-- via its INSERT_SPECIAL table for patterns_insert.lua (#58). patterns.lua
+-- itself never calls vim.* to compute this (module dependency rules in
+-- lua/tobira/CLAUDE.md) — it is threaded in as a parameter exactly like
+-- is_diff/now above.
+-- now: optional caller-supplied clock reading (ms), same convention as
+-- M.feed's `now` — omitted calls behave as if now == 0 on every call.
+function M.feed_macro(seq, token, now)
+  local t = now or 0
+  local buf = seq.macro_buf
+  local prev = buf[#buf]
+  local nav_run = 0
+  if MACRO_NAV_KEYS[token] then
+    nav_run = (prev and prev.nav_run or 0) + 1
+  end
+  buf[#buf + 1] = { tok = token, t = t, nav_run = nav_run }
+  macro_trim(buf)
+  return macro_detect(seq)
 end
 
 local function track_run(seq, key)

@@ -121,6 +121,7 @@ return {
       manual_return = 'You jumped to a distant spot, then scrolled back manually',
       changelist_return = 'You edited two different spots, then scrolled back manually to find the first one',
       terminal_esc_repeat = 'You pressed <Esc> twice in a row in terminal mode with no effect',
+      macro_opportunity = 'You typed the same edit sequence 3 times in a row by hand',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.

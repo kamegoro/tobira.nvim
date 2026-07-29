@@ -2246,3 +2246,148 @@ describe('when both the jumplist and changelist preconditions are true on the sa
     assert.equals('<C-o>', result.cmd)
   end)
 end)
+
+-- ── macro opportunity detection: repeated edit sequence → qq...q / @q (#60) ──
+--
+-- M.feed_macro(seq, token, now) is a separate entry point from M.feed(), fed
+-- by logger.lua from BOTH the normal- and insert-mode branches of
+-- handle_key() (unlike everything else in this file, which is normal-mode
+-- only) — see patterns.lua's own header comment on M.feed_macro for why.
+-- These tests call it directly with each character of the literal keystroke
+-- sequence, exactly the same "expose a pure function, call it directly"
+-- approach the rest of this file uses (see tests/CLAUDE.md).
+
+local function feed_macro_seq(s, keys, now_start)
+  local result
+  local now = now_start
+  for _, k in ipairs(keys) do
+    result = patterns.feed_macro(s, k, now)
+    if now then
+      now = now + 1
+    end
+  end
+  return result
+end
+
+-- The literal issue-#60 example: cwFooBar<Esc> contains a lowercase 'w' and
+-- an uppercase 'B' — both members of the same naive "motion key" set a wrong
+-- implementation would use to classify gap characters. This is the pitfall
+-- regression test: it must fire correctly despite S itself containing keys
+-- that look like navigation.
+local CW_FOOBAR_ESC = { 'c', 'w', 'F', 'o', 'o', 'B', 'a', 'r', '<Esc>' }
+
+describe('when the user manually repeats an identical edit sequence 3 times', function()
+  it(
+    'fires macro_opportunity suggesting @q for cwFooBar<Esc> repeated 3x with j navigation between (#60 pitfall regression: S itself contains w/B, both classified as motion keys)',
+    function()
+      local s = seq()
+      feed_macro_seq(s, CW_FOOBAR_ESC)
+      feed_macro_seq(s, { 'j' })
+      feed_macro_seq(s, CW_FOOBAR_ESC)
+      feed_macro_seq(s, { 'j' })
+      local result = feed_macro_seq(s, CW_FOOBAR_ESC)
+      assert.is_not_nil(result)
+      assert.equals('macro_opportunity', result.pattern)
+      assert.equals('@q', result.cmd)
+    end
+  )
+
+  it('fires when the 3 occurrences are back-to-back with no navigation gap at all', function()
+    local s = seq()
+    feed_macro_seq(s, { 'a', 'b', 'c' })
+    feed_macro_seq(s, { 'a', 'b', 'c' })
+    local result = feed_macro_seq(s, { 'a', 'b', 'c' })
+    assert.is_not_nil(result)
+    assert.equals('macro_opportunity', result.pattern)
+    assert.equals('@q', result.cmd)
+  end)
+end)
+
+describe('when the user repeats an identical edit sequence only twice', function()
+  it('does not fire macro_opportunity (needs 3+ repetitions)', function()
+    local s = seq()
+    feed_macro_seq(s, CW_FOOBAR_ESC)
+    feed_macro_seq(s, { 'j' })
+    local result = feed_macro_seq(s, CW_FOOBAR_ESC)
+    assert.is_nil(result)
+  end)
+end)
+
+describe('when the user types an edit sequence only once', function()
+  it('does not fire macro_opportunity', function()
+    local s = seq()
+    local result = feed_macro_seq(s, CW_FOOBAR_ESC)
+    assert.is_nil(result)
+  end)
+end)
+
+describe('when the repeated sequence itself contains a register/macro key', function()
+  it('does not fire macro_opportunity when S contains q', function()
+    local s = seq()
+    feed_macro_seq(s, { 'x', 'q', 'y' })
+    feed_macro_seq(s, { 'j' })
+    feed_macro_seq(s, { 'x', 'q', 'y' })
+    feed_macro_seq(s, { 'j' })
+    local result = feed_macro_seq(s, { 'x', 'q', 'y' })
+    assert.is_nil(result)
+  end)
+
+  it('does not fire macro_opportunity when S contains @', function()
+    local s = seq()
+    feed_macro_seq(s, { 'x', '@', 'y' })
+    feed_macro_seq(s, { 'j' })
+    feed_macro_seq(s, { 'x', '@', 'y' })
+    feed_macro_seq(s, { 'j' })
+    local result = feed_macro_seq(s, { 'x', '@', 'y' })
+    assert.is_nil(result)
+  end)
+end)
+
+describe('when 3 repetitions span more than the 30-second detection window', function()
+  it('does not fire macro_opportunity', function()
+    local s = seq()
+    -- rep1 @ t=0..2, gap @ t=3, rep2 @ t=4..6, gap @ t=7, rep3 @ t=40000..40002
+    -- (40002 - 0 = 40002ms, over the 30000ms window).
+    patterns.feed_macro(s, 'a', 0)
+    patterns.feed_macro(s, 'b', 1)
+    patterns.feed_macro(s, 'c', 2)
+    patterns.feed_macro(s, 'j', 3)
+    patterns.feed_macro(s, 'a', 4)
+    patterns.feed_macro(s, 'b', 5)
+    patterns.feed_macro(s, 'c', 6)
+    patterns.feed_macro(s, 'j', 7)
+    patterns.feed_macro(s, 'a', 40000)
+    patterns.feed_macro(s, 'b', 40001)
+    local result = patterns.feed_macro(s, 'c', 40002)
+    assert.is_nil(result)
+  end)
+end)
+
+describe('when 3 repetitions all fall within the 30-second detection window', function()
+  it('fires macro_opportunity', function()
+    local s = seq()
+    patterns.feed_macro(s, 'a', 0)
+    patterns.feed_macro(s, 'b', 1)
+    patterns.feed_macro(s, 'c', 2)
+    patterns.feed_macro(s, 'j', 3)
+    patterns.feed_macro(s, 'a', 4)
+    patterns.feed_macro(s, 'b', 5)
+    patterns.feed_macro(s, 'c', 6)
+    patterns.feed_macro(s, 'j', 7)
+    patterns.feed_macro(s, 'a', 8000)
+    patterns.feed_macro(s, 'b', 8001)
+    local result = patterns.feed_macro(s, 'c', 8002)
+    assert.is_not_nil(result)
+    assert.equals('macro_opportunity', result.pattern)
+  end)
+end)
+
+describe("seq.macro_buf's bounded growth", function()
+  it('trims back down to the soft cap once the hard cap is exceeded', function()
+    local s = seq()
+    for i = 1, 151 do
+      patterns.feed_macro(s, 'TOK' .. tostring(i % 5))
+    end
+    assert.equals(100, #s.macro_buf)
+  end)
+end)

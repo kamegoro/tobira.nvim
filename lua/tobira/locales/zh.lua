@@ -121,6 +121,7 @@ return {
       manual_return = '你跳转到一个较远的位置，然后手动滚动返回',
       changelist_return = '你编辑了两个不同的位置，然后手动滚动返回查找第一个位置',
       terminal_esc_repeat = '你在终端模式下连续按了两次 <Esc> 但没有效果',
+      macro_opportunity = '你手动重复了同一个编辑操作序列 3 次',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.

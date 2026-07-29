@@ -467,8 +467,27 @@ local function handle_insert_key(key)
   -- reconstruct tokens (#112) — canonical is nil for anything other than the
   -- special keys above, and feed_insert() only ever reads `char` in that case.
   local result = patterns_insert.feed_insert(insert_seq, canonical, key)
-  if result and M.on_pattern then
-    M.on_pattern(result.pattern, result.cmd)
+
+  -- #60: macro-opportunity detection spans the mode boundary — the repeated
+  -- *edit* it watches for (e.g. "cwFooBar<Esc>") includes the insert-mode
+  -- typed replacement text, not just the normal-mode c/w/<Esc> keys around
+  -- it. Same cross-file orchestration shape as feed_after_escape() above:
+  -- patterns.lua's seq is fed from here too, in addition to the normal-mode
+  -- branch below — see patterns.lua's M.feed_macro doc comment. canonical
+  -- (when present) is the same readable name patterns_insert.feed_insert()
+  -- just used above, so the same physical key always tokenises the same way
+  -- regardless of which branch of handle_key() happened to see it.
+  local macro_result = patterns.feed_macro(seq, canonical or key, vim.loop.now())
+
+  -- macro_result wins when both fire on the same keystroke (see the matching
+  -- priority note in the Normal-mode branch below for the full reasoning —
+  -- retyping the same 6+ character word twice, as part of retyping the same
+  -- WHOLE edit sequence 3 times, satisfies both insert_completion_repeat and
+  -- macro_opportunity on the same <Esc>; the 3x-repeated-sequence insight is
+  -- strictly the bigger win of the two).
+  local fired = macro_result or result
+  if fired and M.on_pattern then
+    M.on_pattern(fired.pattern, fired.cmd)
   end
 end
 
@@ -547,7 +566,17 @@ local function handle_key(key)
   -- vim.loop.now() (ms, monotonic) is the real clock for patterns.lua's
   -- jumplist/changelist tolerance-window detection (#61) — patterns.lua
   -- itself stays vim.*-free and only ever sees this caller-supplied number.
-  local result = patterns.feed(seq, key, line, is_diff, vim.loop.now())
+  -- Read once and reused for feed_macro() below too (#60) — no reason to
+  -- pay for a second vim.loop.now() call for the same keystroke.
+  local now = vim.loop.now()
+  local result = patterns.feed(seq, key, line, is_diff, now)
+
+  -- #60: see handle_insert_key()'s matching call for why this has to be fed
+  -- from both branches. Normal-mode keys are passed through as-is (no
+  -- canonical translation needed — every key this branch ever sees is
+  -- already a plain, single-token raw byte, exactly what inner_feed() above
+  -- already treats `key` as).
+  local macro_result = patterns.feed_macro(seq, key, now)
 
   -- Track compound operators (dw, dd, gg, >>, …) the moment they complete.
   -- Single-char keys are handled by the TRACK lookup below; compound ones
@@ -579,7 +608,20 @@ local function handle_key(key)
   -- is nil, which is also the common case: motions with no competing
   -- specific pattern (h, l, w, b, e, j, k, …) still report insert_co_oneshot
   -- exactly as before, since patterns.feed() returns nil for those.
-  if result and M.on_pattern then
+  --
+  -- macro_result (#60) is deliberately checked FIRST, ahead of both: it only
+  -- ever fires after 3 full repetitions of an entire edit sequence, which is
+  -- a rarer and strictly more valuable signal than any single-keystroke
+  -- pattern that also happens to be true on the same key — e.g. retyping the
+  -- same 6+ character replacement text as part of retyping the same whole
+  -- "cwFooBar<Esc>" sequence 3 times also satisfies
+  -- patterns_insert.lua's insert_completion_repeat (#112) on that same final
+  -- <Esc>. "You've retyped this whole edit 3 times, record a macro" is a
+  -- bigger win than "you retyped one word, use <C-n>", so macro_result must
+  -- not be starved by it.
+  if macro_result and M.on_pattern then
+    M.on_pattern(macro_result.pattern, macro_result.cmd)
+  elseif result and M.on_pattern then
     M.on_pattern(result.pattern, result.cmd)
   elseif co_result and M.on_pattern then
     M.on_pattern(co_result.pattern, co_result.cmd)

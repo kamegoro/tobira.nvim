@@ -121,6 +121,7 @@ return {
       manual_return = 'Du bist zu einer entfernten Stelle gesprungen und dann manuell zurückgescrollt',
       changelist_return = 'Du hast an zwei verschiedenen Stellen bearbeitet und bist dann manuell zurückgescrollt, um die erste wiederzufinden',
       terminal_esc_repeat = 'Du hast im Terminal-Modus zweimal hintereinander <Esc> gedrückt, ohne Effekt',
+      macro_opportunity = 'Du hast dieselbe Bearbeitungsfolge 3-mal hintereinander von Hand eingegeben',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
