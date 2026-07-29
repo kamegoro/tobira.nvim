@@ -24,7 +24,6 @@ function M.new_seq()
     pending_visual = false,
     visual_inner = nil,
     visual_obj = nil,
-    -- g* / z* two-key compound tracking
     pending_g = false,
     pending_z = false,
     -- gq operator-pending tracking: unlike the simple two-key pending_g
@@ -36,7 +35,6 @@ function M.new_seq()
     -- right after a completed gq — lets the very next key tell "`` (jump back,
     -- suggest gw)" apart from an unrelated "`a (jump to mark a)".
     pending_gq_backtick = false,
-    -- <C-w>X window-command two-key compound tracking
     pending_ctrl_w = false,
     -- <C-w>q / <C-w>c repeated (or alternated) 2+ times in a row → <C-w>o
     ctrl_w_close_streak = 0,
@@ -44,61 +42,41 @@ function M.new_seq()
     pending_register = false, -- " or @ (register / macro name)
     pending_mark = false, -- m / ' / ` (mark name or target)
     pending_bracket = false, -- [ or ] (navigation pair)
-    -- "+ register-select immediately followed by y → "+y system-clipboard
-    -- yank compound. Set by the pending_register consumer below only when
-    -- the register name was '+'; consumed by the very next key.
+    -- "+ immediately followed by y → "+y system-clipboard yank. Set by
+    -- pending_register below only when the register was '+'.
     pending_clipboard_yank = false,
-    -- True for exactly one key right after the "+y compound above fires.
-    -- "+y is deliberately tracked as complete the moment the register-select
-    -- 'y' arrives (3 keystrokes total), without waiting for the further
-    -- motion a bare 'y' operator would normally need. In real Vim that same
-    -- 'y' is still operator-pending, so its most common completion — another
-    -- 'y', forming "+yy (yank current line to the system clipboard) — is
-    -- still coming right behind it. Without this guard that trailing 'y'
-    -- falls through to the generic "d/c/y operator start" branch below and
-    -- sets pending_op = 'y', which then silently swallows whatever key comes
-    -- after THAT as if it were y's motion (bug: dangling pending_op eats the
-    -- next real keystroke, e.g. "+yy followed by 5 j's needed a 6th to fire
-    -- j_repeat).
+    -- Guards exactly one key after "+y: without it, a following 'y' (as in
+    -- "+yy) falls through to the operator-start branch and sets a dangling
+    -- pending_op = 'y' that silently eats the next real keystroke (bug: "+yy
+    -- + 5 j's needed a 6th to fire j_repeat).
     clipboard_yank_tail = false,
-    -- p / P → rightward motion: cursor skipped past a paste, suggest gp/gP
     pending_paste = nil, -- 'p' | 'P' | nil
     paste_motion_streak = 0,
     -- set true by M.feed when the key was the second char of a compound;
     -- logger uses this to skip standalone TRACK counting for that key
     key_consumed = false,
-    -- set true by M.feed on the exact call that freshly assigns seq.last_op
-    -- (a compound operation just completed). logger.lua increments usage
-    -- from this flag rather than comparing last_op's value before/after —
-    -- a value comparison can't tell "the same compound completed again"
-    -- from "nothing happened", which undercounted back-to-back repeats of
-    -- the same compound (dd dd, dw dw, …).
+    -- True on the call that freshly sets last_op. logger.lua increments
+    -- usage from this flag rather than diffing last_op's value, because a
+    -- value diff can't tell "same compound completed again" from "nothing
+    -- happened" — undercounted back-to-back repeats like dd dd.
     op_completed = false,
-    -- jumplist-underuse tracking: timestamp of the last "significant" jump
-    -- motion (G / gg / n / N / <C-d> / <C-u> / <C-f> / <C-b>), and how many
-    -- consecutive manual "return" motions (j / k / <C-e> / <C-y>) have
-    -- followed it since. now (the 4th M.feed argument) is caller-supplied so
-    -- this file stays vim.*-free — see M.feed's doc comment.
+    -- jumplist-underuse tracking — see JUMP_MOTION_KEYS / RETURN_MOTION_KEYS
+    -- below for what counts as a "jump" vs a "return" motion. now is
+    -- caller-supplied so this file stays vim.*-free.
     jump_last_at = nil,
     jump_return_streak = 0,
-    -- true once <C-o> has been pressed this session — the user already knows
-    -- about jumplist-back, so manual_return stops suggesting it.
     ctrl_o_seen = false,
-    -- changelist-underuse tracking: timestamp of the most recent edit-op key
-    -- (i/I/a/A/o/O/s/S/x/X), whether some other key has been seen since (a
-    -- passive proxy for "moved away" from that spot — patterns.lua may not
-    -- snapshot the buffer or read marks), and whether a *second*,
-    -- separately-located edit has happened yet.
+    -- changelist-underuse tracking — see inner_feed's "changelist-underuse
+    -- bookkeeping" section below for what each field tracks and why.
     edit_last_at = nil,
     edit_moved_away = false,
     edit_second_seen = false,
     change_return_streak = 0,
-    -- true once g; has been pressed this session — mirrors ctrl_o_seen.
+    -- Mirrors ctrl_o_seen (for g;).
     g_semi_seen = false,
-    -- macro opportunity detection — see M.feed_macro() below. Array of
-    -- { tok, t, nav_run } entries, one per keystroke fed via M.feed_macro();
-    -- fed from BOTH the normal- and insert-mode branches of logger.lua's
-    -- handle_key(), unlike seq's other fields which are normal-mode only.
+    -- Array of { tok, t, nav_run } entries fed by M.feed_macro() (below) from
+    -- BOTH normal- and insert-mode branches of logger.lua's handle_key() —
+    -- unlike this seq's other fields, which are normal-mode only.
     macro_buf = {},
   }
 end
@@ -161,10 +139,9 @@ local RETURN_MOTION_KEYS = {
   ['\25'] = true, -- <C-y>
 }
 
--- Keys that mutate the buffer on their own — either by entering insert mode
--- (i/I/a/A/o/O/s/S, reusing INSERT_KEYS above) or by editing directly without
--- ever leaving normal mode (x/X). Each one is a point where Vim would add a
--- changelist entry.
+-- Keys that mutate the buffer directly — either by entering insert mode
+-- (INSERT_KEYS) or editing without leaving normal mode (x/X). Each is a
+-- point where Vim would add a changelist entry.
 local EDIT_OP_KEYS = { x = true, X = true }
 for k in pairs(INSERT_KEYS) do
   EDIT_OP_KEYS[k] = true
@@ -174,51 +151,35 @@ end
 -- Watches for the user manually repeating an identical edit sequence 3+ times
 -- — exactly the case where recording a macro (qq...q, then @q) would pay off.
 --
--- This is a second, independent rolling buffer (seq.macro_buf), NOT the
--- 20-char one in suggest.lua — that buffer is normalised/capped for a
--- completely different purpose (watching for adoption of one already-shown
--- suggestion) and is far too short to hold 3 repetitions of a 15-key
--- sequence.
+-- Uses its own rolling buffer (seq.macro_buf), NOT suggest.lua's 20-char one
+-- (a different purpose — watching adoption of an already-shown suggestion —
+-- and far too short to hold 3 reps of a 15-key sequence).
 --
--- It is fed through its own M.feed_macro() entry point rather than folded
--- into M.feed()/inner_feed(): inner_feed() only ever sees normal-mode keys,
--- but the repeated *edit* this feature cares about (e.g. "cwFooBar<Esc>")
--- spans into insert mode for the typed replacement text. Piping insert-mode
--- characters through inner_feed would corrupt its normal-mode
--- operator-pending grammar (a stray "F" arriving while seq.pending_op
--- happens to be set would misfire as a find-command). This is the same shape
--- of problem that patterns_insert.lua's feed_after_escape() solves one file
--- over — a detector whose target crosses the mode boundary gets its own
--- entry point, fed by logger.lua's orchestration layer from whichever
--- branch(es) of handle_key() see the relevant keys, independently of the
--- mode-specific grammar state machine. See logger.lua's handle_macro_key()
--- for where M.feed_macro() is called from both the normal- and insert-mode
--- branches of handle_key().
+-- Fed through its own M.feed_macro() entry point rather than folded into
+-- inner_feed(): the repeated *edit* this cares about (e.g. "cwFooBar<Esc>")
+-- spans into insert mode, and piping those characters through inner_feed
+-- would corrupt its normal-mode operator-pending grammar (a stray "F" while
+-- pending_op is set would misfire as a find-command). Same shape of problem
+-- patterns_insert.lua's feed_after_escape() solves one file over. See
+-- logger.lua's handle_macro_key() for where both mode branches feed this.
 --
--- The pitfall this is deliberately designed around: a naive per-character
--- classifier ("h/j/k/l/w/b/e/W/B/E/0/$/^ are motion keys — scan the whole
--- buffer for motion runs") misfires on this very feature's headline example.
--- `cwFooBar<Esc>` itself contains a lowercase `w` and an uppercase `B`, both
--- in that same motion-key set, so a naive scanner would wrongly treat
--- characters INSIDE the repeated sequence as if they were navigation
--- BETWEEN repetitions.
+-- The pitfall this is designed around: a naive per-character classifier
+-- ("h/j/k/l/w/b/e/W/B/E/0/$/^ are motion keys — scan for motion runs")
+-- misfires on this feature's own headline example — `cwFooBar<Esc>` contains
+-- a lowercase `w` and uppercase `B`, both motion keys, so a naive scanner
+-- would treat characters INSIDE the repeated sequence as navigation BETWEEN
+-- repetitions.
 --
--- The fix used here: first find anchored, exact matches of a candidate
--- length-L window against EARLIER buffer content (i.e. locate where the
--- sequence actually, literally repeats), and only apply the "gap must be
--- pure navigation" check to the keys strictly BETWEEN two already-matched
--- occurrences — never to characters inside an occurrence itself.
+-- The fix: find anchored, exact matches of a candidate length-L window
+-- against EARLIER buffer content, and only apply the "gap must be pure
+-- navigation" check to keys strictly BETWEEN two matched occurrences — never
+-- to characters inside an occurrence itself.
 --
--- Performance: bounded, not a rescan-the-whole-buffer-per-keystroke search.
--- Candidate length L ranges only over [MACRO_MIN_LEN, MACRO_MAX_LEN] (13
--- values). For each L, how far back to look for the previous occurrence is
--- bounded by that position's actual navigation-key streak (nav_run, tracked
--- incrementally in O(1) per keystroke exactly like seq.run elsewhere in this
--- file) capped at MACRO_MAX_GAP — so the common case (no navigation streak
--- in progress right before the candidate window) tries exactly one
--- candidate position per L, and the search only widens when the buffer
--- itself shows a real navigation streak to search across. See the PR
--- description for the measured per-keystroke cost.
+-- Performance: bounded, not a rescan-per-keystroke. L ranges over
+-- [MACRO_MIN_LEN, MACRO_MAX_LEN]; how far back each L searches is capped by
+-- that position's navigation-key streak (nav_run, O(1) per keystroke, same
+-- as seq.run) at MACRO_MAX_GAP — so the common case tries one candidate per
+-- L, widening only when a real navigation streak exists to search across.
 local MACRO_MIN_LEN = 3
 local MACRO_MAX_LEN = 15
 local MACRO_MAX_GAP = 20 -- max navigation keys allowed in one gap between reps
@@ -249,41 +210,25 @@ for d = 1, 9 do
   MACRO_NAV_KEYS[tostring(d)] = true
 end
 
--- Keys that count as a genuine buffer edit, for macro_contains_edit below —
--- reuses two existing classification tables/checks instead of inventing a
--- third one:
---   - EDIT_OP_KEYS (declared above): x/X direct-edit keys plus every
---     INSERT_KEYS entry (i/I/a/A/o/O/s/S — entering insert mode is itself
---     the start of an edit).
---   - d / c / y / > / < — the exact same "operator start" key set
---     inner_feed()'s own "d / c / y / > / < operator start" branch (further
---     down this file) checks via a chain of `==` comparisons rather than a
---     table. Named here only because this second, independent use needs a
---     table to test membership against.
+-- Keys that count as a genuine edit, for macro_contains_edit below — reuses
+-- EDIT_OP_KEYS (x/X plus every INSERT_KEYS entry) and the same d/c/y/>/<
+-- operator-start set inner_feed() checks via `==` chains further down (named
+-- here as a table since this second use needs membership testing).
 local MACRO_EDIT_KEYS = { d = true, c = true, y = true, ['>'] = true, ['<'] = true }
 for k in pairs(EDIT_OP_KEYS) do
   MACRO_EDIT_KEYS[k] = true
 end
 
--- S (the repeated window itself — buf[s_start..s_end]) must contain at least
--- one genuine edit keystroke before it's a real macro-opportunity candidate
--- — not just any 3+ exact repeat of a nav-only window (follow-up bug: both
--- "jjjjjjjjjjjj", 12 bare j presses, and "0fh0fh0fh0fh" satisfied every
--- other check in macro_check_len, because the anchored-match-then-gap-check
--- algorithm only ever inspects characters BETWEEN two matched occurrences of
--- S for navigation-key membership, by design — see this file's header
--- comment on M.feed_macro. Neither repro has a navigation GAP at all — the
--- repeats are back-to-back — so that check was vacuously satisfied
--- regardless of what S itself contained).
+-- S (buf[s_start..s_end]) must contain at least one genuine edit keystroke
+-- to be a real candidate — not just any 3+ exact repeat of a nav-only window
+-- (follow-up bug: "jjjjjjjjjjjj" and "0fh0fh0fh0fh" both satisfied every
+-- other check, since the anchored-match algorithm only inspects the GAP
+-- between occurrences for navigation-key membership, and neither repro has a
+-- gap at all — the repeats are back-to-back).
 --
--- Deliberately "at least one edit key ANYWHERE in S", not "S is not entirely
--- composed of MACRO_NAV_KEYS" — the two framings are not equivalent. A
--- window can contain a key that is neither in MACRO_NAV_KEYS nor
--- MACRO_EDIT_KEYS (e.g. G, n, or any other key in neither set); under an
--- "entirely nav" framing such a window would already fail to be "entirely
--- nav" and would wrongly qualify despite containing zero genuine edits. The
--- positive framing here checks the one thing that actually matters: did a
--- real edit happen somewhere in this repeated sequence.
+-- Deliberately "at least one edit key ANYWHERE in S", not "S isn't entirely
+-- MACRO_NAV_KEYS": those framings differ — a key in neither set (e.g. G, n)
+-- would make "entirely nav" wrongly pass despite zero real edits.
 local function macro_contains_edit(buf, s_start, s_end)
   for i = s_start, s_end do
     if MACRO_EDIT_KEYS[buf[i].tok] then
@@ -382,12 +327,10 @@ local function macro_check_len(buf, n, l)
   end
 
   -- Content check, deliberately last: only reached once the anchored match
-  -- itself is fully confirmed (both earlier occurrences found, gaps already
-  -- validated as pure navigation by the loops above). Kept separate from —
-  -- and after — that gap-classification logic rather than folded into it, so
-  -- the anchored-match search itself (specifically tested to never
-  -- misclassify characters INSIDE S — see this file's header comment) stays
-  -- untouched (a follow-up bug fix).
+  -- is fully confirmed (both occurrences found, gaps validated as pure
+  -- navigation above). Kept separate from and after that gap-classification
+  -- logic so the anchored-match search itself stays untouched (follow-up bug
+  -- fix — see this file's header comment).
   if not macro_contains_edit(buf, s_start, n) then
     return false
   end
@@ -406,15 +349,11 @@ local function macro_detect(seq)
   return nil
 end
 
--- token: the key/canonical-name logger.lua wants recorded for this
--- keystroke — the same raw key for ordinary characters, or a readable name
--- like '<Esc>' for the handful of special keys logger.lua already resolves
--- via its INSERT_SPECIAL table for patterns_insert.lua. patterns.lua itself
--- never calls vim.* to compute this (module dependency rules in
--- lua/tobira/CLAUDE.md) — it is threaded in as a parameter exactly like
--- is_diff/now above.
--- now: optional caller-supplied clock reading (ms), same convention as
--- M.feed's `now` — omitted calls behave as if now == 0 on every call.
+-- token: key/canonical-name logger.lua wants recorded — raw key for ordinary
+-- characters, or a readable name like '<Esc>' via logger.lua's
+-- INSERT_SPECIAL table. patterns.lua stays vim.*-free (see
+-- lua/tobira/CLAUDE.md) so this is threaded in as a parameter, like is_diff/now.
+-- now: optional caller-supplied clock (ms); omitted calls behave as now == 0.
 function M.feed_macro(seq, token, now)
   local t = now or 0
   local buf = seq.macro_buf
@@ -466,13 +405,13 @@ local function inner_feed(seq, key, line, is_diff, now)
   end
 
   -- ── p / P → rightward motion: cursor skipped past a paste ────────────────
-  -- Checked first, before any other handler, so it observes every key that
-  -- follows a paste — including keys other handlers would otherwise consume
-  -- (e.g. g, ", m). Unlike those handlers this one does NOT return early on
-  -- a non-firing key: rightward motions still fall through to their own
-  -- patterns (l_repeat, w_repeat, zero_then_w, ...), and non-motion keys
-  -- just cancel the pending streak and fall through unchanged. p/P re-press
-  -- is exempted from cancelling so p_repeat / P_repeat below are unaffected.
+  -- Checked first, before any other handler, so it observes every key after
+  -- a paste — including keys other handlers would otherwise consume (g, ",
+  -- m). Unlike those handlers this does NOT return early on a non-firing
+  -- key: rightward motions still fall through to their own patterns
+  -- (l_repeat, w_repeat, ...), and non-motion keys just cancel the streak
+  -- and fall through. p/P re-press is exempted so p_repeat/P_repeat below
+  -- are unaffected.
   if seq.pending_paste then
     if RIGHTWARD_KEYS[key] then
       seq.paste_motion_streak = seq.paste_motion_streak + 1
@@ -859,13 +798,10 @@ local function inner_feed(seq, key, line, is_diff, now)
   end
 
   -- ── <C-a>: sequential-increment streak tracking ────────────────────────────
-  -- Raw byte for Ctrl-A (ASCII 1 / 0x01). Detects the "increment → move →
-  -- increment" hand-rolled sequence (<C-a> j <C-a> j <C-a>, 3+ times) that
-  -- means the user is manually building a numbered sequence one line at a
-  -- time, and suggests selecting the block with <C-v> and running g<C-a>
-  -- once instead. Same streak-counter shape as r_streak above: increment on
-  -- every occurrence, fire at the 3rd, reset via the tolerated-motion check
-  -- further down (j/k here, in place of r_streak's h/l).
+  -- Raw byte for Ctrl-A (ASCII 1 / 0x01). Same streak-counter shape as
+  -- r_streak above: increment on every occurrence, fire at the 3rd, reset
+  -- via the tolerated-motion check below (j/k here, in place of r_streak's
+  -- h/l).
   if key == '\1' then
     seq.ca_streak = seq.ca_streak + 1
     if seq.ca_streak >= 3 then
@@ -951,10 +887,9 @@ local function inner_feed(seq, key, line, is_diff, now)
   end
 
   -- ── p / P: arm cursor-skip-past-paste tracking ────────────────────────────
-  -- Not consumed here — p/P still fall through to p_repeat / P_repeat via
-  -- the track_run() call at the bottom of this function. The top-of-function
-  -- check above uses this state to detect several rightward moves right
-  -- after this paste.
+  -- Not consumed here — p/P still fall through to p_repeat/P_repeat via
+  -- track_run() at the bottom. The top-of-function check above uses this
+  -- state to detect rightward moves right after the paste.
   if key == 'p' or key == 'P' then
     seq.pending_paste = key
     seq.paste_motion_streak = 0
@@ -1026,15 +961,13 @@ local function inner_feed(seq, key, line, is_diff, now)
   end
 
   -- ── consecutive-run patterns (count computed early) ────────────────────────
-  -- track_run() must run unconditionally on every key, even one that the
-  -- jumplist/changelist blocks below are about to return early on — skipping
-  -- it here would freeze seq.run's same-key counter for that keystroke, and
-  -- the very next same-key press would then jump it forward by 2 instead of
-  -- 1, making j_repeat/k_repeat/j_many/k_many fire one press "early" right
-  -- after a manual_return/changelist_return — which then cancels and
-  -- replaces the just-shown suggestion via suggest.queue()'s debounce
-  -- (observed via a docs/RECORDING.md-style live regression pass, not caught
-  -- by patterns_spec.lua's per-call assertions).
+  -- track_run() must run unconditionally on every key, even ones the
+  -- jumplist/changelist blocks below return early on — skipping it here
+  -- freezes seq.run's counter for that keystroke, so the next same-key press
+  -- jumps it forward by 2 instead of 1, firing j_repeat/k_repeat/j_many/
+  -- k_many one press "early" right after a manual_return/changelist_return
+  -- (a live-regression bug, not caught by patterns_spec.lua's per-call
+  -- assertions).
   local count = track_run(seq, key)
 
   -- ── jumplist-underuse detection ──────────────────────────────────────────
@@ -1087,22 +1020,18 @@ local function inner_feed(seq, key, line, is_diff, now)
 
   -- ── jumplist vs. changelist arbitration (follow-up bug) ───────────────────
   -- Both patterns key off the same evidence — "5+ consecutive j/k after some
-  -- earlier event" — so a single keystroke can legitimately satisfy both at
-  -- once (e.g. jump far, edit, jump far again, edit, then k×5 back). The two
-  -- blocks above therefore no longer return early on their own: they only
-  -- record whether each pattern's threshold was reached this keystroke
-  -- (jump_ready / change_ready), and this block decides what to do once both
-  -- are known.
+  -- earlier event" — so a single keystroke can satisfy both at once (e.g.
+  -- jump far, edit, jump far again, edit, then k×5 back). The two blocks
+  -- above no longer return early: they only record whether each threshold
+  -- was reached this keystroke (jump_ready / change_ready), and this block
+  -- decides what to do once both are known.
   --
-  -- When only one is ready, it fires exactly as before (no behavior change
-  -- for the existing single-pattern cases). When both are ready on the same
-  -- keystroke, the one whose triggering "away" event — the significant jump
-  -- for manual_return, the second edit for changelist_return — happened MORE
-  -- RECENTLY wins: that's the more likely thing the user is actually trying
-  -- to get back to right now. The other side's streak is reset without
-  -- firing rather than left dangling, so it doesn't immediately re-fire on
-  -- the very next keystroke; it can still build back up and fire later if
-  -- the underlying pattern genuinely repeats.
+  -- When only one is ready it fires as before. When both are ready, the one
+  -- whose triggering "away" event happened MORE RECENTLY wins (the
+  -- significant jump for manual_return, the second edit for
+  -- changelist_return) — the more likely thing the user is trying to get
+  -- back to. The loser's streak is reset without firing, not left dangling,
+  -- so it can still build back up and fire later if it genuinely repeats.
   if jump_ready and change_ready then
     if seq.jump_last_at >= seq.edit_last_at then
       seq.jump_return_streak = 0
@@ -1178,21 +1107,16 @@ local function inner_feed(seq, key, line, is_diff, now)
   return nil
 end
 
--- is_diff: optional boolean — true when &diff is set on the window the
--- keystroke came from. Only consulted by the j_many/k_many branches above;
--- every other pattern ignores it. Passed in by the caller (logger.lua reads
--- vim.wo.diff) rather than read here, because patterns.lua has zero vim.*
--- dependencies by design (see lua/tobira/CLAUDE.md's module dependency
--- rules) — it is pure Lua so it can be unit-tested and reasoned about without
--- a running Neovim instance.
+-- is_diff: true when &diff is set on the window the keystroke came from.
+-- Only consulted by j_many/k_many. Passed in by the caller (logger.lua reads
+-- vim.wo.diff) since patterns.lua stays vim.*-free by design (pure Lua,
+-- testable without a running Neovim instance).
 --
--- now: optional caller-supplied clock reading (milliseconds, any
--- monotonic-ish source is fine) used only by the jumplist/changelist
--- tolerance-window checks. Omitted calls behave as if now == 0 on every
--- call, which keeps every earlier call site (and every test not exercising
--- the time-sensitive patterns) working unchanged, since a constant clock
--- never lets a tolerance window "expire". Real callers (logger.lua) pass
--- vim.loop.now(); tests pass a fake, deterministic value.
+-- now: optional caller-supplied clock (ms) used by the jumplist/changelist
+-- tolerance-window checks. Omitted calls behave as now == 0, so a constant
+-- clock never expires a tolerance window — keeps existing call sites and
+-- non-time-sensitive tests working unchanged. Real callers pass
+-- vim.loop.now(); tests pass a fake value.
 function M.feed(seq, key, line, is_diff, now)
   seq.key_consumed = false -- reset before each call; handlers set true when consuming
   seq.op_completed = false -- reset before each call; handlers set true when last_op is freshly set

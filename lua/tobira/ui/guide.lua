@@ -21,17 +21,14 @@ local function short_desc(title)
   return title:match(' — (.+)$') or title
 end
 
--- The auto section's suffix, combining the pre-existing forgotten_suffix
--- with a remapped_suffix for commands whose key the user has remapped to
--- something functionally equivalent to what commands.lua already documents
--- (e.g. `nnoremap Y y$` -- see core/integrations.lua's EQUIVALENT_REMAPS
--- header comment for why Y is the seed case). A *non*-equivalent remap (e.g.
--- a <Plug> mapping to an unrelated plugin command) does not reach this
--- function at all -- M.build() drops that row from the auto section entirely
--- before rendering, since showing it with a corrected suffix is strictly
--- worse than not showing wrong information as a "reference" row in the first
--- place. Shared by both the description-width pass and format_row so the two
--- can never disagree about a row's actual rendered width.
+-- The auto section's suffix: forgotten_suffix plus a remapped_suffix for
+-- commands remapped to something functionally equivalent to what
+-- commands.lua documents (e.g. `nnoremap Y y$` — see integrations.lua's
+-- EQUIVALENT_REMAPS). A *non*-equivalent remap never reaches this function —
+-- M.build() drops that row from the auto section entirely, since showing
+-- wrong information in a reference row is worse than omitting it. Shared by
+-- the description-width pass and format_row so the two never disagree about
+-- a row's rendered width.
 local function auto_suffix(cmd, data, str)
   local graph = require('tobira.core.graph')
   local integrations = require('tobira.core.integrations')
@@ -44,19 +41,17 @@ local function auto_suffix(cmd, data, str)
 end
 
 -- Returns (glyph, hlgroup) for the mastery-symbol column, or (nil, nil) for a
--- never-tried command (rendered as a blank cell + TobiraDim on the whole row
--- instead — see format_row). Forgotten takes priority over the numeric level:
--- a command that was once mastered and has gone quiet should read as "come
--- back to this", not as whatever star count it happened to reach before going
--- quiet. See ui/CLAUDE.md for why this doesn't reuse TobiraGuideLearning's color.
+-- never-tried command (blank cell + TobiraDim on the whole row instead — see
+-- format_row). Forgotten takes priority over the numeric level: a command
+-- once mastered that's gone quiet should read as "come back to this", not
+-- whatever star count it reached before going quiet.
 --
--- Only two branches are reachable here: is_forgotten, or level <= 1. build()
--- only calls this for rows guide_commands() included, and that filter is
--- `not is_mastered(data)` i.e. `mastery_level < 2 or is_forgotten`. A row with
--- mastery_level >= 2 and NOT forgotten is_mastered() == true and is excluded
--- upstream — so a level >= 2 row reaching this function is always forgotten,
--- and the is_forgotten branch above already returns before the level check.
--- There is deliberately no `elseif level >= 2` branch: it would be dead code.
+-- Only two branches are reachable here (is_forgotten, or level <= 1):
+-- build() only calls this for rows guide_commands() included, whose filter
+-- is `not is_mastered(data)` = `mastery_level < 2 or is_forgotten`. So a
+-- level >= 2 row reaching here is always forgotten and already returns
+-- above — there is deliberately no `elseif level >= 2` branch; it would be
+-- dead code.
 local function mastery_glyph(data)
   local graph = require('tobira.core.graph')
   if graph.is_forgotten(data) then
@@ -68,27 +63,22 @@ local function mastery_glyph(data)
   return nil, nil
 end
 
--- Builds one pinned-section row. Position-tracking emit() avoids hand-computed
--- byte offsets for the highlight ranges (glyph and key are both variable-width
--- once combined with multi-byte glyphs).
+-- Builds one pinned-section row. Position-tracking emit() avoids
+-- hand-computed byte offsets for highlight ranges (glyph and key are both
+-- variable-width once combined with multi-byte glyphs).
 --
--- `data` drives the same forgotten-state check the auto section's format_row
--- makes: a pinned command that was once mastered and has since gone quiet
--- gets the ⟳ glyph + forgotten_suffix here too, instead of staying a plain
--- ● row forever regardless of whether it still needs review.
+-- `data` drives the same forgotten-state check format_row makes: a pinned
+-- command once mastered that's gone quiet gets the ⟳ glyph + forgotten_suffix
+-- here too, instead of staying a plain ● row forever.
 --
--- A pinned command whose key gets remapped needs the same
--- override-awareness auto_suffix() already gives the auto section below --
--- but unlike the auto section (which drops a non-equivalent remap entirely,
--- see auto_suffix's header comment), a pinned row is never *omitted*: the
--- user pinned this command on purpose, so it silently vanishing from its own
--- section would read as tobira losing track of their pin, not as tobira
--- being correct. An equivalent remap (e.g. `nnoremap Y y$`) still substitutes
--- wording via remapped_suffix, identical to the auto section. A *different*
--- remap invalidates commands.lua's stock description outright, so instead of
--- appending a correction after text that is now flatly wrong, the
--- description is replaced with remapped_invalid — the row (● marker + key)
--- stays visible, just with an accurate note instead of a stale one.
+-- A pinned row is never *omitted* for a remap, unlike the auto section
+-- (which drops a non-equivalent remap entirely — see auto_suffix's header):
+-- the user pinned this on purpose, so silently vanishing would read as
+-- tobira losing track of the pin. An equivalent remap (`nnoremap Y y$`)
+-- still substitutes wording via remapped_suffix; a *different* remap
+-- replaces the description with remapped_invalid instead of appending a
+-- correction after text that's now flatly wrong — the row stays visible,
+-- just with an accurate note.
 local function format_pinned_row(cmd, data, desc, str)
   local graph = require('tobira.core.graph')
   local integrations = require('tobira.core.integrations')
@@ -201,18 +191,14 @@ function M.build(usage)
 
   local by_cat = graph.guide_commands(usage)
 
-  -- Remove pinned commands from auto section to avoid duplication, then sort
-  -- each category never-tried-first (Guide's job is surfacing blind spots —
-  -- Progress already owns the "close to mastery" goal-gradient signal, see
-  -- ui/CLAUDE.md) with an alphabetical tie-break, and cap to MAX_PER_CATEGORY
-  -- so the panel stays bounded no matter how many commands are eligible.
-  -- A command whose key is remapped to something *not* functionally
-  -- equivalent to what commands.lua documents (e.g. a <Plug> mapping to an
-  -- unrelated plugin command) is dropped from the auto section entirely --
-  -- unlike a proactive nudge, this is a persistent reference row, and showing
-  -- wrong information in a reference is worse than omitting it. An
-  -- equivalent remap (e.g. `nnoremap Y y$`) still renders, with its
-  -- description suffixed via auto_suffix() instead.
+  -- Remove pinned commands from the auto section to avoid duplication, sort
+  -- each category never-tried-first (Guide surfaces blind spots — Progress
+  -- already owns the "close to mastery" gradient, see ui/CLAUDE.md) with an
+  -- alphabetical tie-break, and cap to MAX_PER_CATEGORY. A command remapped
+  -- to something *not* equivalent to what commands.lua documents is dropped
+  -- entirely — this is a persistent reference row, and showing wrong
+  -- information is worse than omitting it. An equivalent remap
+  -- (`nnoremap Y y$`) still renders, suffixed via auto_suffix() instead.
   local integrations = require('tobira.core.integrations')
   local overflow_by_cat = {}
   for cat, cmds in pairs(by_cat) do

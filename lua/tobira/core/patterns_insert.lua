@@ -17,17 +17,15 @@
 -- time feed_insert() sees '<Esc>', it is still routed as an insert-mode key,
 -- exactly like every other key this function cares about.
 --
--- Insert-mode <C-o> one-shot detection (feed_after_escape, below):
--- unlike every other pattern in this file, this one's state lives here (it
--- is bookkeeping about leaving/returning to insert mode, the same concern
--- bounce detection already owns) but is *fed* from logger.lua's NORMAL-mode
--- branch, not its insert-mode branch. That is not a state-sharing violation
--- of the patterns.lua/patterns_insert.lua split (see lua/tobira/CLAUDE.md):
--- patterns.lua's `seq` and this file's `iseq` remain two separate objects
--- with no shared fields — only logger.lua's orchestration layer calls into
--- both for the same keystroke, which is exactly its job (keystroke → pattern
--- → increment → persist). See feed_after_escape's own doc comment for why the
--- detection has to cross the mode boundary this way.
+-- Insert-mode <C-o> one-shot detection (feed_after_escape, below): unlike
+-- every other pattern here, its state lives in this file (bookkeeping about
+-- leaving/returning to insert mode) but is *fed* from logger.lua's
+-- NORMAL-mode branch. Not a state-sharing violation of the patterns.lua
+-- split (see lua/tobira/CLAUDE.md): `seq` and this file's `iseq` remain
+-- separate objects with no shared fields — only logger.lua's orchestration
+-- calls into both for the same keystroke, which is exactly its job. See
+-- feed_after_escape's own doc comment for why detection crosses the mode
+-- boundary this way.
 --
 -- Completion-repeat detection: logger.lua now also passes the raw
 -- typed character as a third argument whenever canonical is nil (an ordinary
@@ -210,31 +208,24 @@ function M.feed_insert(iseq, canonical, char)
   return finalize_token(iseq)
 end
 
--- Called by logger.lua for every NORMAL-mode keystroke — not just while
--- iseq is "in insert mode" — for as long as iseq.watching_co stays armed
--- (i.e. since the most recent <Esc> out of insert). This is necessary
--- because the detection target spans the mode boundary: <Esc> exits insert,
--- then some number of ordinary normal-mode commands run, then i/a/A/I
--- re-enters insert. Only the <Esc> and the final return-key live inside an
--- insert-mode-adjacent keystroke; everything in between is genuinely
--- normal-mode input that patterns.lua already processes independently. This
--- function only ever mutates iseq's watching_co/post_esc_keys fields, never
--- patterns.lua's seq, and returns nil immediately (cheap) whenever the watch
--- isn't armed — see lua/tobira/CLAUDE.md's "vim.on_key() performance" note.
+-- Called by logger.lua for every NORMAL-mode keystroke — not just while in
+-- insert mode — for as long as iseq.watching_co stays armed (since the most
+-- recent <Esc> out of insert). Necessary because the detection target spans
+-- the mode boundary: <Esc> exits insert, some normal-mode commands run,
+-- then i/a/A/I re-enters. This function only ever mutates
+-- watching_co/post_esc_keys, never patterns.lua's seq, and returns nil
+-- immediately whenever the watch isn't armed (cheap — see
+-- lua/tobira/CLAUDE.md's "vim.on_key() performance" note).
 --
--- "One command" is defined structurally (exactly one raw keystroke before
--- the return-to-insert key), not temporally. patterns_insert.lua has zero
--- vim.* dependencies (see file header) so there is no clock available to
--- measure a literal "a few hundred ms" window against, and a keystroke count
--- is an equivalent, simpler proxy for the same intent — a genuine one-shot
--- vs. a multi-step detour — without adding a timing dependency this file
--- would otherwise never need. Known, accepted limitation: this also means a
--- single *compound* normal command (e.g. `dd`, `dw`, `ciw` — several raw
--- keystrokes for one conceptual edit) is not recognised as "one command"
--- here; replicating patterns.lua's operator-grammar tracking to fix that
--- would duplicate significant complexity for comparatively little value, so
--- this deliberately only catches single-keystroke round trips (j, k, x, p,
--- ~, ., u, and similar).
+-- "One command" is structural (exactly one raw keystroke before the
+-- return-to-insert key), not temporal — this file has zero vim.*
+-- dependencies, so there's no clock to measure a timing window against, and
+-- a keystroke count is an equivalent, simpler proxy for "genuine one-shot
+-- vs. multi-step detour". Known limitation: a single *compound* normal
+-- command (dd, dw, ciw — several keystrokes, one conceptual edit) isn't
+-- recognized as "one command" — replicating patterns.lua's operator-grammar
+-- tracking to fix that would cost more complexity than it's worth, so this
+-- only catches single-keystroke round trips (j, k, x, p, ~, ., u, ...).
 function M.feed_after_escape(iseq, key)
   if not iseq.watching_co then
     return nil

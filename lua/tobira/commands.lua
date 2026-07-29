@@ -321,29 +321,23 @@ M.registry = {
   ['_'] = { requires = '^', track = true, category = 'motion', level = 'intermediate' },
 
   -- ── insert-mode <C-o>: one normal command without leaving insert ───────────
-  -- The '<C-o>' entry above (in the "* → <C-o> jump back in jumplist" block)
-  -- already owns that raw keystroke for its normal-mode meaning. Insert-mode
-  -- <C-o> is a *different* command bound to the identical physical key: it
-  -- runs exactly one normal-mode command, then returns to insert
-  -- automatically, without the user ever fully leaving insert mode. Two
-  -- distinct registry meanings cannot share one Lua table key (this table can
-  -- only hold one entry per string), so — mirroring the '<C-w>' precedent
-  -- above, which resolves the exact same normal/insert collision shape for
-  -- Ctrl-W — this uses a composite internal key, 'i_<C-o>', rather than
-  -- reusing '<C-o>'.
+  -- The '<C-o>' entry above already owns that raw keystroke for its
+  -- normal-mode meaning ("jump back"). Insert-mode <C-o> is a *different*
+  -- command bound to the identical physical key (runs one normal command,
+  -- then returns to insert automatically) — since a Lua table can only hold
+  -- one entry per key string, this uses a composite key, 'i_<C-o>', mirroring
+  -- the '<C-w>' precedent above for the same collision shape.
   --
   -- The user never types 'i_<C-o>' — they always press the real <C-o>. This
-  -- key exists purely so graph.lua can derive a second, independent
-  -- M.suggestions entry from it; anywhere the UI would otherwise render this
-  -- raw registry key as "the key to press" (ui/guide.lua, ui/stats.lua,
-  -- core/skills.lua), it must go through commands.display_key(cmd) below,
-  -- which strips the 'i_' prefix back off for display.
+  -- key exists so graph.lua can derive a second, independent M.suggestions
+  -- entry from it; any UI rendering a registry key as "the key to press"
+  -- must go through commands.display_key(cmd) below, which strips the 'i_'
+  -- prefix back off.
   --
-  -- Usage is counted explicitly from inside logger.lua's handle_insert_key()
-  -- (mode cache confirms insert mode first), exactly like '<C-w>' above —
-  -- see logger.lua's INSERT_SPECIAL table. track = false for the same reason:
-  -- the generic, mode-unaware TRACK table must not also claim the raw <C-o>
-  -- byte, which the real normal-mode '<C-o>' entry already claims.
+  -- Usage is counted explicitly from handle_insert_key() (mode cache
+  -- confirms insert mode first) — see logger.lua's INSERT_SPECIAL. track =
+  -- false for the same reason: the generic TRACK table must not also claim
+  -- the raw <C-o> byte the normal-mode '<C-o>' entry already claims.
   ['i_<C-o>'] = { requires = 'i', track = false, category = 'edit', level = 'intermediate' },
 
   -- ── window management ─────────────────────────────────────────────────────
@@ -428,107 +422,72 @@ M.registry = {
   ['[c'] = { requires = 'k', track = false, category = 'diff', level = 'beginner' },
 
   -- ── Ex commands ───────────────────────────────────────────────────────────
-  -- Tracked via logger.lua's cmdline handler (core/patterns_cmdline.lua
-  -- tokenizes the completed command-line buffer), not via a single keystroke
-  -- or the normal-mode operator grammar — track = false here just like the
-  -- other entries whose count comes from a side channel (dw/dd compounds,
-  -- <C-w> insert-mode variant): build_track_table() must not also try to
-  -- treat 'ex:g'/'ex:norm' as literal keys to watch for.
+  -- Tracked via logger.lua's cmdline handler (patterns_cmdline.lua tokenizes
+  -- the completed command line), not a keystroke or operator grammar — track
+  -- = false so build_track_table() doesn't also treat 'ex:g'/'ex:norm' as
+  -- literal keys to watch for.
   --
-  -- ex_command = true is read by graph.lua to apply a stricter "never tried"
-  -- offer gate instead of the generic mastery-level gate every other
-  -- suggestion uses (see graph.find_best) — a single :g or :norm already
-  -- does the work of many ordinary keystrokes, so unlike e.g. cw (fine to
-  -- keep nudging until count reaches 100), continuing to suggest either of
-  -- these after the user has tried it even once would read as ignoring
-  -- feedback rather than teaching.
+  -- ex_command = true makes graph.lua apply a stricter "never tried" offer
+  -- gate instead of the generic mastery-level gate (see graph.find_best): a
+  -- single :g or :norm already does the work of many keystrokes, so
+  -- continuing to suggest either after even one try would read as ignoring
+  -- feedback, unlike e.g. cw (fine to keep nudging until count reaches 100).
   --
-  -- requires: 'n' (search-repeat) for :g — a user who repeatedly re-runs the
-  -- same search is already doing by hand what :g/pattern/cmd does over every
-  -- match at once. 'q' (macro recording) for :norm — the same "you're
-  -- already doing this manually, one line/repeat at a time" relationship.
-  -- Both requires targets are single-char and track=true already.
+  -- requires = 'n' for :g (repeated search-repeat is already doing by hand
+  -- what :g/pattern/cmd does over every match at once); 'q' for :norm (same
+  -- "already doing this manually" relationship to macro recording).
   ['ex:g'] = { requires = 'n', track = false, category = 'ex', level = 'advanced', ex_command = true },
   ['ex:norm'] = { requires = 'q', track = false, category = 'ex', level = 'advanced', ex_command = true },
 
   -- ── terminal mode: ineffective <Esc> → exit terminal mode ────────────────
-  -- Detected reactively by patterns_terminal.lua while mode() == 't'
-  -- (terminal-job mode), independent of any prerequisite command — there is
-  -- no tracked "you opened :terminal" signal to require here (ex-command
-  -- tracking is a separate, parallel effort). `requires = 'i'` is a
-  -- nominal anchor only: it satisfies commands_spec.lua's schema guard
-  -- (every suggestion needs a `requires`), but has no real semantic link to
-  -- this command. The reactive path this pattern actually fires through
-  -- (logger.on_pattern → suggest.queue/show → do_show) never consults
-  -- `requires` at all — do_show only needs graph.suggestions[cmd] to exist,
-  -- which it does regardless of the `ambient` flag below.
+  -- Detected reactively by patterns_terminal.lua while mode() == 't', with no
+  -- tracked "you opened :terminal" prerequisite to require. `requires = 'i'`
+  -- is a nominal anchor only, to satisfy commands_spec.lua's schema guard —
+  -- the reactive path this pattern fires through (on_pattern → suggest.queue
+  -- → do_show) never consults `requires` at all.
   --
   -- `ambient = false`: excludes this entry from graph.find_best()'s
-  -- candidate pool (both the idle ambient picker and :Tobira's manual pick
-  -- go through find_best — see graph.lua). Without this flag, find_best
-  -- could surface "exit terminal mode" purely because the user pressed `i`
-  -- a few times and has NEVER opened a real :terminal — the suggestion body
-  -- ("Inside :terminal, <Esc> is sent straight to the job...") presupposes
-  -- terminal usage that never happened, which is actively confusing. Worse,
-  -- this command's own usage count can never be incremented by anything
-  -- (there is no tracked path for it — see the comment above), so its
-  -- find_best score (trigger_count - 0) is always the best possible one for
-  -- any 'i'-triggered candidate, and it also wins every alphabetical
-  -- tie-break against '<C-w>'/'gi'/'I' (also requires='i') because
-  -- '<C-\><C-n>' sorts first byte-for-byte — meaning it would dominate
-  -- ambient suggestions from bare `i` usage alone. This command only makes
-  -- sense as a direct reaction to patterns_terminal.lua's terminal_esc_repeat
-  -- actually firing (a real, just-happened stuck-in-terminal moment), never
-  -- as a proactive idle-time nudge — hence excluding it from find_best
-  -- entirely rather than trying to fix its score.
+  -- candidate pool (idle picker + :Tobira manual). Without it, find_best
+  -- could surface "exit terminal mode" purely from bare `i` usage with no
+  -- :terminal ever opened — actively confusing, since the suggestion body
+  -- presupposes real terminal usage. Worse, this command's own usage count
+  -- can never be incremented by anything, so its find_best score
+  -- (trigger_count - 0) is always the best possible for any 'i'-triggered
+  -- candidate — it would dominate ambient suggestions from `i` alone. This
+  -- only makes sense as a direct reaction to terminal_esc_repeat actually
+  -- firing, never as a proactive idle-time nudge.
   --
-  -- Scoped narrowly to this one entry rather than generalizing the flag to
-  -- every `requires = 'i'` nominal anchor: the insert-mode '<C-w>' entry
-  -- above has the exact same "nominal requires='i' anchor" comment, but its
-  -- own usage count IS genuinely incremented (via increment('<C-w>') in
-  -- handle_insert_key()) — its find_best score reflects real usage, and its
-  -- suggestion body is a generic "did you know" tip that doesn't presuppose
-  -- any specific prior event, so ambient surfacing is legitimate for it. No
-  -- other registry entry shares <C-\><C-n>'s specific combination (own count
-  -- structurally stuck at 0 forever + a reactive-only, context-presupposing
-  -- suggestion body), so no other entry needs this flag — see
-  -- commands_spec.lua's "reactive-only ambient exclusion" tests, which
-  -- pin this down as an explicit, reviewable list rather than a silent rule.
+  -- Scoped narrowly to this one entry, not generalized to every `requires =
+  -- 'i'` nominal anchor: the insert-mode '<C-w>' entry above has the same
+  -- nominal-anchor shape, but its own count IS genuinely incremented and its
+  -- suggestion body doesn't presuppose a prior event, so ambient surfacing is
+  -- legitimate for it. No other entry shares this specific combination (count
+  -- stuck at 0 forever + a context-presupposing body) — see
+  -- commands_spec.lua's "reactive-only ambient exclusion" tests, which pin
+  -- this down as an explicit, reviewable list rather than a silent rule.
   ['<C-\\><C-n>'] = { requires = 'i', track = false, category = 'terminal', level = 'beginner', ambient = false },
 
   -- ── repeated :substitute detection → & / g& ───────────────────────────────
-  -- Detected reactively by core/patterns_cmdline.lua's track_substitute():
-  -- the identical :s/{pattern}/{replacement}/ body manually re-run on a 2nd
-  -- distinct line fires '&' (repeat the last substitute on the current
-  -- line); a 3rd distinct line escalates to 'g&' (repeat it on every
-  -- matching line in the file) instead of firing '&' again. See that
-  -- module's header comment for the full parsing scope (delimiter handling,
-  -- range exclusion, abbreviation recognition) and the exact-count firing
-  -- rationale.
+  -- Detected reactively by patterns_cmdline.lua's track_substitute(): the
+  -- identical :s/{pattern}/{replacement}/ body manually re-run on a 2nd
+  -- distinct line fires '&'; a 3rd distinct line escalates to 'g&' instead of
+  -- firing '&' again. See that module's header for the full parsing scope
+  -- and exact-count firing rationale.
   --
-  -- requires = 'n' for '&': mirrors 'cgn' just above it in spirit (also
-  -- requires = 'n') — repeated search-match navigation without editing is
-  -- the same "doing this by hand" precursor signal search-and-replace
-  -- features build on. track = true: '&' is a single literal keystroke with
-  -- its own real Vim meaning (distinct from tobira's detection of it), so
-  -- build_track_table() must count it like any other single-char command
-  -- (see commands.lua's checklist rule: every #cmd==1 entry needs
-  -- track=true).
+  -- requires = 'n' for '&': mirrors 'cgn' above it in spirit — repeated
+  -- search-match navigation without editing is the same "doing this by hand"
+  -- precursor search-and-replace features build on. track = true: '&' is a
+  -- single literal keystroke with its own real Vim meaning, so
+  -- build_track_table() must count it like any other single-char command.
   ['&'] = { requires = 'n', track = true, category = 'edit', level = 'intermediate' },
 
-  -- requires = '&': g& is the natural next step once & itself is known.
-  -- track = false: 'g&' is a 2-char literal sequence with no dedicated
-  -- pending-g dispatch entry recording it (same shape as 'gu'/'g~'/'gg'
-  -- above, all track=false) — nothing else in the registry references 'g&'
-  -- via `requires`, so there is no count>=N threshold depending on it being
-  -- individually trackable. It is NOT marked ambient=false: unlike
-  -- '<C-\><C-n>' (whose suggestion body presupposes a specific just-happened
-  -- terminal-mode event and whose own count is structurally stuck at 0
-  -- forever with a maximal find_best score as a result — see that entry's
-  -- comment), 'g&''s suggestion body is a generic, standalone "did you know"
-  -- tip (same shape as 'cgn'/'ex:g', both also track=false with no
-  -- ambient=false) that reads sensibly even surfaced ambiently from '&'
-  -- usage alone, so no special-case exclusion is warranted here.
+  -- requires = '&': g& is the natural next step once & is known. track =
+  -- false: a 2-char literal sequence with no pending-g dispatch entry
+  -- recording it (same shape as 'gu'/'g~'/'gg', all track=false). Not marked
+  -- ambient=false like '<C-\><C-n>': 'g&''s body is a generic, standalone
+  -- "did you know" tip (same shape as 'cgn'/'ex:g') that reads sensibly even
+  -- surfaced ambiently from '&' usage alone, unlike '<C-\><C-n>''s
+  -- context-presupposing body and structurally-stuck-at-0 count.
   ['g&'] = { requires = '&', track = false, category = 'edit', level = 'advanced' },
 }
 

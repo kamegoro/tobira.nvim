@@ -262,21 +262,17 @@ end
 
 -- max_level: 'beginner' | 'intermediate' | 'advanced' | nil (no filter)
 -- overrides: optional table of cmd -> { rhs, equivalent } built by
--- core/integrations.lua from the user's actual :nmap/:nnoremap state (see
--- that file's header for the full design). Any candidate present as a key
--- here is excluded from this pool entirely, regardless of `equivalent` --
--- graph.lua only ever reads this as plain data (no vim.*, no require of
--- integrations.lua itself, keeping this file pure per lua/tobira/CLAUDE.md's
--- module dependency rules). Proactively nudging "learn X" is never useful
--- once the user has deliberately rebound X's physical key to something else,
--- equivalent or not -- see ui/guide.lua for the one surface where the
--- equivalent/different distinction actually matters (its persistent
--- cheat-sheet bypasses find_best entirely).
+-- integrations.lua from the user's actual :nmap/:nnoremap state. Any
+-- candidate present as a key here is excluded entirely, regardless of
+-- `equivalent` — graph.lua only reads this as plain data (no require of
+-- integrations.lua, keeping this file pure). Proactively nudging "learn X"
+-- is never useful once the user has rebound X's key to something else,
+-- equivalent or not — see ui/guide.lua for the one surface where the
+-- equivalent/different distinction actually matters.
 -- promotions: optional table of cmd -> true built by integrations.lua from
 -- detected-plugin + usage-threshold rules. A promoted candidate bypasses the
--- ordinary "trigger_count > 0" gate below (reusing the same priority-pool
--- machinery "+y" already established above) but still has to pass every
--- other gate (mastery / suppression / shown cap).
+-- ordinary "trigger_count > 0" gate below (same priority-pool machinery as
+-- "+y" above) but still must pass every other gate (mastery/suppression/shown).
 function M.find_best(usage, max_shown, max_level, overrides, promotions)
   max_shown = max_shown or 3
   local max_level_num = max_level and (LEVEL_ORDER[max_level] or 3) or 3
@@ -288,17 +284,14 @@ function M.find_best(usage, max_shown, max_level, overrides, promotions)
   -- non-nil by the time the tie-break branch is reached.
   local best_score = -math.huge
 
-  -- Register-underuse candidates are collected into their own pool
-  -- instead of being folded into best_score via an additive boost. A fixed
-  -- boost (previously REGISTER_UNDERUSE_BOOST = 1000 added to usage.y.count)
-  -- can never be "big enough": an ordinary candidate's own score
-  -- (trigger_count - cmd_count) grows with the raw trigger count, which for
-  -- a real long-term user routinely reaches the thousands (e.g. j, h) —
-  -- there is no constant that outraces an unbounded competitor. Keeping
-  -- qualified candidates in a separate pool and only falling back to the
-  -- ordinary pool when it's empty makes "qualified always wins" true by
-  -- construction rather than by arithmetic, so it holds no matter how high
-  -- any other command's count climbs.
+  -- Register-underuse candidates are collected into their own pool instead of
+  -- being folded into best_score via an additive boost. A fixed boost
+  -- (previously +1000 added to usage.y.count) can never be "big enough": an
+  -- ordinary score (trigger_count - cmd_count) grows with the raw trigger
+  -- count, which for a real long-term user routinely reaches the thousands —
+  -- no constant outraces an unbounded competitor. A separate pool, falling
+  -- back to the ordinary one only when empty, makes "qualified always wins"
+  -- true by construction, not arithmetic.
   local best_priority_cmd = nil
   local best_priority_score = -math.huge
 
