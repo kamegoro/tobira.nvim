@@ -1,0 +1,30 @@
+name: Assign PR author
+
+on:
+  pull_request_target:
+    types: [opened]
+
+jobs:
+  assign:
+    name: Auto-assign PR author
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Add author as assignee
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const author = context.payload.pull_request.user.login;
+            const issue_number = context.payload.pull_request.number;
+            try {
+              await github.rest.issues.addAssignees({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number,
+                assignees: [author],
+              });
+              core.info(`Assigned ${author} to PR #${issue_number}.`);
+            } catch (error) {
+              core.warning(`Could not assign ${author} to PR #${issue_number}: ${error.message}`);
+            }
