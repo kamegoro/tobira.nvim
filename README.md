@@ -23,7 +23,7 @@ it quietly shows you the one command that would have helped. No quizzes. No inte
 ## ✨ Features
 
 - 👀 **Fully passive** — reads keystrokes via `vim.on_key()`; no config required, zero impact on your existing mappings
-- 🎯 **51 detected patterns** — repeated `f`, hammering `j`, `dw`→`i` instead of `cw`, insert-mode habits like `<BS>` spam, bouncing in and out with `<Esc>i`, a one-shot `<Esc>`→motion→`i` round trip, retyping the same identifier instead of using `<C-n>`, getting stuck in terminal mode, manually scrolling back to a place you jumped or edited before, and more across motion, edit, search, window, fold, mark, macro, diff, and terminal
+- 🎯 **52 detected patterns** — repeated `f`, hammering `j`, `dw`→`i` instead of `cw`, insert-mode habits like `<BS>` spam, bouncing in and out with `<Esc>i`, a one-shot `<Esc>`→motion→`i` round trip, retyping the same identifier instead of using `<C-n>`, getting stuck in terminal mode, manually scrolling back to a place you jumped or edited before, using `:tabnew` as a one-tab-per-file browser, and more across motion, edit, search, window, fold, mark, macro, diff, and terminal
 - ⌨️ **Ex commands, too** — `:g`, `:norm`, `:s`, and friends are tracked from the command line itself, not just normal-mode keys, so `:g` / `:norm` can be suggested to users who have never tried them (tobira's own `:Tobira*` commands are excluded, so checking your stats never counts as usage)
 - 💬 **One suggestion at a time** — shown after a natural pause, capped per session, with a cooldown between auto-suggestions — never a popup quiz
 - 📈 **Mastery-aware** — once you've used a command ~100 times, tobira stops suggesting it and moves on
@@ -147,8 +147,9 @@ plugin-detection boost, not that baseline behavior (see `:help tobira-integratio
 | `<Esc>` × 2 in terminal mode, no effect | `<C-\><C-n>` — exit terminal mode |
 | `G`, then scroll back manually | `<C-o>` — jump back to where you were |
 | Edit here, edit there, scroll back manually | `g;` — jump to your last edit |
+| `:tabnew {distinct file}` × 3, one tab each | `<C-^>` — switch buffers instead of opening a tab per file |
 
-51 patterns total — see `:help tobira-patterns` for the full list.
+52 patterns total — see `:help tobira-patterns` for the full list.
 
 ## 🆚 Similar plugins
 

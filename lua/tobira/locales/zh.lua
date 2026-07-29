@@ -124,6 +124,7 @@ return {
       manual_return = '你跳转到一个较远的位置，然后手动滚动返回',
       changelist_return = '你编辑了两个不同的位置，然后手动滚动返回查找第一个位置',
       terminal_esc_repeat = '你在终端模式下连续按了两次 <Esc> 但没有效果',
+      tabnew_run = '你用 :tabnew 打开了 3 个或更多文件，每个文件单独占一个标签页',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -510,7 +511,7 @@ return {
     },
     ['<C-^>'] = {
       title = '<C-^> — 切换到备用（上一个编辑的）文件',
-      body = '在当前文件和上一个打开的文件之间切换\n在两个正在编辑的文件间快速切换的最佳方式',
+      body = '在当前文件和上一个打开的文件之间切换\n在两个正在编辑的文件间快速切换的最佳方式\n如果用单独的标签页打开了三个或更多文件？:b {name} 无需新建标签页即可切换到任意已打开的缓冲区',
       example = '<C-^> → 打开上一个文件 → <C-^> → 回到第一个',
     },
     ["''"] = {

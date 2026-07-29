@@ -124,6 +124,7 @@ return {
       manual_return = 'Du bist zu einer entfernten Stelle gesprungen und dann manuell zurückgescrollt',
       changelist_return = 'Du hast an zwei verschiedenen Stellen bearbeitet und bist dann manuell zurückgescrollt, um die erste wiederzufinden',
       terminal_esc_repeat = 'Du hast im Terminal-Modus zweimal hintereinander <Esc> gedrückt, ohne Effekt',
+      tabnew_run = 'Du hast 3 oder mehr Dateien mit :tabnew geöffnet, jede in einem eigenen Tab',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -510,7 +511,7 @@ return {
     },
     ['<C-^>'] = {
       title = '<C-^> — zur alternativen (zuletzt bearbeiteten) Datei wechseln',
-      body = 'Wechselt zwischen der aktuellen Datei und der zuletzt geöffneten\nDer schnellste Weg, zwischen zwei aktiv bearbeiteten Dateien zu wechseln',
+      body = 'Wechselt zwischen der aktuellen Datei und der zuletzt geöffneten\nDer schnellste Weg, zwischen zwei aktiv bearbeiteten Dateien zu wechseln\nHast du stattdessen drei oder mehr Dateien in eigenen Tabs geöffnet? :b {name} wechselt zu jedem offenen Buffer, ganz ohne neuen Tab',
       example = '<C-^> → letzte Datei öffnen → <C-^> → zurück zur ersten',
     },
     ["''"] = {

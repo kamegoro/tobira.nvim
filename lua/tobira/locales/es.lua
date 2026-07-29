@@ -124,6 +124,7 @@ return {
       manual_return = 'Saltaste a un lugar lejano y luego retrocediste desplazándote manualmente',
       changelist_return = 'Editaste dos lugares distintos y luego retrocediste desplazándote manualmente para encontrar el primero',
       terminal_esc_repeat = 'Presionaste <Esc> dos veces seguidas en modo terminal sin ningún efecto',
+      tabnew_run = 'Abriste 3 o más archivos con :tabnew, cada uno en su propia pestaña',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -510,7 +511,7 @@ return {
     },
     ['<C-^>'] = {
       title = '<C-^> — cambiar al archivo alterno (editado previamente)',
-      body = 'Alterna entre el archivo actual y el último que tenías abierto\nLa forma más rápida de alternar entre dos archivos en los que trabajas activamente',
+      body = 'Alterna entre el archivo actual y el último que tenías abierto\nLa forma más rápida de alternar entre dos archivos en los que trabajas activamente\n¿Abriste tres o más en pestañas separadas? :b {name} cambia a cualquier búfer abierto sin necesidad de una pestaña nueva',
       example = '<C-^> → abre el último archivo → <C-^> → vuelve al primero',
     },
     ["''"] = {
