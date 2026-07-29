@@ -368,6 +368,9 @@ local chain_cases = {
   { 'ex:norm', 'q', 'q → ex:norm: run a normal-mode command per line' },
   -- terminal mode: ineffective <Esc> → exit terminal mode (#110)
   { '<C-\\><C-n>', 'i', 'i → <C-\\><C-n>: exit terminal mode (nominal anchor, see commands.lua comment)' },
+  -- repeated :substitute detection (#115)
+  { '&', 'n', 'n → &: repeat the last substitute on this line' },
+  { 'g&', '&', '& → g&: repeat the last substitute across the whole file' },
 }
 
 describe('teaching chains', function()
@@ -582,7 +585,7 @@ describe("the 'i_<C-o>' registry entry (insert-mode <C-o>, #105)", function()
   end)
 end)
 
-describe('commands.display_key', function()
+describe('when converting a registry key into the form shown in the UI', function()
   it('strips the i_ disambiguation prefix so the UI shows the real keystroke', function()
     assert.equals('<C-o>', commands.display_key('i_<C-o>'))
   end)
@@ -595,5 +598,191 @@ describe('commands.display_key', function()
   it('returns non-registry keys (basic tracked keys, compound ops) unchanged', function()
     assert.equals('j', commands.display_key('j'))
     assert.equals('dd', commands.display_key('dd'))
+  end)
+end)
+
+-- ── requires graph integrity: cycles and raw-byte collisions (#132) ──────────
+-- Neither of these has ever been caught by CI — both were only manually
+-- verified clean during a prior review. A cycle in `requires` would make any
+-- naive chain walk (e.g. a future "show the full prerequisite chain" UI
+-- feature) loop forever. A raw-byte collision between two `track = true`
+-- entries would make logger.lua's build_track_table() silently let the
+-- second entry's `t[raw] = cmd` assignment overwrite the first's, freezing
+-- one command's usage count at 0 forever (see logger.lua's TRACK table).
+
+-- DFS-based cycle detector over the `requires` graph. `registry` maps cmd ->
+-- entry the same shape as commands.registry. Only `requires` edges that
+-- point at another registry entry are traversed (a `requires` pointing at a
+-- bare single-char key like 'f' or 'j' has no further edge to follow — see
+-- the "requires field points to a single char or another registry entry"
+-- test above). Returns a list of cycles found; each cycle is a list of cmd
+-- names in the order visited, ending back at the start of the loop. An empty
+-- list means the graph is acyclic.
+local function find_requires_cycles(registry)
+  local WHITE, GRAY, BLACK = 0, 1, 2
+  local color = {}
+  local cycles = {}
+
+  local function visit(cmd, path)
+    color[cmd] = GRAY
+    table.insert(path, cmd)
+
+    local entry = registry[cmd]
+    local req = entry and entry.requires
+    if req and registry[req] then
+      local state = color[req]
+      if state == GRAY then
+        -- Found a back-edge into the current path: extract the cycle.
+        local cycle = {}
+        local started = false
+        for _, node in ipairs(path) do
+          if node == req then
+            started = true
+          end
+          if started then
+            table.insert(cycle, node)
+          end
+        end
+        table.insert(cycle, req)
+        table.insert(cycles, cycle)
+      elseif state == nil or state == WHITE then
+        visit(req, path)
+      end
+    end
+
+    table.remove(path)
+    color[cmd] = BLACK
+  end
+
+  for cmd in pairs(registry) do
+    if color[cmd] == nil then
+      visit(cmd, {})
+    end
+  end
+
+  return cycles
+end
+
+describe('the requires graph', function()
+  it('has no cycles in the real registry', function()
+    local cycles = find_requires_cycles(commands.registry)
+    assert.are.same({}, cycles, 'found cycle(s): ' .. vim.inspect(cycles))
+  end)
+
+  it('detects a deliberately introduced cycle (A requires B requires A)', function()
+    local injected = {}
+    for cmd, entry in pairs(commands.registry) do
+      injected[cmd] = entry
+    end
+    injected['__cycle_a__'] = { requires = '__cycle_b__', track = false, category = 'motion', level = 'beginner' }
+    injected['__cycle_b__'] = { requires = '__cycle_a__', track = false, category = 'motion', level = 'beginner' }
+
+    local cycles = find_requires_cycles(injected)
+    assert.is_true(#cycles > 0, 'expected the injected A -> B -> A cycle to be detected')
+  end)
+
+  it('detects a deliberately introduced longer cycle (A requires B requires C requires A)', function()
+    local injected = {}
+    for cmd, entry in pairs(commands.registry) do
+      injected[cmd] = entry
+    end
+    injected['__chain_a__'] = { requires = '__chain_b__', track = false, category = 'motion', level = 'beginner' }
+    injected['__chain_b__'] = { requires = '__chain_c__', track = false, category = 'motion', level = 'beginner' }
+    injected['__chain_c__'] = { requires = '__chain_a__', track = false, category = 'motion', level = 'beginner' }
+
+    local cycles = find_requires_cycles(injected)
+    assert.is_true(#cycles > 0, 'expected the injected 3-node cycle to be detected')
+  end)
+end)
+
+-- Raw-byte collision detector for `track = true` entries. Mirrors the exact
+-- normalization logger.lua's build_track_table() applies (nvim_replace_termcodes
+-- with the same 4 arguments), so a collision detected here is exactly the
+-- condition that would make build_track_table() silently drop one entry's
+-- tracking. `exceptions` is a set of registry keys allowed to be excluded
+-- from the check entirely (documented, intentional dual-purpose bytes).
+-- Returns a list of { first_cmd, second_cmd, raw } collision records.
+local function find_track_byte_collisions(registry, exceptions)
+  exceptions = exceptions or {}
+  local by_raw = {}
+  local collisions = {}
+
+  for cmd, entry in pairs(registry) do
+    if entry.track and not exceptions[cmd] then
+      local raw = vim.api.nvim_replace_termcodes(cmd, true, true, true)
+      local existing = by_raw[raw]
+      if existing then
+        table.insert(collisions, { existing, cmd, raw })
+      else
+        by_raw[raw] = cmd
+      end
+    end
+  end
+
+  return collisions
+end
+
+-- Insert-mode '<C-w>' (delete word before cursor) is deliberately track=false
+-- in the real registry precisely so it never enters this check — it shares
+-- its raw byte with the normal-mode '<C-w>' window-command prefix on
+-- purpose (see the '<C-w>' entry's comment in commands.lua) and is counted
+-- through a separate path (logger.lua's INSERT_SPECIAL), never through the
+-- generic TRACK table. It is listed here anyway, by name, so the exception
+-- is documented at the point of use and the detector's contract stays
+-- explicit: "no undocumented collisions", not "no collisions we forgot to
+-- check for".
+local TRACK_COLLISION_EXCEPTIONS = {
+  ['<C-w>'] = true,
+}
+
+describe('track = true entries in the requires graph', function()
+  it('resolve to a unique raw byte after nvim_replace_termcodes in the real registry', function()
+    local collisions = find_track_byte_collisions(commands.registry, TRACK_COLLISION_EXCEPTIONS)
+    assert.are.same({}, collisions, 'found raw-byte collision(s): ' .. vim.inspect(collisions))
+  end)
+
+  it('detects a deliberately introduced raw-byte collision (<Tab> aliases <C-i>)', function()
+    -- <Tab> and <C-i> are the same physical control character in terminal
+    -- notation (both normalize to "\t") — a real, well-known Vim key alias,
+    -- not a contrived string. '<C-i>' already exists as a real track=true
+    -- entry; injecting '<Tab>' as a second track=true entry recreates the
+    -- exact collision shape build_track_table() must never hit undetected.
+    assert.is_true(commands.registry['<C-i>'].track, 'fixture assumption: <C-i> is track=true in the real registry')
+
+    local injected = {}
+    for cmd, entry in pairs(commands.registry) do
+      injected[cmd] = entry
+    end
+    injected['<Tab>'] = { requires = '<C-o>', track = true, category = 'motion', level = 'beginner' }
+
+    local collisions = find_track_byte_collisions(injected, TRACK_COLLISION_EXCEPTIONS)
+    assert.is_true(#collisions > 0, 'expected the injected <Tab> / <C-i> collision to be detected')
+  end)
+
+  it('does not false-positive on the documented <C-w> insert/normal exception', function()
+    -- '<C-w>' and '<c-w>' are the same physical control byte — Vim notation
+    -- is case-insensitive on the modifier letter (verified above: both
+    -- normalize to "\23"). This recreates the real <C-w> insert/normal
+    -- collision shape with two distinct registry key strings that alias to
+    -- one raw byte, to prove the exception mechanism itself suppresses it
+    -- (rather than merely relying on the real '<C-w>' entry being
+    -- track=false, which would never reach the check at all).
+    assert.equals(
+      vim.api.nvim_replace_termcodes('<C-w>', true, true, true),
+      vim.api.nvim_replace_termcodes('<c-w>', true, true, true)
+    )
+
+    local injected = {}
+    for cmd, entry in pairs(commands.registry) do
+      injected[cmd] = entry
+    end
+    injected['<C-w>'] = { requires = 'i', track = true, category = 'edit', level = 'beginner' }
+    injected['<c-w>'] = { requires = 'i', track = true, category = 'edit', level = 'beginner' }
+
+    local collisions_unexempted = find_track_byte_collisions(injected, {})
+    assert.is_true(#collisions_unexempted > 0, 'fixture assumption: <c-w> vs <C-w> collides when unexempted')
+
+    local collisions_exempted = find_track_byte_collisions(injected, { ['<c-w>'] = true })
+    assert.are.same({}, collisions_exempted, 'the documented exception must suppress this collision')
   end)
 end)

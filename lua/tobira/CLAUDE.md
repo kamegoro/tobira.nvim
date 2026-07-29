@@ -18,20 +18,44 @@ core/patterns_cmdline.lua — pure Lua; no vim.*; requires nothing (Ex-command t
 core/patterns_terminal.lua — pure Lua; no vim.*; requires nothing (terminal-mode <Esc>
                        streak, #110 — shares no state with patterns.lua or
                        patterns_insert.lua, same split-out precedent as #99)
-core/graph.lua      — pure Lua; no vim.*; requires commands.lua only
+core/graph.lua      — pure Lua; no vim.*; requires commands.lua only. Never requires
+                       core/integrations.lua (see below) — find_best() only ever
+                       receives its output as plain `overrides`/`promotions` table
+                       parameters, so graph.lua stays pure and integrations-agnostic.
 core/skills.lua     — pure Lua; requires commands.lua only
 core/level.lua      — requires graph only
+core/integrations.lua — requires commands + config (#63). Detects the user's own
+                       keymap overrides (`nvim_get_keymap`) and installed helper
+                       plugins (`nvim_get_runtime_file` presence check, never
+                       require() — would force a lazy-loaded plugin to load). Shares
+                       no state with graph.lua's scoring loop and is impure
+                       (vim.on_key is NOT used here — this is autocmd-driven, not
+                       hot-path — see its own header comment), which is why it is a
+                       sibling of graph.lua rather than code inside it, per the
+                       module-splitting policy below.
 core/logger.lua     — requires patterns + patterns_insert + patterns_cmdline + patterns_terminal + commands
                       does NOT require suggest — notifies via on_pattern callback
-core/suggest.lua    — requires config / logger / graph
+core/suggest.lua    — requires config / logger / graph / integrations
                       ↓
 i18n.lua            — requires config + locales
 health.lua          — requires config / logger / locales (checkhealth entry point, not
                        required by anything else)
 ui/hls.lua          — requires nothing (highlight group definitions only)
 ui/float.lua        — requires i18n (display strings only)
-ui/stats.lua        — requires graph / logger / i18n
-ui/guide.lua        — requires commands / graph / logger / i18n / hls
+ui/stats.lua        — requires graph / logger / i18n / integrations
+                       (#164: "Try these next" — graph.efficiency_gaps() — is this
+                       panel's own headline actionable section, so it passes
+                       integrations.get_overrides() through to efficiency_gaps() the
+                       same way find_best() already receives it, instead of bypassing
+                       the override check the way it used to.)
+ui/guide.lua        — requires commands / graph / logger / i18n / hls / integrations
+                       (#63: the one surface bypassing find_best entirely, so it is
+                       also the one place that reads integrations.lua's
+                       equivalent/different distinction directly — see graph.lua's
+                       find_best doc comment for why find_best itself doesn't. #164:
+                       the Pinned section reads this same distinction, but unlike the
+                       auto section never omits a row outright — see format_pinned_row's
+                       header comment for why.)
 ui/progress.lua     — requires graph / level / logger / skills / i18n / hls
                       ↓
 init.lua            — wiring layer: connects core and ui modules

@@ -6,6 +6,8 @@ return {
     pinned = '已固定',
     forgotten_suffix = '（已生疏）',
     more_suffix = '还有 %d 项',
+    remapped_suffix = '（已映射到 %s）',
+    remapped_invalid = '已重新映射到 %s — 该说明已不再适用',
   },
   progress = {
     title = 'tobira — 你的 vim 之旅',
@@ -49,6 +51,7 @@ return {
     reset = 'tobira: 使用日志已重置',
     no_suggestions = 'tobira: 目前没有新的建议 🎉',
     invalid_config = 'tobira: 配置无效 — ',
+    remap_detected = 'tobira: %s 已被重新映射（%s）— 已从建议池中移除',
   },
   stats = {
     title = 'tobira — 使用统计',
@@ -122,6 +125,10 @@ return {
       changelist_return = '你编辑了两个不同的位置，然后手动滚动返回查找第一个位置',
       terminal_esc_repeat = '你在终端模式下连续按了两次 <Esc> 但没有效果',
       macro_opportunity = '你手动重复了同一个编辑操作序列 3 次',
+      substitute_repeat = '你手动在第二行也执行了同样的 :s/// 替换',
+      substitute_repeat_wide = '你手动在第三行也执行了同样的 :s/// 替换',
+      ex_file_pingpong = '你用 :e/:b 连续多次在同两个文件之间来回切换',
+      tabnew_run = '你用 :tabnew 打开了 3 个或更多文件，每个文件单独占一个标签页',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -508,7 +515,7 @@ return {
     },
     ['<C-^>'] = {
       title = '<C-^> — 切换到备用（上一个编辑的）文件',
-      body = '在当前文件和上一个打开的文件之间切换\n在两个正在编辑的文件间快速切换的最佳方式',
+      body = '在当前文件和上一个打开的文件之间切换\n在两个正在编辑的文件间快速切换的最佳方式\n如果用单独的标签页打开了三个或更多文件？:b {name} 无需新建标签页即可切换到任意已打开的缓冲区',
       example = '<C-^> → 打开上一个文件 → <C-^> → 回到第一个',
     },
     ["''"] = {
@@ -1030,6 +1037,18 @@ return {
       title = '<C-\\><C-n> — 退出终端模式',
       body = '在 :terminal 中，<Esc> 会直接发送给任务 — 并不会退出终端模式\n<C-\\><C-n> 才是真正返回普通模式的方式',
       example = '<C-\\><C-n> → 返回普通模式，终端任务继续运行',
+    },
+
+    -- ── 重复 :substitute 检测 (#115) ─────────────────────────────────────
+    ['&'] = {
+      title = '& — 在本行重复上一次 :substitute',
+      body = '你手动在另一行输入了同样的 :s/模式/替换/\n& 会在当前行重复上一次替换，无需重新输入',
+      example = ':s/foo/bar/ 之后移动到另一行，& → 在该行也执行替换',
+    },
+    ['g&'] = {
+      title = 'g& — 在整个文件重复上一次 :substitute',
+      body = '你手动在好几行输入了同样的 :s/模式/替换/\ng& 会沿用上一次的模式和选项，应用到整个文件',
+      example = ':s/foo/bar/ 之后 g& → 应用到每一处匹配的行',
     },
   },
 }

@@ -1757,7 +1757,7 @@ end)
 
 -- ── key_consumed flag ─────────────────────────────────────────────────────────
 
-describe('seq.key_consumed', function()
+describe('when a key is consumed as part of a preceding register, mark, or [ / ] prefix', function()
   it('is false after a plain navigation key', function()
     local s = seq()
     patterns.feed(s, 'j', 1)
@@ -1843,7 +1843,7 @@ end)
 -- dw dw, …) are each counted once — a value-change comparison cannot tell
 -- "the same compound completed twice" from "nothing happened".
 
-describe('seq.op_completed', function()
+describe('when an operator command freshly completes, as opposed to merely repeating the same one', function()
   it('is false after only the first key of a pending operator', function()
     local s = seq()
     patterns.feed(s, 'd', 1)

@@ -144,7 +144,7 @@ end)
 
 -- ── get_session_counts ────────────────────────────────────────────────────────
 
-describe('get_session_counts', function()
+describe('when checking in-session keystroke counts before the session closes', function()
   before_each(function()
     wipe_disk()
     logger.reset()
@@ -1250,6 +1250,482 @@ describe("Ex command tracking excludes tobira's own commands", function()
   end)
 end)
 
+-- ── Repeated substitute detection (#115) ────────────────────────────────────
+-- Builds on #57's cmdline infrastructure: logger.lua's handle_cmdline_key
+-- feeds the same completed cmdline text to
+-- patterns_cmdline.track_substitute() alongside tokenize(). See that
+-- module's header comment for the full parsing scope and the &-vs-g&
+-- threshold heuristic (2nd distinct line -> &, 3rd distinct line -> g&).
+
+describe('Repeated substitute detection (#115)', function()
+  local esc = vim.api.nvim_replace_termcodes('<Esc>', true, true, true)
+  local cr = vim.api.nvim_replace_termcodes('<CR>', true, true, true)
+
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    logger.on_pattern = nil
+    logger.setup()
+    vim.cmd('enew!')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'foo', 'foo', 'foo', 'foo' })
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+    if vim.fn.mode() ~= 'n' then
+      pcall(vim.api.nvim_input, esc)
+    end
+  end)
+
+  local function goto_line(n)
+    vim.api.nvim_win_set_cursor(0, { n, 0 })
+  end
+
+  local function run_substitute(text)
+    pcall(vim.fn.feedkeys, ':' .. text .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    -- Verify-before-credit fix (bug found by QA, same problem/timing class as
+    -- #114's ex_file_pingpong fix): the actual credit is now deferred to
+    -- vim.schedule(), which only runs once Neovim has fully processed this
+    -- <CR> (command succeeded, or already failed, against the buffer's
+    -- changedtick snapshotted right before it ran). Each call needs to let
+    -- that settle before the next one starts, otherwise multiple pending
+    -- callbacks in these tests' synthetic back-to-back feedkeys would all
+    -- resolve against whatever changedtick is current by then rather than
+    -- each against the outcome of ITS OWN command.
+    vim.wait(20)
+  end
+
+  it('fires substitute_repeat / & when the same :s/// runs on a second distinct line', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+
+    goto_line(1)
+    run_substitute('s/foo/bar/')
+    goto_line(2)
+    run_substitute('s/foo/bar/')
+
+    assert.equals(1, #fired)
+    assert.equals('substitute_repeat', fired[1].pattern)
+    assert.equals('&', fired[1].cmd)
+  end)
+
+  it('fires substitute_repeat_wide / g& when a third distinct line repeats it', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+
+    for i = 1, 3 do
+      goto_line(i)
+      run_substitute('s/foo/bar/')
+    end
+
+    assert.equals(2, #fired)
+    assert.equals('substitute_repeat_wide', fired[2].pattern)
+    assert.equals('g&', fired[2].cmd)
+  end)
+
+  it('does not fire when the pattern differs between invocations', function()
+    local fired = false
+    logger.on_pattern = function()
+      fired = true
+    end
+
+    goto_line(1)
+    run_substitute('s/foo/bar/')
+    goto_line(2)
+    run_substitute('s/food/bar/')
+
+    assert.is_false(fired)
+  end)
+
+  it('does not fire when the replacement differs between invocations', function()
+    local fired = false
+    logger.on_pattern = function()
+      fired = true
+    end
+
+    goto_line(1)
+    run_substitute('s/foo/bar/')
+    goto_line(2)
+    run_substitute('s/foo/baz/')
+
+    assert.is_false(fired)
+  end)
+
+  it('does not count an aborted :s toward the repeat (consistent with #57 abort handling)', function()
+    local fired = false
+    logger.on_pattern = function()
+      fired = true
+    end
+
+    -- Typed but aborted with <Esc> before <CR> -- must not be counted as a
+    -- completed invocation on this line.
+    goto_line(1)
+    pcall(vim.fn.feedkeys, ':s/foo/bar/' .. esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+
+    -- Only one REAL completed substitute so far (below); must not fire yet.
+    goto_line(2)
+    run_substitute('s/foo/bar/')
+    assert.is_false(fired, 'expected no fire after only one completed invocation')
+
+    -- Second real completed substitute on a new distinct line now fires.
+    goto_line(3)
+    run_substitute('s/foo/bar/')
+    assert.is_true(fired)
+  end)
+
+  it('does not track a ranged substitute (:%s) toward the repeat', function()
+    local fired = false
+    logger.on_pattern = function()
+      fired = true
+    end
+
+    run_substitute('%s/foo/bar/')
+
+    goto_line(1)
+    run_substitute('s/foo/bar/')
+
+    assert.is_false(fired) -- only one bare (unranged) invocation counted
+  end)
+
+  -- Regression test for a QA-found false positive: track_substitute() used to
+  -- be fed straight from the cmdline TEXT with no check of whether Neovim
+  -- actually executed/matched it. Retyping an identical :s/// that matches
+  -- NOTHING on two different lines (E486 "Pattern not found" both times, zero
+  -- substitutions performed) must never be credited as a real repeated edit.
+  it('does not fire when the identical :s/// fails to match anything on either line (E486)', function()
+    local fired = false
+    logger.on_pattern = function()
+      fired = true
+    end
+
+    goto_line(1)
+    run_substitute('s/nonexistent_pattern_xyz/foo/')
+    goto_line(2)
+    run_substitute('s/nonexistent_pattern_xyz/foo/')
+
+    assert.is_false(fired, 'a substitute that never matched must never credit the &/g& streak')
+  end)
+
+  it('still fires normally once a real match succeeds after an earlier failed attempt', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+
+    -- A failed attempt on line 1 must not poison the state for the real
+    -- (matching) substitute that follows.
+    goto_line(1)
+    run_substitute('s/nonexistent_pattern_xyz/foo/')
+    goto_line(1)
+    run_substitute('s/foo/bar/')
+    goto_line(2)
+    run_substitute('s/foo/bar/')
+
+    assert.equals(1, #fired)
+    assert.equals('substitute_repeat', fired[1].pattern)
+    assert.equals('&', fired[1].cmd)
+  end)
+end)
+
+-- ── :e/:b file ping-pong detection (#114) ────────────────────────────────────
+-- Wires patterns_cmdline.command_arg()/feed_pingpong() into the same <CR>
+-- handling handle_cmdline_key already does for tokenize() (#57). Real :e/:b
+-- commands are run against buffer names that don't exist on disk yet, which
+-- is safe in headless Neovim: :e just opens a new in-memory buffer with that
+-- name, and :b only needs a same-named buffer to already exist (created by
+-- an earlier :e in the same test), so nothing ever touches the filesystem.
+
+describe(':e/:b file ping-pong detection (#114)', function()
+  local cr = vim.api.nvim_replace_termcodes('<CR>', true, true, true)
+
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    logger.on_pattern = nil
+    logger.setup()
+    vim.cmd('enew!')
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+    if vim.fn.mode() ~= 'n' then
+      pcall(vim.api.nvim_input, vim.api.nvim_replace_termcodes('<Esc>', true, true, true))
+    end
+  end)
+
+  it('fires ex_file_pingpong suggesting <C-^> when bouncing :e A -> :e B -> :e A', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+
+    -- The actual credit for each switch is now deferred (vim.schedule, #114
+    -- verify-before-credit fix), so each command needs a short vim.wait()
+    -- before the next one starts -- otherwise multiple pending callbacks
+    -- would all resolve at once, against whatever buffer is current by then,
+    -- rather than each against the buffer immediately after ITS OWN command
+    -- (see logger.lua's handle_cmdline_key comment on vim.schedule ordering).
+    pcall(vim.fn.feedkeys, ':e tobira_pingpong_a.txt' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.wait(20)
+    pcall(vim.fn.feedkeys, ':e tobira_pingpong_b.txt' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.wait(20)
+    pcall(vim.fn.feedkeys, ':e tobira_pingpong_a.txt' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.wait(20)
+
+    local found = nil
+    for _, f in ipairs(fired) do
+      if f.pattern == 'ex_file_pingpong' then
+        found = f
+      end
+    end
+    assert.is_not_nil(found, 'expected ex_file_pingpong to fire on the A -> B -> A bounce')
+    assert.equals('<C-^>', found.cmd)
+  end)
+
+  it('fires when the return trip is via :b instead of :e', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+
+    pcall(vim.fn.feedkeys, ':e tobira_pingpong_c.txt' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.wait(20)
+    pcall(vim.fn.feedkeys, ':e tobira_pingpong_d.txt' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.wait(20)
+    pcall(vim.fn.feedkeys, ':b tobira_pingpong_c.txt' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.wait(20)
+
+    local found = nil
+    for _, f in ipairs(fired) do
+      if f.pattern == 'ex_file_pingpong' then
+        found = f
+      end
+    end
+    assert.is_not_nil(found, 'expected :b to count toward the same ping-pong rotation as :e')
+    assert.equals('<C-^>', found.cmd)
+  end)
+
+  it('does not fire when switching between 3+ different files', function()
+    local fired = {}
+    logger.on_pattern = function(pattern)
+      table.insert(fired, pattern)
+    end
+
+    local files = {
+      'tobira_pingpong_e.txt',
+      'tobira_pingpong_f.txt',
+      'tobira_pingpong_g.txt',
+      'tobira_pingpong_e.txt',
+      'tobira_pingpong_f.txt',
+      'tobira_pingpong_g.txt',
+    }
+    for _, name in ipairs(files) do
+      pcall(vim.fn.feedkeys, ':e ' .. name .. cr, 'xt')
+      vim.api.nvim_feedkeys('', 'x', false)
+      vim.wait(20)
+    end
+
+    for _, pattern in ipairs(fired) do
+      assert.are_not.equal('ex_file_pingpong', pattern, 'a 3+ file rotation must never fire the 2-file ping-pong')
+    end
+  end)
+
+  it('resets the ping-pong history on logger.reset()', function()
+    -- Each command's deferred verification (#114 fix) must settle BEFORE
+    -- logger.reset() reassigns the module-local pingpong_seq -- otherwise
+    -- these two commands' still-pending callbacks would run against the
+    -- fresh post-reset seq instead of the one they belong to. In real usage
+    -- there's no way for a stale callback to still be pending by the time a
+    -- user deliberately runs :TobiraReset (see logger.lua's ordering
+    -- comment); this vim.wait() only recreates that natural settling point
+    -- for a synthetic back-to-back test.
+    pcall(vim.fn.feedkeys, ':e tobira_pingpong_h.txt' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.wait(20)
+    pcall(vim.fn.feedkeys, ':e tobira_pingpong_i.txt' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.wait(20)
+
+    logger.reset()
+    logger.setup()
+
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+    -- Without the reset, this would be the 3rd distinct-file switch relative
+    -- to the two :e calls above and would fire; after reset it must be
+    -- treated as only the 2nd switch ever, in a fresh history.
+    pcall(vim.fn.feedkeys, ':e tobira_pingpong_h.txt' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.wait(20)
+
+    assert.equals(0, #fired, 'ping-pong history must not survive logger.reset()')
+  end)
+
+  -- Regression test for a QA-found false positive (#114 follow-up): tokenize()/
+  -- command_arg() only see the TEXT of the submitted :e/:b command, read at
+  -- <CR> time before Neovim has validated or executed it. Typing and
+  -- submitting the command is not the same thing as the file switch actually
+  -- happening -- Neovim can still reject it outright. This reproduces the
+  -- exact rejected-command shape and confirms no switch is ever credited
+  -- unless it really happened.
+  it('does not fire when the file switches were rejected by Neovim, not real bounces', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+
+    -- 1) :e alpha.txt -- a real, successful switch.
+    pcall(vim.fn.feedkeys, ':e tobira_pingpong_reject_alpha.txt' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.wait(20)
+
+    -- 2) Dirty edit, never saved.
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'unsaved change' })
+    assert.is_true(vim.bo.modified)
+
+    -- 3) :b gamma.txt -- gamma.txt was never opened, so Neovim rejects this
+    --    with E94 ("No matching buffer"). The current buffer stays alpha.txt.
+    local ok_b = pcall(vim.fn.feedkeys, ':b tobira_pingpong_reject_gamma.txt' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.wait(20)
+    assert.is_false(ok_b, 'expected :b on a never-opened name to raise E94')
+    assert.equals('tobira_pingpong_reject_alpha.txt', vim.fn.bufname('%'))
+
+    -- 4) :e alpha.txt again, still dirty and without ! -- Neovim rejects this
+    --    with E37 ("No write since last change"). The buffer never reloads.
+    local ok_e = pcall(vim.fn.feedkeys, ':e tobira_pingpong_reject_alpha.txt' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.wait(20)
+    assert.is_false(ok_e, 'expected :e on a dirty buffer without ! to raise E37')
+    assert.equals('tobira_pingpong_reject_alpha.txt', vim.fn.bufname('%'))
+
+    -- Only one real switch ever happened (step 1). Textually this looks like
+    -- alpha -> gamma -> alpha, but no bounce actually occurred, so
+    -- ex_file_pingpong must never fire.
+    for _, f in ipairs(fired) do
+      assert.are_not.equal('ex_file_pingpong', f.pattern, 'a rejected :e/:b must never be credited as a real file switch')
+    end
+  end)
+end)
+
+-- ── tabnew one-file-per-tab habit detection (#113) ───────────────────────────
+-- logger.lua threads vim.api.nvim_tabpage_list_wins into
+-- patterns_cmdline.feed_tabnew() the same way it threads vim.wo.diff into
+-- patterns.feed() for #111 — see patterns_cmdline.lua's module comment for
+-- the full design. Real :tabnew / :split here (not stubs) so the window
+-- structure feed_tabnew() reads is genuine, not simulated.
+
+describe('tabnew one-file-per-tab habit detection (#113)', function()
+  local cr = vim.api.nvim_replace_termcodes('<CR>', true, true, true)
+
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    logger.on_pattern = nil
+    logger.setup()
+    vim.cmd('silent! tabonly!')
+    vim.cmd('enew!')
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+    if vim.fn.mode() ~= 'n' then
+      pcall(vim.api.nvim_input, vim.api.nvim_replace_termcodes('<Esc>', true, true, true))
+    end
+    vim.cmd('silent! tabonly!')
+  end)
+
+  local function tabnew(name)
+    pcall(vim.fn.feedkeys, ':tabnew tobira_test_' .. name .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+  end
+
+  it('fires tabnew_run, suggesting <C-^>, after 3 :tabnew {file} calls each opening a fresh single-window tab', function()
+    local fired_pattern, fired_cmd = nil, nil
+    logger.on_pattern = function(pattern, cmd)
+      fired_pattern = pattern
+      fired_cmd = cmd
+    end
+
+    tabnew('a.txt')
+    assert.is_nil(fired_pattern)
+    tabnew('b.txt')
+    assert.is_nil(fired_pattern)
+    tabnew('c.txt')
+
+    assert.equals('tabnew_run', fired_pattern)
+    assert.equals('<C-^>', fired_cmd)
+  end)
+
+  it('does not fire when a window was split inside one of the tabs before the streak reached 3', function()
+    local fired_pattern = nil
+    logger.on_pattern = function(pattern)
+      fired_pattern = pattern
+    end
+
+    tabnew('a.txt')
+    tabnew('b.txt')
+    vim.cmd('split') -- the tab :tabnew b.txt opened now has 2 windows
+    tabnew('c.txt')
+
+    assert.is_nil(fired_pattern, 'the split should have reset the streak before it reached 3')
+  end)
+
+  it('does not extend the streak for a bare :tabnew with no file argument', function()
+    local fired_pattern = nil
+    logger.on_pattern = function(pattern)
+      fired_pattern = pattern
+    end
+
+    tabnew('a.txt')
+    pcall(vim.fn.feedkeys, ':tabnew' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    tabnew('b.txt')
+    tabnew('c.txt')
+
+    assert.is_nil(fired_pattern, 'the bare :tabnew should have reset the streak, needing 3 more file tabnews to fire')
+  end)
+
+  it('still tracks ex:tabnew usage the same way every other Ex command is tracked', function()
+    tabnew('a.txt')
+    assert.is_true(logger.get('ex:tabnew').count > 0)
+  end)
+
+  -- Regression (QA): opening the exact same file 3x via :tabnew used to fire
+  -- the suggestion anyway, because the pre-fix implementation only tracked
+  -- whether :tabnew was given SOME argument, never which filename. Vim
+  -- reuses the existing buffer for a file already open in another tab, so
+  -- this scenario only ever has 1 real buffer — the resulting :b / <C-^>
+  -- suggestion made no sense. See patterns_cmdline.feed_tabnew's doc comment
+  -- for the fix (threading the actual filename, resetting on a repeat).
+  it('does not fire when the exact same file is opened via :tabnew repeatedly', function()
+    local fired_pattern = nil
+    logger.on_pattern = function(pattern)
+      fired_pattern = pattern
+    end
+
+    tabnew('samefile.txt')
+    tabnew('samefile.txt')
+    tabnew('samefile.txt')
+
+    assert.is_nil(fired_pattern, 'reopening a file already open in another tab is not one-tab-per-file browsing')
+  end)
+end)
+
 -- (stats rendering has moved to tests/spec/unit/ui_stats_spec.lua)
 
 -- ── save ─────────────────────────────────────────────────────────────────────
@@ -1479,7 +1955,7 @@ end)
 
 -- ── data_dir / data_file accessors (for :checkhealth, #42) ──────────────────
 
-describe('data_dir and data_file', function()
+describe('when locating the on-disk usage data directory and file (for :checkhealth)', function()
   it('data_file is data_dir with /usage.json appended', function()
     assert.equals(logger.data_dir() .. '/usage.json', logger.data_file())
   end)
@@ -1754,6 +2230,7 @@ describe('when single-char track=true keys are pressed', function()
     '*',
     '#',
     '~',
+    '&', -- #115: repeat last :substitute on the current line
     'A',
     'b',
     'C',

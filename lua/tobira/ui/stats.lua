@@ -55,6 +55,7 @@ function M.render(usage)
   local str = require('tobira.i18n').load().stats
   local graph = require('tobira.core.graph')
   local commands = require('tobira.commands')
+  local integrations = require('tobira.core.integrations')
 
   local dist = graph.knowledge_dist(usage)
   local total_cmds = dist.never + dist.tried + dist.familiar + dist.mastered
@@ -87,7 +88,11 @@ function M.render(usage)
     return a.cmd < b.cmd
   end)
 
-  local gaps = graph.efficiency_gaps(usage, GAPS_N)
+  -- #164: "Try these next" is this panel's own headline actionable section,
+  -- so it must honor the same keymap-override rule find_best() and Guide's
+  -- auto section already enforce (#63) -- see graph.efficiency_gaps's header
+  -- comment.
+  local gaps = graph.efficiency_gaps(usage, GAPS_N, integrations.get_overrides())
 
   local STAR_BY_LEVEL = { [0] = ' ', [1] = '☆', [2] = '★', [3] = '★★', [4] = '★★★' }
   local SYM_FORGOTTEN = '⟳' -- mirrors ui/guide.lua's forgotten glyph, see ui/CLAUDE.md's state-color table
