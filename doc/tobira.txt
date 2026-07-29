@@ -332,6 +332,10 @@ EDIT ~
   `p` / `P` → rightward × 3    Suggest `gp` / `gP` — paste, leave cursor after it
   `<C-a>` → `j` × 3             Suggest `g<C-a>` — visual-block sequential increment
   `gq` → jump back              Suggest `gw`    — format without moving the cursor
+  Identical `:s/pat/repl/` on a 2nd line
+                                Suggest `&`     — repeat the last substitute here
+  Identical `:s/pat/repl/` on a 3rd line
+                                Suggest `g&`    — repeat it across the whole file
 
 WINDOW ~
 

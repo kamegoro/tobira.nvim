@@ -124,6 +124,8 @@ return {
       manual_return = 'Saltaste a un lugar lejano y luego retrocediste desplazándote manualmente',
       changelist_return = 'Editaste dos lugares distintos y luego retrocediste desplazándote manualmente para encontrar el primero',
       terminal_esc_repeat = 'Presionaste <Esc> dos veces seguidas en modo terminal sin ningún efecto',
+      substitute_repeat = 'Ejecutaste la misma sustitución :s/// a mano en una segunda línea',
+      substitute_repeat_wide = 'Ejecutaste la misma sustitución :s/// a mano en una tercera línea',
       ex_file_pingpong = 'Alternaste varias veces seguidas entre los mismos dos archivos con :e/:b',
       tabnew_run = 'Abriste 3 o más archivos con :tabnew, cada uno en su propia pestaña',
     },
@@ -1034,6 +1036,18 @@ return {
       title = '<C-\\><C-n> — salir del modo terminal',
       body = 'Dentro de :terminal, <Esc> se envía directamente al proceso — no sale del modo terminal\n<C-\\><C-n> es la salida real al modo Normal',
       example = '<C-\\><C-n> → vuelve al modo Normal, el proceso del terminal sigue en ejecución',
+    },
+
+    -- ── detección de :substitute repetido (#115) ─────────────────────────────
+    ['&'] = {
+      title = '& — repetir la última sustitución en esta línea',
+      body = 'Escribiste a mano el mismo :s/patrón/reemplazo/ en otra línea\n& repite la última sustitución en la línea actual, sin volver a escribirla',
+      example = ':s/foo/bar/ y luego, en otra línea, & → la repite ahí',
+    },
+    ['g&'] = {
+      title = 'g& — repetir la última sustitución en todo el archivo',
+      body = 'Escribiste a mano el mismo :s/patrón/reemplazo/ en varias líneas\ng& la aplica a todo el archivo, reutilizando el patrón y las opciones anteriores',
+      example = ':s/foo/bar/ y luego g& → se aplica a cada línea coincidente',
     },
   },
 }

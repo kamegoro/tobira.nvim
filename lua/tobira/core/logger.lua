@@ -13,6 +13,11 @@ local usage = {}
 local meta = { guide_seen = false }
 local _initialized = false
 local seq = patterns.new_seq()
+-- #115: accumulates across the whole session (unlike seq/insert_seq above,
+-- which reset on every cmdline keystroke) — repeated-substitute detection
+-- needs to remember pattern+replacement pairs across separate, distinct :s
+-- invocations that can be minutes apart.
+local substitute_state = patterns_cmdline.new_substitute_state()
 -- Session-scoped tabnew-habit streak (#113) — see
 -- patterns_cmdline.new_tabnew_seq()'s doc comment. Deliberately NOT reset
 -- alongside seq/insert_seq on every cmdline keystroke (see
@@ -433,6 +438,25 @@ local CMDLINE_CTRL_C = vim.api.nvim_replace_termcodes('<C-c>', true, true, true)
 -- tokenize to the same lowercase key).
 local OWN_CMD_PREFIX = 'ex:tobira'
 
+-- #115 fix (verify-before-credit): cheap gate deciding whether a completed
+-- Ex command is even worth deferring a changedtick-based success check for
+-- at all (see the full fix comment at the call site below). Deliberately
+-- duplicates track_substitute()'s own "is the word a prefix of 'substitute'"
+-- check rather than exporting it from patterns_cmdline.lua — same
+-- duplication precedent as #114's ex_file_pingpong fix's PINGPONG_WORDS
+-- table: that module stays a pure, vim.*-free tokenizer, and
+-- track_substitute() already re-validates the full command (range,
+-- delimiters, ...) for real regardless of what this gate decides. A
+-- mismatch here (e.g. this matching a ranged ":%s/foo/bar/" that
+-- track_substitute() will go on to reject anyway) only ever costs one
+-- unnecessary changedtick snapshot + scheduled callback, never an incorrect
+-- credit — tokenize()'s 'name' already strips any range the same way
+-- track_substitute() does, so this only has to check the command word.
+local function looks_like_substitute(tokenized_name)
+  local word = tokenized_name and tokenized_name:match('^ex:(%a+)$')
+  return word ~= nil and ('substitute'):sub(1, #word) == word
+end
+
 -- Ex-command tracking (#57): vim.on_key sees every cmdline keystroke, but
 -- the actual tokenizable content only exists once, in full, right when the
 -- terminating key arrives — so there is no per-keystroke buffer to
@@ -462,10 +486,106 @@ local function handle_cmdline_key(key)
   end
 
   if key == CMDLINE_CR then
-    local text = vim.fn.getcmdline()
-    local name = patterns_cmdline.tokenize(text)
+    local cmdline_text = vim.fn.getcmdline()
+    local name = patterns_cmdline.tokenize(cmdline_text)
     if name and name:sub(1, #OWN_CMD_PREFIX) ~= OWN_CMD_PREFIX then
       increment(name)
+    end
+    -- #115: same completed-cmdline text, fed to the substitute-repeat
+    -- tracker alongside tokenize() above. vim.fn.line('.') at this point is
+    -- still the pre-substitution cursor line — the line the bare (no-range)
+    -- :s is about to run on (see patterns_cmdline.lua's header for why an
+    -- explicit range is out of scope and skipped instead of guessed at).
+    --
+    -- Verify-before-credit (fix for a QA-found false positive, same problem
+    -- class and same timing fix as #114's ex_file_pingpong verify-before-
+    -- credit): this on_key callback for <CR> runs BEFORE Neovim validates or
+    -- executes the command (see this function's header comment above), so
+    -- `cmdline_text` says nothing about whether the substitution actually
+    -- matched anything. Typing and submitting ":s/pat/repl/" is not the same
+    -- thing as a replacement actually happening — Neovim can run the command
+    -- and still do nothing (E486 "Pattern not found" when {pattern} matches
+    -- nothing on the target line), yet the pre-<CR> text alone is
+    -- indistinguishable from a real successful repeat of the same edit.
+    --
+    -- Signal chosen: the target buffer's changedtick (nvim_buf_get_changedtick),
+    -- snapshotted here (before <CR> is processed) and re-checked inside
+    -- vim.schedule() (after Neovim has fully executed or rejected the
+    -- command) — credit only if it increased.
+    --
+    -- v:errmsg was tried first (it's the obvious "did the last command fail"
+    -- signal, and is what the original bug report suggested), but was
+    -- empirically found unusable in THIS codebase: every way this project's
+    -- test suite can simulate a keystroke (vim.fn.feedkeys / nvim_feedkeys /
+    -- vim.cmd, used throughout logger_spec.lua — there is no other way to
+    -- drive Ex commands from a headless test) executes the command through
+    -- Neovim's API/RPC dispatch layer, which internally wraps command
+    -- execution in the same try_start()/try_end() mechanism :try/:catch uses.
+    -- An error caught that way is converted straight into a Lua-catchable
+    -- exception and NEVER touches v:errmsg — confirmed by hand: a failing
+    -- ":s/nonexistent/x/" driven via feedkeys leaves v:errmsg as '' even
+    -- though the same command run via a plain Vimscript path (e.g. a timer
+    -- callback, with no Lua API call anywhere in its stack) does set it to
+    -- "E486: Pattern not found: nonexistent" as documented. Since a
+    -- regression test is mandatory for every bug fix here (see this repo's
+    -- CLAUDE.md) and this project's entire test harness is built on the API
+    -- path that suppresses v:errmsg, that signal could not be verified by
+    -- the very tests this fix is required to ship with — and there is no
+    -- confidence it would even behave correctly for other Lua-driven
+    -- automation (macros calling into Lua, other plugins scripting :s via
+    -- vim.cmd) that shares the same dispatch path as the tests do.
+    --
+    -- changedtick has none of that ambiguity: it is a plain per-buffer
+    -- counter Neovim increments on every real content mutation, regardless
+    -- of what triggered it (typed, fed, or scripted) — not routed through
+    -- the message/error subsystem at all. It also captures this feature's
+    -- actual intent ("was a replacement really performed") more precisely
+    -- than "did an error occur" would: confirmed by hand that a successful
+    -- but textually-identical substitution (":s/foo/foo/", matching text
+    -- replaced with itself) still increments changedtick, while a failed
+    -- E486 substitution leaves it unchanged — through this exact feedkeys-
+    -- driven harness. It also does the right thing for flag combinations
+    -- outside v:errmsg's reach entirely: ":s///n" (report-only, no text
+    -- ever replaced) or a ":s///c" where the user declines every confirm
+    -- prompt raise no error at all, yet correctly leave changedtick flat, so
+    -- neither would wrongly credit the streak — an errmsg-based check would
+    -- have missed both, since "no error" is not the same question as "was
+    -- anything actually replaced". Diffing the buffer's TEXT instead of its
+    -- changedtick was considered and rejected for the same byte-identical
+    -- case (":s/foo/foo/" performs a real substitution while leaving the
+    -- text unchanged, which a text diff would misread as a failure).
+    --
+    -- Ordering: the only realistic risk is a single-main-loop-tick race,
+    -- identical in shape to the one #114's fix already accepts (see that
+    -- fix's comment) — if something else mutates this same buffer in the
+    -- gap between the snapshot below and this scheduled check running, a
+    -- failed :s could look like it succeeded. In real interactive use that
+    -- gap is one tick wide and nothing else runs inside it besides this
+    -- command's own execution; it only matters for synthetic back-to-back
+    -- feedkeys in tests (handled there via a short vim.wait() between
+    -- commands, same as #114's test suite).
+    --
+    -- The actual credit (the track_substitute() call itself, not just the
+    -- on_pattern notification) is what's deferred, not just the
+    -- notification — track_substitute() mutates substitute_state and must
+    -- not mark a failed line as tracked.
+    --
+    -- The `looks_like_substitute` gate above avoids paying this snapshot +
+    -- scheduled-callback cost for every unrelated completed Ex command (:w,
+    -- :qa, ...) — mirroring #114's PINGPONG_WORDS gate for the same reason.
+    if looks_like_substitute(name) then
+      local target_line = vim.fn.line('.')
+      local bufnr = vim.api.nvim_get_current_buf()
+      local before_tick = vim.api.nvim_buf_get_changedtick(bufnr)
+      vim.schedule(function()
+        if not vim.api.nvim_buf_is_valid(bufnr) or vim.api.nvim_buf_get_changedtick(bufnr) == before_tick then
+          return -- :s made no real change — nothing to credit
+        end
+        local sub_result = patterns_cmdline.track_substitute(substitute_state, cmdline_text, target_line)
+        if sub_result and M.on_pattern then
+          M.on_pattern(sub_result.pattern, sub_result.cmd)
+        end
+      end)
     end
 
     -- #113/#114: independent of the usage-count tracking above -- both
@@ -526,7 +646,7 @@ local function handle_cmdline_key(key)
     -- (as opposed to synthetic back-to-back feedkeys in tests) this window
     -- also never matters: typing a full second ":e file<CR>" takes far more
     -- real keystrokes/IO than one main-loop tick.
-    local word, arg = patterns_cmdline.command_arg(text)
+    local word, arg = patterns_cmdline.command_arg(cmdline_text)
     if PINGPONG_WORDS[word] and arg then
       local target = vim.fn.fnamemodify(arg, ':p')
       vim.schedule(function()
@@ -548,7 +668,7 @@ local function handle_cmdline_key(key)
     -- vim.on_key runs before this <CR> keystroke's effect lands (see this
     -- function's own header comment), that is still the tab the PREVIOUS
     -- :tabnew in the streak opened, not the one this keystroke is about to
-    -- create. Reuses the `arg` already computed above via command_arg(text)
+    -- create. Reuses the `arg` already computed above via command_arg(cmdline_text)
     -- (converting its nil-for-"no argument" to feed_tabnew's own ''
     -- contract) instead of re-parsing the same cmdline text a second time —
     -- when the submitted command is ":tabnew ...", word == 'tabnew' and arg
@@ -888,6 +1008,7 @@ function M.reset()
   seq = patterns.new_seq()
   insert_seq = patterns_insert.new_insert_seq()
   terminal_seq = patterns_terminal.new_terminal_seq()
+  substitute_state = patterns_cmdline.new_substitute_state()
   pingpong_seq = patterns_cmdline.new_pingpong_seq()
   tabnew_seq = patterns_cmdline.new_tabnew_seq()
   current_mode = 'n'

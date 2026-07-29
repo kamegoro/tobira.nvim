@@ -124,6 +124,8 @@ return {
       manual_return = 'Vous avez sauté à un endroit éloigné, puis êtes revenu en faisant défiler manuellement',
       changelist_return = 'Vous avez modifié deux endroits différents, puis êtes revenu en faisant défiler manuellement pour retrouver le premier',
       terminal_esc_repeat = 'Vous avez appuyé sur <Esc> deux fois de suite en mode terminal sans effet',
+      substitute_repeat = 'Vous avez rejoué la même substitution :s/// à la main sur une deuxième ligne',
+      substitute_repeat_wide = 'Vous avez rejoué la même substitution :s/// à la main sur une troisième ligne',
       ex_file_pingpong = 'Vous avez basculé plusieurs fois de suite entre les deux mêmes fichiers avec :e/:b',
       tabnew_run = 'Vous avez ouvert 3 fichiers ou plus avec :tabnew, chacun dans son propre onglet',
     },
@@ -1034,6 +1036,18 @@ return {
       title = '<C-\\><C-n> — quitter le mode terminal',
       body = 'Dans :terminal, <Esc> est transmis directement au job — cela ne quitte pas le mode terminal\n<C-\\><C-n> est le véritable moyen de revenir en mode Normal',
       example = '<C-\\><C-n> → retour en mode Normal, le job du terminal continue de tourner',
+    },
+
+    -- ── détection de :substitute répété (#115) ───────────────────────────────
+    ['&'] = {
+      title = '& — répéter la dernière substitution sur cette ligne',
+      body = 'Vous avez retapé à la main le même :s/motif/remplacement/ sur une autre ligne\n& répète la dernière substitution sur la ligne courante, sans avoir à la retaper',
+      example = ':s/foo/bar/ puis, sur une autre ligne, & → la répète ici',
+    },
+    ['g&'] = {
+      title = 'g& — répéter la dernière substitution sur tout le fichier',
+      body = "Vous avez retapé à la main le même :s/motif/remplacement/ sur plusieurs lignes\ng& l'applique à tout le fichier, en réutilisant le motif et les options précédents",
+      example = ':s/foo/bar/ puis g& → applique la substitution à chaque ligne correspondante',
     },
   },
 }

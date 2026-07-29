@@ -1250,6 +1250,189 @@ describe("Ex command tracking excludes tobira's own commands", function()
   end)
 end)
 
+-- ── Repeated substitute detection (#115) ────────────────────────────────────
+-- Builds on #57's cmdline infrastructure: logger.lua's handle_cmdline_key
+-- feeds the same completed cmdline text to
+-- patterns_cmdline.track_substitute() alongside tokenize(). See that
+-- module's header comment for the full parsing scope and the &-vs-g&
+-- threshold heuristic (2nd distinct line -> &, 3rd distinct line -> g&).
+
+describe('Repeated substitute detection (#115)', function()
+  local esc = vim.api.nvim_replace_termcodes('<Esc>', true, true, true)
+  local cr = vim.api.nvim_replace_termcodes('<CR>', true, true, true)
+
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    logger.on_pattern = nil
+    logger.setup()
+    vim.cmd('enew!')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'foo', 'foo', 'foo', 'foo' })
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+    if vim.fn.mode() ~= 'n' then
+      pcall(vim.api.nvim_input, esc)
+    end
+  end)
+
+  local function goto_line(n)
+    vim.api.nvim_win_set_cursor(0, { n, 0 })
+  end
+
+  local function run_substitute(text)
+    pcall(vim.fn.feedkeys, ':' .. text .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    -- Verify-before-credit fix (bug found by QA, same problem/timing class as
+    -- #114's ex_file_pingpong fix): the actual credit is now deferred to
+    -- vim.schedule(), which only runs once Neovim has fully processed this
+    -- <CR> (command succeeded, or already failed, against the buffer's
+    -- changedtick snapshotted right before it ran). Each call needs to let
+    -- that settle before the next one starts, otherwise multiple pending
+    -- callbacks in these tests' synthetic back-to-back feedkeys would all
+    -- resolve against whatever changedtick is current by then rather than
+    -- each against the outcome of ITS OWN command.
+    vim.wait(20)
+  end
+
+  it('fires substitute_repeat / & when the same :s/// runs on a second distinct line', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+
+    goto_line(1)
+    run_substitute('s/foo/bar/')
+    goto_line(2)
+    run_substitute('s/foo/bar/')
+
+    assert.equals(1, #fired)
+    assert.equals('substitute_repeat', fired[1].pattern)
+    assert.equals('&', fired[1].cmd)
+  end)
+
+  it('fires substitute_repeat_wide / g& when a third distinct line repeats it', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+
+    for i = 1, 3 do
+      goto_line(i)
+      run_substitute('s/foo/bar/')
+    end
+
+    assert.equals(2, #fired)
+    assert.equals('substitute_repeat_wide', fired[2].pattern)
+    assert.equals('g&', fired[2].cmd)
+  end)
+
+  it('does not fire when the pattern differs between invocations', function()
+    local fired = false
+    logger.on_pattern = function()
+      fired = true
+    end
+
+    goto_line(1)
+    run_substitute('s/foo/bar/')
+    goto_line(2)
+    run_substitute('s/food/bar/')
+
+    assert.is_false(fired)
+  end)
+
+  it('does not fire when the replacement differs between invocations', function()
+    local fired = false
+    logger.on_pattern = function()
+      fired = true
+    end
+
+    goto_line(1)
+    run_substitute('s/foo/bar/')
+    goto_line(2)
+    run_substitute('s/foo/baz/')
+
+    assert.is_false(fired)
+  end)
+
+  it('does not count an aborted :s toward the repeat (consistent with #57 abort handling)', function()
+    local fired = false
+    logger.on_pattern = function()
+      fired = true
+    end
+
+    -- Typed but aborted with <Esc> before <CR> -- must not be counted as a
+    -- completed invocation on this line.
+    goto_line(1)
+    pcall(vim.fn.feedkeys, ':s/foo/bar/' .. esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+
+    -- Only one REAL completed substitute so far (below); must not fire yet.
+    goto_line(2)
+    run_substitute('s/foo/bar/')
+    assert.is_false(fired, 'expected no fire after only one completed invocation')
+
+    -- Second real completed substitute on a new distinct line now fires.
+    goto_line(3)
+    run_substitute('s/foo/bar/')
+    assert.is_true(fired)
+  end)
+
+  it('does not track a ranged substitute (:%s) toward the repeat', function()
+    local fired = false
+    logger.on_pattern = function()
+      fired = true
+    end
+
+    run_substitute('%s/foo/bar/')
+
+    goto_line(1)
+    run_substitute('s/foo/bar/')
+
+    assert.is_false(fired) -- only one bare (unranged) invocation counted
+  end)
+
+  -- Regression test for a QA-found false positive: track_substitute() used to
+  -- be fed straight from the cmdline TEXT with no check of whether Neovim
+  -- actually executed/matched it. Retyping an identical :s/// that matches
+  -- NOTHING on two different lines (E486 "Pattern not found" both times, zero
+  -- substitutions performed) must never be credited as a real repeated edit.
+  it('does not fire when the identical :s/// fails to match anything on either line (E486)', function()
+    local fired = false
+    logger.on_pattern = function()
+      fired = true
+    end
+
+    goto_line(1)
+    run_substitute('s/nonexistent_pattern_xyz/foo/')
+    goto_line(2)
+    run_substitute('s/nonexistent_pattern_xyz/foo/')
+
+    assert.is_false(fired, 'a substitute that never matched must never credit the &/g& streak')
+  end)
+
+  it('still fires normally once a real match succeeds after an earlier failed attempt', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+
+    -- A failed attempt on line 1 must not poison the state for the real
+    -- (matching) substitute that follows.
+    goto_line(1)
+    run_substitute('s/nonexistent_pattern_xyz/foo/')
+    goto_line(1)
+    run_substitute('s/foo/bar/')
+    goto_line(2)
+    run_substitute('s/foo/bar/')
+
+    assert.equals(1, #fired)
+    assert.equals('substitute_repeat', fired[1].pattern)
+    assert.equals('&', fired[1].cmd)
+  end)
+end)
+
 -- ── :e/:b file ping-pong detection (#114) ────────────────────────────────────
 -- Wires patterns_cmdline.command_arg()/feed_pingpong() into the same <CR>
 -- handling handle_cmdline_key already does for tokenize() (#57). Real :e/:b
@@ -2047,6 +2230,7 @@ describe('when single-char track=true keys are pressed', function()
     '*',
     '#',
     '~',
+    '&', -- #115: repeat last :substitute on the current line
     'A',
     'b',
     'C',
