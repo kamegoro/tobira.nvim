@@ -124,6 +124,7 @@ return {
       manual_return = 'Du bist zu einer entfernten Stelle gesprungen und dann manuell zurückgescrollt',
       changelist_return = 'Du hast an zwei verschiedenen Stellen bearbeitet und bist dann manuell zurückgescrollt, um die erste wiederzufinden',
       terminal_esc_repeat = 'Du hast im Terminal-Modus zweimal hintereinander <Esc> gedrückt, ohne Effekt',
+      ex_file_pingpong = 'Du bist mehrmals hintereinander mit :e/:b zwischen denselben zwei Dateien hin- und hergesprungen',
       tabnew_run = 'Du hast 3 oder mehr Dateien mit :tabnew geöffnet, jede in einem eigenen Tab',
     },
   },

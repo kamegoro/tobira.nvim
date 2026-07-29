@@ -124,6 +124,7 @@ return {
       manual_return = '你跳转到一个较远的位置，然后手动滚动返回',
       changelist_return = '你编辑了两个不同的位置，然后手动滚动返回查找第一个位置',
       terminal_esc_repeat = '你在终端模式下连续按了两次 <Esc> 但没有效果',
+      ex_file_pingpong = '你用 :e/:b 连续多次在同两个文件之间来回切换',
       tabnew_run = '你用 :tabnew 打开了 3 个或更多文件，每个文件单独占一个标签页',
     },
   },

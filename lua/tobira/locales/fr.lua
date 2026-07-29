@@ -124,6 +124,7 @@ return {
       manual_return = 'Vous avez sauté à un endroit éloigné, puis êtes revenu en faisant défiler manuellement',
       changelist_return = 'Vous avez modifié deux endroits différents, puis êtes revenu en faisant défiler manuellement pour retrouver le premier',
       terminal_esc_repeat = 'Vous avez appuyé sur <Esc> deux fois de suite en mode terminal sans effet',
+      ex_file_pingpong = 'Vous avez basculé plusieurs fois de suite entre les deux mêmes fichiers avec :e/:b',
       tabnew_run = 'Vous avez ouvert 3 fichiers ou plus avec :tabnew, chacun dans son propre onglet',
     },
   },

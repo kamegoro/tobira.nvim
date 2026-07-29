@@ -124,6 +124,7 @@ return {
       manual_return = 'Saltaste a un lugar lejano y luego retrocediste desplazándote manualmente',
       changelist_return = 'Editaste dos lugares distintos y luego retrocediste desplazándote manualmente para encontrar el primero',
       terminal_esc_repeat = 'Presionaste <Esc> dos veces seguidas en modo terminal sin ningún efecto',
+      ex_file_pingpong = 'Alternaste varias veces seguidas entre los mismos dos archivos con :e/:b',
       tabnew_run = 'Abriste 3 o más archivos con :tabnew, cada uno en su propia pestaña',
     },
   },

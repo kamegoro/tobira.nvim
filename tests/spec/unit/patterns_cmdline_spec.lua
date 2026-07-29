@@ -87,35 +87,206 @@ describe('when classifying the text of a command-line buffer into a semantic com
   end)
 end)
 
--- patterns_cmdline.command_arg(text) is a pure function: given the same raw
--- command-line text tokenize() receives, it returns the trimmed argument
--- that follows the range + command word, or '' when there is none.
--- tokenize() deliberately discards this (see its header) — command_arg()
--- exists for #113's tabnew-habit detection, which needs to tell ":tabnew"
--- (no argument) apart from ":tabnew foo.txt" (a file argument).
+-- patterns_cmdline.command_arg(text) is the argument-aware counterpart to
+-- tokenize() above: tokenize() deliberately discards everything after the
+-- command word (#57's scope), but two later detectors need the argument text
+-- itself: #113's tabnew one-tab-per-file streak (below) needs to tell a bare
+-- ":tabnew" apart from ":tabnew foo.txt", and the :e/:b ping-pong detector
+-- (also below, #114) needs the filename argument to tell ":e A" apart from
+-- ":e B". Both share this single implementation. Reuses the same
+-- strip_range() range handling as tokenize() so a leading range prefix never
+-- leaks into the returned argument.
+
 describe('patterns_cmdline.command_arg', function()
-  it('returns the trimmed argument following the command word', function()
-    assert.equals('foo.txt', patterns_cmdline.command_arg('tabnew foo.txt'))
+  it('returns the lowercased command word and trimmed argument for a plain command', function()
+    local word, arg = patterns_cmdline.command_arg('e foo.txt')
+    assert.equals('e', word)
+    assert.equals('foo.txt', arg)
   end)
 
-  it('returns an empty string for a bare command with no argument', function()
-    assert.equals('', patterns_cmdline.command_arg('tabnew'))
+  it('returns a nil argument for a bare command word with no argument', function()
+    local word, arg = patterns_cmdline.command_arg('e')
+    assert.equals('e', word)
+    assert.is_nil(arg)
   end)
 
-  it('returns an empty string when only trailing whitespace follows the command word', function()
-    assert.equals('', patterns_cmdline.command_arg('tabnew   '))
+  it('lowercases the command word the same way tokenize does', function()
+    local word = patterns_cmdline.command_arg('E foo.txt')
+    assert.equals('e', word)
   end)
 
-  it('strips a range prefix before extracting the argument', function()
-    assert.equals('foo.txt', patterns_cmdline.command_arg('%tabnew foo.txt'))
+  it('strips a force-bang between the command word and its argument', function()
+    local word, arg = patterns_cmdline.command_arg('e! foo.txt')
+    assert.equals('e', word)
+    assert.equals('foo.txt', arg)
   end)
 
-  it('returns an empty string for nil input', function()
-    assert.equals('', patterns_cmdline.command_arg(nil))
+  it('trims surrounding whitespace from the argument', function()
+    local _, arg = patterns_cmdline.command_arg('e    foo.txt   ')
+    assert.equals('foo.txt', arg)
   end)
 
-  it('returns an empty string for an empty command line', function()
-    assert.equals('', patterns_cmdline.command_arg(''))
+  it('strips a leading range prefix before extracting word and argument, like tokenize does', function()
+    local word, arg = patterns_cmdline.command_arg("'<,'>norm @a")
+    assert.equals('norm', word)
+    assert.equals('@a', arg)
+  end)
+
+  it('returns the trimmed argument following the command word for a :tabnew-style command', function()
+    local word, arg = patterns_cmdline.command_arg('tabnew foo.txt')
+    assert.equals('tabnew', word)
+    assert.equals('foo.txt', arg)
+  end)
+
+  it('strips a range prefix before extracting a :tabnew argument', function()
+    local word, arg = patterns_cmdline.command_arg('%tabnew foo.txt')
+    assert.equals('tabnew', word)
+    assert.equals('foo.txt', arg)
+  end)
+
+  it('returns nil, nil for an empty command line', function()
+    local word, arg = patterns_cmdline.command_arg('')
+    assert.is_nil(word)
+    assert.is_nil(arg)
+  end)
+
+  it('returns nil, nil for a whitespace-only command line', function()
+    local word, arg = patterns_cmdline.command_arg('   ')
+    assert.is_nil(word)
+    assert.is_nil(arg)
+  end)
+
+  it('returns nil, nil for nil input', function()
+    local word, arg = patterns_cmdline.command_arg(nil)
+    assert.is_nil(word)
+    assert.is_nil(arg)
+  end)
+
+  it('returns nil, nil when the command line is only a range with no command word', function()
+    local word, arg = patterns_cmdline.command_arg('%')
+    assert.is_nil(word)
+    assert.is_nil(arg)
+  end)
+
+  it('returns nil, nil for a symbolic command with no letter word (e.g. "!ls")', function()
+    -- Unlike tokenize(), which falls back to the literal punctuation
+    -- character for symbolic commands, command_arg() only ever needs to
+    -- recognize letter-word commands (:e/:b) -- a leading non-letter means
+    -- there is no word to extract at all.
+    local word, arg = patterns_cmdline.command_arg('!ls')
+    assert.is_nil(word)
+    assert.is_nil(arg)
+  end)
+end)
+
+-- Ex-command ping-pong detection (#114): fires when the two most recently
+-- distinct filenames touched via :e/:b alternate — :e A -> :e B -> :e A (or
+-- the equivalent with :b) — suggesting <C-^> as the direct shortcut between
+-- them. New state alongside tokenize()/command_arg() above rather than a new
+-- sibling file: it shares the same call path (both are fed from
+-- logger.lua's handle_cmdline_key at <CR> time), which is the "shares the
+-- same call path" branch of the module-splitting policy in
+-- lua/tobira/CLAUDE.md, even though it shares no actual state with
+-- tokenize()'s stateless parsing.
+
+describe('patterns_cmdline ex_file_pingpong detection', function()
+  local function pseq()
+    return patterns_cmdline.new_pingpong_seq()
+  end
+
+  it('does not fire when opening the first file', function()
+    local s = pseq()
+    local result = patterns_cmdline.feed_pingpong(s, 'e', 'A')
+    assert.is_nil(result)
+  end)
+
+  it('does not fire when switching to a second, different file', function()
+    local s = pseq()
+    patterns_cmdline.feed_pingpong(s, 'e', 'A')
+    local result = patterns_cmdline.feed_pingpong(s, 'e', 'B')
+    assert.is_nil(result)
+  end)
+
+  it('fires ex_file_pingpong suggesting <C-^> when the user returns to the first file', function()
+    local s = pseq()
+    patterns_cmdline.feed_pingpong(s, 'e', 'A')
+    patterns_cmdline.feed_pingpong(s, 'e', 'B')
+    local result = patterns_cmdline.feed_pingpong(s, 'e', 'A')
+    assert.is_not_nil(result)
+    assert.equals('ex_file_pingpong', result.pattern)
+    assert.equals('<C-^>', result.cmd)
+  end)
+
+  it('counts :b the same as :e toward the same two-file rotation', function()
+    local s = pseq()
+    patterns_cmdline.feed_pingpong(s, 'e', 'A')
+    patterns_cmdline.feed_pingpong(s, 'b', 'B')
+    local result = patterns_cmdline.feed_pingpong(s, 'e', 'A')
+    assert.is_not_nil(result)
+    assert.equals('ex_file_pingpong', result.pattern)
+    assert.equals('<C-^>', result.cmd)
+  end)
+
+  it('does not fire again on the very next return while the same two-file rotation continues', function()
+    local s = pseq()
+    patterns_cmdline.feed_pingpong(s, 'e', 'A')
+    patterns_cmdline.feed_pingpong(s, 'e', 'B')
+    patterns_cmdline.feed_pingpong(s, 'e', 'A') -- fires here
+    patterns_cmdline.feed_pingpong(s, 'e', 'B')
+    local result = patterns_cmdline.feed_pingpong(s, 'e', 'A')
+    assert.is_nil(result, 'must fire once per rotation, not on every alternation, like terminal_esc_repeat')
+  end)
+
+  it('does not fire when rotating through 3+ different files', function()
+    local s = pseq()
+    local files = { 'A', 'B', 'C', 'A', 'B', 'C', 'A', 'B', 'C' }
+    for _, f in ipairs(files) do
+      local result = patterns_cmdline.feed_pingpong(s, 'e', f)
+      assert.is_nil(result, 'a 3+ file rotation must never be mistaken for a genuine 2-file ping-pong')
+    end
+  end)
+
+  it('re-arms after a third file interrupts, so a fresh two-file rotation can fire again', function()
+    local s = pseq()
+    patterns_cmdline.feed_pingpong(s, 'e', 'A')
+    patterns_cmdline.feed_pingpong(s, 'e', 'B')
+    patterns_cmdline.feed_pingpong(s, 'e', 'A') -- fires
+    patterns_cmdline.feed_pingpong(s, 'e', 'C') -- 3rd file, breaks the A/B rotation
+    patterns_cmdline.feed_pingpong(s, 'e', 'D')
+    local result = patterns_cmdline.feed_pingpong(s, 'e', 'C')
+    assert.is_not_nil(result, 'expected a fresh ping-pong (C, D, C) to fire after the earlier rotation broke')
+    assert.equals('ex_file_pingpong', result.pattern)
+  end)
+
+  it('does not disturb the two-file history when the same file is reopened consecutively', function()
+    local s = pseq()
+    patterns_cmdline.feed_pingpong(s, 'e', 'A')
+    patterns_cmdline.feed_pingpong(s, 'e', 'B')
+    local reopen = patterns_cmdline.feed_pingpong(s, 'e', 'B') -- reopen current file
+    assert.is_nil(reopen)
+    local result = patterns_cmdline.feed_pingpong(s, 'e', 'A')
+    assert.is_not_nil(result, 'reopening the current file must not erase the pending A/B history')
+    assert.equals('ex_file_pingpong', result.pattern)
+  end)
+
+  it('ignores Ex commands other than :e/:b entirely, without disturbing the history', function()
+    local s = pseq()
+    patterns_cmdline.feed_pingpong(s, 'e', 'A')
+    patterns_cmdline.feed_pingpong(s, 'e', 'B')
+    local ignored = patterns_cmdline.feed_pingpong(s, 'w', 'A')
+    assert.is_nil(ignored)
+    local result = patterns_cmdline.feed_pingpong(s, 'e', 'A')
+    assert.is_not_nil(result, ':w must not count as a file switch or disturb the e/b history')
+  end)
+
+  it('ignores a bare :e/:b with no filename argument, without disturbing the history', function()
+    local s = pseq()
+    patterns_cmdline.feed_pingpong(s, 'e', 'A')
+    patterns_cmdline.feed_pingpong(s, 'e', 'B')
+    local bare = patterns_cmdline.feed_pingpong(s, 'e', nil)
+    assert.is_nil(bare)
+    local result = patterns_cmdline.feed_pingpong(s, 'e', 'A')
+    assert.is_not_nil(result, 'a bare :e/:b reload has no filename signal and must not disturb the history')
   end)
 end)
 
@@ -124,9 +295,9 @@ end)
 -- this same file (see patterns_cmdline.lua's module comment for why this
 -- lives here rather than a new sibling file). feed_tabnew() is fed evidence
 -- gathered at each ":tabnew" <CR> submission: the trimmed file argument text
--- (from command_arg() above, '' when there is none), and the window count of
--- the tabpage this invocation is about to leave (read by the caller — see
--- logger.lua).
+-- (the second return value of command_arg() above, converted from nil to ''
+-- by the caller — see logger.lua), and the window count of the tabpage this
+-- invocation is about to leave (read by the caller — see logger.lua).
 --
 -- The feature's own name is "one-tab-per-FILE" — feed_tabnew() only counts an
 -- argument toward the streak the first time that exact filename appears in
