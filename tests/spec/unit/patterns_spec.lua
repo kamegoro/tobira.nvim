@@ -2382,6 +2382,44 @@ describe('when 3 repetitions all fall within the 30-second detection window', fu
   end)
 end)
 
+describe('when the repeated window S is pure navigation (#60 follow-up bug)', function()
+  it(
+    'does not fire macro_opportunity for 12x repeated bare j (holding j to scroll is not a macro candidate)',
+    function()
+      local s = seq()
+      local result
+      for _ = 1, 12 do
+        result = patterns.feed_macro(s, 'j')
+      end
+      assert.is_nil(result)
+    end
+  )
+
+  it('does not fire macro_opportunity for 0fh repeated 4x back-to-back (multi-key pure navigation)', function()
+    local s = seq()
+    local result
+    for _ = 1, 4 do
+      result = feed_macro_seq(s, { '0', 'f', 'h' })
+    end
+    assert.is_nil(result)
+  end)
+
+  it('still fires macro_opportunity when a nav-only-looking window also contains a real edit key', function()
+    -- Sanity check for the fix's own boundary: 'x' (a direct-edit key, see
+    -- EDIT_OP_KEYS) sitting among otherwise-navigation keys is enough to
+    -- qualify S — the fix requires an edit ANYWHERE in S, not that S is
+    -- edit-only.
+    local s = seq()
+    local result
+    for _ = 1, 3 do
+      result = feed_macro_seq(s, { 'h', 'x', 'l' })
+    end
+    assert.is_not_nil(result)
+    assert.equals('macro_opportunity', result.pattern)
+    assert.equals('@q', result.cmd)
+  end)
+end)
+
 describe("seq.macro_buf's bounded growth", function()
   it('trims back down to the soft cap once the hard cap is exceeded', function()
     local s = seq()

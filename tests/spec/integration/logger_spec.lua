@@ -1980,6 +1980,44 @@ describe('macro opportunity detection (#60)', function()
     assert.equals('@q', macro_fired.cmd)
   end)
 
+  it(
+    'does not fire macro_opportunity for 12x bare j, and fires j_repeat instead (#60 follow-up bug: '
+      .. 'holding j to scroll used to steal priority from j_repeat)',
+    function()
+      vim.cmd('enew')
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'aaaaaa', 'aaaaaa', 'aaaaaa', 'aaaaaa', 'aaaaaa', 'aaaaaa' })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+      local fired = feed_and_collect(string.rep('j', 12))
+      local j_repeat_fired = false
+      for _, f in ipairs(fired) do
+        assert.are_not.equal('macro_opportunity', f.pattern)
+        if f.pattern == 'j_repeat' then
+          j_repeat_fired = true
+        end
+      end
+      assert.is_true(j_repeat_fired, 'expected j_repeat to fire')
+    end
+  )
+
+  it(
+    'does not fire macro_opportunity for 0fh repeated 4x, and fires f_repeat instead (#60 follow-up bug: '
+      .. 'multi-key navigation repeated back-to-back used to steal priority from f_repeat)',
+    function()
+      vim.cmd('enew')
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'hhhhhh', 'hhhhhh', 'hhhhhh', 'hhhhhh' })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+      local fired = feed_and_collect(string.rep('0fh', 4))
+      local f_repeat_fired = false
+      for _, f in ipairs(fired) do
+        assert.are_not.equal('macro_opportunity', f.pattern)
+        if f.pattern == 'f_repeat' then
+          f_repeat_fired = true
+        end
+      end
+      assert.is_true(f_repeat_fired, 'expected f_repeat to fire')
+    end
+  )
+
   it('is suppressed while the user is recording a macro (reg_recording() ~= "")', function()
     vim.cmd('enew')
     vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'aaaaaa', 'aaaaaa', 'aaaaaa' })

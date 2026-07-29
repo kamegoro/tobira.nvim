@@ -249,6 +249,50 @@ for d = 1, 9 do
   MACRO_NAV_KEYS[tostring(d)] = true
 end
 
+-- Keys that count as a genuine buffer edit, for macro_contains_edit below —
+-- reuses two existing classification tables/checks instead of inventing a
+-- third one:
+--   - EDIT_OP_KEYS (declared above, #61's precedent): x/X direct-edit keys
+--     plus every INSERT_KEYS entry (i/I/a/A/o/O/s/S — entering insert mode
+--     is itself the start of an edit).
+--   - d / c / y / > / < — the exact same "operator start" key set
+--     inner_feed()'s own "d / c / y / > / < operator start" branch (further
+--     down this file) checks via a chain of `==` comparisons rather than a
+--     table. Named here only because this second, independent use needs a
+--     table to test membership against.
+local MACRO_EDIT_KEYS = { d = true, c = true, y = true, ['>'] = true, ['<'] = true }
+for k in pairs(EDIT_OP_KEYS) do
+  MACRO_EDIT_KEYS[k] = true
+end
+
+-- S (the repeated window itself — buf[s_start..s_end]) must contain at least
+-- one genuine edit keystroke before it's a real macro-opportunity candidate
+-- — not just any 3+ exact repeat of a nav-only window (#60 follow-up bug:
+-- both "jjjjjjjjjjjj", 12 bare j presses, and "0fh0fh0fh0fh" satisfied every
+-- other check in macro_check_len, because the anchored-match-then-gap-check
+-- algorithm only ever inspects characters BETWEEN two matched occurrences of
+-- S for navigation-key membership, by design — see this file's header
+-- comment on M.feed_macro. Neither repro has a navigation GAP at all — the
+-- repeats are back-to-back — so that check was vacuously satisfied
+-- regardless of what S itself contained).
+--
+-- Deliberately "at least one edit key ANYWHERE in S", not "S is not entirely
+-- composed of MACRO_NAV_KEYS" — the two framings are not equivalent. A
+-- window can contain a key that is neither in MACRO_NAV_KEYS nor
+-- MACRO_EDIT_KEYS (e.g. G, n, or any other key in neither set); under an
+-- "entirely nav" framing such a window would already fail to be "entirely
+-- nav" and would wrongly qualify despite containing zero genuine edits. The
+-- positive framing here checks the one thing that actually matters: did a
+-- real edit happen somewhere in this repeated sequence.
+local function macro_contains_edit(buf, s_start, s_end)
+  for i = s_start, s_end do
+    if MACRO_EDIT_KEYS[buf[i].tok] then
+      return true
+    end
+  end
+  return false
+end
+
 -- Slides seq.macro_buf's contents down by `drop` slots once it has grown
 -- past MACRO_BUF_HARD_CAP, so the array never grows unbounded. Only runs
 -- once every (HARD_CAP - SOFT_CAP) appends, so it is O(1) amortised.
@@ -334,6 +378,17 @@ local function macro_check_len(buf, n, l)
     end
   end
   if not occ1_start then
+    return false
+  end
+
+  -- Content check, deliberately last: only reached once the anchored match
+  -- itself is fully confirmed (both earlier occurrences found, gaps already
+  -- validated as pure navigation by the loops above). Kept separate from —
+  -- and after — that gap-classification logic rather than folded into it, so
+  -- the anchored-match search itself (specifically tested to never
+  -- misclassify characters INSIDE S — see this file's header comment) stays
+  -- untouched (#60 follow-up bug fix).
+  if not macro_contains_edit(buf, s_start, n) then
     return false
   end
 
