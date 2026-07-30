@@ -18,6 +18,18 @@ local TOP_N = 8
 local GAPS_N = 5
 local ICON = ''
 
+-- Minimum width of the command-key column shared by "Try these next" and
+-- "Top commands". A bare constant here previously drifted out of sync
+-- between the two sections (5 vs 6, #125) and, more importantly, any fixed
+-- constant recurs as the same bug whenever a key longer than it becomes
+-- reachable as a gap parent/child -- commands.lua already has <C-w>h/v/j/k/l/
+-- q/= (6 columns) and <C-\><C-n> (10 columns, requires = 'i'), and nothing
+-- stops a future entry from being longer still. M.render() below computes
+-- the actual column width from the keys being rendered this call (floored at
+-- this minimum so short-key-only renders still read as a deliberate column)
+-- instead of hardcoding a number that only happens to fit today's registry.
+local KEY_COL_MIN = 6
+
 local setup_hls = require('tobira.ui.hls').setup
 
 local function fmt_int_commas(n)
@@ -94,6 +106,18 @@ function M.render(usage)
   -- comment.
   local gaps = graph.efficiency_gaps(usage, GAPS_N, integrations.get_overrides())
 
+  -- Shared key-column width for both sections below (see KEY_COL_MIN's
+  -- comment) -- computed from the actual keys this render will show, so a
+  -- longer key never overflows its column no matter how long it is.
+  local key_col_w = KEY_COL_MIN
+  for _, g in ipairs(gaps) do
+    key_col_w = math.max(key_col_w, vim.fn.strdisplaywidth(commands.display_key(g.parent)))
+    key_col_w = math.max(key_col_w, vim.fn.strdisplaywidth(commands.display_key(g.child)))
+  end
+  for i = 1, math.min(TOP_N, #sorted) do
+    key_col_w = math.max(key_col_w, vim.fn.strdisplaywidth(commands.display_key(sorted[i].cmd)))
+  end
+
   local STAR_BY_LEVEL = { [0] = ' ', [1] = '☆', [2] = '★', [3] = '★★', [4] = '★★★' }
   local SYM_FORGOTTEN = '⟳' -- mirrors ui/guide.lua's forgotten glyph, see ui/CLAUDE.md's state-color table
 
@@ -117,9 +141,9 @@ function M.render(usage)
       push(
         string.format(
           '    %s %s×  →  %s %s×',
-          rpad(commands.display_key(g.parent), 5),
+          rpad(commands.display_key(g.parent), key_col_w),
           lpad(fmt_int_commas(g.parent_count), 5),
-          rpad(commands.display_key(g.child), 5),
+          rpad(commands.display_key(g.child), key_col_w),
           lpad(fmt_int_commas(g.child_count), 4)
         )
       )
@@ -151,7 +175,7 @@ function M.render(usage)
         string.format(
           '    %s  %s  %s×',
           rpad(star, 5),
-          rpad(commands.display_key(item.cmd), 6),
+          rpad(commands.display_key(item.cmd), key_col_w),
           lpad(fmt_int_commas(item.data.count), 6)
         )
       )
