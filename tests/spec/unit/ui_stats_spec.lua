@@ -193,6 +193,78 @@ describe('when the user overuses a trigger without adopting its successor', func
   end)
 end)
 
+describe('when an efficiency gap involves a 6-character command key (#125)', function()
+  it('aligns the count/arrow column with rows using a shorter key', function()
+    -- f (1 char) triggers ;/F/t gaps; <C-w>w (6 chars, commands.lua:344-350)
+    -- triggers <C-w>=/<C-w>h/... gaps. Rendering both together reproduces the
+    -- misalignment a fixed 5-wide column produced once a 6-char key overflowed
+    -- it (#125).
+    local r = stats.render({ f = entry(200), ['<C-w>w'] = entry(100) })
+    local rows = {}
+    for _, line in ipairs(lines_of(r)) do
+      if line:find('→', 1, true) then
+        table.insert(rows, line)
+      end
+    end
+    assert.is_true(#rows >= 2, 'expected gap rows from both f and <C-w>w')
+
+    local has_six_char_key = false
+    for _, row in ipairs(rows) do
+      if row:find('<C-w>', 1, true) then
+        has_six_char_key = true
+      end
+    end
+    assert.is_true(has_six_char_key, 'expected a 6-character <C-w>X key among the gap rows')
+
+    local arrow_col = rows[1]:find('→', 1, true)
+    for _, row in ipairs(rows) do
+      assert.equals(arrow_col, row:find('→', 1, true), 'arrow column misaligned: ' .. row)
+    end
+    -- The trailing child-count column must also land on the same width —
+    -- checking only the arrow (which sits before the child key) would miss a
+    -- child-column-only misalignment.
+    local row_w = vim.fn.strdisplaywidth(rows[1])
+    for _, row in ipairs(rows) do
+      assert.equals(row_w, vim.fn.strdisplaywidth(row), 'row width misaligned: ' .. row)
+    end
+  end)
+end)
+
+-- Column width must not be a hardcoded constant that merely matches today's
+-- longest key (#125 asked to check for this): commands.lua already has a
+-- 10-character key, <C-\><C-n>, that can appear as a gap child. Sharing one
+-- parent ('i') isolates the child-column width difference (10 vs 2 chars)
+-- without depending on which candidates win the top-N ratio sort.
+describe('when a gap child key is longer than 6 characters (#125 hardening)', function()
+  it('still aligns the child-count column against a shorter child key', function()
+    local r = stats.render({ i = entry(100) })
+    local rows = {}
+    for _, line in ipairs(lines_of(r)) do
+      if line:find('→', 1, true) then
+        table.insert(rows, line)
+      end
+    end
+    assert.is_true(#rows >= 2, 'expected gap rows from both <C-n> and <C-\\><C-n>')
+
+    local has_long_key = false
+    for _, row in ipairs(rows) do
+      if row:find('<C-\\><C-n>', 1, true) then
+        has_long_key = true
+      end
+    end
+    assert.is_true(has_long_key, 'expected the 10-character <C-\\><C-n> key among the gap rows')
+
+    -- Both rows share the same parent ('i'), so the arrow column is already
+    -- identical either way — the row's total width is what actually exposes
+    -- a child-column-only misalignment (the 10-char key overflowing a
+    -- fixed-width child column shifts its own trailing count rightward).
+    local row_w = vim.fn.strdisplaywidth(rows[1])
+    for _, row in ipairs(rows) do
+      assert.equals(row_w, vim.fn.strdisplaywidth(row), 'row width misaligned: ' .. row)
+    end
+  end)
+end)
+
 describe('when there are no efficiency gaps', function()
   it('omits the try-next section entirely', function()
     local r = stats.render({})
