@@ -2429,3 +2429,107 @@ describe("seq.macro_buf's bounded growth", function()
     assert.equals(100, #s.macro_buf)
   end)
 end)
+
+-- ── gg ↔ G double-jump: suggest '' (jump back to previous position) (#52) ────
+-- Unlike manual_return above, this pattern requires the opposite jump to be
+-- the very NEXT resolved action — no tolerance window, no streak. Any other
+-- resolved key in between cancels it (see patterns.lua's inner_feed for how
+-- last_op is reused, rather than a dedicated field, to get this for free).
+
+describe('when the user jumps to the end of the file then back to the start', function()
+  it("fires jump_back suggesting '' after G then gg", function()
+    local s = seq()
+    patterns.feed(s, 'G', 1)
+    patterns.feed(s, 'g', 1)
+    local result = patterns.feed(s, 'g', 1)
+    assert.is_not_nil(result)
+    assert.equals('jump_back', result.pattern)
+    assert.equals("''", result.cmd)
+  end)
+
+  it('still records last_op = gg so the gg keystroke itself is counted as used', function()
+    local s = seq()
+    patterns.feed(s, 'G', 1)
+    patterns.feed(s, 'g', 1)
+    patterns.feed(s, 'g', 1)
+    assert.equals('gg', s.last_op)
+  end)
+
+  it('still sets op_completed so logger.lua counts this gg (usage-tracking contract)', function()
+    local s = seq()
+    patterns.feed(s, 'G', 1)
+    patterns.feed(s, 'g', 1)
+    patterns.feed(s, 'g', 1)
+    assert.is_true(s.op_completed)
+  end)
+
+  it('does not fire when an unrelated key happens between G and gg', function()
+    local s = seq()
+    patterns.feed(s, 'G', 1)
+    patterns.feed(s, 'x', 1) -- unrelated key breaks the back-to-back requirement
+    patterns.feed(s, 'g', 1)
+    local result = patterns.feed(s, 'g', 1)
+    if result then
+      assert.is_not_equal('jump_back', result.pattern)
+    end
+  end)
+
+  it('does not fire for gg on its own (no preceding G)', function()
+    local s = seq()
+    patterns.feed(s, 'g', 1)
+    local result = patterns.feed(s, 'g', 1)
+    assert.is_nil(result)
+  end)
+
+  it('does not fire for a different g-compound between G and gg (G then gd then gg)', function()
+    local s = seq()
+    patterns.feed(s, 'G', 1)
+    patterns.feed(s, 'g', 1)
+    patterns.feed(s, 'd', 1) -- resolves to gd, not gg
+    patterns.feed(s, 'g', 1)
+    local result = patterns.feed(s, 'g', 1)
+    if result then
+      assert.is_not_equal('jump_back', result.pattern)
+    end
+  end)
+end)
+
+describe('when the user jumps to the start of the file then back to the end', function()
+  it("fires jump_back suggesting '' after gg then G", function()
+    local s = seq()
+    patterns.feed(s, 'g', 1)
+    patterns.feed(s, 'g', 1)
+    local result = patterns.feed(s, 'G', 1)
+    assert.is_not_nil(result)
+    assert.equals('jump_back', result.pattern)
+    assert.equals("''", result.cmd)
+  end)
+
+  it('does not fire for G on its own (no preceding gg)', function()
+    local s = seq()
+    local result = patterns.feed(s, 'G', 1)
+    assert.is_nil(result)
+  end)
+
+  it('does not fire when an unrelated key happens between gg and G', function()
+    local s = seq()
+    patterns.feed(s, 'g', 1)
+    patterns.feed(s, 'g', 1)
+    patterns.feed(s, 'x', 1) -- unrelated key breaks the back-to-back requirement
+    local result = patterns.feed(s, 'G', 1)
+    if result then
+      assert.is_not_equal('jump_back', result.pattern)
+    end
+  end)
+
+  it('allows the round trip to fire again on a further gg ↔ G alternation', function()
+    local s = seq()
+    patterns.feed(s, 'g', 1)
+    patterns.feed(s, 'g', 1)
+    local first = patterns.feed(s, 'G', 1)
+    patterns.feed(s, 'g', 1)
+    local second = patterns.feed(s, 'g', 1)
+    assert.equals('jump_back', first.pattern)
+    assert.equals('jump_back', second.pattern)
+  end)
+end)

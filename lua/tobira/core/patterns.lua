@@ -457,6 +457,14 @@ local function inner_feed(seq, key, line, is_diff, now)
       u = 'gu',
     }
     if g_targets[key] then
+      -- Captured BEFORE last_op is overwritten below: true only when a bare
+      -- G was the most recently completed action and nothing else has
+      -- happened since — any other key would already have cleared last_op
+      -- (the generic reset further down in inner_feed) or overwritten it
+      -- (a different g-compound resolving right here). See the mirrored
+      -- gg → G check earlier in inner_feed for why last_op itself (not a
+      -- dedicated field) is reused for this (#52).
+      local g_then_gg = seq.last_op == 'G'
       seq.last_op = g_targets[key]
       seq.op_completed = true
       -- gg / g; are themselves significant jumplist / changelist motions,
@@ -466,6 +474,14 @@ local function inner_feed(seq, key, line, is_diff, now)
       if seq.last_op == 'gg' then
         seq.jump_last_at = now
         seq.jump_return_streak = 0
+        -- G → gg: suggest '' (#52). last_op is deliberately left as 'gg'
+        -- (not cleared) so the usage-tracking increment in logger.lua
+        -- (keyed off op_completed, set above) still counts this gg as
+        -- used, and so an immediately-following bare G can still detect it
+        -- via the gg → G check earlier in inner_feed.
+        if g_then_gg then
+          return { pattern = 'jump_back', cmd = "''" }
+        end
       elseif seq.last_op == 'g;' then
         seq.g_semi_seen = true
       end
@@ -951,6 +967,19 @@ local function inner_feed(seq, key, line, is_diff, now)
     return { pattern = 'gq_then_jumpback', cmd = 'gw' }
   end
 
+  -- ── gg → G: suggest '' (jump back to position before gg) (#52) ───────────
+  -- Mirrors the reverse direction handled inside the pending_g dispatch
+  -- above. Checked here, alongside the other last_op-consuming "X then Y"
+  -- checks, before last_op is reset below for any unrelated key — so this
+  -- only fires when G is the very next resolved action after gg, not some
+  -- later, unrelated G. last_op is set to 'G' (not cleared) rather than
+  -- nil'd out so an immediately-following gg can still detect the reverse
+  -- direction via the pending_g dispatch above.
+  if key == 'G' and seq.last_op == 'gg' then
+    seq.last_op = 'G'
+    return { pattern = 'jump_back', cmd = "''" }
+  end
+
   if key ~= 'p' then
     seq.last_op = nil
     seq.dd_streak = 0
@@ -980,6 +1009,17 @@ local function inner_feed(seq, key, line, is_diff, now)
   if key == 'G' or JUMP_MOTION_KEYS[key] then
     seq.jump_last_at = now
     seq.jump_return_streak = 0
+    -- Only reached when the gg → G check earlier in inner_feed did NOT
+    -- already fire (that branch returns early) — so this only runs for a
+    -- bare G with no immediately-preceding gg. Remembered so a following gg
+    -- can detect this G via the pending_g dispatch's g_then_gg check (#52).
+    -- Deliberately NOT paired with op_completed = true: G is already
+    -- tracked as a plain single keystroke via logger.lua's TRACK table, and
+    -- op_completed here would double-count it through the compound-tracking
+    -- increment path there too.
+    if key == 'G' then
+      seq.last_op = 'G'
+    end
   elseif RETURN_MOTION_KEYS[key] then
     if seq.jump_last_at and not seq.ctrl_o_seen and (now - seq.jump_last_at) <= JUMP_TOLERANCE_MS then
       seq.jump_return_streak = seq.jump_return_streak + 1
