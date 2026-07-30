@@ -2533,3 +2533,110 @@ describe('when the user jumps to the start of the file then back to the end', fu
     assert.equals('jump_back', second.pattern)
   end)
 end)
+
+-- ── regression: jump_back firing must not skip jumplist bookkeeping ─────────
+-- jump_back and manual_return (#61) share seq.jump_last_at. Both firing paths
+-- above must leave it exactly as fresh as an ordinary G/gg keystroke would --
+-- otherwise a later, entirely unrelated manual_return check reads a stale
+-- timestamp and fires k_repeat instead. See patterns.lua's inner_feed: each
+-- jump_back path now runs its jumplist bookkeeping BEFORE returning the
+-- jump_back result, instead of returning early and skipping it.
+
+describe('when a bare G fires jump_back via the gg -> G check (last_op already "gg")', function()
+  it('refreshes jump_last_at so a real k-streak right after still fires manual_return', function()
+    local s = seq()
+    -- A bare, non-firing gg (no preceding G) leaves last_op == 'gg', exactly
+    -- the leftover state the bug exploited.
+    patterns.feed(s, 'g', 1, nil, 0)
+    patterns.feed(s, 'g', 1, nil, 0)
+    local fired = patterns.feed(s, 'G', 1, nil, 1000)
+    assert.equals('jump_back', fired.pattern)
+    assert.equals(1000, s.jump_last_at)
+
+    for _ = 1, 4 do
+      patterns.feed(s, 'k', 1, nil, 1100)
+    end
+    local result = patterns.feed(s, 'k', 1, nil, 1100)
+    assert.is_not_nil(result)
+    assert.equals('manual_return', result.pattern)
+    assert.equals('<C-o>', result.cmd)
+  end)
+
+  it('reproduces the reported bug: earlier G -> gg fire, idle/paste gap, then a real G -> k-streak', function()
+    local s = seq()
+    -- First, a legitimate G -> gg round trip fires jump_back via the
+    -- pending_g dispatch path. last_op is deliberately left as 'gg'
+    -- afterwards (by design, so a further alternation can still fire).
+    patterns.feed(s, 'G', 1, nil, 0)
+    patterns.feed(s, 'g', 1, nil, 0)
+    local first = patterns.feed(s, 'g', 1, nil, 0)
+    assert.equals('jump_back', first.pattern)
+
+    -- Long idle gap (well past JUMP_TOLERANCE_MS from t=0), then a paste --
+    -- neither clears last_op == 'gg' by design -- then an entirely ordinary,
+    -- unrelated bare G: "check the end of the file", not part of any
+    -- alternation. Deliberately timed so a k-streak shortly after this G
+    -- only stays within tolerance of THIS G's timestamp, not the stale one
+    -- from the first jump_back -- proving jump_last_at was truly refreshed
+    -- rather than merely still coincidentally within range of the old value.
+    patterns.feed(s, 'p', 1, nil, 3000)
+    local second = patterns.feed(s, 'G', 1, nil, 20000)
+    assert.equals('jump_back', second.pattern)
+
+    -- A real k-streak right after that real G must be read against ITS
+    -- timestamp, not the stale one from the first jump_back.
+    for _ = 1, 4 do
+      patterns.feed(s, 'k', 1, nil, 20100)
+    end
+    local result = patterns.feed(s, 'k', 1, nil, 20100)
+    assert.is_not_nil(result)
+    assert.equals('manual_return', result.pattern)
+    assert.equals('<C-o>', result.cmd)
+  end)
+end)
+
+describe('when gg fires jump_back via the G -> gg check (pending_g dispatch)', function()
+  it('refreshes jump_last_at to the firing keystroke (confirmed already-correct, now covered)', function()
+    local s = seq()
+    patterns.feed(s, 'G', 1, nil, 0)
+    patterns.feed(s, 'g', 1, nil, 500)
+    local fired = patterns.feed(s, 'g', 1, nil, 500)
+    assert.equals('jump_back', fired.pattern)
+    assert.equals(500, s.jump_last_at)
+  end)
+
+  it('lets a real k-streak right after fire manual_return, not k_repeat', function()
+    local s = seq()
+    patterns.feed(s, 'G', 1, nil, 0)
+    patterns.feed(s, 'g', 1, nil, 500)
+    local fired = patterns.feed(s, 'g', 1, nil, 500)
+    assert.equals('jump_back', fired.pattern)
+
+    for _ = 1, 4 do
+      patterns.feed(s, 'k', 1, nil, 600)
+    end
+    local result = patterns.feed(s, 'k', 1, nil, 600)
+    assert.is_not_nil(result)
+    assert.equals('manual_return', result.pattern)
+    assert.equals('<C-o>', result.cmd)
+  end)
+end)
+
+-- ── design decision: jump_back's own last_op reuse stays keystroke-only ─────
+-- Deliberately NOT given a JUMP_TOLERANCE_MS-style time bound, unlike
+-- jump_last_at/manual_return above. Issue #52's acceptance criteria and the
+-- existing "no tolerance window, no streak" comment above (see the "gg <->
+-- G double-jump" section header) only ever describe back-to-back
+-- KEYSTROKES, never elapsed time -- adding a bound here would be new scope,
+-- not a fix for the reported bug (which is fully resolved by keeping
+-- jump_last_at itself fresh, covered above). This test pins the existing,
+-- intentional behavior down so a future change doesn't silently alter it.
+describe("jump_back's last_op sentinel has no time bound (intentional, see above)", function()
+  it('still fires after a long idle gap with no intervening key', function()
+    local s = seq()
+    patterns.feed(s, 'G', 1, nil, 0)
+    patterns.feed(s, 'g', 1, nil, 0)
+    local result = patterns.feed(s, 'g', 1, nil, 60000) -- 60s later, no other key
+    assert.equals('jump_back', result.pattern)
+  end)
+end)
