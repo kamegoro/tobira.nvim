@@ -9,6 +9,7 @@ CONTENTS                                                        *tobira-contents
   4. Configuration ......................... |tobira-config|
   5. Usage ................................. |tobira-usage|
   6. Detected patterns ..................... |tobira-patterns|
+  7. Troubleshooting ....................... |tobira-troubleshooting|
 
 ==============================================================================
 1. INTRODUCTION                                             *tobira-introduction*
@@ -392,6 +393,99 @@ EX ~
                                  resets the count, rather than counting
                                  toward it — Vim reuses the existing buffer,
                                  so that is not "another file" either)
+
+==============================================================================
+7. TROUBLESHOOTING                                       *tobira-troubleshooting*
+
+START HERE: :checkhealth tobira ~
+
+Before anything else, run |:checkhealth-tobira|. It checks four things:
+
+  1. Neovim version — errors if below 0.9 (the minimum tobira supports),
+     warns if below 0.10 (`vim.on_key()`'s `typed` argument is not
+     available there, so tracking accuracy is reduced but tobira still
+     works).
+  2. Whether tobira's data directory is writable, or can be created.
+  3. Whether `usage.json` contains valid JSON.
+  4. Whether the configured |tobira-config-lang| has a matching locale
+     file.
+
+Most of the symptoms below trace back to one of these four checks
+failing.
+
+NO SUGGESTIONS EVER APPEAR ~
+
+Check these, roughly in order of likelihood:
+
+  1. `:checkhealth tobira` reports the data directory is not writable.
+     If usage can never be saved, no command's count ever crosses a
+     threshold, so nothing looks "used enough" to suggest.
+  2. `idle_suggestions = false` in your config. This only disables the
+     ambient idle-timer suggestion — the one picked with no specific
+     trigger. Suggestions that react to a detected pattern (repeating
+     `f`, `dw` then `i`, and so on) are not gated by this option and
+     still fire after |tobira-config-idle_delay|. If you see neither
+     kind, keep checking the causes below.
+  3. `suggestion_cooldown` is set very high. Automatic suggestions —
+     ambient and pattern-triggered alike — wait at least this many
+     seconds after the previous one. Run |:Tobira|, which always
+     bypasses the cooldown, to check whether tobira has anything to
+     say right now.
+  4. Every command tobira could suggest is already mastered (100+
+     uses), suppressed (`x` in |:TobiraProgress|), already shown
+     `max_shown` times this session, or bound to a key you have
+     personally remapped — see |tobira-integrations|, which never
+     offers a suggestion for a command you have deliberately bound to
+     something else. |:TobiraProgress| shows the state of every
+     command; |:TobiraStats|'s "Try these next" section is the
+     fastest way to see what is left.
+  5. `:Tobira` printing "no new suggestions right now" is the expected
+     message once none of the above apply — not an error.
+
+USAGE.JSON LOOKS CORRUPTED, OR MASTERY SEEMS STUCK/WRONG ~
+
+Run |:checkhealth-tobira| first — it validates `usage.json` as JSON
+and reports its exact path. If the file is not valid JSON, tobira does
+not error: it silently treats usage as empty until the file is fixed,
+which looks like every command has reverted to "never used".
+
+The file lives at: >
+
+  ~/.local/share/nvim/tobira/usage.json
+<
+To start over deliberately, run |:TobiraReset|. It erases the file
+completely — counts, per-session history, suppressed/pinned state, and
+mastery all go back to zero, with no partial undo. It does NOT touch
+your `setup()` options (`idle_delay`, `suggestion_cooldown`, and so
+on) — those live in your config, not in usage data.
+
+SUGGESTIONS TOO OFTEN / NOT OFTEN ENOUGH ~
+
+Three independent knobs, all documented in |tobira-config|:
+
+  `idle_delay` (default 1500ms) — how long you must pause before any
+  suggestion, ambient or reactive, can appear. Raise it if suggestions
+  feel too eager.
+
+  `suggestion_cooldown` (default 300s) — minimum gap between automatic
+  suggestions. Raise it to see tobira less often overall; |:Tobira|
+  always ignores it.
+
+  `max_shown` (default 2) — how many times the same command is
+  suggested per session before tobira moves on to something else.
+  Resets on every Neovim startup.
+
+If a specific suggestion feels boosted for the wrong reason, check
+`integrations` (default `true`, see |tobira-config-integrations|) — it
+promotes a suggestion when a supported plugin (surround.nvim,
+flash.nvim, leap.nvim, hop.nvim, or their mini.nvim equivalents) is
+detected. Setting it to `false` disables only that boost, not tobira's
+other suggestions.
+
+STILL STUCK ~
+
+Open an issue at https://github.com/kamegoro/tobira.nvim/issues with
+the output of |:checkhealth-tobira| attached.
 
 ==============================================================================
 vim:tw=78:ts=8:ft=help:norl:

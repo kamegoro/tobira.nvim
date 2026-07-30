@@ -8,12 +8,15 @@ tobira-commands	tobira.txt	/*tobira-commands*
 tobira-config	tobira.txt	/*tobira-config*
 tobira-config-idle_delay	tobira.txt	/*tobira-config-idle_delay*
 tobira-config-idle_suggestions	tobira.txt	/*tobira-config-idle_suggestions*
+tobira-config-integrations	tobira.txt	/*tobira-config-integrations*
 tobira-config-lang	tobira.txt	/*tobira-config-lang*
 tobira-config-max_shown	tobira.txt	/*tobira-config-max_shown*
 tobira-config-suggestion_cooldown	tobira.txt	/*tobira-config-suggestion_cooldown*
 tobira-contents	tobira.txt	/*tobira-contents*
+tobira-integrations	tobira.txt	/*tobira-integrations*
 tobira-introduction	tobira.txt	/*tobira-introduction*
 tobira-patterns	tobira.txt	/*tobira-patterns*
 tobira-setup	tobira.txt	/*tobira-setup*
+tobira-troubleshooting	tobira.txt	/*tobira-troubleshooting*
 tobira-usage	tobira.txt	/*tobira-usage*
 tobira.txt	tobira.txt	/*tobira.txt*
