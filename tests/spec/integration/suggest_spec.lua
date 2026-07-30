@@ -472,6 +472,94 @@ describe('when a real terminal_esc_repeat pattern fires (#110 reactive path, mus
   end)
 end)
 
+-- ── terminal category cooldown exemption (#166 follow-up) ───────────────────
+-- Bug: suggestion_cooldown is a single global gate with no per-category
+-- exception, so ANY prior auto suggestion (ambient or reactive) firing
+-- within the cooldown window silently drops a terminal_esc_repeat that
+-- fires afterwards -- not a delay, a permanent loss for that Esc-streak,
+-- since patterns_terminal.lua's latch never re-fires it. This reproduces
+-- the exact symptom #166/#173 originally set out to fix ("the terminal
+-- suggestion never becomes visible"), through a completely different
+-- mechanism than the float's auto-dismiss duration. Fix: entries in the
+-- 'terminal' category bypass the cooldown gate, the same way :Tobira
+-- manual already bypasses it -- see suggest.lua's bypasses_cooldown().
+describe('when an unrelated suggestion has already started the cooldown clock, then terminal_esc_repeat fires', function()
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    config.reset()
+    suggest.reset_session()
+  end)
+
+  it('still shows <C-\\><C-n>, unblocked by the global suggestion_cooldown', function()
+    config.setup({ suggestion_cooldown = 3600 })
+    -- An unrelated, ordinary auto suggestion fires first and starts the
+    -- cooldown clock (session.last_auto_at).
+    with_float_spy(function()
+      suggest.show(';')
+    end)
+    -- Well within the 3600s cooldown window, a genuine terminal_esc_repeat
+    -- streak fires reactively.
+    local shown_cmd = nil
+    local prev = suggest.on_show
+    suggest.on_show = function(sug)
+      shown_cmd = sug.cmd
+    end
+    suggest.show('<C-\\><C-n>')
+    suggest.on_show = prev
+    assert.equals('<C-\\><C-n>', shown_cmd, 'terminal_esc_repeat must not be silently dropped by the cooldown')
+  end)
+end)
+
+describe('when an unrelated suggestion has already started the cooldown clock, then a non-terminal reactive pattern fires', function()
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    config.reset()
+    suggest.reset_session()
+  end)
+
+  it('is still blocked by the cooldown (the exemption is scoped to the terminal category only)', function()
+    config.setup({ suggestion_cooldown = 3600 })
+    with_float_spy(function()
+      suggest.show(';')
+    end)
+    -- 'f' is an ordinary motion-category suggestion, not terminal -- must
+    -- keep the pre-existing cooldown behaviour exactly as before this fix.
+    local usage = logger.get_all()
+    usage['f'] = { count = 5, shown = 0, sessions = {}, suppressed = false }
+    local shown = with_float_spy(function()
+      suggest.show('f')
+    end)
+    assert.is_false(shown, 'non-terminal categories must remain subject to the global cooldown')
+  end)
+end)
+
+describe('when the terminal category cooldown bypass is combined with max_shown (defense in depth)', function()
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    config.reset()
+    suggest.reset_session()
+  end)
+
+  it('still stops after max_shown, even though the cooldown no longer gates repeats', function()
+    -- patterns_terminal.lua's own latch (fires once per Esc-streak) is the
+    -- real spam guard once the cooldown is bypassed -- this test pins down
+    -- that max_shown is still a working second line of defense at the
+    -- suggest.lua layer regardless, in case that latch is ever weakened.
+    config.setup({ suggestion_cooldown = 3600, max_shown = 1 })
+    local shown_count = 0
+    suggest.on_show = function()
+      shown_count = shown_count + 1
+    end
+    suggest.show('<C-\\><C-n>')
+    suggest.show('<C-\\><C-n>')
+    suggest.on_show = nil
+    assert.equals(1, shown_count, 'max_shown must still cap repeated terminal suggestions in one session')
+  end)
+end)
+
 describe('when showing a command that has no suggestion entry', function()
   before_each(function()
     wipe_disk()

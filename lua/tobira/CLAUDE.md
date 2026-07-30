@@ -158,6 +158,17 @@ two-character command prefix.
      never be incremented by any tracking path — see the `<C-\><C-n>` entry's
      comment in `commands.lua` and `commands_spec.lua`'s "reactive-only ambient
      exclusion" tests for the full reasoning and the narrow scope of this flag.
+   - The `terminal` category also gets two other carve-outs keyed off
+     `suggestion.category` rather than a per-entry flag: `ui/float.lua`'s
+     `auto_close_duration()` gives it a longer on-screen window (#166), and
+     `core/suggest.lua`'s `bypasses_cooldown()` exempts it from
+     `suggestion_cooldown` entirely (#166 follow-up) — both because this
+     category's trigger condition means the user is, by definition, still
+     actively stuck at the exact moment it fires, unlike every other
+     category's idle/paused audience. A future category sharing that same
+     "fires only while the user is genuinely mid-struggle" property is a
+     candidate for the same two carve-outs; anything else should not reach
+     for either.
 2. **Write tests first** (see `tests/CLAUDE.md`)
    - `track = true` → add a tracking smoke test to `logger_spec.lua`
    - New normal-mode pattern → add a unit test to `patterns_spec.lua`

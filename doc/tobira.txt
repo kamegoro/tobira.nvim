@@ -157,6 +157,13 @@ Default configuration: >lua
   Minimum seconds between automatic suggestions. Prevents repeated
   interruptions within a short period.
 
+  The terminal-mode suggestion (`<C-\><C-n>`, see below) is exempt from this
+  cooldown: it only ever fires while you are actively stuck in terminal-job
+  mode at that exact moment, so an unrelated suggestion earlier in the
+  cooldown window never silently swallows it. It cannot spam you even
+  without the cooldown — it fires at most once per uninterrupted `<Esc>`
+  streak.
+
                                                        *tobira-config-max_shown*
 `max_shown` (number, default: `2`)
   Maximum number of times the same command suggestion is shown per session.
@@ -205,7 +212,9 @@ scaled to how much text it is showing — and never steals focus or blocks
 input. The terminal-mode suggestion (`<C-\><C-n>`, see below) stays on
 screen noticeably longer than the rest: it can only ever appear while you
 are still mid-attempt to leave terminal-job mode, so it gets extra time to
-actually be seen before it dismisses itself.
+actually be seen before it dismisses itself. For the same reason it is also
+the only automatic suggestion exempt from |tobira-config-suggestion_cooldown|
+— see that option's help for why.
 
 A muted hint at the bottom of the window always shows how to silence that
 suggestion via |:TobiraProgress|, even when the window did not steal focus.
