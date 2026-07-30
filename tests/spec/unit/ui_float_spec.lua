@@ -196,6 +196,41 @@ describe('auto-close duration', function()
   end)
 end)
 
+-- #166: terminal_esc_repeat is the only suggestion whose trigger condition
+-- means the user is, by definition, still actively fumbling to leave
+-- terminal-job mode at the exact moment it appears -- their hands and
+-- attention are on the stuck job, not idly watching the corner of the
+-- screen the way an idle/ambient suggestion's audience is. The window was
+-- confirmed (via tmux+asciinema regression passes) to render correctly;
+-- the standard 6-9s toast window was simply too short a chance for this
+-- one category's distracted audience to actually see it before it
+-- auto-dismissed. See float.lua's auto_close_duration() doc comment.
+describe('auto-close duration for the terminal category (#166)', function()
+  before_each(setup)
+  after_each(teardown)
+
+  it('outlasts the standard 9s ceiling used by every other category', function()
+    local captured = capture_defer(function()
+      float.show(suggestion(';', { category = 'terminal' }), false)
+    end)
+    assert.is_true(captured[1].delay > 9000, 'terminal-category suggestions should outlast the standard ceiling')
+  end)
+
+  it('does not change the duration for any other category', function()
+    local captured = capture_defer(function()
+      float.show(suggestion(';', { category = 'motion' }), true)
+    end)
+    assert.is_true(captured[1].delay <= 9000, 'non-terminal categories must keep the standard 6-9s ceiling')
+  end)
+
+  it('does not change the duration when there is no category at all', function()
+    local captured = capture_defer(function()
+      float.show(suggestion(';'), true)
+    end)
+    assert.is_true(captured[1].delay <= 9000, 'uncategorized suggestions must keep the standard 6-9s ceiling')
+  end)
+end)
+
 -- brand icon
 
 describe('the suggestion title', function()

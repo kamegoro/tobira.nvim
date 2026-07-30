@@ -130,6 +130,57 @@ local function over_auto_limit()
   return elapsed_s < config.values.suggestion_cooldown
 end
 
+-- #166 follow-up: entries in the 'terminal' category are exempt from the
+-- global suggestion_cooldown gate, the same way :Tobira manual already
+-- bypasses it (see M.manual(), which never calls over_auto_limit() at all).
+-- Without this, ANY unrelated auto suggestion (ambient idle pick or another
+-- reactive pattern) firing in the preceding suggestion_cooldown seconds
+-- silently drops a terminal_esc_repeat that fires afterwards -- not a
+-- delay, a permanent loss for that Esc-streak, since patterns_terminal.lua's
+-- latch (see its module header) never re-fires for the same streak. This
+-- reproduces the exact "the terminal suggestion never becomes visible"
+-- symptom #166/#173 set out to fix, through a completely different
+-- mechanism than the float's auto-dismiss duration -- see that fix's own
+-- reasoning in ui/float.lua's auto_close_duration() doc comment, which this
+-- mirrors: the terminal category's audience is, by definition, still
+-- actively stuck at the exact moment the suggestion fires, unlike every
+-- other category's idle/paused audience.
+--
+-- Scoped to the category (looked up via graph.suggestions[cmd]), not to the
+-- literal 'terminal_esc_repeat' pattern name, so any future addition to the
+-- 'terminal' category inherits the same exemption automatically -- the same
+-- category-keyed carve-out shape float.lua's auto_close_duration() already
+-- uses. cmd values with no suggestion entry (e.g. an unknown command) fall
+-- through to `false`, i.e. no bypass, same as should_suppress's handling of
+-- an unrecognised cmd elsewhere in this file.
+--
+-- Spam risk, considered and rejected: bypassing the cooldown here does NOT
+-- reopen the spam problem the cooldown exists to prevent, because
+-- patterns_terminal.lua's `fired` latch already guarantees at most one
+-- on_pattern call per uninterrupted Esc-streak -- suggest.lua never even
+-- sees repeat attempts within a streak (see patterns_terminal_spec.lua's
+-- "does not fire again for the 3rd, 4th... <Esc>" test and
+-- logger_spec.lua's "does not spam the suggestion on further <Esc> presses"
+-- integration test, both already passing and unaffected by this change).
+-- A *new*, separate streak (after an intervening ordinary key) firing again
+-- within the same session is not spam either: it is a fresh instance of the
+-- user genuinely being stuck again, which is exactly the situation this
+-- category's exemption exists to surface promptly. `max_shown` (default 2)
+-- remains a second, independent line of defense against unbounded repeats
+-- within one session even with the cooldown bypassed -- see suggest_spec.lua's
+-- "defense in depth" test.
+local function bypasses_cooldown(cmd)
+  local suggestion = graph.suggestions[cmd]
+  return suggestion ~= nil and suggestion.category == 'terminal'
+end
+
+-- Single choke point for "is the cooldown currently blocking cmd", used by
+-- both M.queue and M.show (queue's own vim.defer_fn re-checks it in M.show
+-- once the idle delay elapses, so both call sites need the same bypass).
+local function cooldown_blocks(cmd)
+  return over_auto_limit() and not bypasses_cooldown(cmd)
+end
+
 local function fire_ambient()
   if vim.fn.mode():sub(1, 1) ~= 'n' then
     return
@@ -183,7 +234,7 @@ function M.teardown_idle()
 end
 
 function M.queue(pattern, cmd)
-  if over_auto_limit() then
+  if cooldown_blocks(cmd) then
     return
   end
   if should_suppress(cmd) then
@@ -199,7 +250,7 @@ end
 -- pattern: the patterns.lua event name that triggered this suggestion, or nil
 -- when there is no single triggering event (ambient idle pick, :Tobira manual).
 function M.show(cmd, pattern)
-  if over_auto_limit() then
+  if cooldown_blocks(cmd) then
     return
   end
   if do_show(cmd, false, pattern) then

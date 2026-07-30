@@ -102,7 +102,11 @@ Don't re-derive these from scratch if you're touching one of these screens — r
 
 - Suggestion float (`ui/float.lua`, shipped in #71/#72): habit-loop (cue → routine → reward) +
   toast-notification 6–9s convention + Clippy-postmortem lessons (always show why, always show
-  how to mute)
+  how to mute). #166: the `terminal` category is a deliberate exception to the 6–9s convention
+  (12–18s instead) — its only trigger (`terminal_esc_repeat`) fires while the user is, by
+  definition, still actively fumbling to leave terminal-job mode at that exact moment, so the
+  standard toast window was too short a chance for that distracted audience to actually see it.
+  See `auto_close_duration()`'s doc comment in `ui/float.lua` for the full reasoning.
 - `:TobiraGuide` (#68): Nielsen's "recognition rather than recall" — the screen's entire job is
   letting a user recognize what they already half-know instead of making them recall it
 - `:TobiraProgress` (#66/#67): goal-gradient effect — visible distance to the next milestone
