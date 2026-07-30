@@ -202,7 +202,10 @@ macro / diff / ex / terminal) so a returning user can recognize the kind of
 suggestion at a glance.
 The window auto-dismisses on its own after a few seconds — roughly
 scaled to how much text it is showing — and never steals focus or blocks
-input.
+input. The terminal-mode suggestion (`<C-\><C-n>`, see below) stays on
+screen noticeably longer than the rest: it can only ever appear while you
+are still mid-attempt to leave terminal-job mode, so it gets extra time to
+actually be seen before it dismisses itself.
 
 A muted hint at the bottom of the window always shows how to silence that
 suggestion via |:TobiraProgress|, even when the window did not steal focus.

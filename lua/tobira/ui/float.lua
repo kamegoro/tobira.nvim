@@ -92,7 +92,26 @@ end
 
 -- Content-scaled auto-dismiss duration, clamped to the toast-notification
 -- convention of roughly 6-9 seconds of on-screen time.
-local function auto_close_duration(line_count)
+--
+-- #166: 'terminal' is the one category given a longer window. Its only
+-- trigger (terminal_esc_repeat) fires while the user is, by definition,
+-- still actively fumbling to leave terminal-job mode at that exact moment
+-- -- their hands and attention are on the stuck job, not idly watching the
+-- corner of the screen the way an idle/ambient suggestion's audience is.
+-- Live regression passes (tmux+asciinema, including adversarial conditions:
+-- a continuously-flooding terminal job, a competing first-run :TobiraGuide
+-- popup, narrow 80-col terminals) confirmed the window renders correctly
+-- and stays on screen for exactly as long as this duration allows -- the
+-- originally reported "never becomes visible" was this fixed 6-9s window
+-- elapsing before a user who is mid-struggle (or any multi-step
+-- verification process with latency between trigger and observation, which
+-- reproduces the same illusion) gets a real chance to look. Every other
+-- category's audience is idle/paused when their suggestion appears, so the
+-- standard toast window is left unchanged for them.
+local function auto_close_duration(line_count, category)
+  if category == 'terminal' then
+    return math.min(18000, math.max(12000, 2500 + (line_count * 700)))
+  end
   return math.min(9000, math.max(6000, 2500 + (line_count * 700)))
 end
 
@@ -215,7 +234,7 @@ function M.show(suggestion, focused, pattern)
     if _close_token == my_token then
       close()
     end
-  end, auto_close_duration(#lines))
+  end, auto_close_duration(#lines, suggestion.category))
 end
 
 -- Fired once, the first time a suggested command is actually adopted. Distinct
