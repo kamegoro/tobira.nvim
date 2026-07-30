@@ -86,6 +86,7 @@ return {
       dedent_run = 'Du hast 3-mal hintereinander auf dieselbe Weise die Einrückung entfernt',
       c_dollar = 'Du hast vom Cursor bis zum Zeilenende geändert',
       d_dollar = 'Du hast vom Cursor bis zum Zeilenende gelöscht',
+      y_dollar = 'Du hast vom Cursor bis zum Zeilenende kopiert',
       dd_run = 'Du hast 3-mal hintereinander einzelne Zeilen gelöscht',
       yy_then_p = 'Du hast eine Zeile kopiert und direkt darunter eingefügt',
       dd_then_p = 'Du hast eine Zeile gelöscht und sie wieder eingefügt',

@@ -326,6 +326,7 @@ EDIT ~
 
   `c$`                          Suggest `C`     — change to end of line
   `d$`                          Suggest `D`     — delete to end of line
+  `y$`                          Suggest `Y`     — yank to end of line
   `dw` → `i`                    Suggest `cw`    — change word in one motion
   `yy` → `p`                    Suggest `yyp`   — duplicate the current line
   `dd` → `p`                    Suggest `ddp`   — swap current line with next

@@ -1035,6 +1035,26 @@ describe('when the user deletes to end of line with d$', function()
   end)
 end)
 
+-- ── y$ → Y (yank to end of line) ─────────────────────────────────────────────
+
+describe('when the user yanks to end of line with y$', function()
+  it('fires y_dollar suggesting Y', function()
+    local s = seq()
+    patterns.feed(s, 'y', 1)
+    local result = patterns.feed(s, '$', 1)
+    assert.is_not_nil(result)
+    assert.equals('y_dollar', result.pattern)
+    assert.equals('Y', result.cmd)
+  end)
+
+  it('does not fire when y is followed by a word motion', function()
+    local s = seq()
+    patterns.feed(s, 'y', 1)
+    local result = patterns.feed(s, 'w', 1)
+    assert.is_nil(result)
+  end)
+end)
+
 -- ── yy → p (duplicate line) ──────────────────────────────────────────────────
 
 describe('when the user yanks a whole line then pastes it', function()

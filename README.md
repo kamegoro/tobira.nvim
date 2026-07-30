@@ -154,7 +154,7 @@ plugin-detection boost, not that baseline behavior (see `:help tobira-integratio
 | `:e A` → `:e B` → `:e A` (or the equivalent with `:b`) | `<C-^>` — jump straight to the alternate file |
 | `:tabnew {distinct file}` × 3, one tab each | `<C-^>` — switch buffers instead of opening a tab per file |
 
-57 patterns total — see `:help tobira-patterns` for the full list.
+58 patterns total — see `:help tobira-patterns` for the full list.
 
 ## 🆚 Similar plugins
 

@@ -86,6 +86,7 @@ return {
       dedent_run = 'Quitaste la sangría de la misma forma 3 veces seguidas',
       c_dollar = 'Cambiaste desde el cursor hasta el final de la línea',
       d_dollar = 'Borraste desde el cursor hasta el final de la línea',
+      y_dollar = 'Copiaste desde el cursor hasta el final de la línea',
       dd_run = 'Borraste líneas individuales 3 veces seguidas',
       yy_then_p = 'Copiaste una línea y la pegaste justo debajo',
       dd_then_p = 'Borraste una línea y la volviste a pegar debajo',
