@@ -319,6 +319,8 @@ MOTION ~
                                Suggest `<C-o>` — jump back with the jumplist
   edit → move → edit elsewhere → `j`/`k` × 5 back (within 15s)
                                Suggest `g;`   — jump back with the changelist
+  `G` → `gg` (or `gg` → `G`), back to back
+                               Suggest `''`   — jump back to your previous spot
 
 EDIT ~
 

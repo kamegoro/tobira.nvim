@@ -153,6 +153,7 @@ describe('float.reasons locale', function()
     'j_many',
     'j_repeat',
     'J_repeat',
+    'jump_back',
     'k_many',
     'k_repeat',
     'k_then_o',

@@ -147,13 +147,14 @@ plugin-detection boost, not that baseline behavior (see `:help tobira-integratio
 | `<Esc>` × 2 in terminal mode, no effect | `<C-\><C-n>` — exit terminal mode |
 | `G`, then scroll back manually | `<C-o>` — jump back to where you were |
 | Edit here, edit there, scroll back manually | `g;` — jump to your last edit |
+| `G` then `gg` (or `gg` then `G`) | `''` — jump straight back to your previous position |
 | `cwFooBar<Esc>` repeated 3× (navigation allowed between) | `qq...q` / `@q` — record and replay a macro |
 | Same `:s/pat/repl/` retyped on a 2nd line | `&` — repeat the last substitute here |
 | Same `:s/pat/repl/` retyped on a 3rd line | `g&` — repeat it across the whole file |
 | `:e A` → `:e B` → `:e A` (or the equivalent with `:b`) | `<C-^>` — jump straight to the alternate file |
 | `:tabnew {distinct file}` × 3, one tab each | `<C-^>` — switch buffers instead of opening a tab per file |
 
-54 patterns total — see `:help tobira-patterns` for the full list.
+57 patterns total — see `:help tobira-patterns` for the full list.
 
 ## 🆚 Similar plugins
 

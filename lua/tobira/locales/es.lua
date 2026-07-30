@@ -99,6 +99,7 @@ return {
       D_then_insert = 'Borraste hasta el final de línea y empezaste a escribir',
       dw_then_insert = 'Borraste una palabra y entraste en modo inserción',
       gq_then_jumpback = 'Formateaste con gq y luego saltaste de vuelta a la posición inicial',
+      jump_back = 'Saltaste al final del archivo y luego directamente de vuelta al principio (o al revés)',
       x_repeat = 'Borraste caracteres uno por uno, 3 veces seguidas',
       u_repeat = 'Deshiciste 3 veces seguidas',
       j_repeat = 'Pulsaste j 5 veces seguidas',

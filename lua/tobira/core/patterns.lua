@@ -457,6 +457,14 @@ local function inner_feed(seq, key, line, is_diff, now)
       u = 'gu',
     }
     if g_targets[key] then
+      -- Captured BEFORE last_op is overwritten below: true only when a bare
+      -- G was the most recently completed action and nothing else has
+      -- happened since — any other key would already have cleared last_op
+      -- (the generic reset further down in inner_feed) or overwritten it
+      -- (a different g-compound resolving right here). See the mirrored
+      -- gg → G check earlier in inner_feed for why last_op itself (not a
+      -- dedicated field) is reused for this (#52).
+      local g_then_gg = seq.last_op == 'G'
       seq.last_op = g_targets[key]
       seq.op_completed = true
       -- gg / g; are themselves significant jumplist / changelist motions,
@@ -466,6 +474,14 @@ local function inner_feed(seq, key, line, is_diff, now)
       if seq.last_op == 'gg' then
         seq.jump_last_at = now
         seq.jump_return_streak = 0
+        -- G → gg: suggest '' (#52). last_op is deliberately left as 'gg'
+        -- (not cleared) so the usage-tracking increment in logger.lua
+        -- (keyed off op_completed, set above) still counts this gg as
+        -- used, and so an immediately-following bare G can still detect it
+        -- via the gg → G check earlier in inner_feed.
+        if g_then_gg then
+          return { pattern = 'jump_back', cmd = "''" }
+        end
       elseif seq.last_op == 'g;' then
         seq.g_semi_seen = true
       end
@@ -951,6 +967,26 @@ local function inner_feed(seq, key, line, is_diff, now)
     return { pattern = 'gq_then_jumpback', cmd = 'gw' }
   end
 
+  -- ── gg → G: suggest '' (jump back to position before gg) (#52) ───────────
+  -- Mirrors the reverse direction handled inside the pending_g dispatch
+  -- above. Captured here (before last_op is reset below for any unrelated
+  -- key) so it only fires when G is the very next resolved action after gg,
+  -- not some later, unrelated G.
+  --
+  -- Bug fix: this used to fire-and-return immediately, right here, which
+  -- skipped the JUMP_MOTION_KEYS bookkeeping further down (jump_last_at
+  -- refresh, jump_return_streak reset, last_op = 'G') that every OTHER bare
+  -- G gets. Since last_op is deliberately left as 'gg'/'G' after firing (so
+  -- a further alternation can still fire) and survives both idle time and a
+  -- 'p' paste (see the generic reset's 'p' exception below), a later,
+  -- entirely unrelated bare G could reach here, refire jump_back, and STILL
+  -- leave jump_last_at stale — corrupting manual_return's (#61) tolerance
+  -- check for that same, genuine G. The fix: only capture the flag here;
+  -- the actual fire-and-return now happens below, inside the
+  -- JUMP_MOTION_KEYS block, AFTER that block's bookkeeping has already run
+  -- for this G — so firing jump_back never bypasses it.
+  local gg_then_G = key == 'G' and seq.last_op == 'gg'
+
   if key ~= 'p' then
     seq.last_op = nil
     seq.dd_streak = 0
@@ -980,6 +1016,25 @@ local function inner_feed(seq, key, line, is_diff, now)
   if key == 'G' or JUMP_MOTION_KEYS[key] then
     seq.jump_last_at = now
     seq.jump_return_streak = 0
+    -- Only reached when the gg → G check earlier in inner_feed did NOT
+    -- already fire (that branch returns early) — so this only runs for a
+    -- bare G with no immediately-preceding gg. Remembered so a following gg
+    -- can detect this G via the pending_g dispatch's g_then_gg check (#52).
+    -- Deliberately NOT paired with op_completed = true: G is already
+    -- tracked as a plain single keystroke via logger.lua's TRACK table, and
+    -- op_completed here would double-count it through the compound-tracking
+    -- increment path there too.
+    if key == 'G' then
+      seq.last_op = 'G'
+      -- gg → G jump_back (#52): fire now that this G's own bookkeeping
+      -- (jump_last_at, jump_return_streak, last_op — all just above) has
+      -- already run for this same keystroke. See gg_then_G's capture
+      -- earlier in inner_feed for why this moved here instead of returning
+      -- immediately when detected.
+      if gg_then_G then
+        return { pattern = 'jump_back', cmd = "''" }
+      end
+    end
   elseif RETURN_MOTION_KEYS[key] then
     if seq.jump_last_at and not seq.ctrl_o_seen and (now - seq.jump_last_at) <= JUMP_TOLERANCE_MS then
       seq.jump_return_streak = seq.jump_return_streak + 1
