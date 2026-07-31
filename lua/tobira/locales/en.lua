@@ -133,6 +133,8 @@ return {
       substitute_repeat_wide = 'You ran the same :s/// substitution manually on a third line',
       ex_file_pingpong = 'You bounced between the same two files with :e/:b a few times in a row',
       tabnew_run = 'You opened 3 or more files with :tabnew, one tab each',
+      ci_dquote_repeat = 'You changed inside double quotes with ci" 3 times in a row',
+      ci_squote_repeat = "You changed inside single quotes with ci' 3 times in a row",
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -1054,6 +1056,18 @@ return {
       title = 'g& — repeat the last :substitute on every line',
       body = 'You typed the same :s/pattern/replacement/ by hand on several lines\ng& repeats it across the whole file, reusing the last pattern and flags',
       example = ':s/foo/bar/ then g& → applies it to every matching line',
+    },
+
+    -- ── ci" / ci' × 3 → ya" / ya' (detected by ci_dquote_repeat / ci_squote_repeat) ──
+    ['ya"'] = {
+      title = 'ya" — yank around double quotes',
+      body = 'You keep using ci" to work with quoted strings\nya" yanks the whole string, including the quote marks — no plugin required',
+      example = 'ya" → yanks "the quoted text" with its quotes',
+    },
+    ["ya'"] = {
+      title = "ya' — yank around single quotes",
+      body = 'Like ya" but for single-quoted strings\nYanks the whole string, including the quote marks',
+      example = "ya' → yanks 'the quoted text' with its quotes",
     },
   },
 }

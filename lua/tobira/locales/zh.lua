@@ -133,6 +133,8 @@ return {
       substitute_repeat_wide = '你手动在第三行也执行了同样的 :s/// 替换',
       ex_file_pingpong = '你用 :e/:b 连续多次在同两个文件之间来回切换',
       tabnew_run = '你用 :tabnew 打开了 3 个或更多文件，每个文件单独占一个标签页',
+      ci_dquote_repeat = '你用 ci" 连续 3 次修改双引号内的内容',
+      ci_squote_repeat = "你用 ci' 连续 3 次修改单引号内的内容",
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -1053,6 +1055,18 @@ return {
       title = 'g& — 在整个文件重复上一次 :substitute',
       body = '你手动在好几行输入了同样的 :s/模式/替换/\ng& 会沿用上一次的模式和选项，应用到整个文件',
       example = ':s/foo/bar/ 之后 g& → 应用到每一处匹配的行',
+    },
+
+    -- ── ci" / ci' × 3 → ya" / ya' ────────────────────────────────────────────
+    ['ya"'] = {
+      title = 'ya" — 连引号一起复制双引号内容',
+      body = '你经常用 ci" 处理引号内的内容\nya" 会把整个字符串连同引号一起复制，不需要任何插件',
+      example = 'ya" → 连同引号一起复制 "被引用的文本"',
+    },
+    ["ya'"] = {
+      title = "ya' — 连引号一起复制单引号内容",
+      body = '和 ya" 类似，但用于单引号包裹的字符串\n会把整个字符串连同引号一起复制',
+      example = "ya' → 连同引号一起复制 '被引用的文本'",
     },
   },
 }

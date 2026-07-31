@@ -1079,6 +1079,110 @@ describe('when the user enters and immediately leaves visual mode 3 times in a r
   end)
 end)
 
+-- ── ci" / ci' × 3 (direct, non-visual) → suggest ya" / ya' (#53) ────────────
+-- Distinct from visual_textobj above: this fires from the plain Normal-mode
+-- c + i + "/' operator-pending sequence, never from v i " c. Streaks are
+-- tracked separately per quote char, mirroring dd_streak/cc_streak's
+-- per-operator split (#118).
+
+describe('when the user changes inside double quotes (ci") 3 times in a row', function()
+  it('fires ci_dquote_repeat suggesting ya" on the 3rd ci"', function()
+    local s = seq()
+    feed(s, { 'c', 'i', '"' }, 1) -- 1st
+    feed(s, { 'c', 'i', '"' }, 1) -- 2nd
+    local result = feed(s, { 'c', 'i', '"' }, 1) -- 3rd → fires
+    assert.is_not_nil(result)
+    assert.equals('ci_dquote_repeat', result.pattern)
+    assert.equals('ya"', result.cmd)
+  end)
+
+  it('does not fire after only 2 repeats', function()
+    local s = seq()
+    feed(s, { 'c', 'i', '"' }, 1)
+    local result = feed(s, { 'c', 'i', '"' }, 1)
+    assert.is_nil(result)
+  end)
+
+  it('resets the streak when an unrelated key interrupts the repeats', function()
+    local s = seq()
+    feed(s, { 'c', 'i', '"' }, 1)
+    feed(s, { 'c', 'i', '"' }, 1)
+    patterns.feed(s, 'j', 1) -- unrelated key: interrupts
+    feed(s, { 'c', 'i', '"' }, 1)
+    local result = feed(s, { 'c', 'i', '"' }, 1)
+    assert.is_nil(result)
+  end)
+
+  it('does not count ca" (around, not inside) toward the streak', function()
+    local s = seq()
+    feed(s, { 'c', 'a', '"' }, 1)
+    feed(s, { 'c', 'a', '"' }, 1)
+    local result = feed(s, { 'c', 'a', '"' }, 1)
+    assert.is_nil(result)
+  end)
+
+  it('does not count di" (delete, not change) toward the streak', function()
+    local s = seq()
+    feed(s, { 'd', 'i', '"' }, 1)
+    feed(s, { 'd', 'i', '"' }, 1)
+    local result = feed(s, { 'd', 'i', '"' }, 1)
+    assert.is_nil(result)
+  end)
+
+  it("resets when a ci' lands in between (different quote char)", function()
+    local s = seq()
+    feed(s, { 'c', 'i', '"' }, 1)
+    feed(s, { 'c', 'i', "'" }, 1) -- different quote: resets the dquote streak
+    feed(s, { 'c', 'i', '"' }, 1)
+    local result = feed(s, { 'c', 'i', '"' }, 1)
+    assert.is_nil(result)
+  end)
+end)
+
+describe("when the user changes inside single quotes (ci') 3 times in a row", function()
+  it("fires ci_squote_repeat suggesting ya' on the 3rd ci'", function()
+    local s = seq()
+    feed(s, { 'c', 'i', "'" }, 1)
+    feed(s, { 'c', 'i', "'" }, 1)
+    local result = feed(s, { 'c', 'i', "'" }, 1)
+    assert.is_not_nil(result)
+    assert.equals('ci_squote_repeat', result.pattern)
+    assert.equals("ya'", result.cmd)
+  end)
+
+  it('does not fire after only 2 repeats', function()
+    local s = seq()
+    feed(s, { 'c', 'i', "'" }, 1)
+    local result = feed(s, { 'c', 'i', "'" }, 1)
+    assert.is_nil(result)
+  end)
+end)
+
+describe('when the user alternates between ci" and ci\' repeatedly', function()
+  it('never fires either streak, since each completion resets the other', function()
+    local s = seq()
+    feed(s, { 'c', 'i', '"' }, 1)
+    feed(s, { 'c', 'i', "'" }, 1)
+    feed(s, { 'c', 'i', '"' }, 1)
+    local result = feed(s, { 'c', 'i', "'" }, 1)
+    assert.is_nil(result)
+  end)
+end)
+
+describe('when a visual-mode ci" (v i " c) happens alongside direct ci" presses', function()
+  it('does not let the visual_textobj completion count toward the direct-path streak', function()
+    local s = seq()
+    patterns.feed(s, 'v', 1)
+    patterns.feed(s, 'i', 1)
+    patterns.feed(s, '"', 1)
+    local visual_result = patterns.feed(s, 'c', 1) -- fires visual_textobj, unrelated state
+    assert.equals('visual_textobj', visual_result.pattern)
+    feed(s, { 'c', 'i', '"' }, 1) -- 1st direct
+    local result = feed(s, { 'c', 'i', '"' }, 1) -- 2nd direct — not enough to fire
+    assert.is_nil(result)
+  end)
+end)
+
 -- ── c$ → C (change to end of line) ──────────────────────────────────────────
 
 describe('when the user changes to end of line with c$', function()

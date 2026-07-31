@@ -15,6 +15,17 @@ function M.new_seq()
     cc_streak = 0,
     indent_streak = 0,
     dedent_streak = 0,
+    -- Remembers whether the i/a prefix just consumed by pending_op was 'i'
+    -- (not 'a'), so the pending_text_obj completion below can tell a direct
+    -- ci"/ci' apart from ca"/ca' or di"/da' etc. — see pending_text_obj's
+    -- resolution further down.
+    pending_text_obj_inner = false,
+    -- ci"/ci' repeated 3× as a direct (non-visual) operator-pending sequence
+    -- → suggest ya"/ya' (#53). Tracked separately per quote char, mirroring
+    -- dd_streak/cc_streak's per-operator split (#118). Distinct from
+    -- visual_textobj above, which fires from v i " c and never touches these.
+    ci_dquote_streak = 0,
+    ci_squote_streak = 0,
     -- r-replacement tracking: r{char} l r{char} l r{char} → R
     pending_r = false,
     r_streak = 0,
@@ -761,9 +772,35 @@ local function inner_feed(seq, key, line, is_diff, now)
   -- ── pending_text_obj ──────────────────────────────────────────────────────
   if seq.pending_text_obj then
     local op = seq.pending_text_obj
+    local inner = seq.pending_text_obj_inner
     seq.pending_text_obj = nil
+    seq.pending_text_obj_inner = false
     seq.last_op = op .. 'w'
     seq.op_completed = true
+
+    -- ci"/ci' direct-path streak (#53) — only a real c+i+quote completion
+    -- counts; anything else (ca"/da'/ciw/ci(/...) resets both counters, the
+    -- same "a different-but-related completion resets the streak" shape
+    -- dd_streak/cc_streak use for a mismatched linewise completion above.
+    if op == 'c' and inner and key == '"' then
+      seq.ci_squote_streak = 0
+      seq.ci_dquote_streak = seq.ci_dquote_streak + 1
+      if seq.ci_dquote_streak >= 3 then
+        seq.ci_dquote_streak = 0
+        return { pattern = 'ci_dquote_repeat', cmd = 'ya"' }
+      end
+    elseif op == 'c' and inner and key == "'" then
+      seq.ci_dquote_streak = 0
+      seq.ci_squote_streak = seq.ci_squote_streak + 1
+      if seq.ci_squote_streak >= 3 then
+        seq.ci_squote_streak = 0
+        return { pattern = 'ci_squote_repeat', cmd = "ya'" }
+      end
+    else
+      seq.ci_dquote_streak = 0
+      seq.ci_squote_streak = 0
+    end
+
     return nil
   end
 
@@ -840,6 +877,7 @@ local function inner_feed(seq, key, line, is_diff, now)
       end
     elseif key == 'i' or key == 'a' then
       seq.pending_text_obj = op
+      seq.pending_text_obj_inner = key == 'i'
     else
       seq.last_op = op .. 'w'
       seq.op_completed = true
@@ -1053,6 +1091,8 @@ local function inner_feed(seq, key, line, is_diff, now)
     seq.ctrl_w_close_streak = 0
     seq.v_streak = 0
     seq.v_clean_exit = false
+    seq.ci_dquote_streak = 0
+    seq.ci_squote_streak = 0
   end
 
   -- ── consecutive-run patterns (count computed early) ────────────────────────

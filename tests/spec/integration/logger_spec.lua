@@ -836,6 +836,81 @@ describe('when the user deletes a word then enters insert mode', function()
   end)
 end)
 
+-- ── ci" × 3 (direct, non-visual) → ya" (#53) ─────────────────────────────────
+-- Regression coverage for the exact class of bug this codebase has hit before
+-- (see #179's Visual-mode fix): a pattern can fire correctly against
+-- patterns.feed() in isolation while never reaching the user in real usage,
+-- because a mode-routing gate in logger.lua silently swallows the keys. This
+-- drives the real vim.on_key -> handle_key dispatch path end-to-end, not just
+-- patterns.feed() directly, so a routing regression here would fail this test
+-- even if patterns_spec.lua's pure unit tests kept passing.
+
+describe('when the user changes inside double quotes with ci" 3 times in a row', function()
+  local esc = vim.api.nvim_replace_termcodes('<Esc>', true, false, true)
+
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    logger.on_pattern = nil
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+    if vim.fn.mode() ~= 'n' then
+      vim.cmd('stopinsert')
+    end
+  end)
+
+  it('fires ci_dquote_repeat suggesting ya" through the real handle_key dispatch path', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+    logger.setup()
+
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { '"hello world"' })
+    vim.fn.cursor(1, 1)
+    -- All 3 repetitions in one feedkeys call so the mode cache's ModeChanged
+    -- autocmd has definitely fired between each ci" and the next (see the
+    -- #58 insert-mode tests above for the same precedent) — each ci" leaves
+    -- the cursor back inside the same quote pair, ready for the next one.
+    -- <Esc> then straight back into a new operator-pending c also happens to
+    -- satisfy patterns_insert's unrelated insert_co_oneshot heuristic on the
+    -- 1st and 2nd repetition (result is nil those keystrokes, so co_result
+    -- wins per logger.lua's priority reconciliation) — filtering fired down
+    -- to just this pattern keeps the assertion about what THIS test covers,
+    -- not that heuristic's pre-existing behavior.
+    vim.fn.feedkeys('ci"AAA' .. esc .. 'ci"BBB' .. esc .. 'ci"CCC' .. esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+
+    local quote_fires = vim.tbl_filter(function(f)
+      return f.pattern == 'ci_dquote_repeat'
+    end, fired)
+    assert.equals(1, #quote_fires)
+    assert.equals('ya"', quote_fires[1].cmd)
+  end)
+
+  it('does not fire ci_dquote_repeat after only 2 repetitions through the real dispatch path', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+    logger.setup()
+
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { '"hello world"' })
+    vim.fn.cursor(1, 1)
+    vim.fn.feedkeys('ci"AAA' .. esc .. 'ci"BBB' .. esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+
+    local quote_fires = vim.tbl_filter(function(f)
+      return f.pattern == 'ci_dquote_repeat'
+    end, fired)
+    assert.equals(0, #quote_fires)
+  end)
+end)
+
 describe('insert-mode inefficiency detection (#58)', function()
   local esc = vim.api.nvim_replace_termcodes('<Esc>', true, false, true)
   local bs = vim.api.nvim_replace_termcodes('<BS>', true, false, true)

@@ -298,6 +298,9 @@ local chain_cases = {
   { 'ciB', 'cib', 'cib → ciB: change inner braces block' },
   { 'cit', 'cib', 'cib → cit: change inner tag content' },
   { 'cip', 'ciw', 'ciw → cip: change inner paragraph' },
+  -- repeated ci"/ci' → yank around quotes (#53)
+  { 'ya"', 'ci"', 'ci" → ya": yank around double-quoted string' },
+  { "ya'", "ci'", "ci' → ya': yank around single-quoted string" },
   -- partial word search
   { 'g*', '*', '* → g*: partial word search forward' },
   { 'g#', '#', '# → g#: partial word search backward' },
@@ -519,6 +522,12 @@ describe('tracking integrity', function()
     -- never recorded due to a separate bug (last_op is hardcoded to 'dd' for
     -- any doubled operator, not op .. op) — tracked separately as #118.
     ['>>'] = true,
+    -- ya" / ya' (#53): reactive-only, fired directly by ci_dquote_repeat /
+    -- ci_squote_repeat (patterns.lua) — never routed through find_best().
+    -- Their nominal requires ('ci"' / "ci'") is itself KNOWN_DEFERRED just
+    -- above, so this entry is deferred for the same reason, one hop removed.
+    ['ya"'] = true,
+    ["ya'"] = true,
   }
 
   it('every requires target is track=true, compound=true, or pattern-tracked (or explicitly deferred)', function()
