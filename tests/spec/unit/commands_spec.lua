@@ -111,7 +111,7 @@ end)
 
 -- ── ambient exclusion for reactive-only entries (#110 fix) ───────────────────
 -- `ambient = false` opts a registry entry out of graph.find_best()'s candidate
--- pool. See docs/adr/0002-reactive-only-ambient-exclusion.md for the criteria;
+-- pool. See docs/adr/0007-reactive-only-ambient-exclusion.md for the criteria;
 -- this list must only grow deliberately.
 
 describe('reactive-only ambient exclusion', function()
@@ -516,7 +516,7 @@ describe('tracking integrity', function()
     -- never recorded due to a separate bug (last_op is hardcoded to 'dd' for
     -- any doubled operator, not op .. op) — tracked separately as #118.
     ['>>'] = true,
-    -- ya" / ya' (#53): reactive-only (docs/adr/0007-reactive-only-direct-fire-entries.md);
+    -- ya" / ya' (#53): reactive-only (docs/adr/0012-reactive-only-direct-fire-entries.md);
     -- deferred one hop removed since their nominal requires is itself above.
     ['ya"'] = true,
     ["ya'"] = true,
@@ -563,7 +563,7 @@ describe('tracking integrity', function()
 end)
 
 -- ── i_<C-o>: insert-mode <C-o> composite key (#105) ──────────────────────────
--- See docs/adr/0003-composite-keys-for-dual-meaning-bytes.md for why this
+-- See docs/adr/0008-composite-keys-for-dual-meaning-bytes.md for why this
 -- lives under a composite key instead of the literal '<C-o>' string.
 
 describe("the 'i_<C-o>' registry entry (insert-mode <C-o>, #105)", function()
@@ -720,7 +720,7 @@ local function find_track_byte_collisions(registry, exceptions)
 end
 
 -- Insert-mode '<C-w>' is deliberately track=false so it never enters this
--- check (see docs/adr/0003-composite-keys-for-dual-meaning-bytes.md). Listed
+-- check (see docs/adr/0008-composite-keys-for-dual-meaning-bytes.md). Listed
 -- here anyway, by name, so the exception is documented at the point of use.
 local TRACK_COLLISION_EXCEPTIONS = {
   ['<C-w>'] = true,
