@@ -114,6 +114,7 @@ return {
       h_repeat = 'Du hast 5-mal hintereinander h gedrückt',
       w_repeat = 'Du hast 5-mal hintereinander w gedrückt',
       b_repeat = 'Du hast 5-mal hintereinander b gedrückt',
+      e_repeat = 'Du hast 5-mal hintereinander e gedrückt',
       p_repeat = 'Du hast 3-mal hintereinander eingefügt',
       P_repeat = 'Du hast 3-mal hintereinander vor dem Cursor eingefügt',
       p_then_rightward = 'Du hast eingefügt und den Cursor dann mehrmals nach rechts daran vorbei bewegt',

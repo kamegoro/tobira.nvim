@@ -130,6 +130,7 @@ local run_cases = {
   { key = 'n', threshold = 4, pattern = 'n_repeat', cmd = 'cgn' },
   { key = 'w', threshold = 5, pattern = 'w_repeat', cmd = 'W' },
   { key = 'b', threshold = 5, pattern = 'b_repeat', cmd = 'B' },
+  { key = 'e', threshold = 5, pattern = 'e_repeat', cmd = 'ge' },
   { key = 'P', threshold = 3, pattern = 'P_repeat', cmd = '{n}P' },
   { key = '~', threshold = 3, pattern = 'tilde_repeat', cmd = '{n}~' },
   { key = '.', threshold = 3, pattern = 'dot_repeat', cmd = '{n}.' },
@@ -1501,6 +1502,83 @@ describe('when the user presses g followed by a motion key', function()
     patterns.feed(s, 'g', 1)
     patterns.feed(s, 'f', 1)
     assert.equals('gf', s.last_op)
+  end)
+end)
+
+-- ── g-compounds must reset consecutive-run tracking for their 2nd key (#30 QA) ─
+-- Bug: adopting e_repeat's own suggestion (typing ge) did not reset the e-streak,
+-- unlike w_repeat/W and b_repeat/B — a genuine "ge" completion left an e×4 streak
+-- alive, so one more bare e re-fired e_repeat immediately. Root cause: the
+-- pending_g dispatch above resolves and returns nil without ever calling
+-- track_run(), so seq.run is simply frozen mid-streak rather than reset — this
+-- is a property of the pending_g block itself, not something specific to 'e', so
+-- it silently affects every g_targets entry whose second character also has its
+-- own consecutive-run tracking (gj/gk/gn/gx/gp/gu, and the zero_then_w/g0 pair
+-- below), not just ge.
+describe('when a bare key streak is interrupted by a deliberate g-compound using the same key', function()
+  it('does not fire e_repeat on the e right after a genuine ge completion', function()
+    local s = seq()
+    patterns.feed(s, 'e', 1)
+    patterns.feed(s, 'e', 1)
+    patterns.feed(s, 'e', 1)
+    patterns.feed(s, 'e', 1) -- e x4, one short of firing
+    patterns.feed(s, 'g', 1)
+    patterns.feed(s, 'e', 1) -- forms ge: a genuine, deliberate use of the remedy
+    local result = patterns.feed(s, 'e', 1) -- would have been the "5th" e pre-fix
+    assert.is_nil(result)
+  end)
+
+  -- e/j/k/n/x/p/u all share the run_cases consecutive-run structure above AND are
+  -- reachable as a pending_g target's 2nd key (g_targets: ge/gj/gk/gn/gx/gp/gu) —
+  -- so they all share this same exposure. threshold matches run_cases above.
+  local reset_cases = {
+    { key = 'e', threshold = 5, pattern = 'e_repeat', cmd = 'ge' },
+    { key = 'j', threshold = 5, pattern = 'j_repeat', cmd = '{n}j' },
+    { key = 'k', threshold = 5, pattern = 'k_repeat', cmd = '{n}k' },
+    { key = 'n', threshold = 4, pattern = 'n_repeat', cmd = 'cgn' },
+    { key = 'x', threshold = 3, pattern = 'x_repeat', cmd = '{n}x' },
+    { key = 'p', threshold = 3, pattern = 'p_repeat', cmd = '{n}p' },
+    { key = 'u', threshold = 3, pattern = 'u_repeat', cmd = '<C-r>' },
+  }
+
+  for _, tc in ipairs(reset_cases) do
+    it(
+      'requires a full fresh streak of '
+        .. tc.key
+        .. ' before refiring '
+        .. tc.pattern
+        .. ' after an intervening g'
+        .. tc.key,
+      function()
+        local s = seq()
+        for _ = 1, tc.threshold - 1 do
+          patterns.feed(s, tc.key, 1)
+        end
+        patterns.feed(s, 'g', 1)
+        patterns.feed(s, tc.key, 1) -- forms g<key>: a genuine, different action
+        local immediate = patterns.feed(s, tc.key, 1)
+        assert.is_nil(immediate)
+        for _ = 1, tc.threshold - 2 do
+          patterns.feed(s, tc.key, 1)
+        end
+        local after_full_streak = patterns.feed(s, tc.key, 1)
+        assert.is_not_nil(after_full_streak)
+        assert.equals(tc.pattern, after_full_streak.pattern)
+        assert.equals(tc.cmd, after_full_streak.cmd)
+      end
+    )
+  end
+
+  -- g0 shares the same pending_g exposure, but 0 is presence-tracked
+  -- (zero_then_w checks seq.run.key == '0' directly, no count threshold), so it
+  -- needs its own case rather than fitting the reset_cases table above.
+  it('does not fire zero_then_w on the w right after a genuine g0 completion', function()
+    local s = seq()
+    patterns.feed(s, '0', 1)
+    patterns.feed(s, 'g', 1)
+    patterns.feed(s, '0', 1) -- forms g0: a genuine, deliberate use of true-column-0
+    local result = patterns.feed(s, 'w', 1)
+    assert.is_nil(result)
   end)
 end)
 
