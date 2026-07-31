@@ -142,6 +142,29 @@ describe('when the user presses q on the suggestion float', function()
   end)
 end)
 
+-- <C-c>: dismiss without suppressing (focused float only, #32)
+
+describe('when <C-c> is pressed on the suggestion float', function()
+  before_each(setup)
+  after_each(teardown)
+
+  it('closes the float', function()
+    local ctrl_c = vim.api.nvim_replace_termcodes('<C-c>', true, false, true)
+    float.show(suggestion(';'), true)
+    vim.fn.feedkeys(ctrl_c, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_false(float.is_open())
+  end)
+
+  it('does not suppress the command', function()
+    local ctrl_c = vim.api.nvim_replace_termcodes('<C-c>', true, false, true)
+    float.show(suggestion(';'), true)
+    vim.fn.feedkeys(ctrl_c, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_false(logger.get(';').suppressed)
+  end)
+end)
+
 -- auto-close timer
 
 describe('when the auto-close timer fires', function()

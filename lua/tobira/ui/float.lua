@@ -190,6 +190,7 @@ function M.show(suggestion, focused, pattern)
   if focused then
     vim.keymap.set('n', 'q', close, { buffer = _buf, nowait = true, silent = true })
     vim.keymap.set('n', '<Esc>', close, { buffer = _buf, nowait = true, silent = true })
+    vim.keymap.set('n', '<C-c>', close, { buffer = _buf, nowait = true, silent = true })
   end
 
   local border_hl = (suggestion.category and CATEGORY_HL[suggestion.category]) or DEFAULT_BORDER_HL
