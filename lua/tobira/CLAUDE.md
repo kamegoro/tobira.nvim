@@ -90,6 +90,13 @@ Codebase"](https://tianpan.co/blog/2026-04-13-the-ai-legible-codebase)). Splitti
 pays off when it lets a task-specific read skip content that's genuinely irrelevant to
 that task — not whenever a number looks big.
 
+## ADR pointer convention
+
+Some modules carry a one-line `-- see docs/adr/NNNN-slug.md` pointer comment instead of
+inline "why" prose. If you're about to touch a module with one of these, **read that
+ADR first** — it has the rationale/history. Don't re-derive or re-explain it inline;
+if the decision changes, update the ADR. See `docs/adr/README.md` for the format.
+
 ## Tracking design principle
 
 **tobira uses only `vim.on_key()`. No TextYankPost, no vim.keymap.set.**
