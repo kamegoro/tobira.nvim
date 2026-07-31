@@ -136,6 +136,8 @@ describe('float.reasons locale', function()
     'c_dollar',
     'ca_run',
     'changelist_return',
+    'ci_dquote_repeat',
+    'ci_squote_repeat',
     'ctrl_w_close_repeat',
     'd_dollar',
     'D_then_insert',

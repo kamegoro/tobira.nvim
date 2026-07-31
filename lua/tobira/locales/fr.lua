@@ -133,6 +133,8 @@ return {
       substitute_repeat_wide = 'Vous avez rejoué la même substitution :s/// à la main sur une troisième ligne',
       ex_file_pingpong = 'Vous avez basculé plusieurs fois de suite entre les deux mêmes fichiers avec :e/:b',
       tabnew_run = 'Vous avez ouvert 3 fichiers ou plus avec :tabnew, chacun dans son propre onglet',
+      ci_dquote_repeat = 'Vous avez changé le contenu entre guillemets doubles avec ci" 3 fois de suite',
+      ci_squote_repeat = "Vous avez changé le contenu entre guillemets simples avec ci' 3 fois de suite",
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -1053,6 +1055,18 @@ return {
       title = 'g& — répéter la dernière substitution sur tout le fichier',
       body = "Vous avez retapé à la main le même :s/motif/remplacement/ sur plusieurs lignes\ng& l'applique à tout le fichier, en réutilisant le motif et les options précédents",
       example = ':s/foo/bar/ puis g& → applique la substitution à chaque ligne correspondante',
+    },
+
+    -- ── ci" / ci' × 3 → ya" / ya' ────────────────────────────────────────────
+    ['ya"'] = {
+      title = 'ya" — copier le texte entre guillemets doubles',
+      body = 'Vous utilisez souvent ci" pour travailler avec du texte entre guillemets\nya" copie tout le texte, guillemets compris — sans plugin',
+      example = 'ya" → copie "le texte cité" avec ses guillemets',
+    },
+    ["ya'"] = {
+      title = "ya' — copier le texte entre guillemets simples",
+      body = 'Comme ya", mais pour du texte entre guillemets simples\nCopie tout le texte, guillemets compris',
+      example = "ya' → copie 'le texte cité' avec ses guillemets",
     },
   },
 }

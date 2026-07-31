@@ -15,6 +15,17 @@ function M.new_seq()
     cc_streak = 0,
     indent_streak = 0,
     dedent_streak = 0,
+    -- Remembers whether the i/a prefix just consumed by pending_op was 'i'
+    -- (not 'a'), so the pending_text_obj completion below can tell a direct
+    -- ci"/ci' apart from ca"/ca' or di"/da' etc. — see pending_text_obj's
+    -- resolution further down.
+    pending_text_obj_inner = false,
+    -- ci"/ci' repeated 3× as a direct (non-visual) operator-pending sequence
+    -- → suggest ya"/ya' (#53). Tracked separately per quote char, mirroring
+    -- dd_streak/cc_streak's per-operator split (#118). Distinct from
+    -- visual_textobj above, which fires from v i " c and never touches these.
+    ci_dquote_streak = 0,
+    ci_squote_streak = 0,
     -- r-replacement tracking: r{char} l r{char} l r{char} → R
     pending_r = false,
     r_streak = 0,
@@ -106,6 +117,30 @@ local RIGHTWARD_KEYS = {
   W = true,
   e = true,
   E = true,
+  ['$'] = true,
+}
+
+-- Plain single-key motions tolerated between ci"/ci' completions without
+-- resetting ci_dquote_streak/ci_squote_streak (#53 live-QA follow-up). Unlike
+-- dd_streak/cc_streak/etc., which genuinely should reset on any intervening
+-- key, moving from one quoted string to the next necessarily requires a
+-- motion — realistic usage is `ci"..<Esc>` then `w`/`b`/`e`/`h`/`l`/`0`/`^`/
+-- `$`/`j`/`k` to reach the next string, then `ci"` again. This mirrors
+-- r_streak's h/l tolerance and ca_streak's j/k tolerance in inner_feed
+-- (below), just over the wider set of motions this particular streak
+-- realistically needs. Anything NOT in this table — entering insert mode for
+-- an unrelated edit, other operators, f"/F"-style searches, etc. — still
+-- resets both streaks via the check that uses this table.
+local CI_QUOTE_NAV_KEYS = {
+  w = true,
+  b = true,
+  e = true,
+  h = true,
+  l = true,
+  j = true,
+  k = true,
+  ['0'] = true,
+  ['^'] = true,
   ['$'] = true,
 }
 
@@ -761,9 +796,35 @@ local function inner_feed(seq, key, line, is_diff, now)
   -- ── pending_text_obj ──────────────────────────────────────────────────────
   if seq.pending_text_obj then
     local op = seq.pending_text_obj
+    local inner = seq.pending_text_obj_inner
     seq.pending_text_obj = nil
+    seq.pending_text_obj_inner = false
     seq.last_op = op .. 'w'
     seq.op_completed = true
+
+    -- ci"/ci' direct-path streak (#53) — only a real c+i+quote completion
+    -- counts; anything else (ca"/da'/ciw/ci(/...) resets both counters, the
+    -- same "a different-but-related completion resets the streak" shape
+    -- dd_streak/cc_streak use for a mismatched linewise completion above.
+    if op == 'c' and inner and key == '"' then
+      seq.ci_squote_streak = 0
+      seq.ci_dquote_streak = seq.ci_dquote_streak + 1
+      if seq.ci_dquote_streak >= 3 then
+        seq.ci_dquote_streak = 0
+        return { pattern = 'ci_dquote_repeat', cmd = 'ya"' }
+      end
+    elseif op == 'c' and inner and key == "'" then
+      seq.ci_dquote_streak = 0
+      seq.ci_squote_streak = seq.ci_squote_streak + 1
+      if seq.ci_squote_streak >= 3 then
+        seq.ci_squote_streak = 0
+        return { pattern = 'ci_squote_repeat', cmd = "ya'" }
+      end
+    else
+      seq.ci_dquote_streak = 0
+      seq.ci_squote_streak = 0
+    end
+
     return nil
   end
 
@@ -840,6 +901,7 @@ local function inner_feed(seq, key, line, is_diff, now)
       end
     elseif key == 'i' or key == 'a' then
       seq.pending_text_obj = op
+      seq.pending_text_obj_inner = key == 'i'
     else
       seq.last_op = op .. 'w'
       seq.op_completed = true
@@ -937,6 +999,20 @@ local function inner_feed(seq, key, line, is_diff, now)
   -- line and the streak no longer applies.
   if key ~= 'j' and key ~= 'k' then
     seq.ca_streak = 0
+  end
+
+  -- ── ci_dquote_streak / ci_squote_streak reset for keys that break the ────
+  -- ── ci"/ci' repeat flow (#53 live-QA follow-up) ───────────────────────────
+  -- Deliberately NOT folded into the generic reset block further down (unlike
+  -- dd_streak/cc_streak/etc there, which really should hard-reset on any
+  -- intervening key): reaching a different quoted string to ci" it again
+  -- necessarily requires a motion in between, so CI_QUOTE_NAV_KEYS (above)
+  -- tolerates the ordinary single-key motions a user presses to get there.
+  -- Anything else reaching this point (an unrelated edit, another operator,
+  -- ...) still resets both streaks.
+  if not CI_QUOTE_NAV_KEYS[key] then
+    seq.ci_dquote_streak = 0
+    seq.ci_squote_streak = 0
   end
 
   -- ── yy → p (duplicate line) ──────────────────────────────────────────────
@@ -1044,6 +1120,9 @@ local function inner_feed(seq, key, line, is_diff, now)
   -- for this G — so firing jump_back never bypasses it.
   local gg_then_G = key == 'G' and seq.last_op == 'gg'
 
+  -- ci_dquote_streak/ci_squote_streak are deliberately NOT reset here — see
+  -- their own dedicated tolerance check (CI_QUOTE_NAV_KEYS) earlier in this
+  -- function, right after the ca_streak reset.
   if key ~= 'p' then
     seq.last_op = nil
     seq.dd_streak = 0

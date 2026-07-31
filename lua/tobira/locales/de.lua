@@ -133,6 +133,8 @@ return {
       substitute_repeat_wide = 'Du hast dieselbe :s///-Ersetzung von Hand auf einer dritten Zeile ausgeführt',
       ex_file_pingpong = 'Du bist mehrmals hintereinander mit :e/:b zwischen denselben zwei Dateien hin- und hergesprungen',
       tabnew_run = 'Du hast 3 oder mehr Dateien mit :tabnew geöffnet, jede in einem eigenen Tab',
+      ci_dquote_repeat = 'Du hast mit ci" 3-mal hintereinander den Inhalt in doppelten Anführungszeichen geändert',
+      ci_squote_repeat = "Du hast mit ci' 3-mal hintereinander den Inhalt in einfachen Anführungszeichen geändert",
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -1053,6 +1055,18 @@ return {
       title = 'g& — die letzte :substitute-Ersetzung in jeder Zeile wiederholen',
       body = 'Du hast dieselbe :s/Muster/Ersetzung/ von Hand in mehreren Zeilen eingegeben\ng& wendet sie auf die ganze Datei an, mit demselben Muster und denselben Flags',
       example = ':s/foo/bar/, dann g& → wendet sie auf jede passende Zeile an',
+    },
+
+    -- ── ci" / ci' × 3 → ya" / ya' ────────────────────────────────────────────
+    ['ya"'] = {
+      title = 'ya" — mit doppelten Anführungszeichen kopieren',
+      body = 'Du benutzt oft ci", um Inhalte in Anführungszeichen zu bearbeiten\nya" kopiert den ganzen String samt Anführungszeichen — ohne Plugin',
+      example = 'ya" → kopiert "den zitierten Text" samt Anführungszeichen',
+    },
+    ["ya'"] = {
+      title = "ya' — mit einfachen Anführungszeichen kopieren",
+      body = 'Wie ya", aber für Strings in einfachen Anführungszeichen\nKopiert den ganzen String samt Anführungszeichen',
+      example = "ya' → kopiert 'den zitierten Text' samt Anführungszeichen",
     },
   },
 }

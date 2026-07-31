@@ -259,6 +259,17 @@ M.registry = {
   ['cit'] = { requires = 'cib', track = false, category = 'edit', level = 'advanced' },
   ['cip'] = { requires = 'ciw', track = false, category = 'edit', level = 'intermediate' },
 
+  -- ── ci" / ci' × 3 (direct, non-visual) → ya" / ya' (#53) ─────────────────
+  -- Reactive-only, like ddp / {n}dd / g<C-a>: fired directly by
+  -- ci_dquote_repeat / ci_squote_repeat (patterns.lua), never offered via
+  -- graph.find_best()'s idle picker (their nominal requires is itself
+  -- KNOWN_DEFERRED — see commands_spec.lua — so trigger_count would be
+  -- permanently stuck at 0 there anyway). ya"/ya' are built-in Vim commands,
+  -- no plugin required — see the PR description for why this was chosen over
+  -- the vim-surround-dependent cs'" alternative the issue also discussed.
+  ['ya"'] = { requires = 'ci"', track = false, category = 'edit', level = 'intermediate' },
+  ["ya'"] = { requires = "ci'", track = false, category = 'edit', level = 'intermediate' },
+
   -- ── * → g* / # → g# partial word search ─────────────────────────────────
   ['g*'] = { requires = '*', track = false, category = 'search', level = 'intermediate' },
   ['g#'] = { requires = '#', track = false, category = 'search', level = 'intermediate' },

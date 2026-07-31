@@ -133,6 +133,8 @@ return {
       substitute_repeat_wide = 'Ejecutaste la misma sustitución :s/// a mano en una tercera línea',
       ex_file_pingpong = 'Alternaste varias veces seguidas entre los mismos dos archivos con :e/:b',
       tabnew_run = 'Abriste 3 o más archivos con :tabnew, cada uno en su propia pestaña',
+      ci_dquote_repeat = 'Cambiaste el contenido entre comillas dobles con ci" 3 veces seguidas',
+      ci_squote_repeat = "Cambiaste el contenido entre comillas simples con ci' 3 veces seguidas",
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -1053,6 +1055,18 @@ return {
       title = 'g& — repetir la última sustitución en todo el archivo',
       body = 'Escribiste a mano el mismo :s/patrón/reemplazo/ en varias líneas\ng& la aplica a todo el archivo, reutilizando el patrón y las opciones anteriores',
       example = ':s/foo/bar/ y luego g& → se aplica a cada línea coincidente',
+    },
+
+    -- ── ci" / ci' × 3 → ya" / ya' ────────────────────────────────────────────
+    ['ya"'] = {
+      title = 'ya" — copiar el texto entre comillas dobles',
+      body = 'Usas ci" con frecuencia para trabajar con texto entre comillas\nya" copia todo el texto, incluidas las comillas — sin necesidad de ningún plugin',
+      example = 'ya" → copia "el texto citado" junto con sus comillas',
+    },
+    ["ya'"] = {
+      title = "ya' — copiar el texto entre comillas simples",
+      body = 'Como ya" pero para texto entre comillas simples\nCopia todo el texto, incluidas las comillas',
+      example = "ya' → copia 'el texto citado' junto con sus comillas",
     },
   },
 }
