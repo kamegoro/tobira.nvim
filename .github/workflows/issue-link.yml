@@ -15,10 +15,12 @@ jobs:
         with:
           script: |
             const body = context.payload.pull_request.body || '';
-            const pattern = /(?:closes?|fixes?|resolves?)\s+#\d+/i;
+            const pattern = /(?:closes?|fixes?|resolves?|part of|refs?|references?|relates? to|related to)\s+#\d+/i;
             if (!pattern.test(body)) {
               core.setFailed(
                 'PR body must reference an issue.\n' +
-                'Add "Closes #<issue number>" to the PR description.'
+                'Add "Closes #<issue number>" to the PR description, or a non-closing ' +
+                'reference like "Part of #<issue number>" or "Refs #<issue number>" for ' +
+                'PRs that only partially address an issue.'
               );
             }
