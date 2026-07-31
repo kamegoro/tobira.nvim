@@ -46,6 +46,16 @@ M.on_pattern = nil
 
 local current_mode = 'n'
 
+-- vim.fn.mode()'s three Visual submodes: charwise ('v'), linewise ('V'), and
+-- blockwise ('\22', raw Ctrl-V byte). Select mode ('s'/'S'/'\19') and Replace
+-- mode ('R') are deliberately NOT included here -- patterns.lua's
+-- pending_visual/v_streak tracking is armed specifically by a Normal-mode 'v'
+-- press (see patterns.lua's "v: start visual text-object tracking" comment),
+-- so only these three modes are the ones that tracking needs to see through
+-- (#179). Everything else still falls through to the generic non-normal-mode
+-- reset in handle_key() below.
+local VISUAL_MODES = { v = true, V = true, ['\22'] = true }
+
 local MAX_SESSIONS = 10
 
 local function ensure_dir()
@@ -633,6 +643,42 @@ local function handle_key(key)
     local _re = vim.fn.reg_executing()
     if not (_recording_macro or _re ~= '') then
       handle_terminal_key(key)
+    end
+    return
+  end
+
+  if VISUAL_MODES[current_mode] then
+    -- Visual mode (#179): route keystrokes through patterns.feed() -- same
+    -- as the Normal-mode branch below -- instead of wiping seq. seq's
+    -- pending_visual/v_streak/visual_inner/visual_obj tracking is SPECIFICALLY
+    -- designed to observe keys typed while genuinely inside Visual mode,
+    -- including the <Esc> that exits it (see patterns.lua's "visual text-object
+    -- tracking" and "v <Esc> v <Esc> v run tracking" comments). current_mode
+    -- only catches up to 'v'/'V'/'\22' via the ModeChanged autocmd below AFTER
+    -- the Normal-mode 'v' keystroke that started this Visual session has
+    -- already been processed by vim.on_key -- so every subsequent key typed
+    -- while actually in Visual mode (i, w, <Esc>, ...) used to arrive here and
+    -- get wiped by the generic non-normal-mode branch further down before it
+    -- ever reached patterns.feed(). That silently broke both visual_textobj
+    -- (viw) and this PR's v_repeat (#55) in real usage, despite both passing
+    -- unit tests that call patterns.feed() directly and bypass this gate.
+    --
+    -- insert_seq/terminal_seq are unrelated to Visual mode and are still
+    -- reset here, same as the generic non-normal-mode branch below -- Visual
+    -- mode is neither Insert nor Terminal, so any half-finished state in
+    -- those two would otherwise sit stale until the next real mode switch.
+    insert_seq = patterns_insert.new_insert_seq()
+    terminal_seq = patterns_terminal.new_terminal_seq()
+
+    local _re = vim.fn.reg_executing()
+    if _recording_macro or _re ~= '' then
+      return
+    end
+
+    local line = vim.fn.line('.')
+    local result = patterns.feed(seq, key, line, false, vim.loop.now())
+    if result and M.on_pattern then
+      M.on_pattern(result.pattern, result.cmd)
     end
     return
   end
