@@ -1,27 +1,15 @@
--- Master registry of teachable commands.
--- Adding a command here automatically wires it into:
---   graph.lua   → suggestions table (from requires)
---   skills.lua  → progress tree (from category)
---   logger.lua  → compound-operator tracking (compound = true entries)
---
--- Display strings (title / body / example) live in locales/en.lua and
--- locales/ja.lua under the 'suggestions' key, keyed by the same command name.
---
--- To add a new suggestion:
---   1. Add a compound entry here if the trigger is multi-char (e.g. 'dw', 'dd')
---   2. Add the suggestion entry with requires, category, and track = true if single-char
---   3. Add matching strings to locales/en.lua and locales/ja.lua .suggestions
---   4. Run tests — CI will catch missing locale entries, broken requires chains,
---      or missing category fields
+-- Master registry of teachable commands: adding an entry here wires it into
+-- graph.lua (suggestions), skills.lua (progress tree), and logger.lua (compound
+-- tracking). Display strings live in locales/en.lua and locales/ja.lua under
+-- 'suggestions', keyed by the same command name.
+-- See lua/tobira/CLAUDE.md's "How to add a command" checklist for the full steps.
 
 local M = {}
 
 M.registry = {
   -- ── Compound operators ────────────────────────────────────────────────────
-  -- Multi-char sequences (operator + motion) that act as prerequisites.
-  -- Tracked in logger.lua via seq.op_completed, set by patterns.lua the
-  -- moment seq.last_op is freshly assigned (see patterns.lua for why this
-  -- is not a before/after value comparison on seq.last_op).
+  -- Multi-char operator+motion prerequisites. Tracked via seq.op_completed
+  -- (patterns.lua), set the moment seq.last_op is freshly assigned.
   ['dw'] = { compound = true },
   ['dd'] = { compound = true },
 
@@ -56,13 +44,10 @@ M.registry = {
   ['O'] = { requires = 'o', track = true, category = 'edit', level = 'beginner' },
 
   -- ── insert-mode inefficiency ─────────────────────────────────────────────
-  -- Insert-mode <C-w> (delete word before cursor) — distinct from the
-  -- normal-mode <C-w> window-command prefix, which is the exact same raw
-  -- byte. track = false here on purpose: build_track_table() in logger.lua
-  -- would otherwise add this byte to the generic, mode-unaware TRACK table
-  -- and count the normal-mode window prefix as if it were this command.
-  -- Counted explicitly instead, only from inside handle_insert_key() (mode
-  -- cache confirms insert mode first) — see logger.lua's INSERT_SPECIAL.
+  -- Insert-mode <C-w> (delete word before cursor) shares its raw byte with the
+  -- normal-mode <C-w> window-command prefix. track = false; counted explicitly
+  -- from handle_insert_key() instead (logger.lua's INSERT_SPECIAL) — see
+  -- docs/adr/0003-composite-keys-for-dual-meaning-bytes.md for why.
   ['<C-w>'] = { requires = 'i', track = false, category = 'edit', level = 'beginner' },
 
   -- ── x → D → C deletion chain ──────────────────────────────────────────────
@@ -87,8 +72,8 @@ M.registry = {
   ['L'] = { requires = 'M', track = true, category = 'motion', level = 'intermediate' },
 
   -- ── x repeat → {n}x count prefix ─────────────────────────────────────────
-  -- Detected via x_repeat pattern; needs a registry entry so suggest.show
-  -- can look it up in graph.suggestions (without this entry it silently no-ops).
+  -- Reactive-only (x_repeat fires this directly) — see
+  -- docs/adr/0007-reactive-only-direct-fire-entries.md.
   ['{n}x'] = { requires = 'x', track = false, category = 'edit', level = 'intermediate' },
 
   -- ── j → <C-d> → <C-u> half-page scroll ───────────────────────────────────
@@ -153,9 +138,8 @@ M.registry = {
   ['<C-x>'] = { requires = '<C-a>', track = true, category = 'edit', level = 'intermediate' },
 
   -- ── <C-a> streak → g<C-a> visual-block sequential increment ─────────────
-  -- Detected via ca_run (patterns.lua): <C-a> → j/k → <C-a> repeated 3+
-  -- times. track = false: like the other g-prefixed compounds (gg, gu, …),
-  -- there is no pending_g dispatch entry recording literal g<C-a> keypresses.
+  -- Reactive-only (ca_run fires this directly) — see
+  -- docs/adr/0007-reactive-only-direct-fire-entries.md.
   ['g<C-a>'] = { requires = '<C-a>', track = false, category = 'edit', level = 'advanced' },
 
   -- ── v → V → <C-v> visual mode chain ─────────────────────────────────────
@@ -203,9 +187,8 @@ M.registry = {
   ['gf'] = { requires = 'gd', track = false, category = 'motion', level = 'intermediate' },
 
   -- ── gv reselect last visual ───────────────────────────────────────────────
-  -- Also fired directly by v_repeat (patterns.lua, #55): v tapped and
-  -- immediately escaped 3 times in a row, independent of this entry's
-  -- `requires` graph promotion path.
+  -- Also reactive-only (v_repeat fires this directly, #55) — see
+  -- docs/adr/0007-reactive-only-direct-fire-entries.md.
   ['gv'] = { requires = 'V', track = false, category = 'motion', level = 'intermediate' },
 
   -- ── ge → gE WORD-end backward ─────────────────────────────────────────────
@@ -260,13 +243,8 @@ M.registry = {
   ['cip'] = { requires = 'ciw', track = false, category = 'edit', level = 'intermediate' },
 
   -- ── ci" / ci' × 3 (direct, non-visual) → ya" / ya' (#53) ─────────────────
-  -- Reactive-only, like ddp / {n}dd / g<C-a>: fired directly by
-  -- ci_dquote_repeat / ci_squote_repeat (patterns.lua), never offered via
-  -- graph.find_best()'s idle picker (their nominal requires is itself
-  -- KNOWN_DEFERRED — see commands_spec.lua — so trigger_count would be
-  -- permanently stuck at 0 there anyway). ya"/ya' are built-in Vim commands,
-  -- no plugin required — see the PR description for why this was chosen over
-  -- the vim-surround-dependent cs'" alternative the issue also discussed.
+  -- Reactive-only (ci_dquote_repeat / ci_squote_repeat fire this directly) —
+  -- see docs/adr/0007-reactive-only-direct-fire-entries.md.
   ['ya"'] = { requires = 'ci"', track = false, category = 'edit', level = 'intermediate' },
   ["ya'"] = { requires = "ci'", track = false, category = 'edit', level = 'intermediate' },
 
@@ -335,23 +313,11 @@ M.registry = {
   ['_'] = { requires = '^', track = true, category = 'motion', level = 'intermediate' },
 
   -- ── insert-mode <C-o>: one normal command without leaving insert ───────────
-  -- The '<C-o>' entry above already owns that raw keystroke for its
-  -- normal-mode meaning ("jump back"). Insert-mode <C-o> is a *different*
-  -- command bound to the identical physical key (runs one normal command,
-  -- then returns to insert automatically) — since a Lua table can only hold
-  -- one entry per key string, this uses a composite key, 'i_<C-o>', mirroring
-  -- the '<C-w>' precedent above for the same collision shape.
-  --
-  -- The user never types 'i_<C-o>' — they always press the real <C-o>. This
-  -- key exists so graph.lua can derive a second, independent M.suggestions
-  -- entry from it; any UI rendering a registry key as "the key to press"
-  -- must go through commands.display_key(cmd) below, which strips the 'i_'
-  -- prefix back off.
-  --
-  -- Usage is counted explicitly from handle_insert_key() (mode cache
-  -- confirms insert mode first) — see logger.lua's INSERT_SPECIAL. track =
-  -- false for the same reason: the generic TRACK table must not also claim
-  -- the raw <C-o> byte the normal-mode '<C-o>' entry already claims.
+  -- Composite key: the '<C-o>' entry above already owns that raw keystroke for
+  -- its normal-mode meaning. The user never types 'i_<C-o>' literally; UI code
+  -- must render it via commands.display_key(cmd) below. Counted explicitly
+  -- from handle_insert_key() (logger.lua's INSERT_SPECIAL), track = false —
+  -- see docs/adr/0003-composite-keys-for-dual-meaning-bytes.md for why.
   ['i_<C-o>'] = { requires = 'i', track = false, category = 'edit', level = 'intermediate' },
 
   -- ── window management ─────────────────────────────────────────────────────
@@ -397,123 +363,56 @@ M.registry = {
 
   -- ── insert-mode completion ───────────────────────────────────────────────
   -- Detected by insert_completion_repeat (patterns_insert.lua): a fully
-  -- retyped identifier of 6+ characters. category = 'edit' rather than a new
-  -- top-level category — see lua/tobira/CLAUDE.md's category checklist, which
-  -- documents the field as a closed 7-value enum, and the existing precedent
-  -- of reusing existing categories for insert-mode patterns instead of inventing
-  -- an "insert" one (insert_bs_repeat/insert_bounce → <C-w>/A are both
-  -- 'edit' too). track = false: same reasoning as insert-mode <C-w> just
-  -- above — <C-n> already has a normal-mode meaning (Vim's built-in
-  -- down-motion), and build_track_table() can't tell those two meanings of
-  -- the same raw byte apart. Counted explicitly instead, only from inside
-  -- handle_insert_key() — see logger.lua's INSERT_SPECIAL.
+  -- retyped identifier of 6+ characters. category = 'edit': insert-mode
+  -- patterns reuse existing categories rather than adding an "insert" one
+  -- (same precedent as insert_bs_repeat/insert_bounce → <C-w>/A). <C-n>
+  -- shares its raw byte with the normal-mode down-motion; track = false,
+  -- counted explicitly from handle_insert_key() (logger.lua's
+  -- INSERT_SPECIAL) — see docs/adr/0003-composite-keys-for-dual-meaning-bytes.md.
   ['<C-n>'] = { requires = 'i', track = false, category = 'edit', level = 'beginner' },
 
   -- ── y → "+y system clipboard register ────────────────────────────────────
-  -- track = false: "+y is a 3-key literal sequence ("+y), tracked as its own
-  -- compound by patterns.lua's pending_clipboard_yank state, not by the
-  -- generic operator grammar or a bare keystroke. Promotion into the
-  -- suggestion pool is NOT gated by the usual "trigger count > 0" rule —
-  -- graph.is_register_underused() applies a much stricter, purpose-built
-  -- threshold instead (see find_best()'s special case for this cmd). category
-  -- = 'mark': no dedicated "register" category exists in the taxonomy, and
-  -- this is the closest existing bucket (registers/marks are grouped together
-  -- in the project's own design notes — see CLAUDE.md's "advanced" scenario).
+  -- track = false: tracked as its own 3-key compound by patterns.lua's
+  -- pending_clipboard_yank state. Promotion bypasses the generic trigger-count
+  -- rule (graph.is_register_underused() applies its own threshold instead) —
+  -- see docs/adr/0004-register-underuse-bypasses-trigger-count.md.
   ['"+y'] = { requires = 'y', track = false, category = 'mark', level = 'advanced' },
   -- ── diff mode: manual hunk navigation → ]c / [c ───────────────────────────────
-  -- vim.wo.diff (a read-only window-local option) is read in logger.lua's
-  -- handle_key and threaded into patterns.feed() as a plain parameter —
-  -- patterns.lua itself stays vim.*-free per the module dependency rules in
-  -- lua/tobira/CLAUDE.md. This gates the *existing* j_many/k_many thresholds
-  -- (10 presses in a row) rather than adding new detection: while &diff is
-  -- set, the same j/k-hammering that would otherwise suggest }/{ suggests
-  -- ]c/[c instead, since jumping straight to the next/previous changed hunk
-  -- beats paragraph motion while diffing. track = false: like most other
-  -- multi-char suggestion-only entries (ddp, {n}j, ...), nothing else in the
-  -- registry references ]c/[c via `requires`, so there's no count>=N
-  -- threshold depending on these being tracked.
+  -- While &diff is set, gates the existing j_many/k_many thresholds to
+  -- suggest ]c/[c instead of }/{ — see
+  -- docs/adr/0006-diff-mode-reuses-existing-thresholds.md.
   [']c'] = { requires = 'j', track = false, category = 'diff', level = 'beginner' },
   ['[c'] = { requires = 'k', track = false, category = 'diff', level = 'beginner' },
 
   -- ── Ex commands ───────────────────────────────────────────────────────────
-  -- Tracked via logger.lua's cmdline handler (patterns_cmdline.lua tokenizes
-  -- the completed command line), not a keystroke or operator grammar — track
-  -- = false so build_track_table() doesn't also treat 'ex:g'/'ex:norm' as
-  -- literal keys to watch for.
-  --
-  -- ex_command = true makes graph.lua apply a stricter "never tried" offer
-  -- gate instead of the generic mastery-level gate (see graph.find_best): a
-  -- single :g or :norm already does the work of many keystrokes, so
-  -- continuing to suggest either after even one try would read as ignoring
-  -- feedback, unlike e.g. cw (fine to keep nudging until count reaches 100).
-  --
-  -- requires = 'n' for :g (repeated search-repeat is already doing by hand
-  -- what :g/pattern/cmd does over every match at once); 'q' for :norm (same
-  -- "already doing this manually" relationship to macro recording).
+  -- Tracked via logger.lua's cmdline handler (patterns_cmdline.lua), not a
+  -- keystroke — track = false. ex_command = true applies a stricter
+  -- "never tried" gate instead of the generic mastery-level gate — see
+  -- docs/adr/0005-ex-command-never-tried-gate.md.
   ['ex:g'] = { requires = 'n', track = false, category = 'ex', level = 'advanced', ex_command = true },
   ['ex:norm'] = { requires = 'q', track = false, category = 'ex', level = 'advanced', ex_command = true },
 
   -- ── terminal mode: ineffective <Esc> → exit terminal mode ────────────────
-  -- Detected reactively by patterns_terminal.lua while mode() == 't', with no
-  -- tracked "you opened :terminal" prerequisite to require. `requires = 'i'`
-  -- is a nominal anchor only, to satisfy commands_spec.lua's schema guard —
-  -- the reactive path this pattern fires through (on_pattern → suggest.queue
-  -- → do_show) never consults `requires` at all.
-  --
-  -- `ambient = false`: excludes this entry from graph.find_best()'s
-  -- candidate pool (idle picker + :Tobira manual). Without it, find_best
-  -- could surface "exit terminal mode" purely from bare `i` usage with no
-  -- :terminal ever opened — actively confusing, since the suggestion body
-  -- presupposes real terminal usage. Worse, this command's own usage count
-  -- can never be incremented by anything, so its find_best score
-  -- (trigger_count - 0) is always the best possible for any 'i'-triggered
-  -- candidate — it would dominate ambient suggestions from `i` alone. This
-  -- only makes sense as a direct reaction to terminal_esc_repeat actually
-  -- firing, never as a proactive idle-time nudge.
-  --
-  -- Scoped narrowly to this one entry, not generalized to every `requires =
-  -- 'i'` nominal anchor: the insert-mode '<C-w>' entry above has the same
-  -- nominal-anchor shape, but its own count IS genuinely incremented and its
-  -- suggestion body doesn't presuppose a prior event, so ambient surfacing is
-  -- legitimate for it. No other entry shares this specific combination (count
-  -- stuck at 0 forever + a context-presupposing body) — see
-  -- commands_spec.lua's "reactive-only ambient exclusion" tests, which pin
-  -- this down as an explicit, reviewable list rather than a silent rule.
+  -- Detected reactively by patterns_terminal.lua while mode() == 't'.
+  -- `requires = 'i'` is a nominal anchor only (satisfies the schema guard).
+  -- `ambient = false` excludes this entry from graph.find_best()'s candidate
+  -- pool — see docs/adr/0002-reactive-only-ambient-exclusion.md for why.
   ['<C-\\><C-n>'] = { requires = 'i', track = false, category = 'terminal', level = 'beginner', ambient = false },
 
   -- ── repeated :substitute detection → & / g& ───────────────────────────────
-  -- Detected reactively by patterns_cmdline.lua's track_substitute(): the
-  -- identical :s/{pattern}/{replacement}/ body manually re-run on a 2nd
-  -- distinct line fires '&'; a 3rd distinct line escalates to 'g&' instead of
-  -- firing '&' again. See that module's header for the full parsing scope
-  -- and exact-count firing rationale.
-  --
-  -- requires = 'n' for '&': mirrors 'cgn' above it in spirit — repeated
-  -- search-match navigation without editing is the same "doing this by hand"
-  -- precursor search-and-replace features build on. track = true: '&' is a
-  -- single literal keystroke with its own real Vim meaning, so
-  -- build_track_table() must count it like any other single-char command.
+  -- Detected reactively by patterns_cmdline.lua's track_substitute() — see
+  -- docs/adr/0008-substitute-repeat-ampersand-escalation.md for the escalation
+  -- rationale and why 'g&' is deliberately not ambient = false.
   ['&'] = { requires = 'n', track = true, category = 'edit', level = 'intermediate' },
-
-  -- requires = '&': g& is the natural next step once & is known. track =
-  -- false: a 2-char literal sequence with no pending-g dispatch entry
-  -- recording it (same shape as 'gu'/'g~'/'gg', all track=false). Not marked
-  -- ambient=false like '<C-\><C-n>': 'g&''s body is a generic, standalone
-  -- "did you know" tip (same shape as 'cgn'/'ex:g') that reads sensibly even
-  -- surfaced ambiently from '&' usage alone, unlike '<C-\><C-n>''s
-  -- context-presupposing body and structurally-stuck-at-0 count.
   ['g&'] = { requires = '&', track = false, category = 'edit', level = 'advanced' },
 }
 
--- Some registry keys are an internal composite, not the literal keystroke
--- the user presses — see the 'i_<C-o>' entry above for the full story of why
--- (a Lua table can only hold one value per key string, so two distinct
--- commands bound to the same physical key need two different registry
--- strings). UI code that renders a registry key as "the key to press"
--- (ui/guide.lua, ui/stats.lua, core/skills.lua) must go through this function
--- so the user sees the real keystroke, never the internal disambiguation
--- prefix. Ordinary registry keys, and non-registry keys (basic tracked keys
--- like 'j', compound ops like 'dd') pass through unchanged.
+-- Strips the 'i_' composite-key prefix (see the 'i_<C-o>' entry above) so the
+-- user always sees the real keystroke, never the internal disambiguation
+-- string. Any UI rendering a registry key as "the key to press" (ui/guide.lua,
+-- ui/stats.lua, core/skills.lua) must go through this function. Ordinary and
+-- non-registry keys pass through unchanged. See
+-- docs/adr/0003-composite-keys-for-dual-meaning-bytes.md for why this exists.
 function M.display_key(cmd)
   return cmd:match('^i_(.+)$') or cmd
 end
