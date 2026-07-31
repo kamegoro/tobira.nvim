@@ -47,5 +47,5 @@ rather than a silently-inferred rule.
   if a new exclusion is added without updating the test.
 - A command whose count can be incremented (even indirectly) should not use this
   flag — reach for a different design (e.g. tightening its `requires` chain) instead.
-- See `docs/adr/0008-substitute-repeat-ampersand-escalation.md` for a superficially
+- See `docs/adr/0013-substitute-repeat-ampersand-escalation.md` for a superficially
   similar entry (`g&`) that was deliberately **not** given this flag, and why.

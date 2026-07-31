@@ -47,7 +47,7 @@ M.registry = {
   -- Insert-mode <C-w> (delete word before cursor) shares its raw byte with the
   -- normal-mode <C-w> window-command prefix. track = false; counted explicitly
   -- from handle_insert_key() instead (logger.lua's INSERT_SPECIAL) — see
-  -- docs/adr/0003-composite-keys-for-dual-meaning-bytes.md for why.
+  -- docs/adr/0008-composite-keys-for-dual-meaning-bytes.md for why.
   ['<C-w>'] = { requires = 'i', track = false, category = 'edit', level = 'beginner' },
 
   -- ── x → D → C deletion chain ──────────────────────────────────────────────
@@ -73,7 +73,7 @@ M.registry = {
 
   -- ── x repeat → {n}x count prefix ─────────────────────────────────────────
   -- Reactive-only (x_repeat fires this directly) — see
-  -- docs/adr/0007-reactive-only-direct-fire-entries.md.
+  -- docs/adr/0012-reactive-only-direct-fire-entries.md.
   ['{n}x'] = { requires = 'x', track = false, category = 'edit', level = 'intermediate' },
 
   -- ── j → <C-d> → <C-u> half-page scroll ───────────────────────────────────
@@ -139,7 +139,7 @@ M.registry = {
 
   -- ── <C-a> streak → g<C-a> visual-block sequential increment ─────────────
   -- Reactive-only (ca_run fires this directly) — see
-  -- docs/adr/0007-reactive-only-direct-fire-entries.md.
+  -- docs/adr/0012-reactive-only-direct-fire-entries.md.
   ['g<C-a>'] = { requires = '<C-a>', track = false, category = 'edit', level = 'advanced' },
 
   -- ── v → V → <C-v> visual mode chain ─────────────────────────────────────
@@ -188,7 +188,7 @@ M.registry = {
 
   -- ── gv reselect last visual ───────────────────────────────────────────────
   -- Also reactive-only (v_repeat fires this directly, #55) — see
-  -- docs/adr/0007-reactive-only-direct-fire-entries.md.
+  -- docs/adr/0012-reactive-only-direct-fire-entries.md.
   ['gv'] = { requires = 'V', track = false, category = 'motion', level = 'intermediate' },
 
   -- ── ge → gE WORD-end backward ─────────────────────────────────────────────
@@ -244,7 +244,7 @@ M.registry = {
 
   -- ── ci" / ci' × 3 (direct, non-visual) → ya" / ya' (#53) ─────────────────
   -- Reactive-only (ci_dquote_repeat / ci_squote_repeat fire this directly) —
-  -- see docs/adr/0007-reactive-only-direct-fire-entries.md.
+  -- see docs/adr/0012-reactive-only-direct-fire-entries.md.
   ['ya"'] = { requires = 'ci"', track = false, category = 'edit', level = 'intermediate' },
   ["ya'"] = { requires = "ci'", track = false, category = 'edit', level = 'intermediate' },
 
@@ -317,7 +317,7 @@ M.registry = {
   -- its normal-mode meaning. The user never types 'i_<C-o>' literally; UI code
   -- must render it via commands.display_key(cmd) below. Counted explicitly
   -- from handle_insert_key() (logger.lua's INSERT_SPECIAL), track = false —
-  -- see docs/adr/0003-composite-keys-for-dual-meaning-bytes.md for why.
+  -- see docs/adr/0008-composite-keys-for-dual-meaning-bytes.md for why.
   ['i_<C-o>'] = { requires = 'i', track = false, category = 'edit', level = 'intermediate' },
 
   -- ── window management ─────────────────────────────────────────────────────
@@ -368,19 +368,19 @@ M.registry = {
   -- (same precedent as insert_bs_repeat/insert_bounce → <C-w>/A). <C-n>
   -- shares its raw byte with the normal-mode down-motion; track = false,
   -- counted explicitly from handle_insert_key() (logger.lua's
-  -- INSERT_SPECIAL) — see docs/adr/0003-composite-keys-for-dual-meaning-bytes.md.
+  -- INSERT_SPECIAL) — see docs/adr/0008-composite-keys-for-dual-meaning-bytes.md.
   ['<C-n>'] = { requires = 'i', track = false, category = 'edit', level = 'beginner' },
 
   -- ── y → "+y system clipboard register ────────────────────────────────────
   -- track = false: tracked as its own 3-key compound by patterns.lua's
   -- pending_clipboard_yank state. Promotion bypasses the generic trigger-count
   -- rule (graph.is_register_underused() applies its own threshold instead) —
-  -- see docs/adr/0004-register-underuse-bypasses-trigger-count.md.
+  -- see docs/adr/0009-register-underuse-bypasses-trigger-count.md.
   ['"+y'] = { requires = 'y', track = false, category = 'mark', level = 'advanced' },
   -- ── diff mode: manual hunk navigation → ]c / [c ───────────────────────────────
   -- While &diff is set, gates the existing j_many/k_many thresholds to
   -- suggest ]c/[c instead of }/{ — see
-  -- docs/adr/0006-diff-mode-reuses-existing-thresholds.md.
+  -- docs/adr/0011-diff-mode-reuses-existing-thresholds.md.
   [']c'] = { requires = 'j', track = false, category = 'diff', level = 'beginner' },
   ['[c'] = { requires = 'k', track = false, category = 'diff', level = 'beginner' },
 
@@ -388,7 +388,7 @@ M.registry = {
   -- Tracked via logger.lua's cmdline handler (patterns_cmdline.lua), not a
   -- keystroke — track = false. ex_command = true applies a stricter
   -- "never tried" gate instead of the generic mastery-level gate — see
-  -- docs/adr/0005-ex-command-never-tried-gate.md.
+  -- docs/adr/0010-ex-command-never-tried-gate.md.
   ['ex:g'] = { requires = 'n', track = false, category = 'ex', level = 'advanced', ex_command = true },
   ['ex:norm'] = { requires = 'q', track = false, category = 'ex', level = 'advanced', ex_command = true },
 
@@ -396,12 +396,12 @@ M.registry = {
   -- Detected reactively by patterns_terminal.lua while mode() == 't'.
   -- `requires = 'i'` is a nominal anchor only (satisfies the schema guard).
   -- `ambient = false` excludes this entry from graph.find_best()'s candidate
-  -- pool — see docs/adr/0002-reactive-only-ambient-exclusion.md for why.
+  -- pool — see docs/adr/0007-reactive-only-ambient-exclusion.md for why.
   ['<C-\\><C-n>'] = { requires = 'i', track = false, category = 'terminal', level = 'beginner', ambient = false },
 
   -- ── repeated :substitute detection → & / g& ───────────────────────────────
   -- Detected reactively by patterns_cmdline.lua's track_substitute() — see
-  -- docs/adr/0008-substitute-repeat-ampersand-escalation.md for the escalation
+  -- docs/adr/0013-substitute-repeat-ampersand-escalation.md for the escalation
   -- rationale and why 'g&' is deliberately not ambient = false.
   ['&'] = { requires = 'n', track = true, category = 'edit', level = 'intermediate' },
   ['g&'] = { requires = '&', track = false, category = 'edit', level = 'advanced' },
@@ -412,7 +412,7 @@ M.registry = {
 -- string. Any UI rendering a registry key as "the key to press" (ui/guide.lua,
 -- ui/stats.lua, core/skills.lua) must go through this function. Ordinary and
 -- non-registry keys pass through unchanged. See
--- docs/adr/0003-composite-keys-for-dual-meaning-bytes.md for why this exists.
+-- docs/adr/0008-composite-keys-for-dual-meaning-bytes.md for why this exists.
 function M.display_key(cmd)
   return cmd:match('^i_(.+)$') or cmd
 end
