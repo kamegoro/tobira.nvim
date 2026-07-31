@@ -256,13 +256,23 @@ tobira reads your current normal-mode `:map`/`:nmap`/`:nnoremap` state to
 find out which of its own teachable commands you have personally remapped.
 
 If you have remapped a command tobira would otherwise suggest (for example
-`nnoremap Y y$`, or a plugin binding like `nmap s <Plug>(some-plugin-thing)`),
-tobira never offers that command as a suggestion — introducing something you
-have already deliberately bound to a different behavior would not teach you
-anything. This applies to every proactive suggestion path, including the
-"Try these next" efficiency-gap list in |:TobiraStats| — a command whose key
-you have remapped never appears there either, even if its trigger's usage
-count would otherwise qualify it.
+a plugin binding like `nmap s <Plug>(some-plugin-thing)`), tobira never
+offers that command as a suggestion — introducing something you have already
+deliberately bound to a different behavior would not teach you anything.
+This applies to every proactive suggestion path, including the "Try these
+next" efficiency-gap list in |:TobiraStats| — a command whose key you have
+remapped never appears there either, even if its trigger's usage count would
+otherwise qualify it.
+
+One narrow, curated exception: `nnoremap Y y$` is Neovim's own factory
+default (see `:help Y-default`) and is recognized as functionally equivalent
+to what tobira already documents for `Y`, not a genuine personal override.
+It is still excluded from the proactive paths above like any other override,
+but the reactive `y$` → `Y` suggestion (see DETECTED PATTERNS below) still
+fires despite it — since it would otherwise never fire on any default
+install. A `Y` remapped to anything other than `y$` (e.g. restored to
+legacy linewise `yy`, or bound to something else entirely) is treated as a
+genuine override and suppresses that suggestion as usual.
 
 |:TobiraGuide|'s auto-generated cheat-sheet still lists a remapped command if
 the remap is functionally equivalent to what tobira documents (shown with a
@@ -327,6 +337,9 @@ EDIT ~
   `c$`                          Suggest `C`     — change to end of line
   `d$`                          Suggest `D`     — delete to end of line
   `y$`                          Suggest `Y`     — yank to end of line
+                                 (still fires even with Neovim's own default
+                                 `nnoremap Y y$` in place — see the narrow
+                                 exception under KEYMAP OVERRIDES above)
   `dw` → `i`                    Suggest `cw`    — change word in one motion
   `yy` → `p`                    Suggest `yyp`   — duplicate the current line
   `dd` → `p`                    Suggest `ddp`   — swap current line with next

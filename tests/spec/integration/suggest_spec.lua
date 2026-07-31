@@ -1,6 +1,7 @@
 local suggest = require('tobira.core.suggest')
 local logger = require('tobira.core.logger')
 local config = require('tobira.core.config')
+local integrations = require('tobira.core.integrations')
 
 -- Test-local disk cleanup, mirroring logger_spec.lua's helper of the same
 -- name. logger.reset() deliberately does no I/O, so it only clears in-memory
@@ -1271,5 +1272,112 @@ describe('when a suggestion is shown but never adopted', function()
     vim.fn.feedkeys('jjj', 'xt')
     vim.api.nvim_feedkeys('', 'x', false)
     assert.is_false(fired)
+  end)
+end)
+
+-- ── equivalent-override suppression for reactive suggestions (#177 fix) ────
+-- Bug: every Neovim install ships a factory-default `nnoremap Y y$` (:help
+-- Y-default). integrations.is_overridden('Y') can therefore never be false on
+-- a stock config, so should_suppress's old blanket `integrations.is_overridden
+-- (cmd)` check suppressed the reactive y_dollar → 'Y' suggestion on literally
+-- every install, permanently. integrations.lua already has
+-- is_equivalent_override(cmd) (built for the ambient find_best path) to
+-- recognise this exact case; these tests pin down that should_suppress now
+-- consults it for the reactive path too, without weakening suppression for
+-- any command that has no EQUIVALENT_REMAPS entry.
+describe('when the only "override" present for Y is the default y$ mapping (#177 regression)', function()
+  local orig_is_overridden, orig_is_equivalent_override
+
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    config.reset()
+    suggest.reset_session()
+    orig_is_overridden = integrations.is_overridden
+    orig_is_equivalent_override = integrations.is_equivalent_override
+  end)
+
+  after_each(function()
+    integrations.is_overridden = orig_is_overridden
+    integrations.is_equivalent_override = orig_is_equivalent_override
+  end)
+
+  it('still shows the Y suggestion instead of silently suppressing it', function()
+    integrations.is_overridden = function(cmd)
+      return cmd == 'Y'
+    end
+    integrations.is_equivalent_override = function(cmd)
+      return cmd == 'Y'
+    end
+    local shown = with_float_spy(function()
+      suggest.show('Y')
+    end)
+    assert.is_true(shown)
+  end)
+end)
+
+describe('when Y has a genuinely different (non-equivalent) user override', function()
+  local orig_is_overridden, orig_is_equivalent_override
+
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    config.reset()
+    suggest.reset_session()
+    orig_is_overridden = integrations.is_overridden
+    orig_is_equivalent_override = integrations.is_equivalent_override
+  end)
+
+  after_each(function()
+    integrations.is_overridden = orig_is_overridden
+    integrations.is_equivalent_override = orig_is_equivalent_override
+  end)
+
+  it('still suppresses the Y suggestion (e.g. the user :unmap-ed Y back to legacy yy)', function()
+    integrations.is_overridden = function(cmd)
+      return cmd == 'Y'
+    end
+    integrations.is_equivalent_override = function(_cmd)
+      return false
+    end
+    local shown = with_float_spy(function()
+      suggest.show('Y')
+    end)
+    assert.is_false(shown)
+  end)
+end)
+
+describe('when a command with no EQUIVALENT_REMAPS entry has been overridden by the user', function()
+  local orig_is_overridden, orig_is_equivalent_override
+
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    config.reset()
+    suggest.reset_session()
+    orig_is_overridden = integrations.is_overridden
+    orig_is_equivalent_override = integrations.is_equivalent_override
+  end)
+
+  after_each(function()
+    integrations.is_overridden = orig_is_overridden
+    integrations.is_equivalent_override = orig_is_equivalent_override
+  end)
+
+  it('is still suppressed exactly as before (blanket override suppression is unchanged)', function()
+    integrations.is_overridden = function(cmd)
+      return cmd == ';'
+    end
+    -- Real is_equivalent_override always returns false for commands with no
+    -- EQUIVALENT_REMAPS entry -- mirrored here explicitly rather than relying
+    -- on the real implementation, so this test still pins the contract down
+    -- if EQUIVALENT_REMAPS ever grows a new entry for ';'.
+    integrations.is_equivalent_override = function(_cmd)
+      return false
+    end
+    local shown = with_float_spy(function()
+      suggest.show(';')
+    end)
+    assert.is_false(shown)
   end)
 end)

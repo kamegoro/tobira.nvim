@@ -129,6 +129,9 @@ require("tobira").setup({
 tobira always respects your own `:nmap`/`:nnoremap` overrides — it never suggests a
 command you've remapped away, and `integrations` above only gates the optional
 plugin-detection boost, not that baseline behavior (see `:help tobira-integrations`).
+One narrow exception: Neovim's own factory-default `nnoremap Y y$` is recognized as
+equivalent to what tobira already teaches, so the reactive `y$` → `Y` suggestion still
+fires even on a stock install — a `Y` remapped to anything else still suppresses it.
 
 ## 🎯 Detected patterns (examples)
 
