@@ -466,6 +466,22 @@ describe('when the stats window is open', function()
   end)
 end)
 
+-- ── <C-c> to close (#32) ──────────────────────────────────────────────────────
+
+describe('when <C-c> is pressed in the stats window', function()
+  after_each(function()
+    stats.close()
+  end)
+
+  it('closes the window', function()
+    local ctrl_c = vim.api.nvim_replace_termcodes('<C-c>', true, false, true)
+    stats.open()
+    vim.fn.feedkeys(ctrl_c, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_false(stats.is_open())
+  end)
+end)
+
 -- ── M.show() / M.toggle() ────────────────────────────────────────────────────
 
 describe('when show() is called', function()

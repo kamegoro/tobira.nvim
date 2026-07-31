@@ -62,7 +62,7 @@ use {
 |---|---|
 | `:Tobira` | Show the next suggestion now (ignores cooldown). Press `q` / `Esc` to dismiss. |
 | `:TobiraGuide` | Toggle the cheatsheet panel |
-| `:TobiraProgress` | Show skill tree with mastery glyphs and a cursor-driven detail preview. `x` = suppress, `p` = pin, `g`/`s` = jump to guide/stats, `q`/`Esc` = close. |
+| `:TobiraProgress` | Show skill tree with mastery glyphs and a cursor-driven detail preview. `x` = suppress, `p` = pin, `g`/`s` = jump to guide/stats, `q`/`Esc`/`<C-c>` = close. |
 | `:TobiraStats` | Show usage stats: command distribution (never/tried/familiar/mastered) and efficiency gap suggestions |
 | `:TobiraReset` | Clear all usage data |
 | `:checkhealth tobira` | Diagnose your install — Neovim version, data directory, usage.json validity, `lang` config |
@@ -107,7 +107,7 @@ Full documentation is available in Neovim via `:help tobira`.
 | `✗` | Suppressed — you don't want this suggested |
 | `●` | Pinned — always shown, in both `:TobiraGuide` and `:TobiraProgress` |
 
-**Keys inside `:TobiraProgress`:** `x` toggles suppress on the command under the cursor, `p` toggles pin, `g` / `s` jump to Guide / Stats, `q` / `Esc` closes.
+**Keys inside `:TobiraProgress`:** `x` toggles suppress on the command under the cursor, `p` toggles pin, `g` / `s` jump to Guide / Stats, `q` / `Esc` / `<C-c>` closes.
 
 </details>
 

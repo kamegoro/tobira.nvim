@@ -174,6 +174,19 @@ describe('when Esc is pressed in the progress window', function()
   end)
 end)
 
+describe('when <C-c> is pressed in the progress window', function()
+  before_each(setup)
+  after_each(teardown)
+
+  it('closes the window', function()
+    local ctrl_c = vim.api.nvim_replace_termcodes('<C-c>', true, false, true)
+    progress.open()
+    vim.fn.feedkeys(ctrl_c, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_false(progress.is_open())
+  end)
+end)
+
 -- ── mastery symbol rendering (regression) ────────────────────────────────────
 
 describe('when an adopted motion skill has been used once (mastery level 1)', function()

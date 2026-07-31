@@ -444,6 +444,7 @@ function M.open()
 
   vim.keymap.set('n', 'q', M.close, { buffer = _buf, nowait = true, silent = true })
   vim.keymap.set('n', '<Esc>', M.close, { buffer = _buf, nowait = true, silent = true })
+  vim.keymap.set('n', '<C-c>', M.close, { buffer = _buf, nowait = true, silent = true })
   vim.keymap.set('n', 'x', toggle_suppress, { buffer = _buf, nowait = true, silent = true })
   vim.keymap.set('n', 'p', toggle_pin, { buffer = _buf, nowait = true, silent = true })
   vim.keymap.set('n', 'g', function()
