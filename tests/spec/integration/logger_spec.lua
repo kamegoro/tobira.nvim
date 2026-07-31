@@ -473,12 +473,15 @@ describe('when the user types while in insert mode', function()
     assert.equals(0, logger.get('j').count)
   end)
 
-  it('resets both seq and insert_seq when current_mode is neither n nor i', function()
-    -- Visual mode ('v') exercises the generic fallback branch — distinct
-    -- from both the normal path and the #58 insert-mode path.
+  it('resets both seq and insert_seq when current_mode is neither n, i, nor a Visual mode', function()
+    -- Replace mode ('R') exercises the generic fallback branch — distinct
+    -- from the normal path, the #58 insert-mode path, AND the #179
+    -- Visual-mode path (see the "when the user is in Visual mode" describe
+    -- block below, which covers 'v'/'V'/'\22' — those are deliberately
+    -- routed through patterns.feed() instead of this generic reset).
     local real_mode = vim.fn.mode
     vim.fn.mode = function()
-      return 'v'
+      return 'R'
     end
     vim.api.nvim_exec_autocmds('ModeChanged', { modeline = false })
     vim.fn.mode = real_mode
@@ -490,6 +493,93 @@ describe('when the user types while in insert mode', function()
     vim.api.nvim_feedkeys('', 'x', false)
     assert.is_false(fired)
     assert.equals(0, logger.get('j').count)
+  end)
+end)
+
+-- ── Visual mode: route keystrokes through pattern tracking instead of ───────
+-- ── wiping state (#179) ───────────────────────────────────────────────────
+-- Unlike Insert mode (see tests/CLAUDE.md — vim.fn.mode() always reports 'n'
+-- in headless Neovim, so Insert-mode tests must stub vim.fn.mode() and fire
+-- a synthetic ModeChanged), headless Neovim CAN genuinely enter real Visual
+-- mode via feedkeys('...', 'xt') — confirmed empirically: vim.fn.mode()
+-- reports 'v' after a real 'v' keypress, and the real ModeChanged autocmd
+-- fires exactly as it would interactively. So these tests drive the actual
+-- v/i/w/c/<Esc> keystrokes end-to-end with no mode stub at all — this is
+-- the same real Normal→Visual→Normal race QA observed live: the 'v' that
+-- starts a Visual session is itself processed by vim.on_key while
+-- current_mode is still 'n' (its own ModeChanged fires only after), and
+-- every subsequent key genuinely arrives with current_mode == 'v'.
+
+describe('when the user is in Visual mode', function()
+  local esc = vim.api.nvim_replace_termcodes('<Esc>', true, false, true)
+
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    logger.on_pattern = nil
+    logger.setup()
+    vim.cmd('enew!')
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+    if vim.fn.mode() ~= 'n' then
+      vim.fn.feedkeys(esc, 'xt')
+      vim.api.nvim_feedkeys('', 'x', false)
+    end
+  end)
+
+  it('fires visual_textobj for viw through the real handle_key dispatch path', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+    vim.fn.feedkeys('viwc', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+
+    assert.equals(1, #fired)
+    assert.equals('visual_textobj', fired[1].pattern)
+    assert.equals('ciw', fired[1].cmd)
+  end)
+
+  it('fires v_repeat suggesting gv for v<Esc>v<Esc>v<Esc> through the real handle_key dispatch path', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+
+    vim.fn.feedkeys('v', 'xt')
+    vim.fn.feedkeys(esc, 'xt')
+    vim.fn.feedkeys('v', 'xt')
+    vim.fn.feedkeys(esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals(0, #fired)
+
+    vim.fn.feedkeys('v', 'xt')
+    vim.fn.feedkeys(esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+
+    assert.equals(1, #fired)
+    assert.equals('v_repeat', fired[1].pattern)
+    assert.equals('gv', fired[1].cmd)
+  end)
+
+  it('does not fire v_repeat when the 3rd v turns out to be genuine visual usage (v<Esc>v<Esc>viw)', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+
+    vim.fn.feedkeys('v', 'xt')
+    vim.fn.feedkeys(esc, 'xt')
+    vim.fn.feedkeys('v', 'xt')
+    vim.fn.feedkeys(esc, 'xt')
+    vim.fn.feedkeys('viwc', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+
+    assert.equals(1, #fired)
+    assert.equals('visual_textobj', fired[1].pattern)
+    assert.equals('ciw', fired[1].cmd)
   end)
 end)
 
@@ -2362,6 +2452,28 @@ describe('when the user records a macro', function()
     vim.fn.feedkeys('q', 'xt')
     vim.api.nvim_feedkeys('', 'x', false)
     assert.equals(0, logger.get('j').count)
+  end)
+
+  it('does not process Visual-mode keystrokes typed while recording a macro (#179)', function()
+    -- The 'v' that enters Visual mode is itself processed as a Normal-mode
+    -- key (macro-skip already covered above); 'i'/'w' are typed genuinely
+    -- inside Visual mode, while still recording, and must be skipped by the
+    -- Visual-mode branch's own macro guard rather than reaching
+    -- patterns.feed().
+    local fired = false
+    logger.on_pattern = function()
+      fired = true
+    end
+    local esc = vim.api.nvim_replace_termcodes('<Esc>', true, false, true)
+    vim.fn.feedkeys('qa', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('viw', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys(esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys('q', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_false(fired)
   end)
 end)
 

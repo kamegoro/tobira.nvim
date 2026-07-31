@@ -203,6 +203,9 @@ M.registry = {
   ['gf'] = { requires = 'gd', track = false, category = 'motion', level = 'intermediate' },
 
   -- ── gv reselect last visual ───────────────────────────────────────────────
+  -- Also fired directly by v_repeat (patterns.lua, #55): v tapped and
+  -- immediately escaped 3 times in a row, independent of this entry's
+  -- `requires` graph promotion path.
   ['gv'] = { requires = 'V', track = false, category = 'motion', level = 'intermediate' },
 
   -- ── ge → gE WORD-end backward ─────────────────────────────────────────────

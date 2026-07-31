@@ -24,6 +24,12 @@ function M.new_seq()
     pending_visual = false,
     visual_inner = nil,
     visual_obj = nil,
+    -- v <Esc> v <Esc> v run tracking → gv (#55). v_streak counts consecutive
+    -- "v then immediate <Esc>, nothing else" cycles; v_clean_exit remembers
+    -- whether the cycle that just ended was one of those (vs. real visual
+    -- usage) so the next v knows whether to extend the streak or restart it.
+    v_streak = 0,
+    v_clean_exit = false,
     pending_g = false,
     pending_z = false,
     -- gq operator-pending tracking: unlike the simple two-key pending_g
@@ -672,6 +678,27 @@ local function inner_feed(seq, key, line, is_diff, now)
 
   if seq.pending_visual then
     seq.pending_visual = false
+    if key == '\27' then
+      -- Tapped v and left immediately with no real usage — the v_repeat
+      -- half of the streak. Only <Esc> counts as "clean"; every other
+      -- completion below (text object or otherwise) means the user did
+      -- something with the selection, which breaks the streak.
+      seq.v_clean_exit = true
+      -- Fire only once THIS <Esc> confirms the 3rd v was also a clean tap,
+      -- not the instant the 3rd v lands (#55 follow-up). Firing on the v
+      -- itself could not yet distinguish "another clean tap" from "the
+      -- start of genuine visual usage" (e.g. v<Esc>v<Esc>viw) — the
+      -- disambiguating key hasn't arrived yet at that point. Waiting for
+      -- <Esc> here means v_streak >= 3 is only ever true when all 3 v's
+      -- were confirmed clean.
+      if seq.v_streak >= 3 then
+        seq.v_streak = 0
+        return { pattern = 'v_repeat', cmd = 'gv' }
+      end
+      return nil
+    end
+    seq.v_clean_exit = false
+    seq.v_streak = 0
     if key == 'i' or key == 'a' then
       seq.visual_inner = key
     end
@@ -830,7 +857,17 @@ local function inner_feed(seq, key, line, is_diff, now)
   end
 
   -- ── v: start visual text-object tracking ─────────────────────────────────
+  -- Also extends the v_repeat streak (#55): this v only continues the streak
+  -- when the immediately preceding cycle was a clean v-then-<Esc> tap
+  -- (v_clean_exit); anything else (a fresh start, or the last cycle having
+  -- done real visual work) restarts the count at 1. The actual fire-and-return
+  -- happens later, in the pending_visual <Esc> branch above, once this v's
+  -- OWN outcome (clean tap vs. genuine visual usage) is known — see that
+  -- branch's comment for why firing here, on the v itself, would be too
+  -- early.
   if key == 'v' then
+    seq.v_streak = seq.v_clean_exit and (seq.v_streak + 1) or 1
+    seq.v_clean_exit = false
     seq.pending_visual = true
     return nil
   end
@@ -996,6 +1033,8 @@ local function inner_feed(seq, key, line, is_diff, now)
     seq.indent_streak = 0
     seq.dedent_streak = 0
     seq.ctrl_w_close_streak = 0
+    seq.v_streak = 0
+    seq.v_clean_exit = false
   end
 
   -- ── consecutive-run patterns (count computed early) ────────────────────────

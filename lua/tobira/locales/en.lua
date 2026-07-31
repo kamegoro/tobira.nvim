@@ -123,6 +123,7 @@ return {
       J_repeat = 'You joined lines 3 times in a row',
       ca_run = 'You incremented a number, moved down a line, and repeated it 3 times',
       ctrl_w_close_repeat = 'You closed windows one at a time, 2 times in a row',
+      v_repeat = 'You entered and left visual mode without selecting anything, 3 times in a row',
       manual_return = 'You jumped to a distant spot, then scrolled back manually',
       changelist_return = 'You edited two different spots, then scrolled back manually to find the first one',
       terminal_esc_repeat = 'You pressed <Esc> twice in a row in terminal mode with no effect',
