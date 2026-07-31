@@ -473,6 +473,24 @@ local function inner_feed(seq, key, line, is_diff, now)
       local g_then_gg = seq.last_op == 'G'
       seq.last_op = g_targets[key]
       seq.op_completed = true
+      -- `key` just completed a g-compound as its 2nd character — a genuine,
+      -- deliberate action, not a continuation of any bare-key streak `key` was
+      -- previously part of. This whole pending_g branch resolves and returns
+      -- without ever calling track_run() (below, in the bare-key dispatch),
+      -- so without this reset seq.run is left frozen mid-streak: a following
+      -- bare `key` press would silently continue the OLD count instead of
+      -- starting fresh, immediately re-firing that key's consecutive-run
+      -- pattern one press "early". This bit tobira's own e_repeat → ge
+      -- suggestion (confirmed via QA): typing the suggested "ge" remedy after
+      -- an e-streak did not reset the streak, unlike w_repeat/W and
+      -- b_repeat/B, where the remedy is a different keystroke and so
+      -- track_run() naturally resets it. The same exposure applies to every
+      -- other g_targets entry whose 2nd character also has its own
+      -- consecutive-run or presence tracking (gj/gk/gn/gx/gp/gu, and g0 vs.
+      -- zero_then_w's seq.run.key == '0' check) — resetting unconditionally
+      -- here, for every g_targets key, is a no-op for the remaining targets
+      -- (g/d/f/;), which nothing downstream keys off seq.run for.
+      seq.run = { key = nil, count = 0 }
       -- gg / g; are themselves significant jumplist / changelist motions,
       -- recorded the moment the compound resolves — neither key of "gg" (or
       -- "g;") ever reaches the bare-key tables below on its own, since
