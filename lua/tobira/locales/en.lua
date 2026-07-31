@@ -68,7 +68,7 @@ return {
   },
   float = {
     example_prefix = 'e.g. ',
-    close_hint = 'q/Esc close',
+    close_hint = 'q/Esc/<C-c> close',
     suppress_hint = ':TobiraProgress  x to mute',
     ambient_reason = 'You often use %s',
     celebrate = 'Nice — you used %s',

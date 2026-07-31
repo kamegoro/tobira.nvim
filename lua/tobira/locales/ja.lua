@@ -68,7 +68,7 @@ return {
   },
   float = {
     example_prefix = '例: ',
-    close_hint = 'q/Esc 閉じる',
+    close_hint = 'q/Esc/<C-c> 閉じる',
     suppress_hint = ':TobiraProgress の x で非表示',
     ambient_reason = '%s をよく使っていますね',
     celebrate = '%s を使えましたね',

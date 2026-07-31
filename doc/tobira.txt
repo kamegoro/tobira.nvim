@@ -58,9 +58,10 @@ Call `setup()` explicitly if not using lazy.nvim opts shorthand: >lua
   how many commands you have discovered sit in a quiet line at the bottom.
 
   Inside the stats panel:
-    `g`   Close stats and open the guide panel
-    `p`   Close stats and open the progress panel
-    `q`   Close the panel
+    `g`     Close stats and open the guide panel
+    `p`     Close stats and open the progress panel
+    `q`     Close the panel
+    `<C-c>` Close the panel
 
                                                                  *:TobiraGuide*
 :TobiraGuide
@@ -104,11 +105,12 @@ Call `setup()` explicitly if not using lazy.nvim opts shorthand: >lua
     `●`     Pinned — always shown, in both this panel and |:TobiraGuide|
 
   Inside the progress panel:
-    `x`   Toggle suppress on the command under the cursor
-    `p`   Toggle pin on the command under the cursor
-    `g`   Close progress and open the guide panel
-    `s`   Close progress and open the stats panel
-    `q`   Close the panel
+    `x`     Toggle suppress on the command under the cursor
+    `p`     Toggle pin on the command under the cursor
+    `g`     Close progress and open the guide panel
+    `s`     Close progress and open the stats panel
+    `q`     Close the panel
+    `<C-c>` Close the panel
 
                                                                  *:TobiraReset*
 :TobiraReset
