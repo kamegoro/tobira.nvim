@@ -5,24 +5,11 @@
 -- and returns a semantic command name like 'ex:s', 'ex:g', 'ex:norm', or nil
 -- if the text is empty/unparseable.
 --
--- New sibling file (not folded into patterns.lua): tokenize() takes one
--- already-complete string handed to it once, at <CR> time, rather than a
--- per-keystroke incremental state machine — the same "shares nothing, never
--- on the same call path" test that split patterns_insert.lua out (see
--- lua/tobira/CLAUDE.md's "Module splitting policy"). The
--- getcmdtype()/getcmdline() orchestration deciding *when* to call tokenize()
--- lives in logger.lua instead, which already does vim.* work.
---
--- Deliberately NOT a full Vim range-grammar parser: strip_range() below only
--- covers the address forms actually seen in practice (%, N, N,M, '<,'>,
--- 'a,'b, /pat/,/pat2/), not Ex's entire address grammar.
---
--- Deliberately does NOT canonicalize Vim's command abbreviations (:s vs :su
--- vs :sub vs :substitute). Keying by the literal typed word avoids silently
--- guessing wrong on ambiguous short forms — disambiguating them correctly
--- requires knowing every Vim command name, which this feature doesn't need.
--- ':s' and ':sub' are tracked as two distinct buckets; revisit if usage data
--- ever shows that matters for suggestion quality.
+-- see docs/adr/0002-ex-command-tokenizer-one-shot-parsing.md for why this is
+-- a separate module, why tokenize() takes one complete string at <CR> time
+-- rather than an incremental per-keystroke state machine, why strip_range()
+-- only covers practical range forms rather than full Ex grammar, and why
+-- command abbreviations are deliberately not canonicalized.
 
 local M = {}
 
@@ -91,36 +78,22 @@ function M.tokenize(text)
   return nil
 end
 
--- Argument-aware counterpart to tokenize(): tokenize() deliberately discards
--- everything after the command word (see its header comment — Ex-command
--- tracking never needed it), but two later detectors need the argument text
--- itself: the tabnew one-tab-per-file streak needs to tell a bare ":tabnew"
--- apart from ":tabnew foo.txt", and the ex_file_pingpong detector needs the
--- filename argument to tell ":e A" apart from ":e B".
--- Both share this single implementation rather than each re-parsing the
--- cmdline text on their own. Reuses the same strip_range() range handling so
--- a leading range prefix never leaks into the returned argument, same as
--- tokenize().
+-- Argument-aware counterpart to tokenize(): returns the command word plus
+-- the trimmed argument text tokenize() discards. Shared by feed_tabnew() and
+-- feed_pingpong() below; NOT reused by track_substitute() (it needs
+-- delimiter-bounded pattern/replacement fields, not an opaque argument
+-- string).
+--
+-- see docs/adr/0003-cmdline-command-arg-shared-argument-extraction.md for why
 --
 -- Returns word, arg: word is the lowercased command word (same casing rule
 -- as tokenize()), or nil if there wasn't one to extract (empty / unparseable
--- / range-only / symbolic-command input — command_arg() only ever needs to
--- recognize letter-word commands (:tabnew, :e, :b), unlike tokenize(), which
--- falls back to a literal punctuation character for symbolic commands). arg
--- is the trimmed remainder, or nil if there wasn't one (a bare ":e" / ":b" /
--- ":tabnew" with no argument at all). Callers that want '' instead of nil for
--- "no argument" (feed_tabnew below, whose contract predates this shared
--- function) convert that themselves at the call site — see logger.lua.
---
--- Note: this is NOT reused by track_substitute() below even though
--- both parse "the rest of the line after the command word" — command_arg()
--- treats everything after the word as one opaque trimmed string, but
--- track_substitute() needs the delimiter-bounded PATTERN and REPLACEMENT
--- fields inside that remainder (":s/foo/bar/"), which
--- command_arg()'s contract has no concept of. Forcing that through
--- command_arg() would mean immediately re-parsing its `arg` return value
--- with the same delimiter logic anyway, so track_substitute() parses the
--- post-word text itself instead of layering on top.
+-- / range-only / symbolic-command input — unlike tokenize(), command_arg()
+-- only recognizes letter-word commands, with no punctuation fallback). arg
+-- is the trimmed remainder, or nil for "no argument" (a bare ":e"/":b"/
+-- ":tabnew"). Callers that want '' instead of nil (feed_tabnew below, whose
+-- contract predates this shared function) convert that themselves at the
+-- call site — see logger.lua.
 function M.command_arg(text)
   if not text then
     return nil, nil
@@ -152,34 +125,18 @@ function M.command_arg(text)
   return word:lower(), arg
 end
 
--- Ex-command ping-pong detection: a user repeatedly bouncing between the
--- same two files via :e/:b (:e A -> :e B -> :e A, or the :b equivalent) is a
--- direct signal for <C-^>, which jumps straight to the alternate file. Kept
--- in this same file rather than a new sibling one because it's fed from the
--- exact same call site as tokenize()/command_arg() (logger.lua's
--- handle_cmdline_key, at <CR> time), even though it shares no actual state
--- with either — call path, not shared state, is the deciding question (see
--- lua/tobira/CLAUDE.md's module-splitting policy).
+-- Ex-command ping-pong detection (#114): a user repeatedly bouncing between
+-- the same two files via :e/:b (:e A -> :e B -> :e A, or the :b equivalent)
+-- is a direct signal for <C-^>, which jumps straight to the alternate file.
 --
--- Deliberately literal command words only ('e', 'b'), not abbreviation
--- expansion (:edit, :ed, :buffer, :bu, ...) — same "no abbreviation table"
--- call tokenize() makes for the same reason (see its header). Revisit if
--- usage data ever shows real users typing :edit/:buffer for this habit.
---
--- Coexistence with other <C-^> triggers: this is one signal among
--- potentially several that can all suggest '<C-^>' — commands.lua has
--- exactly one '<C-^>' registry entry regardless of how many patterns
--- recommend it. Only the "why am I seeing this" reason line differs per
--- trigger (locales/*.lua float.reasons); the suggestion's title/body/example
--- stay shared, since what the command DOES doesn't change based on how
--- tobira noticed you needed it.
+-- see docs/adr/0004-ex-file-pingpong-detection.md for why this lives in this
+-- file rather than a sibling one, why command abbreviations aren't
+-- recognized, why this is only one of potentially several <C-^> triggers,
+-- and why credit is deferred/verified by the caller rather than here.
 local PINGPONG_COMMANDS = { e = true, b = true }
 
 -- Only remembers the two most recently *distinct* filenames touched via
--- :e/:b, not a full history: this is what makes bouncing among 3+ different
--- files never satisfy "is this the file from two switches ago" below (a
--- genuinely third file always overwrites the older of the two remembered
--- names, permanently forgetting it for this rotation).
+-- :e/:b, not a full history — see ADR above for why.
 function M.new_pingpong_seq()
   return { first = nil, second = nil, fired = false }
 end
@@ -195,26 +152,20 @@ function M.feed_pingpong(seq, word, arg)
   end
 
   if arg == seq.second then
-    -- Reopening the file that's already current isn't a new switch; leave
-    -- the two-file history (and the fired latch below) untouched so an
-    -- in-progress or already-fired rotation is never disturbed by it.
+    -- Reopening the current file isn't a new switch; leave state untouched.
     return nil
   end
 
   -- True the moment this switch returns to the file used two distinct
-  -- switches ago -- exactly the ':e A' -> ':e B' -> ':e A' shape. Computed
-  -- from state as it stood BEFORE this call updates it below.
+  -- switches ago. Computed from state as it stood BEFORE this call updates
+  -- it below.
   local is_return = arg == seq.first and seq.second ~= nil
   local should_fire = is_return and not seq.fired
 
   seq.first = seq.second
   seq.second = arg
-  -- Latches true for as long as the user keeps bouncing between exactly
-  -- these two files, so continuing to alternate never re-fires the
-  -- suggestion on every single switch -- the same "fire once per streak"
-  -- precedent as patterns_terminal.lua's terminal_esc_repeat. A switch to a
-  -- genuinely third file clears it, re-arming detection for the next
-  -- two-file rotation.
+  -- Latches until a third, different file breaks the rotation — see ADR
+  -- above for why.
   seq.fired = is_return
 
   if should_fire then
@@ -224,38 +175,27 @@ function M.feed_pingpong(seq, word, arg)
 end
 
 -- ── tabnew one-file-per-tab habit detection ─────────────────────────────────
--- A second, independent state machine in this same file — shares no state
--- with M.tokenize() above, but stays here because it fires from the exact
--- same call site: the tokenized Ex-command name at <CR> time, inside
--- logger.lua's handle_cmdline_key (call path, not shared state, decides
--- module splitting — see lua/tobira/CLAUDE.md).
---
--- Detects "tabs as a VSCode-style file browser": opening a new file with
--- :tabnew, one tab per file, 3+ times in a row with no window splits in
+-- Detects "tabs as a VSCode-style file browser" (#113): opening a new file
+-- with :tabnew, one tab per file, 3+ times in a row with no window splits in
 -- between, and suggests buffer commands (:b / <C-^>) instead — reuses
 -- commands.lua's existing '<C-^>' entry rather than duplicating it.
+--
+-- see docs/adr/0005-tabnew-one-file-per-tab-detection.md for why this is a
+-- second, independent state machine in this file, why a bare :tabnew or an
+-- added window split resets the streak, and the QA bug behind resetting
+-- (not ignoring) a repeated filename.
 --
 -- feed_tabnew() is called only for ":tabnew" submissions (logger.lua checks
 -- M.tokenize()'s result first — any other Ex command is a no-op for this
 -- streak, not a reset, since it says nothing about window layout).
 --
 --   arg: the trimmed file argument (command_arg()'s second return, '' for no
---     argument). A bare ":tabnew" opens an empty scratch tab, not "one more
---     file browsed", so it RESETS the streak. A non-empty arg only advances
---     the streak the first time that exact filename is seen this streak
---     (tracked in seq.files) — Vim reuses the existing buffer for a filename
---     already open elsewhere, so repeating it can't mean one-tab-per-file
---     (QA bug: the pre-fix version tracked only "was *some* argument given",
---     so opening the same file 3x via :tabnew fired the suggestion anyway).
---     A repeat resets the streak rather than being ignored or counted as a
---     new streak's first file, for the same reason a bare :tabnew doesn't.
---
+--     argument).
 --   win_count: the CURRENT tabpage's window count (nvim_tabpage_list_wins,
 --     read by logger.lua — this module stays vim.*-free). Since on_key fires
 --     BEFORE this <CR>'s effect lands, "current tabpage" here is still the
---     tab the PREVIOUS :tabnew opened — exactly the one that needs checking
---     for an added split. Meaningless before the streak's first :tabnew
---     (seq.streak == 0); callers may pass anything then.
+--     tab the PREVIOUS :tabnew opened. Meaningless before the streak's first
+--     :tabnew (seq.streak == 0); callers may pass anything then.
 function M.new_tabnew_seq()
   return { streak = 0, files = {} }
 end
@@ -270,21 +210,15 @@ function M.feed_tabnew(seq, arg, win_count)
   end
 
   if seq.files[arg] then
-    -- Same filename already seen earlier in this streak: reusing an
-    -- existing buffer, not browsing a new file — reset (see this file's
-    -- feed_tabnew doc comment for why reset, not ignore).
+    -- Repeated filename this streak: reset, not ignore — see ADR above.
     seq.streak = 0
     seq.files = {}
     return nil
   end
 
   if seq.streak > 0 and win_count ~= 1 then
-    -- The tab opened by the previous :tabnew in this streak picked up a
-    -- second window (:split, <C-w>v, ...) before this one fired — a
-    -- legitimate multi-window layout, not one-tab-per-file browsing. This
-    -- :tabnew still starts a fresh potential streak of its own (falls
-    -- through to the streak = streak + 1 below), it just cannot build on
-    -- the broken one.
+    -- Previous tab picked up a 2nd window before this one fired — reset;
+    -- this :tabnew still starts a fresh streak of its own below.
     seq.streak = 0
     seq.files = {}
   end
@@ -305,49 +239,14 @@ end
 -- `:s/{pattern}/{replacement}/{flags}` BODY (tokenize() only extracts the
 -- command name and discards the rest) so identical manual substitutions
 -- across different lines can be detected and answered with `&` (repeat on
--- this line) or `g&` (repeat file-wide). Stateful across calls (unlike
--- tokenize()) — state lives via M.new_substitute_state() for the whole
--- session, same lifetime as logger.lua's `seq`.
+-- this line) or `g&` (repeat file-wide) (#115). Stateful across calls
+-- (unlike tokenize()) — state lives via M.new_substitute_state() for the
+-- whole session, same lifetime as logger.lua's `seq`.
 --
--- Deliberate scope limits:
---
--- 1. Only a BARE (no explicit range) `:s` is tracked (strip_range() detects
---    a range prefix; if anything was stripped, returns nil). The targeted
---    workflow is "move to another line, retype the same :s/// there" — the
---    target line is then unambiguously the cursor line at <CR> time. An
---    explicit range (:5s, :%s) is a different, already one-shot workflow.
---
--- 2. Command-word recognition accepts any prefix of "substitute" (s, su,
---    sub, ...) — unlike tokenize()'s general refusal to canonicalize
---    abbreviations, this is a safe special case: every prefix of
---    "substitute" diverges from other s-commands (:sort, :set, :split) well
---    before Vim's own ambiguity resolution would need to kick in.
---
--- 3. The delimiter is whatever character immediately follows the command
---    word (Vim allows anything except alphanumerics, '\', '"', '|' — :help
---    :s). Escaped delimiters (`\/`) are honored, same rule strip_range()
---    uses for search addresses.
---
--- 4. The trailing delimiter after the replacement is optional (":s/foo/bar"
---    == ":s/foo/bar/"). Anything after a present trailing delimiter (flags,
---    count) is ignored for equality — the criterion is "identical pattern
---    AND replacement", not "identical flags too".
---
--- 5. A missing closing delimiter for the PATTERN (":s/foo") and an empty
---    explicit pattern (":s//bar/", reusing the last search pattern) are both
---    treated as unparseable — comparing "the same pattern" needs literal
---    text, and neither case provides it without guessing at implicit state
---    this pure module can't access.
---
--- Threshold heuristic for `&` vs `g&`: the same (pattern, replacement) pair
--- reaching a 2nd distinct line fires `&`; a 3rd distinct line upgrades to
--- `g&` instead of firing `&` again. Distinct LINE COUNT (not line-number
--- distance) is the signal because this module has no access to the buffer's
--- total line count to judge relative distance — a count-based threshold is
--- self-contained, at the cost of not distinguishing "3 adjacent lines" from
--- "3 lines scattered across the file". Each key fires once at count==2 and
--- once at count==3, then stays silent — the same exact-count-not-threshold
--- precedent as patterns.lua's x_repeat/j_repeat.
+-- see docs/adr/0006-cmdline-substitute-repeat-detection.md for the scope
+-- limits (bare :s only, abbreviation-prefix matching, delimiter handling,
+-- the 2->& / 3->g& threshold) and the changedtick-based verify-before-credit
+-- fix applied at the logger.lua call site.
 local function is_valid_delimiter(c)
   return c ~= '' and c:match('%s') == nil and c:match('%w') == nil and c ~= '\\' and c ~= '"' and c ~= '|'
 end
@@ -395,7 +294,7 @@ function M.track_substitute(state, text, line)
 
   local stripped = strip_range(trimmed)
   if stripped ~= trimmed then
-    return nil -- explicit range present — out of scope, see header comment
+    return nil -- explicit range present — out of scope, see ADR above
   end
 
   local word = stripped:match('^(%a+)')

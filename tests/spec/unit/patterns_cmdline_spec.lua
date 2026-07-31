@@ -1,10 +1,7 @@
 local patterns_cmdline = require('tobira.core.patterns_cmdline')
 
--- patterns_cmdline.tokenize(text) is a pure function: given the text of a
--- command-line buffer as returned by vim.fn.getcmdline() (i.e. NOT including
--- the leading ':'), it returns a semantic command name ('ex:s', 'ex:g', ...)
--- or nil when the text is empty / unparseable. No vim.* calls — see
--- lua/tobira/CLAUDE.md's "Module splitting policy".
+-- patterns_cmdline.tokenize(text): pure function, text -> semantic command
+-- name ('ex:s', 'ex:g', ...) or nil. See docs/adr/0002-ex-command-tokenizer-one-shot-parsing.md.
 
 describe('when classifying the text of a command-line buffer into a semantic command name', function()
   it('returns ex:s for a plain substitute command', function()
@@ -87,15 +84,12 @@ describe('when classifying the text of a command-line buffer into a semantic com
   end)
 end)
 
--- patterns_cmdline.track_substitute(state, text, line) is a second pure
--- function alongside tokenize() (#115). It detects the SAME :s pattern and
--- replacement being manually re-run on 2+ distinct lines, and returns a
--- suggestion for '&' (repeat on this line) the first time that happens, or
--- 'g&' (repeat file-wide) once a THIRD distinct line repeats it — see the
--- module header comment for why 3 distinct lines (not line distance) is the
--- chosen "spans enough of the file" threshold. state is created via
--- M.new_substitute_state() and accumulates across the whole session (unlike
--- tokenize(), which is stateless).
+-- patterns_cmdline.track_substitute(state, text, line) (#115): detects the
+-- SAME :s pattern+replacement manually re-run on 2+ distinct lines, firing
+-- '&' on the 2nd distinct line and 'g&' on the 3rd. state accumulates across
+-- the whole session (unlike tokenize()). See
+-- docs/adr/0006-cmdline-substitute-repeat-detection.md for the scope limits
+-- and threshold rationale.
 describe('patterns_cmdline.track_substitute', function()
   local state
 
@@ -191,12 +185,7 @@ describe('patterns_cmdline.track_substitute', function()
   end)
 
   it('does not track a command with an explicit range prefix (e.g. :5s or :%s)', function()
-    -- Scope decision (see module header): only bare, no-range :s is tracked,
-    -- since the target line then comes unambiguously from the cursor. An
-    -- explicit range makes "which line was this run on" ambiguous (a range
-    -- can span many lines) without much extra payoff, since :%s / :N,Ms are
-    -- already a single one-shot file-wide edit, not the "repeat on the next
-    -- line" workflow this feature targets.
+    -- Scope decision — see docs/adr/0006-cmdline-substitute-repeat-detection.md.
     local result = patterns_cmdline.track_substitute(state, '%s/foo/bar/', 1)
     assert.is_nil(result)
     patterns_cmdline.track_substitute(state, 's/foo/bar/', 1)
@@ -254,15 +243,10 @@ describe('patterns_cmdline.track_substitute', function()
   end)
 end)
 
--- patterns_cmdline.command_arg(text) is the argument-aware counterpart to
--- tokenize() above: tokenize() deliberately discards everything after the
--- command word (#57's scope), but two later detectors need the argument text
--- itself: #113's tabnew one-tab-per-file streak (below) needs to tell a bare
--- ":tabnew" apart from ":tabnew foo.txt", and the :e/:b ping-pong detector
--- (also below, #114) needs the filename argument to tell ":e A" apart from
--- ":e B". Both share this single implementation. Reuses the same
--- strip_range() range handling as tokenize() so a leading range prefix never
--- leaks into the returned argument.
+-- patterns_cmdline.command_arg(text): argument-aware counterpart to
+-- tokenize() above, shared by the tabnew streak (#113) and :e/:b ping-pong
+-- (#114) detectors below. See
+-- docs/adr/0003-cmdline-command-arg-shared-argument-extraction.md.
 
 describe('patterns_cmdline.command_arg', function()
   it('returns the lowercased command word and trimmed argument for a plain command', function()
@@ -349,12 +333,7 @@ end)
 -- Ex-command ping-pong detection (#114): fires when the two most recently
 -- distinct filenames touched via :e/:b alternate — :e A -> :e B -> :e A (or
 -- the equivalent with :b) — suggesting <C-^> as the direct shortcut between
--- them. New state alongside tokenize()/command_arg() above rather than a new
--- sibling file: it shares the same call path (both are fed from
--- logger.lua's handle_cmdline_key at <CR> time), which is the "shares the
--- same call path" branch of the module-splitting policy in
--- lua/tobira/CLAUDE.md, even though it shares no actual state with
--- tokenize()'s stateless parsing.
+-- them. See docs/adr/0004-ex-file-pingpong-detection.md.
 
 describe('patterns_cmdline ex_file_pingpong detection', function()
   local function pseq()
@@ -458,13 +437,7 @@ describe('patterns_cmdline ex_file_pingpong detection', function()
 end)
 
 -- ── tabnew one-file-per-tab habit detection (#113) ──────────────────────────
--- new_tabnew_seq()/feed_tabnew() form a second, independent state machine in
--- this same file (see patterns_cmdline.lua's module comment for why this
--- lives here rather than a new sibling file). feed_tabnew() is fed evidence
--- gathered at each ":tabnew" <CR> submission: the trimmed file argument text
--- (the second return value of command_arg() above, converted from nil to ''
--- by the caller — see logger.lua), and the window count of the tabpage this
--- invocation is about to leave (read by the caller — see logger.lua).
+-- See docs/adr/0005-tabnew-one-file-per-tab-detection.md.
 --
 -- The feature's own name is "one-tab-per-FILE" — feed_tabnew() only counts an
 -- argument toward the streak the first time that exact filename appears in
@@ -522,16 +495,10 @@ describe('patterns_cmdline tabnew one-file-per-tab habit detection (#113)', func
     assert.equals('<C-^>', result.cmd)
   end)
 
-  -- ── regression: repeated filename must not count as "another file" (QA) ──
-  -- Bug: feed_tabnew() used to receive only a has_arg boolean, so re-opening
-  -- the exact same file 3 times via :tabnew fired the "switch to buffers"
-  -- suggestion even though Vim reuses the existing buffer for a file already
-  -- open — there is only ever 1 real buffer in that scenario, making the
-  -- :b / <C-^> suggestion nonsensical. The fix threads the actual filename
-  -- through and resets the streak the moment a repeat is seen: re-opening a
-  -- file you already have open in another tab is a different, unrelated
-  -- habit, not "one-tab-per-file browsing" (see patterns_cmdline.lua's
-  -- feed_tabnew doc comment for the full reasoning).
+  -- regression (QA): feed_tabnew() used to track only a has_arg boolean, so
+  -- reopening the same file 3x via :tabnew fired the suggestion even though
+  -- Vim reuses the existing buffer — see
+  -- docs/adr/0005-tabnew-one-file-per-tab-detection.md.
   describe('when the exact same filename is opened via :tabnew repeatedly', function()
     it('never fires no matter how many times the same file is reopened', function()
       local seq = patterns_cmdline.new_tabnew_seq()
