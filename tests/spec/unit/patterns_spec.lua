@@ -995,13 +995,19 @@ end)
 -- ── v <Esc> v <Esc> v → gv (reselect last visual selection, #55) ────────────
 
 describe('when the user enters and immediately leaves visual mode 3 times in a row', function()
-  it('fires v_repeat suggesting gv on the 3rd v', function()
+  it('fires v_repeat suggesting gv on the 3rd clean <Esc>, not the 3rd v', function()
     local s = seq()
     patterns.feed(s, 'v', 1)
     patterns.feed(s, '\27', 1) -- <Esc>, 1st clean tap
     patterns.feed(s, 'v', 1)
     patterns.feed(s, '\27', 1) -- <Esc>, 2nd clean tap
-    local result = patterns.feed(s, 'v', 1) -- 3rd v → fires without needing another <Esc>
+    local third_v = patterns.feed(s, 'v', 1)
+    -- The 3rd v must NOT fire yet — whether it's another clean tap or the
+    -- start of genuine visual usage (viw, v$, ...) isn't known until the
+    -- next key arrives (#55 follow-up: firing on the v itself misfired on
+    -- v<Esc>v<Esc>viw).
+    assert.is_nil(third_v)
+    local result = patterns.feed(s, '\27', 1) -- <Esc> confirms the 3rd tap was also clean
     assert.is_not_nil(result)
     assert.equals('v_repeat', result.pattern)
     assert.equals('gv', result.cmd)
@@ -1013,6 +1019,26 @@ describe('when the user enters and immediately leaves visual mode 3 times in a r
     patterns.feed(s, '\27', 1)
     local result = patterns.feed(s, 'v', 1)
     assert.is_nil(result)
+  end)
+
+  it('does not fire when the 3rd v turns out to be genuine visual usage (v<Esc>v<Esc>viw)', function()
+    local s = seq()
+    patterns.feed(s, 'v', 1)
+    patterns.feed(s, '\27', 1) -- 1st clean tap
+    patterns.feed(s, 'v', 1)
+    patterns.feed(s, '\27', 1) -- 2nd clean tap
+    local third_v = patterns.feed(s, 'v', 1) -- 3rd v — must not fire eagerly
+    assert.is_nil(third_v)
+    local after_i = patterns.feed(s, 'i', 1) -- genuine text-object selection starts
+    assert.is_nil(after_i)
+    local after_w = patterns.feed(s, 'w', 1)
+    assert.is_nil(after_w)
+    -- ciw should still fire on its own merits (visual_textobj), but v_repeat
+    -- must never have fired for this sequence.
+    local result = patterns.feed(s, 'c', 1)
+    assert.is_not_nil(result)
+    assert.equals('visual_textobj', result.pattern)
+    assert.equals('ciw', result.cmd)
   end)
 
   it('does not fire when a real visual text-object selection happens between taps', function()
