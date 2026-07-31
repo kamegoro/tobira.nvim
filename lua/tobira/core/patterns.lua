@@ -758,11 +758,13 @@ local function inner_feed(seq, key, line, is_diff, now)
       return nil
     end
 
-    -- ── y: track yy for yy_then_p ────────────────────────────────────────
+    -- ── y: track yy for yy_then_p, y$ for y_dollar ───────────────────────
     if op == 'y' then
       if key == 'y' then
         seq.last_op = 'yy'
         seq.op_completed = true
+      elseif key == '$' then
+        return { pattern = 'y_dollar', cmd = 'Y' }
       end
       return nil
     end

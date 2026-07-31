@@ -59,12 +59,24 @@ end
 -- both need their own override check. This is the single choke point every
 -- call to do_show goes through, so ui/float.lua never has to special-case a
 -- remapped command itself.
+--
+-- The override check is NOT a blanket integrations.is_overridden(cmd) --
+-- Neovim ships a factory-default `nnoremap Y y$` (:help Y-default), so
+-- is_overridden('Y') is true on literally every install, which used to
+-- suppress the y_dollar -> 'Y' suggestion permanently everywhere (#177).
+-- integrations.is_equivalent_override(cmd) already exists to recognise this
+-- exact "harmless equivalent remap" case (built for graph.find_best's
+-- ambient path and ui/guide.lua's Pinned section); consulting it here too
+-- means a genuine override still suppresses (is_equivalent_override is false
+-- for it), while the default y$ mapping no longer does. For any cmd with no
+-- EQUIVALENT_REMAPS entry, is_equivalent_override(cmd) is always false, so
+-- this is identical to the old blanket check for every other command.
 local function should_suppress(cmd)
   local data = logger.get(cmd)
   return graph.is_mastered(data)
     or data.suppressed
     or data.shown >= config.values.max_shown
-    or integrations.is_overridden(cmd)
+    or (integrations.is_overridden(cmd) and not integrations.is_equivalent_override(cmd))
 end
 
 local function cancel_timer()

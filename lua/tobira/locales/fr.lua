@@ -86,6 +86,7 @@ return {
       dedent_run = 'Vous avez désindenté de la même façon 3 fois de suite',
       c_dollar = "Vous avez modifié du curseur jusqu'à la fin de la ligne",
       d_dollar = "Vous avez supprimé du curseur jusqu'à la fin de la ligne",
+      y_dollar = "Vous avez copié du curseur jusqu'à la fin de la ligne",
       dd_run = 'Vous avez supprimé des lignes seules 3 fois de suite',
       yy_then_p = 'Vous avez copié une ligne puis collée juste en dessous',
       dd_then_p = "Vous avez supprimé une ligne puis l'avez recollée en dessous",

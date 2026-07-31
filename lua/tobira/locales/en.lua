@@ -86,6 +86,7 @@ return {
       dedent_run = 'You dedented the same way 3 times in a row',
       c_dollar = 'You changed from the cursor to the end of the line',
       d_dollar = 'You deleted from the cursor to the end of the line',
+      y_dollar = 'You yanked from the cursor to the end of the line',
       dd_run = 'You deleted single lines 3 times in a row',
       yy_then_p = 'You yanked a line then pasted it right below',
       dd_then_p = 'You deleted a line then pasted it back below',
