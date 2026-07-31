@@ -348,8 +348,8 @@ EDIT ~
   `dd` → `p`                    Suggest `ddp`   — swap current line with next
   `dd` → `i` / `a` / `o`       Suggest `cc`    — change whole line
   `dd` × 3                      Suggest `{n}dd` — delete N lines at once
-  `ci"` × 3 (direct, not visual) Suggest `ya"` — yank around double quotes
-  `ci'` × 3 (direct, not visual) Suggest `ya'` — yank around single quotes
+  `ci"` × 3 (direct, not visual; nav ok between) Suggest `ya"` — yank around double quotes
+  `ci'` × 3 (direct, not visual; nav ok between) Suggest `ya'` — yank around single quotes
   `D` → `i` / `a` / `o`        Suggest `C`     — change to end of line
   `x` (once) → `i` / `a` / `o` Suggest `s`     — substitute char (delete + insert)
   `x` × 3                       Suggest `{n}x`  — delete N chars at once

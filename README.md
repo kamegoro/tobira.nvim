@@ -144,7 +144,7 @@ fires even on a stock install — a `Y` remapped to anything else still suppress
 | `j` × 10 in a row | `}` — jump by paragraph |
 | `j` × 10 in a row while `&diff` is set | `]c` — jump to the next diff hunk |
 | `dd` × 3 in a row | `{n}dd` — delete N lines at once |
-| `ci"` × 3 in a row | `ya"` — yank around the quotes (works for `'` too) |
+| `ci"` × 3 (navigation allowed between) | `ya"` — yank around the quotes (works for `'` too) |
 | `r{x}` × 3 in a row | `R` — enter replace mode |
 | `<C-w>q` / `<C-w>c` × 2 in a row | `<C-w>o` — close all other windows |
 | `<BS>` × 5 in insert mode | `<C-w>` — delete the whole word at once |

@@ -120,6 +120,30 @@ local RIGHTWARD_KEYS = {
   ['$'] = true,
 }
 
+-- Plain single-key motions tolerated between ci"/ci' completions without
+-- resetting ci_dquote_streak/ci_squote_streak (#53 live-QA follow-up). Unlike
+-- dd_streak/cc_streak/etc., which genuinely should reset on any intervening
+-- key, moving from one quoted string to the next necessarily requires a
+-- motion — realistic usage is `ci"..<Esc>` then `w`/`b`/`e`/`h`/`l`/`0`/`^`/
+-- `$`/`j`/`k` to reach the next string, then `ci"` again. This mirrors
+-- r_streak's h/l tolerance and ca_streak's j/k tolerance in inner_feed
+-- (below), just over the wider set of motions this particular streak
+-- realistically needs. Anything NOT in this table — entering insert mode for
+-- an unrelated edit, other operators, f"/F"-style searches, etc. — still
+-- resets both streaks via the check that uses this table.
+local CI_QUOTE_NAV_KEYS = {
+  w = true,
+  b = true,
+  e = true,
+  h = true,
+  l = true,
+  j = true,
+  k = true,
+  ['0'] = true,
+  ['^'] = true,
+  ['$'] = true,
+}
+
 -- ── jumplist / changelist underuse detection ────────────────────────────────
 -- Tolerance window: long enough to catch a real "read a few lines, then
 -- scroll back" case, short enough that an unrelated jump from minutes ago
@@ -977,6 +1001,20 @@ local function inner_feed(seq, key, line, is_diff, now)
     seq.ca_streak = 0
   end
 
+  -- ── ci_dquote_streak / ci_squote_streak reset for keys that break the ────
+  -- ── ci"/ci' repeat flow (#53 live-QA follow-up) ───────────────────────────
+  -- Deliberately NOT folded into the generic reset block further down (unlike
+  -- dd_streak/cc_streak/etc there, which really should hard-reset on any
+  -- intervening key): reaching a different quoted string to ci" it again
+  -- necessarily requires a motion in between, so CI_QUOTE_NAV_KEYS (above)
+  -- tolerates the ordinary single-key motions a user presses to get there.
+  -- Anything else reaching this point (an unrelated edit, another operator,
+  -- ...) still resets both streaks.
+  if not CI_QUOTE_NAV_KEYS[key] then
+    seq.ci_dquote_streak = 0
+    seq.ci_squote_streak = 0
+  end
+
   -- ── yy → p (duplicate line) ──────────────────────────────────────────────
   if key == 'p' and seq.last_op == 'yy' then
     seq.last_op = nil
@@ -1082,6 +1120,9 @@ local function inner_feed(seq, key, line, is_diff, now)
   -- for this G — so firing jump_back never bypasses it.
   local gg_then_G = key == 'G' and seq.last_op == 'gg'
 
+  -- ci_dquote_streak/ci_squote_streak are deliberately NOT reset here — see
+  -- their own dedicated tolerance check (CI_QUOTE_NAV_KEYS) earlier in this
+  -- function, right after the ca_streak reset.
   if key ~= 'p' then
     seq.last_op = nil
     seq.dd_streak = 0
@@ -1091,8 +1132,6 @@ local function inner_feed(seq, key, line, is_diff, now)
     seq.ctrl_w_close_streak = 0
     seq.v_streak = 0
     seq.v_clean_exit = false
-    seq.ci_dquote_streak = 0
-    seq.ci_squote_streak = 0
   end
 
   -- ── consecutive-run patterns (count computed early) ────────────────────────

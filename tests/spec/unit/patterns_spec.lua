@@ -1103,11 +1103,11 @@ describe('when the user changes inside double quotes (ci") 3 times in a row', fu
     assert.is_nil(result)
   end)
 
-  it('resets the streak when an unrelated key interrupts the repeats', function()
+  it('resets the streak when an unrelated edit interrupts the repeats', function()
     local s = seq()
     feed(s, { 'c', 'i', '"' }, 1)
     feed(s, { 'c', 'i', '"' }, 1)
-    patterns.feed(s, 'j', 1) -- unrelated key: interrupts
+    patterns.feed(s, 'x', 1) -- unrelated edit: interrupts (not a tolerated nav key, see below)
     feed(s, { 'c', 'i', '"' }, 1)
     local result = feed(s, { 'c', 'i', '"' }, 1)
     assert.is_nil(result)
@@ -1155,6 +1155,117 @@ describe("when the user changes inside single quotes (ci') 3 times in a row", fu
     feed(s, { 'c', 'i', "'" }, 1)
     local result = feed(s, { 'c', 'i', "'" }, 1)
     assert.is_nil(result)
+  end)
+end)
+
+-- ── ci_dquote_streak / ci_squote_streak tolerate plain navigation between ──
+-- completions (#53 live-QA follow-up: the advertised feature almost never
+-- fired in realistic usage, since ordinary navigation between two different
+-- quoted strings reset the streak on the very first navigation keystroke).
+
+describe('when plain single-key navigation connects ci" completions on different strings', function()
+  it('fires ci_dquote_repeat suggesting ya" for the realistic ci"..<Esc> w w ci"..<Esc> w w ci" flow', function()
+    local s = seq()
+    feed(s, { 'c', 'i', '"' }, 1) -- 1st, on string A
+    patterns.feed(s, 'w', 1)
+    patterns.feed(s, 'w', 1)
+    feed(s, { 'c', 'i', '"' }, 1) -- 2nd, on string B (reached via w w)
+    patterns.feed(s, 'w', 1)
+    patterns.feed(s, 'w', 1)
+    local result = feed(s, { 'c', 'i', '"' }, 1) -- 3rd, on string C (reached via w w) → fires
+    assert.is_not_nil(result)
+    assert.equals('ci_dquote_repeat', result.pattern)
+    assert.equals('ya"', result.cmd)
+  end)
+
+  it('tolerates b/e/h/l/0/^/$/j/k the same way w is tolerated, without breaking the streak', function()
+    local s = seq()
+    local nav_keys = { 'b', 'e', 'h', 'l', '0', '^', '$', 'j', 'k' }
+    feed(s, { 'c', 'i', '"' }, 1)
+    for _, k in ipairs(nav_keys) do
+      patterns.feed(s, k, 1)
+    end
+    feed(s, { 'c', 'i', '"' }, 1)
+    for _, k in ipairs(nav_keys) do
+      patterns.feed(s, k, 1)
+    end
+    local result = feed(s, { 'c', 'i', '"' }, 1)
+    assert.is_not_nil(result)
+    assert.equals('ci_dquote_repeat', result.pattern)
+    assert.equals('ya"', result.cmd)
+  end)
+
+  it('still resets the streak when an unrelated edit interrupts, even though w is tolerated', function()
+    local s = seq()
+    feed(s, { 'c', 'i', '"' }, 1)
+    patterns.feed(s, 'w', 1)
+    feed(s, { 'c', 'i', '"' }, 1)
+    patterns.feed(s, 'x', 1) -- unrelated edit operation: still breaks the streak
+    feed(s, { 'c', 'i', '"' }, 1)
+    local result = feed(s, { 'c', 'i', '"' }, 1)
+    assert.is_nil(result)
+  end)
+
+  it('still lets f"-navigation connect completions the same as before this fix', function()
+    local s = seq()
+    feed(s, { 'c', 'i', '"' }, 1)
+    patterns.feed(s, 'f', 1)
+    patterns.feed(s, '"', 1)
+    feed(s, { 'c', 'i', '"' }, 1)
+    patterns.feed(s, 'f', 1)
+    patterns.feed(s, '"', 1)
+    local result = feed(s, { 'c', 'i', '"' }, 1)
+    assert.is_not_nil(result)
+    assert.equals('ci_dquote_repeat', result.pattern)
+    assert.equals('ya"', result.cmd)
+  end)
+
+  it('still fires for the same-quote-pair re-edit case (no navigation at all) as before this fix', function()
+    local s = seq()
+    feed(s, { 'c', 'i', '"' }, 1)
+    feed(s, { 'c', 'i', '"' }, 1)
+    local result = feed(s, { 'c', 'i', '"' }, 1)
+    assert.is_not_nil(result)
+    assert.equals('ci_dquote_repeat', result.pattern)
+    assert.equals('ya"', result.cmd)
+  end)
+end)
+
+describe("when plain single-key navigation connects ci' completions on different strings", function()
+  it("fires ci_squote_repeat suggesting ya' with w navigation between three different strings", function()
+    local s = seq()
+    feed(s, { 'c', 'i', "'" }, 1)
+    patterns.feed(s, 'w', 1)
+    feed(s, { 'c', 'i', "'" }, 1)
+    patterns.feed(s, 'w', 1)
+    local result = feed(s, { 'c', 'i', "'" }, 1)
+    assert.is_not_nil(result)
+    assert.equals('ci_squote_repeat', result.pattern)
+    assert.equals("ya'", result.cmd)
+  end)
+
+  it('keeps the dquote and squote streaks independently trackable across navigation', function()
+    local s = seq()
+    -- Build a squote streak to completion first, tolerating w navigation.
+    feed(s, { 'c', 'i', "'" }, 1)
+    patterns.feed(s, 'w', 1)
+    feed(s, { 'c', 'i', "'" }, 1)
+    patterns.feed(s, 'w', 1)
+    local squote_result = feed(s, { 'c', 'i', "'" }, 1)
+    assert.is_not_nil(squote_result)
+    assert.equals('ci_squote_repeat', squote_result.pattern)
+
+    -- Then build a fresh dquote streak from scratch, also tolerating w
+    -- navigation — confirms the squote streak firing/resetting above left
+    -- the dquote counter untouched.
+    feed(s, { 'c', 'i', '"' }, 1)
+    patterns.feed(s, 'w', 1)
+    feed(s, { 'c', 'i', '"' }, 1)
+    patterns.feed(s, 'w', 1)
+    local dquote_result = feed(s, { 'c', 'i', '"' }, 1)
+    assert.is_not_nil(dquote_result)
+    assert.equals('ci_dquote_repeat', dquote_result.pattern)
+    assert.equals('ya"', dquote_result.cmd)
   end)
 end)
 
