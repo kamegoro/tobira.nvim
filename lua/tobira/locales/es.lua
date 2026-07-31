@@ -114,6 +114,7 @@ return {
       h_repeat = 'Pulsaste h 5 veces seguidas',
       w_repeat = 'Pulsaste w 5 veces seguidas',
       b_repeat = 'Pulsaste b 5 veces seguidas',
+      e_repeat = 'Pulsaste e 5 veces seguidas',
       p_repeat = 'Pegaste 3 veces seguidas',
       P_repeat = 'Pegaste antes del cursor 3 veces seguidas',
       p_then_rightward = 'Pegaste y luego moviste el cursor a la derecha varias veces, pasando el texto pegado',

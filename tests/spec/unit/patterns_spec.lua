@@ -130,6 +130,7 @@ local run_cases = {
   { key = 'n', threshold = 4, pattern = 'n_repeat', cmd = 'cgn' },
   { key = 'w', threshold = 5, pattern = 'w_repeat', cmd = 'W' },
   { key = 'b', threshold = 5, pattern = 'b_repeat', cmd = 'B' },
+  { key = 'e', threshold = 5, pattern = 'e_repeat', cmd = 'ge' },
   { key = 'P', threshold = 3, pattern = 'P_repeat', cmd = '{n}P' },
   { key = '~', threshold = 3, pattern = 'tilde_repeat', cmd = '{n}~' },
   { key = '.', threshold = 3, pattern = 'dot_repeat', cmd = '{n}.' },

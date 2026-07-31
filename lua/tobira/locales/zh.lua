@@ -114,6 +114,7 @@ return {
       h_repeat = '你连续按了 5 次 h',
       w_repeat = '你连续按了 5 次 w',
       b_repeat = '你连续按了 5 次 b',
+      e_repeat = '你连续按了 5 次 e',
       p_repeat = '你连续粘贴了 3 次',
       P_repeat = '你连续在光标前粘贴了 3 次',
       p_then_rightward = '你粘贴后向右移动光标多次,越过了刚粘贴的内容',

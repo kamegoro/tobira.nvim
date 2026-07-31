@@ -1188,6 +1188,8 @@ local function inner_feed(seq, key, line, is_diff, now)
     return { pattern = 'w_repeat', cmd = 'W' }
   elseif key == 'b' and count == 5 then
     return { pattern = 'b_repeat', cmd = 'B' }
+  elseif key == 'e' and count == 5 then
+    return { pattern = 'e_repeat', cmd = 'ge' }
   elseif key == 'p' and count == 3 then
     return { pattern = 'p_repeat', cmd = '{n}p' }
   elseif key == 'P' and count == 3 then

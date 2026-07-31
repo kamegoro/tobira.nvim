@@ -114,6 +114,7 @@ return {
       h_repeat = 'You pressed h 5 times in a row',
       w_repeat = 'You pressed w 5 times in a row',
       b_repeat = 'You pressed b 5 times in a row',
+      e_repeat = 'You pressed e 5 times in a row',
       p_repeat = 'You pasted 3 times in a row',
       P_repeat = 'You pasted before the cursor 3 times in a row',
       p_then_rightward = 'You pasted then moved the cursor right past it several times',
