@@ -257,12 +257,10 @@ describe('session tracking', function()
 end)
 
 -- ── zero-padding for untouched commands (#62 prerequisite) ─────────────────────
--- close_session() previously only appended a sessions[] entry for commands
--- actually used that session, so "sessions[len] == 0" (an idle real session)
--- could never occur from real usage — is_forgotten()'s "last 2 sessions are 0"
--- check was effectively dead on production data. This backfills a 0 for every
--- already-known command that went untouched, so decay-based scoring has a
--- real "time passed with no use" signal to work with.
+-- Regression coverage for #62: close_session() previously only appended a
+-- sessions[] entry for commands actually used that session, so decay-based
+-- scoring never saw a real "idle session" signal. See logger.lua's
+-- close_session for the fix.
 
 describe('when a known command goes untouched for a session', function()
   before_each(function()
@@ -498,17 +496,11 @@ end)
 
 -- ── Visual mode: route keystrokes through pattern tracking instead of ───────
 -- ── wiping state (#179) ───────────────────────────────────────────────────
--- Unlike Insert mode (see tests/CLAUDE.md — vim.fn.mode() always reports 'n'
--- in headless Neovim, so Insert-mode tests must stub vim.fn.mode() and fire
--- a synthetic ModeChanged), headless Neovim CAN genuinely enter real Visual
--- mode via feedkeys('...', 'xt') — confirmed empirically: vim.fn.mode()
--- reports 'v' after a real 'v' keypress, and the real ModeChanged autocmd
--- fires exactly as it would interactively. So these tests drive the actual
--- v/i/w/c/<Esc> keystrokes end-to-end with no mode stub at all — this is
--- the same real Normal→Visual→Normal race QA observed live: the 'v' that
--- starts a Visual session is itself processed by vim.on_key while
--- current_mode is still 'n' (its own ModeChanged fires only after), and
--- every subsequent key genuinely arrives with current_mode == 'v'.
+-- See docs/adr/0017-mode-cache-state-reset-boundaries.md for the routing bug
+-- this covers. Unlike Insert mode (vim.fn.mode() always reports 'n' in
+-- headless Neovim — see tests/CLAUDE.md), headless Neovim CAN genuinely enter
+-- real Visual mode via feedkeys, so these tests drive the actual
+-- v/i/w/c/<Esc> keystrokes end-to-end with no mode stub at all.
 
 describe('when the user is in Visual mode', function()
   local esc = vim.api.nvim_replace_termcodes('<Esc>', true, false, true)
@@ -1160,17 +1152,12 @@ describe('insert-mode <C-o> one-shot detection (#105)', function()
   end)
 end)
 
--- patterns.feed() (patterns.lua) and feed_after_escape() (patterns_insert.lua,
--- #105) are both fed the same Normal-mode keystroke in handle_key and can
--- both produce a result for it — e.g. <Esc>0i matches patterns.lua's
--- zero_col_then_insert (0 then i -> suggest gI) AND patterns_insert.lua's
--- insert_co_oneshot (Esc, one motion, back to insert -> suggest <C-o>).
--- Before this reconciliation existed, whichever call happened to run second
--- in handle_key's source order won the race in suggest.queue() by accident.
--- logger.lua now decides deterministically: patterns.lua's result (a
--- pre-existing, more specific suggestion) always takes priority over
--- patterns_insert.lua's generic insert_co_oneshot hint for the same
--- keystroke. See logger.lua's handle_key for the implementation.
+-- Regression coverage for the priority reconciliation in logger.lua's
+-- handle_key: patterns.feed() and feed_after_escape() are both fed the same
+-- keystroke and can both fire (e.g. <Esc>0i matches both zero_col_then_insert
+-- and insert_co_oneshot). See
+-- docs/adr/0016-pattern-dispatch-priority-and-key-collisions.md for why
+-- patterns.lua's result always wins.
 describe('reconciling insert_co_oneshot with pre-existing specific patterns (priority)', function()
   local esc = vim.api.nvim_replace_termcodes('<Esc>', true, false, true)
 
@@ -1243,15 +1230,10 @@ describe('reconciling insert_co_oneshot with pre-existing specific patterns (pri
 end)
 
 -- ── Ex command tracking (#57) ────────────────────────────────────────────────
--- vim.on_key sees every keystroke including cmdline ones. Confirmed
--- empirically (not just assumed): querying vim.fn.getcmdtype()/getcmdline()
--- from inside the on_key callback for the terminating <CR>/<Esc> keystroke
--- still reports the PRE-submission state (mode/cmdtype have not flipped back
--- to normal yet, and getcmdline() still holds the full buffer content) —
--- same timing property patterns_insert.lua's bounce-detection design note
--- relies on for <Esc> vs insert mode. Unlike insert mode, cmdline mode is
--- genuinely enterable via feedkeys in headless Neovim, so these tests need
--- no vim.fn.mode() stubbing.
+-- See docs/adr/0015-ex-command-verify-before-credit.md for the vim.on_key
+-- timing this relies on. Unlike insert mode, cmdline mode is genuinely
+-- enterable via feedkeys in headless Neovim, so these tests need no
+-- vim.fn.mode() stubbing.
 
 describe('Ex command tracking (#57)', function()
   local esc = vim.api.nvim_replace_termcodes('<Esc>', true, true, true)
@@ -1339,13 +1321,10 @@ describe('Ex command tracking (#57)', function()
 end)
 
 -- ── Ex command tracking excludes tobira's own commands (QA bug on #57) ──────
--- Running tobira's own UI commands (:TobiraStats, :TobiraGuide, ...) got
--- tokenized and tracked as Ex-command usage themselves -- e.g. running
--- :TobiraReset once made "ex:tobirastats" show up as a top command in
--- :TobiraStats, even though the user only ever ran :TobiraReset. Any command
--- whose tokenized name starts with tobira's own command prefix must never be
--- tracked. See plugin/tobira.lua for the definitive list of registered
--- commands (all share the 'Tobira' prefix).
+-- Regression coverage for a QA-found bug: running tobira's own UI commands
+-- got tracked as Ex-command usage themselves — e.g. :TobiraReset once made
+-- "ex:tobirastats" show up as a top command in :TobiraStats. See
+-- docs/adr/0015-ex-command-verify-before-credit.md for the exclusion design.
 
 describe("Ex command tracking excludes tobira's own commands", function()
   local esc = vim.api.nvim_replace_termcodes('<Esc>', true, true, true)
@@ -1449,15 +1428,10 @@ describe('Repeated substitute detection (#115)', function()
   local function run_substitute(text)
     pcall(vim.fn.feedkeys, ':' .. text .. cr, 'xt')
     vim.api.nvim_feedkeys('', 'x', false)
-    -- Verify-before-credit fix (bug found by QA, same problem/timing class as
-    -- #114's ex_file_pingpong fix): the actual credit is now deferred to
-    -- vim.schedule(), which only runs once Neovim has fully processed this
-    -- <CR> (command succeeded, or already failed, against the buffer's
-    -- changedtick snapshotted right before it ran). Each call needs to let
-    -- that settle before the next one starts, otherwise multiple pending
-    -- callbacks in these tests' synthetic back-to-back feedkeys would all
-    -- resolve against whatever changedtick is current by then rather than
-    -- each against the outcome of ITS OWN command.
+    -- Credit is deferred to vim.schedule() (see
+    -- docs/adr/0015-ex-command-verify-before-credit.md) — wait for it to
+    -- settle before the next call, or multiple pending callbacks would all
+    -- resolve against whatever changedtick is current by then.
     vim.wait(20)
   end
 
@@ -1630,12 +1604,9 @@ describe(':e/:b file ping-pong detection (#114)', function()
       table.insert(fired, { pattern = pattern, cmd = cmd })
     end
 
-    -- The actual credit for each switch is now deferred (vim.schedule, #114
-    -- verify-before-credit fix), so each command needs a short vim.wait()
-    -- before the next one starts -- otherwise multiple pending callbacks
-    -- would all resolve at once, against whatever buffer is current by then,
-    -- rather than each against the buffer immediately after ITS OWN command
-    -- (see logger.lua's handle_cmdline_key comment on vim.schedule ordering).
+    -- Credit is deferred (see
+    -- docs/adr/0015-ex-command-verify-before-credit.md), so each command
+    -- needs a short vim.wait() before the next one starts.
     pcall(vim.fn.feedkeys, ':e tobira_pingpong_a.txt' .. cr, 'xt')
     vim.api.nvim_feedkeys('', 'x', false)
     vim.wait(20)
@@ -1708,14 +1679,10 @@ describe(':e/:b file ping-pong detection (#114)', function()
   end)
 
   it('resets the ping-pong history on logger.reset()', function()
-    -- Each command's deferred verification (#114 fix) must settle BEFORE
-    -- logger.reset() reassigns the module-local pingpong_seq -- otherwise
-    -- these two commands' still-pending callbacks would run against the
-    -- fresh post-reset seq instead of the one they belong to. In real usage
-    -- there's no way for a stale callback to still be pending by the time a
-    -- user deliberately runs :TobiraReset (see logger.lua's ordering
-    -- comment); this vim.wait() only recreates that natural settling point
-    -- for a synthetic back-to-back test.
+    -- Deferred verification (see
+    -- docs/adr/0015-ex-command-verify-before-credit.md) must settle before
+    -- logger.reset() reassigns pingpong_seq, or these callbacks would run
+    -- against the fresh post-reset seq instead of the one they belong to.
     pcall(vim.fn.feedkeys, ':e tobira_pingpong_h.txt' .. cr, 'xt')
     vim.api.nvim_feedkeys('', 'x', false)
     vim.wait(20)
@@ -1933,11 +1900,8 @@ describe('when save is called explicitly', function()
 end)
 
 -- ── clear_disk (:TobiraReset, #122) ─────────────────────────────────────────
--- save() deliberately merges with disk so concurrent instances never clobber
--- each other. :TobiraReset's "erase everything" action needs the opposite
--- guarantee — an empty in-memory `usage` must actually end up empty on disk,
--- not get merged back up to whatever was there before. clear_disk() is the
--- dedicated escape hatch for that one caller.
+-- See docs/adr/0014-usage-json-concurrent-merge-and-migration.md for why
+-- clear_disk() bypasses save()'s merge-with-disk behavior.
 
 describe('when clear_disk is called after a reset', function()
   before_each(function()
@@ -2020,11 +1984,10 @@ describe('when a concurrent Neovim instance has written counts to disk', functio
 end)
 
 -- ── concurrent-instance field protection (#122) ───────────────────────────────
--- close_session() already merged `.count`; these cover every OTHER
--- save-triggering function (mark_shown, set_suppressed, ...) and every OTHER
--- field (.sessions, .suppressed, .pinned, .celebrated), which previously had
--- no merge at all — a save from any of them clobbered whatever a concurrent
--- Neovim instance had just written.
+-- Regression coverage for #122 — every save-triggering function and field
+-- other than close_session()/.count. See
+-- docs/adr/0014-usage-json-concurrent-merge-and-migration.md for the merge
+-- strategy these exercise.
 
 describe('when a concurrent Neovim instance has suppressed a command', function()
   before_each(function()
