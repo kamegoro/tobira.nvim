@@ -110,15 +110,9 @@ describe('every non-compound entry in the registry', function()
 end)
 
 -- ── ambient exclusion for reactive-only entries (#110 fix) ───────────────────
--- `ambient = false` opts a registry entry out of graph.find_best()'s
--- candidate pool (see graph.lua / graph_spec.lua). It is reserved for
--- entries that are BOTH: (1) reactive-only — the suggestion only makes
--- sense as a direct reply to a just-detected pattern, never as a proactive
--- idle-time nudge — and (2) structurally unable to ever earn a real usage
--- count of their own, which would otherwise make find_best() score them
--- unrealistically high forever. This list must only grow deliberately: a
--- new entry here needs the same reasoning documented in commands.lua next
--- to it, not just the flag.
+-- `ambient = false` opts a registry entry out of graph.find_best()'s candidate
+-- pool. See docs/adr/0002-reactive-only-ambient-exclusion.md for the criteria;
+-- this list must only grow deliberately.
 
 describe('reactive-only ambient exclusion', function()
   it('marks <C-\\><C-n> as ambient = false (#110 fix)', function()
@@ -522,10 +516,8 @@ describe('tracking integrity', function()
     -- never recorded due to a separate bug (last_op is hardcoded to 'dd' for
     -- any doubled operator, not op .. op) — tracked separately as #118.
     ['>>'] = true,
-    -- ya" / ya' (#53): reactive-only, fired directly by ci_dquote_repeat /
-    -- ci_squote_repeat (patterns.lua) — never routed through find_best().
-    -- Their nominal requires ('ci"' / "ci'") is itself KNOWN_DEFERRED just
-    -- above, so this entry is deferred for the same reason, one hop removed.
+    -- ya" / ya' (#53): reactive-only (docs/adr/0007-reactive-only-direct-fire-entries.md);
+    -- deferred one hop removed since their nominal requires is itself above.
     ['ya"'] = true,
     ["ya'"] = true,
   }
@@ -571,12 +563,8 @@ describe('tracking integrity', function()
 end)
 
 -- ── i_<C-o>: insert-mode <C-o> composite key (#105) ──────────────────────────
--- The normal-mode '<C-o>' entry above already owns that raw key string for
--- jumplist-back. Insert-mode <C-o> (run exactly one normal command, then
--- auto-return to insert) is a different command bound to the identical
--- physical keystroke, and a Lua table can only hold one entry per key
--- string — so it lives under the composite key 'i_<C-o>' instead (see the
--- registry comment on that entry for the full collision story).
+-- See docs/adr/0003-composite-keys-for-dual-meaning-bytes.md for why this
+-- lives under a composite key instead of the literal '<C-o>' string.
 
 describe("the 'i_<C-o>' registry entry (insert-mode <C-o>, #105)", function()
   it('is a distinct entry from the normal-mode jumplist-back <C-o>', function()
@@ -731,15 +719,9 @@ local function find_track_byte_collisions(registry, exceptions)
   return collisions
 end
 
--- Insert-mode '<C-w>' (delete word before cursor) is deliberately track=false
--- in the real registry precisely so it never enters this check — it shares
--- its raw byte with the normal-mode '<C-w>' window-command prefix on
--- purpose (see the '<C-w>' entry's comment in commands.lua) and is counted
--- through a separate path (logger.lua's INSERT_SPECIAL), never through the
--- generic TRACK table. It is listed here anyway, by name, so the exception
--- is documented at the point of use and the detector's contract stays
--- explicit: "no undocumented collisions", not "no collisions we forgot to
--- check for".
+-- Insert-mode '<C-w>' is deliberately track=false so it never enters this
+-- check (see docs/adr/0003-composite-keys-for-dual-meaning-bytes.md). Listed
+-- here anyway, by name, so the exception is documented at the point of use.
 local TRACK_COLLISION_EXCEPTIONS = {
   ['<C-w>'] = true,
 }
