@@ -123,6 +123,7 @@ return {
       J_repeat = '你连续合并了 3 次行',
       ca_run = '你增加了一个数字、下移一行，并重复了 3 次',
       ctrl_w_close_repeat = '你连续 2 次逐个关闭窗口',
+      v_repeat = '你连续 3 次进入又立即退出可视模式，没有选中任何内容',
       manual_return = '你跳转到一个较远的位置，然后手动滚动返回',
       changelist_return = '你编辑了两个不同的位置，然后手动滚动返回查找第一个位置',
       terminal_esc_repeat = '你在终端模式下连续按了两次 <Esc> 但没有效果',

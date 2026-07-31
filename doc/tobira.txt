@@ -358,6 +358,7 @@ EDIT ~
   `>>` × 3                      Suggest `{n}>>` — indent N lines at once
   `<<` × 3                      Suggest `{n}<<` — dedent N lines at once
   `v` `i/a` `{obj}` `c/d/y`    Suggest direct operator (e.g. `ciw`, `di"`, `ya(`)
+  `v` → `<Esc>` × 3            Suggest `gv`    — reselect the last visual selection
   `p` / `P` → rightward × 3    Suggest `gp` / `gP` — paste, leave cursor after it
   `<C-a>` → `j` × 3             Suggest `g<C-a>` — visual-block sequential increment
   `gq` → jump back              Suggest `gw`    — format without moving the cursor

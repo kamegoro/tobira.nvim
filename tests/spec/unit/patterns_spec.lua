@@ -992,6 +992,66 @@ describe('when the user selects an inner text object visually then operates', fu
   end)
 end)
 
+-- ── v <Esc> v <Esc> v → gv (reselect last visual selection, #55) ────────────
+
+describe('when the user enters and immediately leaves visual mode 3 times in a row', function()
+  it('fires v_repeat suggesting gv on the 3rd v', function()
+    local s = seq()
+    patterns.feed(s, 'v', 1)
+    patterns.feed(s, '\27', 1) -- <Esc>, 1st clean tap
+    patterns.feed(s, 'v', 1)
+    patterns.feed(s, '\27', 1) -- <Esc>, 2nd clean tap
+    local result = patterns.feed(s, 'v', 1) -- 3rd v → fires without needing another <Esc>
+    assert.is_not_nil(result)
+    assert.equals('v_repeat', result.pattern)
+    assert.equals('gv', result.cmd)
+  end)
+
+  it('does not fire after only 2 clean taps', function()
+    local s = seq()
+    patterns.feed(s, 'v', 1)
+    patterns.feed(s, '\27', 1)
+    local result = patterns.feed(s, 'v', 1)
+    assert.is_nil(result)
+  end)
+
+  it('does not fire when a real visual text-object selection happens between taps', function()
+    local s = seq()
+    patterns.feed(s, 'v', 1)
+    patterns.feed(s, '\27', 1) -- 1st clean tap
+    patterns.feed(s, 'v', 1)
+    patterns.feed(s, 'i', 1)
+    patterns.feed(s, 'w', 1)
+    patterns.feed(s, 'c', 1) -- real usage (ciw) breaks the streak
+    patterns.feed(s, 'v', 1)
+    local result = patterns.feed(s, '\27', 1) -- only 1 clean tap since the break
+    assert.is_nil(result)
+  end)
+
+  it('does not fire when an unrelated key interrupts the taps', function()
+    local s = seq()
+    patterns.feed(s, 'v', 1)
+    patterns.feed(s, '\27', 1) -- 1st clean tap
+    patterns.feed(s, 'x', 1) -- unrelated key breaks the streak
+    patterns.feed(s, 'v', 1)
+    patterns.feed(s, '\27', 1)
+    local result = patterns.feed(s, 'v', 1) -- only 2 clean taps since the break
+    assert.is_nil(result)
+  end)
+
+  it('does not confuse 3 genuine v-then-text-object actions with 3 bare taps', function()
+    local s = seq()
+    for _ = 1, 3 do
+      patterns.feed(s, 'v', 1)
+      patterns.feed(s, 'i', 1)
+      patterns.feed(s, 'w', 1)
+      patterns.feed(s, 'c', 1) -- ciw each time, never an <Esc> tap
+    end
+    local result = patterns.feed(s, 'v', 1)
+    assert.is_nil(result)
+  end)
+end)
+
 -- ── c$ → C (change to end of line) ──────────────────────────────────────────
 
 describe('when the user changes to end of line with c$', function()

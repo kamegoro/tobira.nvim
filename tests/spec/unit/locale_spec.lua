@@ -168,6 +168,7 @@ describe('float.reasons locale', function()
     'r_run',
     'tilde_repeat',
     'u_repeat',
+    'v_repeat',
     'visual_textobj',
     'w_repeat',
     'x_repeat',

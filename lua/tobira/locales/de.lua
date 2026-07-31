@@ -123,6 +123,7 @@ return {
       J_repeat = 'Du hast 3-mal hintereinander Zeilen zusammengeführt',
       ca_run = 'Du hast eine Zahl erhöht, eine Zeile weiterbewegt und das 3-mal wiederholt',
       ctrl_w_close_repeat = 'Du hast 2-mal hintereinander Fenster einzeln geschlossen',
+      v_repeat = 'Du bist 3-mal hintereinander in den visuellen Modus gegangen und sofort wieder heraus, ohne etwas auszuwählen',
       manual_return = 'Du bist zu einer entfernten Stelle gesprungen und dann manuell zurückgescrollt',
       changelist_return = 'Du hast an zwei verschiedenen Stellen bearbeitet und bist dann manuell zurückgescrollt, um die erste wiederzufinden',
       terminal_esc_repeat = 'Du hast im Terminal-Modus zweimal hintereinander <Esc> gedrückt, ohne Effekt',
