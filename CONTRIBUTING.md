@@ -31,6 +31,16 @@ nvim --headless --noplugin -u tests/minimal_init.lua \
   -c "PlenaryBustedDirectory tests/spec/ {minimal_init = 'tests/minimal_init.lua', sequential = true}"
 ```
 
+### `git blame` and comment-cleanup commits
+
+Commits that are purely comment/docs cleanup (see `docs/adr/README.md`) get their SHA
+added to `.git-blame-ignore-revs` so they don't stand between you and the commit that
+actually last changed a line's meaning. This isn't automatic — opt in once locally:
+
+```bash
+git config blame.ignoreRevsFile .git-blame-ignore-revs
+```
+
 ### Manual testing
 
 Use `NVIM_APPNAME` to isolate from your personal config:

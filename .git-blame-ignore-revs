@@ -1,0 +1,11 @@
+# Commits listed here are skipped by `git blame` when it is invoked with
+# `--ignore-revs-file .git-blame-ignore-revs` (or with
+# `git config blame.ignoreRevsFile .git-blame-ignore-revs` set once locally —
+# see lua/tobira/CLAUDE.md).
+#
+# Add the SHA of any commit whose diff is comments/docs-only (formatting
+# sweeps, comment-to-ADR migrations, etc.) so `git blame` keeps attributing
+# a line to whoever last changed its actual meaning, not to the cleanup
+# commit that only reformatted the comment around it.
+#
+# One full 40-char SHA per line. Append, never rewrite existing entries.
