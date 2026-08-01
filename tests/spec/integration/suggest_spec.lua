@@ -402,13 +402,10 @@ describe('when :Tobira is invoked manually', function()
 end)
 
 -- ── ambient exclusion for reactive-only entries (#110 fix) ───────────────────
--- <C-\><C-n> (exit terminal mode) is marked ambient = false in commands.lua:
--- its own usage count can never be incremented by anything, so before this
--- fix it would win find_best() outright from bare 'i' usage alone, and
--- suggest it with body text presupposing terminal usage that never
--- happened. These tests cover both ends: find_best-backed paths (manual and
--- idle-ambient) must never surface it from 'i' usage; the direct reactive
--- path (a real terminal_esc_repeat firing) must be completely unaffected.
+-- <C-\><C-n> is ambient = false (see docs/adr/0007-reactive-only-ambient-exclusion.md).
+-- These tests cover both ends: find_best-backed paths (manual and idle-ambient)
+-- must never surface it from bare 'i' usage; the direct reactive path (a real
+-- terminal_esc_repeat firing) must remain completely unaffected.
 
 describe('when the user has real i usage but has never triggered a terminal-mode <Esc> streak (#110)', function()
   before_each(function()
@@ -474,16 +471,7 @@ describe('when a real terminal_esc_repeat pattern fires (#110 reactive path, mus
 end)
 
 -- ── terminal category cooldown exemption (#166 follow-up) ───────────────────
--- Bug: suggestion_cooldown is a single global gate with no per-category
--- exception, so ANY prior auto suggestion (ambient or reactive) firing
--- within the cooldown window silently drops a terminal_esc_repeat that
--- fires afterwards -- not a delay, a permanent loss for that Esc-streak,
--- since patterns_terminal.lua's latch never re-fires it. This reproduces
--- the exact symptom #166/#173 originally set out to fix ("the terminal
--- suggestion never becomes visible"), through a completely different
--- mechanism than the float's auto-dismiss duration. Fix: entries in the
--- 'terminal' category bypass the cooldown gate, the same way :Tobira
--- manual already bypasses it -- see suggest.lua's bypasses_cooldown().
+-- See docs/adr/0046-terminal-category-cooldown-bypass.md for the bug and fix.
 describe('when an unrelated suggestion has already started the cooldown clock, then terminal_esc_repeat fires', function()
   before_each(function()
     wipe_disk()
@@ -545,10 +533,8 @@ describe('when the terminal category cooldown bypass is combined with max_shown 
   end)
 
   it('still stops after max_shown, even though the cooldown no longer gates repeats', function()
-    -- patterns_terminal.lua's own latch (fires once per Esc-streak) is the
-    -- real spam guard once the cooldown is bypassed -- this test pins down
-    -- that max_shown is still a working second line of defense at the
-    -- suggest.lua layer regardless, in case that latch is ever weakened.
+    -- Pins down max_shown as a second line of defense once the cooldown is
+    -- bypassed (see ADR 0046's "defense in depth" consequence).
     config.setup({ suggestion_cooldown = 3600, max_shown = 1 })
     local shown_count = 0
     suggest.on_show = function()
@@ -1276,15 +1262,8 @@ describe('when a suggestion is shown but never adopted', function()
 end)
 
 -- ── equivalent-override suppression for reactive suggestions (#177 fix) ────
--- Bug: every Neovim install ships a factory-default `nnoremap Y y$` (:help
--- Y-default). integrations.is_overridden('Y') can therefore never be false on
--- a stock config, so should_suppress's old blanket `integrations.is_overridden
--- (cmd)` check suppressed the reactive y_dollar → 'Y' suggestion on literally
--- every install, permanently. integrations.lua already has
--- is_equivalent_override(cmd) (built for the ambient find_best path) to
--- recognise this exact case; these tests pin down that should_suppress now
--- consults it for the reactive path too, without weakening suppression for
--- any command that has no EQUIVALENT_REMAPS entry.
+-- See docs/adr/0045-equivalent-override-suppression-exemption.md for the bug
+-- and fix; these tests pin down should_suppress's reactive-path behavior.
 describe('when the only "override" present for Y is the default y$ mapping (#177 regression)', function()
   local orig_is_overridden, orig_is_equivalent_override
 
