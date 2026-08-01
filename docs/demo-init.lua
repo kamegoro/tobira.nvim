@@ -75,8 +75,8 @@ pcall(require('nvim-treesitter.configs').setup, {
 })
 
 -- nvim-notify — optional; tobira's suggestion window borrows its highlight
--- groups for color matching when present, but never routes through it or
--- vim.notify directly (it always renders its own floating window).
+-- groups for color matching when present, but always renders its own floating
+-- window rather than routing through vim.notify.
 vim.opt.rtp:prepend(lazy_root .. '/nvim-notify')
 require('notify').setup({
   background_colour = '#1e1e2e',
@@ -88,22 +88,10 @@ vim.notify = require('notify')
 
 -- ── seed usage data ───────────────────────────────────────────────────────────
 --
--- Designed to show a realistic "intermediate beginner" profile:
---   ★★★ mastered : h j k l i ciw
---   ★★  practiced: w b u dw cw a
---   ★   familiar  : o x n p v G
---   ☆   tried     : f * } { ^ $ %
---   ⟳   forgotten : <C-i>  (practiced heavily, then quiet for 2 sessions)
---   ✗   suppressed: dd (user decided they don't want it suggested)
---   ●   pinned    : <C-r>  (always in :TobiraGuide, always shown in :TobiraProgress)
---   never         : most advanced/fold/macro commands → big stats "never" bucket
---
--- Efficiency gaps that will surface in :TobiraStats:
---   j (6200)  →  }  (28)   ratio ≈ 221
---   n (350)   → cgn (0)    ratio ≈ 350
---   w (1100)  →  E  (0)    ratio ≈ 1100
---   *  (55)   → gn  (0)    ratio ≈  55
---   f  (42)   →  ;  (0)    ratio ≈  42
+-- Hand-tuned "intermediate beginner" profile covering every mastery glyph
+-- (★★★/★★/★/☆/⟳/✗/●/never) and several large :TobiraStats efficiency gaps.
+-- see docs/adr/0090-demo-seed-data-mastery-profile.md for why the counts below
+-- are what they are.
 
 local data_dir = vim.fn.stdpath('data') .. '/tobira'
 vim.fn.mkdir(data_dir, 'p')
@@ -143,9 +131,7 @@ if seed then
     ['$']  = { count = 40,   sessions = { 1,2,2,1,2    }, shown = 0, suppressed = false, pinned = false },
     ['%']  = { count = 22,   sessions = { 1,1,2,1,1    }, shown = 0, suppressed = false, pinned = false },
 
-    -- ⟳ forgotten: was practiced heavily, then went quiet for the last 2 sessions
-    -- (beginner-level so it clears the guide ceiling gate along with the rest
-    -- of this seed's beginner commands)
+    -- ⟳ forgotten: heavy history, then quiet for the last 2 sessions
     ['<C-i>'] = { count = 150, sessions = { 9,8,0,0 },   shown = 0, suppressed = false, pinned = false },
 
     -- ✗ suppressed
@@ -160,18 +146,10 @@ if seed then
   seed:close()
 end
 
--- Non-suggest demos (guide / progress / stats / combined) opt out of the
--- ambient idle suggestion so the notification doesn't overlap the panel.
--- Set TOBIRA_DEMO_IDLE=off in the tape via `Env TOBIRA_DEMO_IDLE "off"`.
+-- Tapes gate idle-picked and reactive-pattern suggestions independently via
+-- TOBIRA_DEMO_IDLE / TOBIRA_DEMO_PATTERNS (`Env` in the .tape file).
+-- see docs/adr/0091-demo-idle-and-pattern-toggles-are-independent.md for why
 local idle_on = (vim.env.TOBIRA_DEMO_IDLE or 'on') ~= 'off'
-
--- The suggest demo wants the opposite split: reactive pattern-triggered
--- suggestions ON (that is the whole point — typing fo/fo should fire
--- f_repeat -> ;), ambient idle-picked suggestions OFF. Otherwise the ambient
--- picker's own best guess (scored across the whole seed data, e.g. the big
--- j -> } efficiency gap) can race the reactive one and win, showing an
--- unrelated suggestion instead of the one the tape is actually demoing.
--- Panel demos set TOBIRA_DEMO_PATTERNS=off too, to silence both sources.
 local patterns_on = (vim.env.TOBIRA_DEMO_PATTERNS or 'on') ~= 'off'
 
 require('tobira').setup({

@@ -53,11 +53,9 @@ describe('assert_strings_match (the sync-check helper)', function()
 end)
 
 -- ── dynamic multi-locale sync guard ──────────────────────────────────────────
--- Discovers every locale file next to en.lua (ja.lua today, fr.lua/es.lua/...
--- whenever they land) and checks each one's ENTIRE table against en.lua
--- recursively — including `suggestions` (155 commands) and `float.reasons`
--- (46 patterns), which the older hand-picked per-section checks below never
--- covered. A new locale is covered automatically; nothing to remember to add.
+-- Discovers every locale file next to en.lua and checks each one's entire
+-- table recursively (not just the hand-picked sections below).
+-- see docs/adr/0094-locale-spec-dynamic-locale-discovery.md for why
 
 local function discover_locale_names()
   local names = {}

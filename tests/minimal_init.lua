@@ -1,17 +1,13 @@
 -- ── Isolate tests from the user's real data ─────────────────────────────────
 --
--- tobira.core.logger reads/writes ~/.local/share/nvim/tobira/usage.json and
--- logger.reset() (called in before_each of many specs) unlinks that file.
--- Running the suite must NOT wipe the developer's real usage history.
---
--- We redirect vim.fn.stdpath('data') to a per-process temp directory. The
--- override is installed AFTER plenary is located (plenary lives under the real
--- data dir) but BEFORE any spec requires tobira.core.logger, which captures
--- data_dir at require time.
+-- Redirects vim.fn.stdpath('data') to a per-process temp dir so the suite
+-- never touches the developer's real usage.json. Must install after plenary
+-- is located (under the real data dir) but before any spec requires
+-- tobira.core.logger (which captures data_dir at require time).
+-- see docs/adr/0092-test-stdpath-data-redirect-ordering.md for why
 local _tobira_real_stdpath = vim.fn.stdpath
 
 -- Enable luacov coverage tracking when COVERAGE=1 is set.
---
 -- PlenaryBustedDirectory spawns one child Neovim process per spec file, so the
 -- CI command MUST pass `minimal_init = 'tests/minimal_init.lua'`; otherwise the
 -- children never load this file and no coverage is collected.
@@ -25,10 +21,8 @@ if os.getenv('COVERAGE') == '1' then
   if ok then
     runner.init()
 
-    -- plenary's busted runner exits headless Neovim with `vim.cmd "0cq"`
-    -- (or "1cq" on failure) instead of os.exit(). That hard-quit skips
-    -- luacov's own os.exit hook, so stats are never written. We intercept
-    -- vim.cmd to flush stats just before the quit. See plenary.nvim#353.
+    -- Flush luacov stats before plenary's hard-quit skips os.exit's hook.
+    -- see docs/adr/0093-luacov-flush-before-plenary-hard-quit.md for why
     local orig_cmd = vim.cmd
     vim.cmd = function(...)
       local arg = select(1, ...)
@@ -75,9 +69,7 @@ vim.opt.rtp:prepend(plenary_path)
 -- Manually source plenary's plugin to register PlenaryBustedDirectory.
 vim.cmd('runtime plugin/plenary.vim')
 
--- Now that plenary has been located under the REAL data dir, redirect
--- stdpath('data') to a per-process temp dir so tobira.core.logger reads and
--- writes an isolated usage.json for the duration of this test run.
+-- Plenary is now located; redirect stdpath('data') for the rest of this run.
 local _tobira_test_data = vim.fn.tempname()
 vim.fn.mkdir(_tobira_test_data, 'p')
 vim.fn.stdpath = function(what)

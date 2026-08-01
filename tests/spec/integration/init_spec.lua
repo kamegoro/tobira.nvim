@@ -12,9 +12,8 @@ end
 
 -- Captures every vim.defer_fn call made during fn(), mirroring
 -- ui_float_spec.lua's helper of the same shape. init.lua's first-run guide
--- auto-open goes through vim.defer_fn, so this both keeps the test from
--- actually waiting 300ms and lets us drive the deferred body ourselves to
--- get coverage credit for it.
+-- auto-open goes through vim.defer_fn, so this avoids waiting 300ms and lets
+-- us drive the deferred body ourselves for coverage credit.
 local function capture_defer(fn)
   local captured = {}
   local orig_defer = vim.defer_fn
