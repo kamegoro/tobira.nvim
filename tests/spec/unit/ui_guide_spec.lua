@@ -206,11 +206,8 @@ describe('when a command has been tried but not mastered (level 1)', function()
   end)
 end)
 
--- A "level >= 2 and not forgotten" row never reaches the auto section at all:
--- guide_commands() only includes rows where is_mastered(data) == false, and
--- is_mastered is `mastery_level >= 2 and not is_forgotten`. So a mastery_level
--- >= 2 row that made it into the auto section is always forgotten, and the
--- forgotten test group below already covers that combination. Regression
+-- A "level >= 2 and not forgotten" row never reaches the auto section — see
+-- docs/adr/0062-guide-mastery-glyph-forgotten-priority.md for why. Regression
 -- guard for the exclusion itself lives in graph_spec.lua ("still excludes a
 -- command that is mastered and not forgotten").
 
@@ -290,11 +287,10 @@ describe('count column alignment', function()
 end)
 
 -- ── per-category cap and never-tried-first ordering (#96) ───────────────────
--- Guide's auto section used to show every unmastered command with no limit,
--- which made a fresh user's panel balloon past a "glance while coding"
--- sidebar. Each category is now capped to 3, preferring never-tried commands
--- (Progress already owns the "close to mastery" signal — see ui/CLAUDE.md —
--- so Guide's own job is surfacing blind spots first).
+-- Regression guard for #96 (auto section previously showed every unmastered
+-- command with no limit). See
+-- docs/adr/0060-guide-auto-section-capped-never-tried-first.md for why it's
+-- capped and sorted this way.
 
 describe('per-category cap', function()
   it('shows at most 3 commands, preferring never-tried, alphabetical tie-break, plus an overflow line', function()
@@ -609,12 +605,11 @@ describe('when the guide window is opened, closed, or toggled', function()
 end)
 
 -- ── keymap overrides (#63) ────────────────────────────────────────────────────
--- Guide's auto section bypasses graph.find_best() entirely (it lists every
--- unmastered command, not just proactively-worthy ones), so it is the one
+-- Guide's auto section bypasses graph.find_best() entirely, so it is the one
 -- surface where the equivalent/different distinction from
--- core/integrations.lua actually matters -- see graph_spec.lua's "keymap
--- overrides" describe block for why find_best() itself just excludes both
--- kinds unconditionally instead.
+-- core/integrations.lua actually matters. See
+-- docs/adr/0061-guide-auto-vs-pinned-remap-visibility.md for why, and
+-- graph_spec.lua's "keymap overrides" describe block for find_best()'s side.
 
 describe('keymap overrides (#63)', function()
   local integrations = require('tobira.core.integrations')
@@ -660,17 +655,10 @@ describe('keymap overrides (#63)', function()
 end)
 
 -- ── Pinned section + keymap overrides (#164) ─────────────────────────────────
--- format_pinned_row() previously never consulted core/integrations.lua at all,
--- unlike this same file's auto section (auto_suffix() above). A pinned
--- command whose key gets remapped kept showing its stock (possibly now-wrong)
--- description forever. Unlike the auto section, a pinned row is never simply
--- omitted when the remap is not equivalent -- the user pinned it on purpose,
--- and it silently disappearing from its own section would read as tobira
--- losing track of it, not as tobira being correct. Design choice: an
--- equivalent remap still substitutes wording via remapped_suffix, identical
--- to the auto section; a different remap keeps the row (● marker + key still
--- visible) but replaces the now-inaccurate description with remapped_invalid
--- instead of appending a correction after text that is flatly wrong.
+-- Regression guard for #164 (format_pinned_row() previously never consulted
+-- core/integrations.lua, so a pinned command's remap went unreflected). See
+-- docs/adr/0061-guide-auto-vs-pinned-remap-visibility.md for the current
+-- auto-vs-pinned remap behavior this guards.
 
 describe('pinned row + keymap overrides (#164)', function()
   local integrations = require('tobira.core.integrations')
