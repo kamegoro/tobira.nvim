@@ -240,10 +240,8 @@ describe('when an adopted motion skill is suppressed', function()
 end)
 
 -- ── forgotten state (#123) ────────────────────────────────────────────────────
--- graph.is_forgotten() was only consulted by Guide before this fix — Progress
--- derived its glyph/ratio purely from mastery_level(), so a command that was
--- once mastered and has since gone quiet could read as "mastered" here while
--- Guide already showed it as ⟳ needs-review. See #123.
+-- Regression for #123. See docs/adr/0068-progress-forgotten-overrides-mastery-glyph.md
+-- and docs/adr/0069-progress-mastered-ratio-uses-is-mastered.md.
 
 describe('when an adopted motion skill has decayed into a forgotten state', function()
   before_each(setup)
@@ -408,10 +406,9 @@ describe('when p is pressed over a cell preceded by multiple mastered+pinned cel
 
   it('pins the command visually under the cursor, not a neighboring one', function()
     local usage = logger.get_all()
-    -- '$' and '%' are mastered (level 4, three ★ = 9 bytes for 3 display cols)
-    -- and pinned (● = 3 bytes for 1 display col) — each cell is +8 bytes wider
-    -- than its 14-column display budget. '(' is the cursor target; ')' is the
-    -- neighboring cell the byte-offset bug used to resolve to instead.
+    -- '$'/'%' are mastered+pinned (each cell wider in bytes than its display
+    -- budget); '(' is the cursor target, ')' is the neighboring cell the bug
+    -- resolved to instead. See docs/adr/0072-progress-cursor-cell-mapping-uses-display-column.md.
     usage['$'] = entry({ count = 5000, pinned = true })
     usage['%'] = entry({ count = 5000, pinned = true })
     usage['('] = entry({ count = 0 })
@@ -620,9 +617,8 @@ describe('when previewing an item whose key is at or beyond the padding width', 
       local item = { id = key, keys = key, adopted = key }
       local l1 = progress.preview_lines(item, {})
       local desc = loc.suggestions[key].title:match(' — (.+)$')
-      -- '  ' prefix + key must be followed by at least one space, never glued
-      -- straight onto the description (the #154 bug: %-6s adds no padding once
-      -- the key already meets/exceeds width 6).
+      -- Must never glue key directly onto description (#154). See
+      -- docs/adr/0071-progress-preview-key-padding-minimum-gap.md.
       local gap_start = 3 + #key
       assert.equals(' ', l1:sub(gap_start, gap_start), 'expected a gap right after ' .. key .. ' in: ' .. l1)
       assert.equals('  ' .. key .. ' ' .. desc, l1)
@@ -773,11 +769,9 @@ describe('when s is pressed in the progress window', function()
   end)
 end)
 
--- #105: 'i_<C-o>' is an internal composite registry key (see commands.lua's
--- registry comment) — the skill grid must show the real keystroke the user
--- presses (<C-o>), never the raw internal key. core/skills.lua's tree is
--- what feeds ui/progress.lua's grid, so this is really a skills.lua fix
--- verified end-to-end through the rendered panel.
+-- #105: 'i_<C-o>' is an internal composite registry key (see commands.lua);
+-- the grid must show the real keystroke (<C-o>), never the raw internal key.
+-- The fix lives in core/skills.lua's tree, verified end-to-end here.
 describe("the 'i_<C-o>' composite registry key on the Progress grid (#105)", function()
   it('renders as <C-o>, not the raw i_<C-o> registry key', function()
     setup()
