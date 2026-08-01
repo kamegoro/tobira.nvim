@@ -219,15 +219,8 @@ describe('auto-close duration', function()
   end)
 end)
 
--- #166: terminal_esc_repeat is the only suggestion whose trigger condition
--- means the user is, by definition, still actively fumbling to leave
--- terminal-job mode at the exact moment it appears -- their hands and
--- attention are on the stuck job, not idly watching the corner of the
--- screen the way an idle/ambient suggestion's audience is. The window was
--- confirmed (via tmux+asciinema regression passes) to render correctly;
--- the standard 6-9s toast window was simply too short a chance for this
--- one category's distracted audience to actually see it before it
--- auto-dismissed. See float.lua's auto_close_duration() doc comment.
+-- #166: terminal_esc_repeat's audience is still mid-struggle, not idle.
+-- see docs/adr/0081-terminal-category-auto-dismiss-duration.md for why
 describe('auto-close duration for the terminal category (#166)', function()
   before_each(setup)
   after_each(teardown)
@@ -391,10 +384,8 @@ describe('when the suggestion has no category', function()
   end)
 end)
 
--- border chars must stay single-cell (#89): a custom border table (unlike the
--- 'rounded' string preset used elsewhere) is validated by Neovim per-segment,
--- and fails hard under ambiwidth=double since box-drawing chars are in
--- Unicode's Ambiguous-width class.
+-- border chars must stay single-cell (#89).
+-- see docs/adr/0080-suggestion-float-border-ambiwidth-double-fallback.md for why
 
 describe('when ambiwidth is double', function()
   before_each(setup)
