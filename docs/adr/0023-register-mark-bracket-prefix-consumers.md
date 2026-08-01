@@ -23,7 +23,7 @@ system-clipboard register).
   `j` presses needed a 6th press to fire `j_repeat` — the dangling
   `pending_op` had swallowed one of the 5.
 - `pending_mark` also resolves the `gq`-then-backtick jump-back case (see
-  `docs/adr/0013-gq-operator-pending-and-post-format-jumpback.md`), since
+  `docs/adr/0022-gq-operator-pending-and-post-format-jumpback.md`), since
   `` ` `` is one of the three mark-prefix keys.
 
 ## Consequences

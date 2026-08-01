@@ -27,7 +27,7 @@ in realistic usage.
 - `CI_QUOTE_NAV_KEYS` tolerance table (`w`/`b`/`e`/`h`/`l`/`j`/`k`/`0`/`^`/
   `$`) is tolerated between completions without resetting the streak —
   mirrors `r_streak`'s `h`/`l` tolerance and `ca_streak`'s `j`/`k` tolerance
-  (see `docs/adr/0018-tolerated-motion-streaks-r-and-ctrl-a.md`), just over a
+  (see `docs/adr/0027-tolerated-motion-streaks-r-and-ctrl-a.md`), just over a
   wider set matching realistic usage: `ci"..<Esc>`, move to the next string,
   `ci"` again. Anything NOT in this set (an unrelated edit, another
   operator, an `f"`/`F"`-style search, etc.) still resets both streaks.

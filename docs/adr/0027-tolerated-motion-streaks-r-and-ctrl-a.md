@@ -19,7 +19,7 @@ unrelated".
   `g<C-a>` operates down a range of lines).
 - Both follow the same increment/fire-at-3/reset-with-tolerance shape as
   `ci_dquote_streak`/`ci_squote_streak` (see
-  `docs/adr/0011-ci-quote-streak-and-tolerance.md`), just with a narrower,
+  `docs/adr/0020-ci-quote-streak-and-tolerance.md`), just with a narrower,
   feature-specific tolerance set.
 
 ## Consequences

@@ -22,7 +22,7 @@ obvious from reading any single handler in isolation.
   bare keystroke.
 - `track_run()` must execute unconditionally on every key, including ones
   the jumplist/changelist blocks return early on (see
-  `docs/adr/0010-jumplist-changelist-underuse-detection.md`) — skipping it
+  `docs/adr/0019-jumplist-changelist-underuse-detection.md`) — skipping it
   for those keys freezes `seq.run`'s counter, so the next same-key press
   jumps the count forward by 2 instead of 1, firing consecutive-run
   patterns one press early. This was a live bug that

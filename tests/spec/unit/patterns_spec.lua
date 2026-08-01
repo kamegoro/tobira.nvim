@@ -1001,7 +1001,7 @@ describe('when the user enters and immediately leaves visual mode 3 times in a r
     patterns.feed(s, '\27', 1) -- <Esc>, 2nd clean tap
     local third_v = patterns.feed(s, 'v', 1)
     -- The 3rd v must NOT fire yet (#55 follow-up) — see
-    -- docs/adr/0012-visual-repeat-gv-detection.md
+    -- docs/adr/0021-visual-repeat-gv-detection.md
     assert.is_nil(third_v)
     local result = patterns.feed(s, '\27', 1) -- <Esc> confirms the 3rd tap was also clean
     assert.is_not_nil(result)
@@ -1075,7 +1075,7 @@ describe('when the user enters and immediately leaves visual mode 3 times in a r
 end)
 
 -- ── ci" / ci' × 3 (direct, non-visual) → suggest ya" / ya' (#53) ────────────
--- see docs/adr/0011-ci-quote-streak-and-tolerance.md
+-- see docs/adr/0020-ci-quote-streak-and-tolerance.md
 
 describe('when the user changes inside double quotes (ci") 3 times in a row', function()
   it('fires ci_dquote_repeat suggesting ya" on the 3rd ci"', function()
@@ -1151,7 +1151,7 @@ describe("when the user changes inside single quotes (ci') 3 times in a row", fu
 end)
 
 -- ── ci_dquote_streak / ci_squote_streak tolerate plain navigation between ──
--- completions (#53 live-QA follow-up) — see docs/adr/0011-ci-quote-streak-and-tolerance.md
+-- completions (#53 live-QA follow-up) — see docs/adr/0020-ci-quote-streak-and-tolerance.md
 
 describe('when plain single-key navigation connects ci" completions on different strings', function()
   it('fires ci_dquote_repeat suggesting ya" for the realistic ci"..<Esc> w w ci"..<Esc> w w ci" flow', function()
@@ -1503,7 +1503,7 @@ describe('when the user specifies a register with "', function()
 end)
 
 -- ── "+y system-clipboard yank compound (#59) ──────────────────────────────────
--- see docs/adr/0014-register-mark-bracket-prefix-consumers.md
+-- see docs/adr/0023-register-mark-bracket-prefix-consumers.md
 
 describe('when the user yanks to the system clipboard with "+y', function()
   it('tracks "+y as a completed compound', function()
@@ -1529,7 +1529,7 @@ describe('when "+yy completes (register-select, then a full linewise yank)', fun
   it('does not leave a dangling pending_op that swallows the next keystroke', function()
     -- Regression test: the trailing y of "+yy used to swallow the next
     -- keystroke, so j_repeat (count == 5) needed a 6th j — see
-    -- docs/adr/0014-register-mark-bracket-prefix-consumers.md
+    -- docs/adr/0023-register-mark-bracket-prefix-consumers.md
     local s = seq()
     patterns.feed(s, '"', 1)
     patterns.feed(s, '+', 1)
@@ -1704,7 +1704,7 @@ end)
 -- ── g-compounds must reset consecutive-run tracking for their 2nd key (#30 QA) ─
 -- Bug: adopting e_repeat's own suggestion (typing ge) did not reset the
 -- e-streak, re-firing e_repeat immediately — see
--- docs/adr/0010-jumplist-changelist-underuse-detection.md
+-- docs/adr/0019-jumplist-changelist-underuse-detection.md
 describe('when a bare key streak is interrupted by a deliberate g-compound using the same key', function()
   it('does not fire e_repeat on the e right after a genuine ge completion', function()
     local s = seq()
@@ -1882,7 +1882,7 @@ describe('when the user presses <C-w> followed by a window-command key', functio
 end)
 
 -- ── gq operator (format) + jump-back → suggest gw ─────────────────────────────
--- see docs/adr/0013-gq-operator-pending-and-post-format-jumpback.md
+-- see docs/adr/0022-gq-operator-pending-and-post-format-jumpback.md
 
 describe('when the user completes a gq format operation', function()
   it('records last_op = gq for the linewise gqq form', function()
@@ -2021,7 +2021,7 @@ describe('when a jump-back is not preceded by a completed gq', function()
 end)
 
 -- ── <C-w>q / <C-w>c repeated → <C-w>o (#107) ──────────────────────────────────
--- see docs/adr/0015-ctrl-w-window-compound-and-close-streak.md
+-- see docs/adr/0024-ctrl-w-window-compound-and-close-streak.md
 
 describe('when the user closes windows one at a time', function()
   local ctrl_w = '\23'
@@ -2204,7 +2204,7 @@ describe('when a key is consumed as part of a preceding register, mark, or [ / ]
 end)
 
 -- ── op_completed flag (#119) ────────────────────────────────────────────────
--- see docs/adr/0017-state-machine-bookkeeping-invariants.md
+-- see docs/adr/0026-state-machine-bookkeeping-invariants.md
 
 describe('when an operator command freshly completes, as opposed to merely repeating the same one', function()
   it('is false after only the first key of a pending operator', function()
@@ -2573,7 +2573,7 @@ end)
 
 -- ── arbitration when both preconditions are true at once (#61 regression) ───
 -- Reported by live QA: 10G → x (edit) → 40G → x (edit) → k×5 back always
--- suggested <C-o>, never g; — see docs/adr/0010-jumplist-changelist-underuse-detection.md
+-- suggested <C-o>, never g; — see docs/adr/0019-jumplist-changelist-underuse-detection.md
 
 describe('when both the jumplist and changelist preconditions are true on the same keystroke', function()
   it('fires changelist_return, not manual_return, when the second edit is more recent than the jump', function()
@@ -2609,7 +2609,7 @@ end)
 
 -- ── macro opportunity detection: repeated edit sequence → qq...q / @q (#60) ──
 -- M.feed_macro(seq, token, now) is a separate entry point from M.feed() — see
--- docs/adr/0009-macro-opportunity-detection.md
+-- docs/adr/0018-macro-opportunity-detection.md
 
 local function feed_macro_seq(s, keys, now_start)
   local result
@@ -2623,7 +2623,7 @@ local function feed_macro_seq(s, keys, now_start)
   return result
 end
 
--- The literal issue-#60 example (see docs/adr/0009-macro-opportunity-detection.md):
+-- The literal issue-#60 example (see docs/adr/0018-macro-opportunity-detection.md):
 -- cwFooBar<Esc> contains a lowercase 'w' and an uppercase 'B', both
 -- classified as motion keys — the pitfall regression test below.
 local CW_FOOBAR_ESC = { 'c', 'w', 'F', 'o', 'o', 'B', 'a', 'r', '<Esc>' }
@@ -2783,7 +2783,7 @@ describe("seq.macro_buf's bounded growth", function()
 end)
 
 -- ── gg ↔ G double-jump: suggest '' (jump back to previous position) (#52) ────
--- see docs/adr/0010-jumplist-changelist-underuse-detection.md
+-- see docs/adr/0019-jumplist-changelist-underuse-detection.md
 
 describe('when the user jumps to the end of the file then back to the start', function()
   it("fires jump_back suggesting '' after G then gg", function()
@@ -2885,7 +2885,7 @@ end)
 
 -- ── regression: jump_back firing must not skip jumplist bookkeeping ─────────
 -- jump_back and manual_return (#61) share seq.jump_last_at — see
--- docs/adr/0010-jumplist-changelist-underuse-detection.md
+-- docs/adr/0019-jumplist-changelist-underuse-detection.md
 
 describe('when a bare G fires jump_back via the gg -> G check (last_op already "gg")', function()
   it('refreshes jump_last_at so a real k-streak right after still fires manual_return', function()

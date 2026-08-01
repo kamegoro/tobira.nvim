@@ -23,37 +23,37 @@ function M.new_seq()
     indent_streak = 0,
     dedent_streak = 0,
     -- true when the i/a prefix just consumed by pending_op was 'i' (not 'a')
-    -- — see docs/adr/0011-ci-quote-streak-and-tolerance.md
+    -- — see docs/adr/0020-ci-quote-streak-and-tolerance.md
     pending_text_obj_inner = false,
-    -- ci"/ci' streak tracking (#53) — see docs/adr/0011-ci-quote-streak-and-tolerance.md
+    -- ci"/ci' streak tracking (#53) — see docs/adr/0020-ci-quote-streak-and-tolerance.md
     ci_dquote_streak = 0,
     ci_squote_streak = 0,
     -- r-replacement tracking: r{char} l r{char} l r{char} → R
-    -- see docs/adr/0018-tolerated-motion-streaks-r-and-ctrl-a.md
+    -- see docs/adr/0027-tolerated-motion-streaks-r-and-ctrl-a.md
     pending_r = false,
     r_streak = 0,
     -- <C-a> sequential-increment tracking: <C-a> j <C-a> j <C-a> → g<C-a>
-    -- see docs/adr/0018-tolerated-motion-streaks-r-and-ctrl-a.md
+    -- see docs/adr/0027-tolerated-motion-streaks-r-and-ctrl-a.md
     ca_streak = 0,
     -- visual text-object tracking: v i {obj} c/d/y → c/d/yiw etc.
     pending_visual = false,
     visual_inner = nil,
     visual_obj = nil,
-    -- v/gv streak tracking (#55) — see docs/adr/0012-visual-repeat-gv-detection.md
+    -- v/gv streak tracking (#55) — see docs/adr/0021-visual-repeat-gv-detection.md
     v_streak = 0,
     v_clean_exit = false,
     pending_g = false,
     pending_z = false,
     -- gq operator-pending tracking (needs a further motion, unlike the plain
-    -- two-key pending_g targets) — see docs/adr/0013-gq-operator-pending-and-post-format-jumpback.md
+    -- two-key pending_g targets) — see docs/adr/0022-gq-operator-pending-and-post-format-jumpback.md
     pending_gq = false,
     pending_gq_text_obj = false,
     -- true only right after gq completes and the mark-prefix key (`) starts —
-    -- see docs/adr/0013-gq-operator-pending-and-post-format-jumpback.md
+    -- see docs/adr/0022-gq-operator-pending-and-post-format-jumpback.md
     pending_gq_backtick = false,
     pending_ctrl_w = false,
     -- <C-w>q / <C-w>c repeated (or alternated) 2+ times in a row → <C-w>o
-    -- see docs/adr/0015-ctrl-w-window-compound-and-close-streak.md
+    -- see docs/adr/0024-ctrl-w-window-compound-and-close-streak.md
     ctrl_w_close_streak = 0,
     -- prefixes that consume exactly one following character
     pending_register = false, -- " or @ (register / macro name)
@@ -63,25 +63,25 @@ function M.new_seq()
     -- pending_register below only when the register was '+'.
     pending_clipboard_yank = false,
     -- guards exactly one key after "+y so a following 'y' doesn't start a
-    -- dangling pending_op — see docs/adr/0014-register-mark-bracket-prefix-consumers.md
+    -- dangling pending_op — see docs/adr/0023-register-mark-bracket-prefix-consumers.md
     clipboard_yank_tail = false,
     pending_paste = nil, -- 'p' | 'P' | nil
-    paste_motion_streak = 0, -- see docs/adr/0016-paste-motion-streak.md
+    paste_motion_streak = 0, -- see docs/adr/0025-paste-motion-streak.md
     -- true when M.feed consumed key as the 2nd half of a compound; logger.lua
     -- skips standalone TRACK counting for it then — see
-    -- docs/adr/0017-state-machine-bookkeeping-invariants.md
+    -- docs/adr/0026-state-machine-bookkeeping-invariants.md
     key_consumed = false,
     -- true only on the call that freshly sets last_op; logger.lua increments
     -- usage from this flag instead of diffing last_op — see
-    -- docs/adr/0017-state-machine-bookkeeping-invariants.md
+    -- docs/adr/0026-state-machine-bookkeeping-invariants.md
     op_completed = false,
     -- jumplist-underuse tracking. now is caller-supplied so this file stays
-    -- vim.*-free. See docs/adr/0010-jumplist-changelist-underuse-detection.md
+    -- vim.*-free. See docs/adr/0019-jumplist-changelist-underuse-detection.md
     jump_last_at = nil,
     jump_return_streak = 0,
     ctrl_o_seen = false,
     -- changelist-underuse tracking — see
-    -- docs/adr/0010-jumplist-changelist-underuse-detection.md
+    -- docs/adr/0019-jumplist-changelist-underuse-detection.md
     edit_last_at = nil,
     edit_moved_away = false,
     edit_second_seen = false,
@@ -91,7 +91,7 @@ function M.new_seq()
     -- Array of { tok, t, nav_run } entries fed by M.feed_macro() (below) from
     -- BOTH normal- and insert-mode branches of logger.lua's handle_key() —
     -- unlike this seq's other fields, which are normal-mode only. See
-    -- docs/adr/0009-macro-opportunity-detection.md
+    -- docs/adr/0018-macro-opportunity-detection.md
     macro_buf = {},
   }
 end
@@ -120,7 +120,7 @@ local RIGHTWARD_KEYS = {
 
 -- Motions tolerated between ci"/ci' completions without resetting
 -- ci_dquote_streak/ci_squote_streak (#53 live-QA follow-up) — see
--- docs/adr/0011-ci-quote-streak-and-tolerance.md
+-- docs/adr/0020-ci-quote-streak-and-tolerance.md
 local CI_QUOTE_NAV_KEYS = {
   w = true,
   b = true,
@@ -135,14 +135,14 @@ local CI_QUOTE_NAV_KEYS = {
 }
 
 -- ── jumplist / changelist underuse detection ────────────────────────────────
--- see docs/adr/0010-jumplist-changelist-underuse-detection.md
+-- see docs/adr/0019-jumplist-changelist-underuse-detection.md
 local JUMP_TOLERANCE_MS = 15000
 local CHANGE_TOLERANCE_MS = 15000
 local RETURN_MOTION_THRESHOLD = 5
 
 -- Keys that mean "the user just made a big navigational jump" — the same
 -- class of motion that adds a jumplist entry. 'gg' and '/' are deliberately
--- absent — see docs/adr/0010-jumplist-changelist-underuse-detection.md
+-- absent — see docs/adr/0019-jumplist-changelist-underuse-detection.md
 local JUMP_MOTION_KEYS = {
   G = true,
   n = true,
@@ -178,7 +178,7 @@ end
 -- insert mode, which would corrupt inner_feed's normal-mode operator-pending
 -- grammar. Uses its own rolling buffer (seq.macro_buf), not suggest.lua's
 -- 20-char one (different purpose, and too short for 3 reps of a 15-key seq).
--- see docs/adr/0009-macro-opportunity-detection.md for the anchored-match
+-- see docs/adr/0018-macro-opportunity-detection.md for the anchored-match
 -- algorithm, its two follow-up-bug guards, and the buffer-size bounds below.
 local MACRO_MIN_LEN = 3
 local MACRO_MAX_LEN = 15
@@ -219,7 +219,7 @@ end
 
 -- S must contain at least one genuine edit keystroke, not just any 3+ exact
 -- repeat of a nav-only window (follow-up bug) — see
--- docs/adr/0009-macro-opportunity-detection.md
+-- docs/adr/0018-macro-opportunity-detection.md
 local function macro_contains_edit(buf, s_start, s_end)
   for i = s_start, s_end do
     if MACRO_EDIT_KEYS[buf[i].tok] then
@@ -270,7 +270,7 @@ end
 
 -- Anchored search: does buf end (at index n) with 3 occurrences of some
 -- length-L window, each pair separated only by navigation keys? See
--- docs/adr/0009-macro-opportunity-detection.md
+-- docs/adr/0018-macro-opportunity-detection.md
 local function macro_check_len(buf, n, l)
   local s_start = n - l + 1
   if s_start < 1 then
@@ -317,7 +317,7 @@ local function macro_check_len(buf, n, l)
   end
 
   -- Content check, deliberately last — only reached once the anchored match
-  -- is fully confirmed. See docs/adr/0009-macro-opportunity-detection.md
+  -- is fully confirmed. See docs/adr/0018-macro-opportunity-detection.md
   if not macro_contains_edit(buf, s_start, n) then
     return false
   end
@@ -369,7 +369,7 @@ local function inner_feed(seq, key, line, is_diff, now)
   -- consumes/returns. EDIT_OP_KEYS mark "an edit just happened here"; any
   -- other key (except <Esc>) marks "the user left that spot" — the closest
   -- passive proxy for "moved elsewhere" without snapshotting the buffer or
-  -- reading marks (both forbidden). See docs/adr/0010-jumplist-changelist-underuse-detection.md
+  -- reading marks (both forbidden). See docs/adr/0019-jumplist-changelist-underuse-detection.md
   if EDIT_OP_KEYS[key] then
     if seq.edit_last_at and seq.edit_moved_away then
       seq.edit_second_seen = true
@@ -383,13 +383,13 @@ local function inner_feed(seq, key, line, is_diff, now)
   -- ── <C-o> observation ───────────────────────────────────────────────────────
   -- Raw byte for Ctrl-O (ASCII 15 / 0x0F). Recorded unconditionally so
   -- manual_return can permanently stop suggesting <C-o> once the user has
-  -- demonstrably already used it. See docs/adr/0010-jumplist-changelist-underuse-detection.md
+  -- demonstrably already used it. See docs/adr/0019-jumplist-changelist-underuse-detection.md
   if key == '\15' then
     seq.ctrl_o_seen = true
   end
 
   -- ── p / P → rightward motion: cursor skipped past a paste ────────────────
-  -- see docs/adr/0016-paste-motion-streak.md
+  -- see docs/adr/0025-paste-motion-streak.md
   if seq.pending_paste then
     if RIGHTWARD_KEYS[key] then
       seq.paste_motion_streak = seq.paste_motion_streak + 1
@@ -437,13 +437,13 @@ local function inner_feed(seq, key, line, is_diff, now)
     if g_targets[key] then
       -- true only when a bare G was the most recently completed action and
       -- nothing else has happened since (#52) — see
-      -- docs/adr/0010-jumplist-changelist-underuse-detection.md
+      -- docs/adr/0019-jumplist-changelist-underuse-detection.md
       local g_then_gg = seq.last_op == 'G'
       seq.last_op = g_targets[key]
       seq.op_completed = true
       -- Reset unconditionally after any g-compound resolves, so a following
       -- bare `key` press starts a fresh streak instead of continuing a
-      -- frozen one — see docs/adr/0010-jumplist-changelist-underuse-detection.md
+      -- frozen one — see docs/adr/0019-jumplist-changelist-underuse-detection.md
       seq.run = { key = nil, count = 0 }
       -- gg / g; are themselves significant jumplist / changelist motions,
       -- recorded the moment the compound resolves — neither key of "gg" (or
@@ -453,7 +453,7 @@ local function inner_feed(seq, key, line, is_diff, now)
         seq.jump_last_at = now
         seq.jump_return_streak = 0
         -- G → gg: suggest '' (#52) — see
-        -- docs/adr/0010-jumplist-changelist-underuse-detection.md
+        -- docs/adr/0019-jumplist-changelist-underuse-detection.md
         if g_then_gg then
           return { pattern = 'jump_back', cmd = "''" }
         end
@@ -465,7 +465,7 @@ local function inner_feed(seq, key, line, is_diff, now)
   end
 
   -- ── pending_gq: gq operator awaiting its motion ────────────────────────────
-  -- see docs/adr/0013-gq-operator-pending-and-post-format-jumpback.md
+  -- see docs/adr/0022-gq-operator-pending-and-post-format-jumpback.md
   if seq.pending_gq then
     if key:match('^[1-9]$') then
       return nil -- count prefix; keep pending_gq (handles gq3j)
@@ -514,7 +514,7 @@ local function inner_feed(seq, key, line, is_diff, now)
   end
 
   -- ── pending_ctrl_w: <C-w>X window-command two-key compound ────────────────
-  -- see docs/adr/0015-ctrl-w-window-compound-and-close-streak.md
+  -- see docs/adr/0024-ctrl-w-window-compound-and-close-streak.md
   if seq.pending_ctrl_w then
     seq.pending_ctrl_w = false
     local ctrl_w_targets = {
@@ -550,7 +550,7 @@ local function inner_feed(seq, key, line, is_diff, now)
 
   -- ── pending_clipboard_yank: "+ immediately followed by y ──────────────────
   -- Only 'y' completes the "+y compound; any other key falls through to that
-  -- key's normal meaning. See docs/adr/0014-register-mark-bracket-prefix-consumers.md
+  -- key's normal meaning. See docs/adr/0023-register-mark-bracket-prefix-consumers.md
   if seq.pending_clipboard_yank then
     seq.pending_clipboard_yank = false
     if key == 'y' then
@@ -562,7 +562,7 @@ local function inner_feed(seq, key, line, is_diff, now)
   end
 
   -- ── clipboard_yank_tail: the key right after "+y completes ───────────────
-  -- see docs/adr/0014-register-mark-bracket-prefix-consumers.md
+  -- see docs/adr/0023-register-mark-bracket-prefix-consumers.md
   if seq.clipboard_yank_tail then
     seq.clipboard_yank_tail = false
     if key == 'y' then
@@ -637,7 +637,7 @@ local function inner_feed(seq, key, line, is_diff, now)
     if key == '\27' then
       -- Tapped v and left immediately with no real usage — the v_repeat
       -- half of the streak. Fires here (on the confirming <Esc>), not on the
-      -- v itself — see docs/adr/0012-visual-repeat-gv-detection.md
+      -- v itself — see docs/adr/0021-visual-repeat-gv-detection.md
       seq.v_clean_exit = true
       if seq.v_streak >= 3 then
         seq.v_streak = 0
@@ -671,7 +671,7 @@ local function inner_feed(seq, key, line, is_diff, now)
     local was_gq_backtick = seq.pending_gq_backtick
     seq.pending_gq_backtick = false
     -- `` right after a completed gq — see
-    -- docs/adr/0013-gq-operator-pending-and-post-format-jumpback.md
+    -- docs/adr/0022-gq-operator-pending-and-post-format-jumpback.md
     if was_gq_backtick and key == '`' then
       seq.last_op = nil
       seq.key_consumed = true
@@ -696,7 +696,7 @@ local function inner_feed(seq, key, line, is_diff, now)
     seq.last_op = op .. 'w'
     seq.op_completed = true
 
-    -- ci"/ci' direct-path streak (#53) — see docs/adr/0011-ci-quote-streak-and-tolerance.md
+    -- ci"/ci' direct-path streak (#53) — see docs/adr/0020-ci-quote-streak-and-tolerance.md
     if op == 'c' and inner and key == '"' then
       seq.ci_squote_streak = 0
       seq.ci_dquote_streak = seq.ci_dquote_streak + 1
@@ -814,7 +814,7 @@ local function inner_feed(seq, key, line, is_diff, now)
   end
 
   -- ── <C-a>: sequential-increment streak tracking ────────────────────────────
-  -- Raw byte for Ctrl-A (ASCII 1 / 0x01). See docs/adr/0018-tolerated-motion-streaks-r-and-ctrl-a.md
+  -- Raw byte for Ctrl-A (ASCII 1 / 0x01). See docs/adr/0027-tolerated-motion-streaks-r-and-ctrl-a.md
   if key == '\1' then
     seq.ca_streak = seq.ca_streak + 1
     if seq.ca_streak >= 3 then
@@ -825,7 +825,7 @@ local function inner_feed(seq, key, line, is_diff, now)
   end
 
   -- ── v: start visual text-object tracking ─────────────────────────────────
-  -- Also extends the v_repeat streak (#55) — see docs/adr/0012-visual-repeat-gv-detection.md
+  -- Also extends the v_repeat streak (#55) — see docs/adr/0021-visual-repeat-gv-detection.md
   if key == 'v' then
     seq.v_streak = seq.v_clean_exit and (seq.v_streak + 1) or 1
     seq.v_clean_exit = false
@@ -984,7 +984,7 @@ local function inner_feed(seq, key, line, is_diff, now)
   -- ── gg → G: suggest '' (jump back to position before gg) (#52) ───────────
   -- Only captures a flag here; the actual fire-and-return happens later,
   -- inside the JUMP_MOTION_KEYS block below, after that block's own
-  -- bookkeeping has run for this G — see docs/adr/0010-jumplist-changelist-underuse-detection.md
+  -- bookkeeping has run for this G — see docs/adr/0019-jumplist-changelist-underuse-detection.md
   local gg_then_G = key == 'G' and seq.last_op == 'gg'
 
   -- ci_dquote_streak/ci_squote_streak are deliberately NOT reset here — see
@@ -1003,13 +1003,13 @@ local function inner_feed(seq, key, line, is_diff, now)
 
   -- ── consecutive-run patterns (count computed early) ────────────────────────
   -- track_run() must run unconditionally on every key — see
-  -- docs/adr/0017-state-machine-bookkeeping-invariants.md
+  -- docs/adr/0026-state-machine-bookkeeping-invariants.md
   local count = track_run(seq, key)
 
   -- ── jumplist-underuse detection ──────────────────────────────────────────
   -- Only reached for keys that fell through every operator/compound-pending
   -- state above uncontested. Does not return early on its own — see the
-  -- arbitration block below. See docs/adr/0010-jumplist-changelist-underuse-detection.md
+  -- arbitration block below. See docs/adr/0019-jumplist-changelist-underuse-detection.md
   local jump_ready = false
   if key == 'G' or JUMP_MOTION_KEYS[key] then
     seq.jump_last_at = now
@@ -1021,7 +1021,7 @@ local function inner_feed(seq, key, line, is_diff, now)
     if key == 'G' then
       seq.last_op = 'G'
       -- gg → G jump_back (#52): fires here, after this G's own bookkeeping
-      -- above has already run. See docs/adr/0010-jumplist-changelist-underuse-detection.md
+      -- above has already run. See docs/adr/0019-jumplist-changelist-underuse-detection.md
       if gg_then_G then
         return { pattern = 'jump_back', cmd = "''" }
       end
@@ -1041,7 +1041,7 @@ local function inner_feed(seq, key, line, is_diff, now)
 
   -- ── changelist-underuse detection ────────────────────────────────────────
   -- Like the jumplist block above, does not return early — see the
-  -- arbitration block below. See docs/adr/0010-jumplist-changelist-underuse-detection.md
+  -- arbitration block below. See docs/adr/0019-jumplist-changelist-underuse-detection.md
   local change_ready = false
   if key == 'j' or key == 'k' then
     if
@@ -1064,7 +1064,7 @@ local function inner_feed(seq, key, line, is_diff, now)
   -- ── jumplist vs. changelist arbitration (follow-up bug) ───────────────────
   -- Both patterns can be ready on the same keystroke; the more-recently
   -- triggered one wins, the loser's streak resets without firing. See
-  -- docs/adr/0010-jumplist-changelist-underuse-detection.md
+  -- docs/adr/0019-jumplist-changelist-underuse-detection.md
   if jump_ready and change_ready then
     if seq.jump_last_at >= seq.edit_last_at then
       seq.jump_return_streak = 0
