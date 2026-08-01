@@ -6,13 +6,10 @@ local integrations = require('tobira.core.integrations')
 
 local M = {}
 
--- Display sink. Wired by init.lua to ui.float.show; kept as a callback so
--- core/ never require()s ui/ (CLAUDE.md dependency rule: wiring lives in init).
--- Tests assign a spy directly to observe display calls.
+-- Display sink; wired by init.lua to ui.float.show (core/ never require()s ui/).
 M.on_show = nil
 
--- Fired once, the first time a suggested command is ever adopted. Wired by
--- init.lua to ui.float.celebrate; same callback pattern as on_show.
+-- Fired once on first-ever adoption of a suggested command; wired to ui.float.celebrate.
 M.on_adopt = nil
 
 local session = {
@@ -26,9 +23,8 @@ local _idle_ns = nil
 
 local KEY_BUF_MAX = 20
 
--- Normalise <C-x> / <M-x> style command strings to the form keytrans() returns,
--- so suffix matching works regardless of capitalisation in commands.lua.
--- e.g. '<C-r>' → '\x12' → '<C-R>'  (keytrans always uppercases the letter)
+-- Normalises <C-x>/<M-x> command strings to keytrans()'s output form for suffix
+-- matching -- see docs/adr/0047-adoption-watch-keytrans-rolling-buffer.md for why.
 local function normalize_cmd(cmd)
   if cmd:match('^<.->$') then
     local bytes = vim.api.nvim_replace_termcodes(cmd, true, false, true)
@@ -40,11 +36,9 @@ local function normalize_cmd(cmd)
   return cmd
 end
 
--- True when buf ends with the literal command string (post-normalisation), or
--- when cmd is a count-prefix meta-command ({n}j / {n}x) and buf ends with
--- [1-9]\d*<base>.  buf is built from typed (pre-mapping) keys, so we match
--- against the raw base key, not the post-mapping expansion.
--- Inspired by hardtime.nvim's rolling-buffer approach (MIT).
+-- True when buf ends with cmd (post-normalisation), or cmd is a count-prefix
+-- meta-command ({n}j) and buf ends with [1-9]\d*<base>. See
+-- docs/adr/0047-adoption-watch-keytrans-rolling-buffer.md for the full approach.
 local function buf_matches(cmd, buf)
   local base = cmd:match('^{n}(.+)$')
   if base then
@@ -53,24 +47,11 @@ local function buf_matches(cmd, buf)
   return #buf >= #cmd and buf:sub(-#cmd) == cmd
 end
 
--- Covers the reactive path (suggest.queue/show called directly with a
--- specific cmd from a pattern module) the same way graph.find_best() covers
--- the proactive (ambient/manual) path -- neither goes through the other, so
--- both need their own override check. This is the single choke point every
--- call to do_show goes through, so ui/float.lua never has to special-case a
--- remapped command itself.
---
--- The override check is NOT a blanket integrations.is_overridden(cmd) --
--- Neovim ships a factory-default `nnoremap Y y$` (:help Y-default), so
--- is_overridden('Y') is true on literally every install, which used to
--- suppress the y_dollar -> 'Y' suggestion permanently everywhere (#177).
--- integrations.is_equivalent_override(cmd) already exists to recognise this
--- exact "harmless equivalent remap" case (built for graph.find_best's
--- ambient path and ui/guide.lua's Pinned section); consulting it here too
--- means a genuine override still suppresses (is_equivalent_override is false
--- for it), while the default y$ mapping no longer does. For any cmd with no
--- EQUIVALENT_REMAPS entry, is_equivalent_override(cmd) is always false, so
--- this is identical to the old blanket check for every other command.
+-- Single choke point every do_show call goes through: covers the reactive path
+-- (suggest.queue/show with a specific cmd) the same way graph.find_best() covers
+-- the proactive path, so ui/float.lua never has to special-case a remapped
+-- command itself. The override check also consults is_equivalent_override, not
+-- just is_overridden -- see docs/adr/0045-equivalent-override-suppression-exemption.md.
 local function should_suppress(cmd)
   local data = logger.get(cmd)
   return graph.is_mastered(data)
@@ -87,11 +68,8 @@ local function cancel_timer()
   end
 end
 
--- Watch for the user actually using cmd after it was suggested.
--- Uses vim.fn.keytrans() to normalise raw bytes (e.g. \x12 → "<C-R>"),
--- accumulates a per-watcher rolling buffer, and checks suffix / pattern match —
--- so multi-char sequences like cw, ddp, <C-r>, {n}j all resolve correctly.
--- Each watcher owns an independent closure-local buf to avoid shared state.
+-- Watches for the user actually using cmd after it was suggested; see
+-- docs/adr/0047-adoption-watch-keytrans-rolling-buffer.md for the detection approach.
 local function watch_adoption(cmd)
   local ns = vim.api.nvim_create_namespace('tobira_adopt_' .. cmd)
   session.watching_ns[cmd] = ns
@@ -142,53 +120,18 @@ local function over_auto_limit()
   return elapsed_s < config.values.suggestion_cooldown
 end
 
--- #166 follow-up: entries in the 'terminal' category are exempt from the
--- global suggestion_cooldown gate, the same way :Tobira manual already
--- bypasses it (see M.manual(), which never calls over_auto_limit() at all).
--- Without this, ANY unrelated auto suggestion (ambient idle pick or another
--- reactive pattern) firing in the preceding suggestion_cooldown seconds
--- silently drops a terminal_esc_repeat that fires afterwards -- not a
--- delay, a permanent loss for that Esc-streak, since patterns_terminal.lua's
--- latch (see its module header) never re-fires for the same streak. This
--- reproduces the exact "the terminal suggestion never becomes visible"
--- symptom #166/#173 set out to fix, through a completely different
--- mechanism than the float's auto-dismiss duration -- see that fix's own
--- reasoning in ui/float.lua's auto_close_duration() doc comment, which this
--- mirrors: the terminal category's audience is, by definition, still
--- actively stuck at the exact moment the suggestion fires, unlike every
--- other category's idle/paused audience.
---
--- Scoped to the category (looked up via graph.suggestions[cmd]), not to the
--- literal 'terminal_esc_repeat' pattern name, so any future addition to the
--- 'terminal' category inherits the same exemption automatically -- the same
--- category-keyed carve-out shape float.lua's auto_close_duration() already
--- uses. cmd values with no suggestion entry (e.g. an unknown command) fall
--- through to `false`, i.e. no bypass, same as should_suppress's handling of
--- an unrecognised cmd elsewhere in this file.
---
--- Spam risk, considered and rejected: bypassing the cooldown here does NOT
--- reopen the spam problem the cooldown exists to prevent, because
--- patterns_terminal.lua's `fired` latch already guarantees at most one
--- on_pattern call per uninterrupted Esc-streak -- suggest.lua never even
--- sees repeat attempts within a streak (see patterns_terminal_spec.lua's
--- "does not fire again for the 3rd, 4th... <Esc>" test and
--- logger_spec.lua's "does not spam the suggestion on further <Esc> presses"
--- integration test, both already passing and unaffected by this change).
--- A *new*, separate streak (after an intervening ordinary key) firing again
--- within the same session is not spam either: it is a fresh instance of the
--- user genuinely being stuck again, which is exactly the situation this
--- category's exemption exists to surface promptly. `max_shown` (default 2)
--- remains a second, independent line of defense against unbounded repeats
--- within one session even with the cooldown bypassed -- see suggest_spec.lua's
--- "defense in depth" test.
+-- Entries in the 'terminal' category bypass the global suggestion_cooldown, the
+-- same way :Tobira manual already does (see M.manual()); scoped by category, not
+-- the literal pattern name, so future 'terminal' entries inherit it automatically.
+-- cmd values with no suggestion entry fall through to `false` (no bypass).
+-- See docs/adr/0046-terminal-category-cooldown-bypass.md for why.
 local function bypasses_cooldown(cmd)
   local suggestion = graph.suggestions[cmd]
   return suggestion ~= nil and suggestion.category == 'terminal'
 end
 
--- Single choke point for "is the cooldown currently blocking cmd", used by
--- both M.queue and M.show (queue's own vim.defer_fn re-checks it in M.show
--- once the idle delay elapses, so both call sites need the same bypass).
+-- Choke point for "is cooldown blocking cmd", shared by M.queue and M.show
+-- (queue's deferred M.show re-checks it once idle_delay elapses).
 local function cooldown_blocks(cmd)
   return over_auto_limit() and not bypasses_cooldown(cmd)
 end
