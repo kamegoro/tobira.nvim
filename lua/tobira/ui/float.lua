@@ -37,16 +37,11 @@ local function close()
   _prev_win = nil
 end
 
--- Rounded border with every segment tagged with the same highlight group, so
--- the whole border reads as one color (mirrors nvim-notify's per-level border).
---
--- Box-drawing characters are Unicode "Ambiguous width": narrow (1 cell) under
--- the default ambiwidth='single', but double-width under ambiwidth='double'
--- (set by users to match wide CJK fonts). Unlike the 'rounded' string preset
--- (used by guide.lua/progress.lua/stats.lua), a custom per-segment border
--- table is validated cell-by-cell, so it hard-errors with "expected only
--- one-cell chars" under ambiwidth='double'. Fall back to plain ASCII
--- only in that case, so everyone else keeps the nicer rounded border.
+-- Colored per-segment border; falls back to ASCII under ambiwidth='double'
+-- (box-drawing chars are Unicode Ambiguous-width and Neovim validates a
+-- custom border table cell-by-cell, unlike the 'rounded' string preset used
+-- by guide.lua/progress.lua/stats.lua).
+-- see docs/adr/0080-suggestion-float-border-ambiwidth-double-fallback.md for why
 local function border_with_hl(hl)
   if vim.o.ambiwidth == 'double' then
     return {
@@ -91,23 +86,9 @@ local function plain_title(title)
 end
 
 -- Content-scaled auto-dismiss duration, clamped to the toast-notification
--- convention of roughly 6-9 seconds of on-screen time.
---
--- #166: 'terminal' is the one category given a longer window. Its only
--- trigger (terminal_esc_repeat) fires while the user is, by definition,
--- still actively fumbling to leave terminal-job mode at that exact moment
--- -- their hands and attention are on the stuck job, not idly watching the
--- corner of the screen the way an idle/ambient suggestion's audience is.
--- Live regression passes (tmux+asciinema, including adversarial conditions:
--- a continuously-flooding terminal job, a competing first-run :TobiraGuide
--- popup, narrow 80-col terminals) confirmed the window renders correctly
--- and stays on screen for exactly as long as this duration allows -- the
--- originally reported "never becomes visible" was this fixed 6-9s window
--- elapsing before a user who is mid-struggle (or any multi-step
--- verification process with latency between trigger and observation, which
--- reproduces the same illusion) gets a real chance to look. Every other
--- category's audience is idle/paused when their suggestion appears, so the
--- standard toast window is left unchanged for them.
+-- convention of roughly 6-9 seconds -- except 'terminal', which gets a
+-- longer window (12-18s).
+-- see docs/adr/0081-terminal-category-auto-dismiss-duration.md for why
 local function auto_close_duration(line_count, category)
   if category == 'terminal' then
     return math.min(18000, math.max(12000, 2500 + (line_count * 700)))
@@ -238,10 +219,8 @@ function M.show(suggestion, focused, pattern)
   end, auto_close_duration(#lines, suggestion.category))
 end
 
--- Fired once, the first time a suggested command is actually adopted. Distinct
--- styling (TobiraCelebrate, short duration) keeps it from reading as a new
--- suggestion — it closes the cue → routine → reward loop that mark_adopted()
--- alone leaves silent.
+-- Fired once, the first time a suggested command is actually adopted.
+-- see docs/adr/0082-celebrate-completes-habit-loop.md for why
 function M.celebrate(cmd)
   local str = require('tobira.i18n').load()
 
