@@ -14,9 +14,7 @@ local PANEL_W = 2 + COLS * COL_W -- 58: matches one full grid row's display widt
 local SPARK_W = 5
 local ICON = ''
 
--- Keybinding footer: key order is fixed here (not pairs(), which is
--- non-deterministic) and only the labels are localized. Rendering is shared
--- with the stats panel via ui/footer.
+-- Fixed key order; labels are localized. See docs/adr/0073-progress-nav-hints-in-window-footer.md.
 local FOOTER_KEYS = {
   { 'x', 'suppress' },
   { 'p', 'pin' },
@@ -38,10 +36,8 @@ local THRESHOLD_SYM = { '☆', '★', '★★', '★★★' }
 
 local setup_hls = require('tobira.ui.hls').setup
 
--- Returns usage data for a skills item, given an explicit usage table (pure —
--- no logger.get()/get_all() call here, so callers control the data source).
+-- Pure: usage is passed in explicitly rather than read via logger.get_all().
 -- Composite items (track array) use the minimum count across tracked keys.
--- Single-key items look up the logger entry directly.
 local function item_data(item, usage)
   if item.adopted then
     return usage[item.adopted] or { count = 0, sessions = {}, shown = 0, suppressed = false, pinned = false }
@@ -65,12 +61,9 @@ local SYM_OPEN = '☆' -- U+2606, 3 bytes, 1 display col
 local SYM_SUPPRESSED = '✗' -- U+2717, 3 bytes, 1 display col
 local SYM_FORGOTTEN = '⟳' -- U+27F3, 3 bytes, 1 display col
 
--- Returns (sym_str, sym_bytes, sym_disp_cols, hl_group).
--- sym area is always 3 display cols wide (padded with spaces).
--- Forgotten takes priority over the numeric level (mirrors ui/guide.lua's
--- mastery_glyph()) so a command that was once mastered and has since gone
--- quiet reads as "come back to this" here too, instead of still showing
--- whatever star count it reached before going quiet.
+-- Returns (sym_str, sym_bytes, sym_disp_cols, hl_group). sym area is always
+-- 3 display cols wide (padded with spaces). Priority: suppressed > forgotten
+-- > numeric level. See docs/adr/0068-progress-forgotten-overrides-mastery-glyph.md.
 local function mastery_sym(data)
   local graph = require('tobira.core.graph')
   if data.suppressed then
@@ -119,10 +112,9 @@ local function status_tag(data, str)
   return str.preview.learning
 end
 
--- Pure: returns the two preview-strip lines (+ empty hls, no highlighting
--- needed there beyond plain text) for whatever item is under the cursor, or
--- two blank lines when item is nil — callers must render both cases at the
--- same line count so the window height never jumps as the cursor moves.
+-- Pure: returns the two preview-strip lines for whatever item is under the
+-- cursor, or two blank lines when item is nil — always exactly 2 lines. See
+-- docs/adr/0070-progress-preview-strip-stable-height-and-in-place-refresh.md.
 function M.preview_lines(item, usage)
   if not item then
     return '', ''
@@ -140,9 +132,8 @@ function M.preview_lines(item, usage)
       desc = sug.title:match(' — (.+)$') or sug.title
     end
   end
-  -- %-6s alone guarantees no minimum gap once item.keys already meets/exceeds
-  -- width 6 (e.g. <C-\><C-n>, <C-w>q, g<C-a>) — the key glues straight onto
-  -- desc. Pad explicitly so at least one separating space always survives.
+  -- Explicit floor guarantees at least one gap even for keys >= 6 chars.
+  -- See docs/adr/0071-progress-preview-key-padding-minimum-gap.md.
   local pad = string.rep(' ', math.max(1, 6 - #item.keys))
   local line1 = '  ' .. item.keys .. pad .. desc
 
@@ -169,10 +160,9 @@ local function separator()
 end
 
 -- Pure: takes usage explicitly (mirrors ui/stats.lua's M.render(usage) and
--- ui/guide.lua's M.build(usage)). Returns the preview strip as two blank
--- placeholder lines — the caller (open()/refresh()) fills them in via
--- update_preview() based on the live cursor position, since the cursor
--- doesn't exist yet at build() time.
+-- ui/guide.lua's M.build(usage)). Preview strip lines are blank placeholders
+-- here; the caller fills them via update_preview() once a cursor exists. See
+-- docs/adr/0070-progress-preview-strip-stable-height-and-in-place-refresh.md.
 function M.build(usage)
   local skills = require('tobira.core.skills')
   local graph = require('tobira.core.graph')
@@ -197,10 +187,7 @@ function M.build(usage)
   for _, cat in ipairs(skills.tree) do
     for _, item in ipairs(cat.items) do
       total_items = total_items + 1
-      -- is_mastered() (not a raw mastery_level >= 2 check) so a command that
-      -- crossed the mastery threshold but has since gone quiet doesn't still
-      -- count toward the ratio here while Guide already shows it as
-      -- forgotten.
+      -- See docs/adr/0069-progress-mastered-ratio-uses-is-mastered.md.
       if graph.is_mastered(item_data(item, usage)) then
         total_mastered = total_mastered + 1
       end
@@ -222,7 +209,7 @@ function M.build(usage)
     local cat_label = str.categories[cat.id] or cat.id
     local done = 0
     for _, item in ipairs(cat.items) do
-      -- See the total_mastered loop above — same is_mastered() switch.
+      -- Same is_mastered() switch as the total_mastered loop above.
       if graph.is_mastered(item_data(item, usage)) then
         done = done + 1
       end
@@ -281,9 +268,7 @@ function M.build(usage)
   end
 
   -- ── preview strip (content filled in by update_preview() after open/refresh) ─
-  -- The nav_hint keybinding line is NOT here: it is pinned to the window footer
-  -- in M.open() so it stays visible while the skill tree scrolls, instead of
-  -- being buried at the bottom of the scrollable buffer.
+  -- Nav-hint keybindings are NOT pushed here; see docs/adr/0073-progress-nav-hints-in-window-footer.md.
   push('')
   push(separator(), 'TobiraGuideHint')
   push('')
@@ -312,13 +297,8 @@ local function item_at_cursor()
   if not row_items then
     return nil
   end
-  -- `col` from nvim_win_get_cursor() is a BYTE offset, but each cell is a
-  -- fixed-width DISPLAY-COLUMN budget (COL_W): mastery glyphs (★/☆/✗, 3 bytes
-  -- each) and the pin marker (●, 3 bytes) are 1-2 display columns but 3-4x
-  -- that in bytes, so byte offset and display column drift apart as more of
-  -- these multibyte glyphs accumulate earlier in the same row. Convert to a
-  -- display column first so the division by COL_W matches how cells are
-  -- actually laid out.
+  -- Converts byte offset to display column before dividing by COL_W. See
+  -- docs/adr/0072-progress-cursor-cell-mapping-uses-display-column.md.
   local line = vim.api.nvim_buf_get_lines(_buf, lnum, lnum + 1, false)[1] or ''
   local disp_col = vim.fn.strdisplaywidth(line:sub(1, col))
   local cell_idx = math.floor((disp_col - 2) / COL_W) + 1
@@ -328,14 +308,8 @@ local function item_at_cursor()
   return row_items[cell_idx]
 end
 
--- Re-renders only the 2-line preview strip in place (not the whole buffer),
--- so moving the cursor doesn't reset scroll position or flicker the grid.
---
--- No is_open()/_preview_lnum guard here: every caller (M.open(), refresh(),
--- the CursorMoved autocmd) only runs while the window is open, and Neovim
--- clears buffer-scoped autocmds synchronously when the buffer is wiped, so
--- CursorMoved cannot fire for this buffer after M.close() runs. A guard for
--- that combination would be unreachable dead code.
+-- Re-renders only the 2-line preview strip in place (not the whole buffer).
+-- No is_open() guard needed — see docs/adr/0070-progress-preview-strip-stable-height-and-in-place-refresh.md.
 local function update_preview()
   local usage = require('tobira.core.logger').get_all()
   local item = item_at_cursor()
@@ -421,15 +395,10 @@ function M.open()
       max_w = w
     end
   end
-  -- title and footer aren't in `lines`, so fold their widths in afterwards (the
-  -- footer especially can be wider than any grid row). Done after the loop so
-  -- the loop always drives max_w from 0 rather than starting above every row.
+  -- title/footer aren't part of `lines`; fold their widths in after the loop.
   max_w = math.max(max_w, vim.fn.strdisplaywidth(title_text) + 2, footer_w + 2)
   local win_w = math.min(max_w + 2, screen_w - 6)
-  -- Leave vertical breathing room so the panel reads as a floating modal, not a
-  -- full-screen takeover. Centered, screen_h - 12 keeps a couple of editor rows
-  -- between the panel's footer and the editor's own statusline, so the two
-  -- bottom bars don't blur together.
+  -- screen_h - 12 leaves vertical margin so the panel reads as a floating modal.
   local win_h = math.min(#lines, screen_h - 12)
 
   _buf = vim.api.nvim_create_buf(false, true)
