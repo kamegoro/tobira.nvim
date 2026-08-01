@@ -91,12 +91,8 @@ end)
 
 describe('when the only offered candidate has trigger_count - cmd_count == -1', function()
   it('is selected instead of erroring on a nil best_cmd comparison', function()
-    -- #121: best_score starts at -1, so a candidate whose score is exactly
-    -- -1 (a realistic value: trigger used 5 times, suggested cmd used 6)
-    -- fails `score > best_score`, falling into `cmd < best_cmd` while
-    -- best_cmd is still nil -> "attempt to compare string with nil".
-    -- A single-entry suggestions table makes pairs() order a non-issue:
-    -- with only one candidate, it is always the (only) one visited first.
+    -- #121, see docs/adr/0032-find-best-sentinel-negative-infinity.md for why.
+    -- A single-entry suggestions table makes pairs() order a non-issue here.
     local original_suggestions = graph.suggestions
     graph.suggestions = {
       w = { cmd = 'w', trigger = 'l', level = 'beginner', category = 'motion' },
@@ -133,11 +129,7 @@ describe('when two offered candidates tie at score -1', function()
 end)
 
 -- ── ambient exclusion for reactive-only, nominal-anchor entries (#110 fix) ───
--- A registry entry can be marked `ambient = false` when its suggestion only
--- ever makes sense as a direct reaction to a just-detected pattern (e.g.
--- terminal_esc_repeat), never as a proactive idle-time nudge. find_best()
--- powers both the idle ambient picker and :Tobira's manual pick, so this
--- exclusion must apply to both call sites — see graph.lua's find_best for why.
+-- see docs/adr/0007-reactive-only-ambient-exclusion.md for why
 
 describe('when a suggestion entry is marked ambient = false', function()
   it('is never returned by find_best, even with a maximal score (#110)', function()
@@ -170,14 +162,8 @@ describe('the terminal-mode <C-\\><C-n> suggestion (#110 regression)', function(
   it(
     'is never surfaced by find_best from real i usage alone, even though i is the only trigger it shares with <C-w> / gi / I',
     function()
-      -- Before the fix: cmd_count for <C-\><C-n> is structurally always 0
-      -- (nothing ever increments it — see commands.lua's comment), so its
-      -- score against a heavily-used 'i' trigger is always the maximum
-      -- possible (trigger_count - 0), and it also wins every alphabetical
-      -- tie-break against the other 'i'-triggered entries because
-      -- '<C-\><C-n>' sorts before '<C-w>' byte-for-byte. That combination
-      -- made it dominate find_best() despite the user never having opened
-      -- a terminal.
+      -- Before the fix, this entry's structurally-stuck-at-0 count made it
+      -- dominate every 'i'-triggered tie-break. See docs/adr/0007-reactive-only-ambient-exclusion.md
       local usage = { i = usage_entry(500) }
       for _ = 1, 20 do
         local result = graph.find_best(usage)
@@ -226,11 +212,8 @@ describe('when a command was adopted but recently fell out of use', function()
   it(
     'is considered forgotten when recent usage has decayed well below its historical average, even without hitting exactly zero',
     function()
-      -- #62: the old rule required the last 2 sessions to be *exactly* 0, so a
-      -- single stray use (here: 1) was enough to call this "not forgotten" no
-      -- matter how far usage had actually dropped. The graded rule compares the
-      -- recent average (0.5) against 30% of the historical average (7.5*0.3=2.25)
-      -- instead — a >90% drop reads as forgotten even though it isn't literally 0.
+      -- #62 regression, see docs/adr/0029-graded-forgotten-command-detection.md
+      -- recent avg 0.5 vs 30% of historical avg 7.5 (=2.25) -> forgotten, despite no exact 0
       local data = usage_entry(50, { 7, 8, 0, 1 })
       assert.is_true(graph.is_forgotten(data))
     end
@@ -282,11 +265,7 @@ describe('when a command is explicitly suppressed', function()
 end)
 
 -- ── Ex command suggestions (#57): stricter never-tried gate ──────────────────
--- Ex commands (:g, :norm) do the work of many ordinary keystrokes in one
--- shot, so continuing to suggest one after the user has tried it even once
--- would read as ignoring feedback. Suggestions flagged ex_command = true are
--- gated on "never tried at all" (count == 0) instead of the generic
--- mastery-level gate (count < 100) every other suggestion uses.
+-- see docs/adr/0010-ex-command-never-tried-gate.md for why
 
 describe('an ex_command-flagged suggestion', function()
   it('is offered when the user has never tried it', function()
@@ -698,13 +677,7 @@ describe('when a command is used heavily but a more efficient follow-up command 
 end)
 
 -- ── efficiency_gaps keymap overrides (#164) ──────────────────────────────────
--- efficiency_gaps() powers :TobiraStats's "Try these next" section -- the
--- panel's own headline actionable section, and unlike find_best() it does not
--- go through find_best's gates at all, so it needs its own override filter
--- rather than inheriting one for free. Mirrors find_best's own filter (see
--- its header comment / the "keymap overrides (#63)" describe block below): a
--- candidate whose own key is remapped is excluded regardless of whether the
--- remap is functionally equivalent to what tobira would otherwise teach.
+-- see docs/adr/0030-keymap-override-exclusion-contract.md for why
 
 describe('when a gap candidate has been remapped by the user', function()
   it('is excluded from efficiency_gaps, even though its trigger count would otherwise qualify it', function()
@@ -747,21 +720,11 @@ describe('when a gap candidate has been remapped by the user', function()
 end)
 
 -- ── keymap overrides (#63) ────────────────────────────────────────────────────
--- find_best() is the proactive (ambient / :Tobira manual) suggestion pool.
--- Any candidate whose own key has been remapped by the user is filtered out
--- of this pool entirely, regardless of whether the remap is functionally
--- equivalent to what tobira would teach -- introducing a concept the user has
--- already deliberately bound to that key teaches nothing new. (ui/guide.lua's
--- persistent cheat-sheet, which bypasses find_best entirely, is where the
--- equivalent/different distinction actually matters -- see ui_guide_spec.lua.)
+-- see docs/adr/0030-keymap-override-exclusion-contract.md for why
 
 describe('when a candidate command has been remapped by the user', function()
   it('is never returned by find_best, even though it would otherwise win outright', function()
-    -- nnoremap Y y$ (#63 AC1): Y requires 'p' and would otherwise win with
-    -- score 10 (10 - 0); tobira's own commands.lua entry already documents Y
-    -- as "same as y$", so a user who bound Y to literally run y$ has already
-    -- established this on their own -- the override marks it `equivalent`,
-    -- but find_best excludes it regardless (see this describe block's header).
+    -- nnoremap Y y$ (#63 AC1): equivalent = true still gets excluded (ADR 0030)
     local original_suggestions = graph.suggestions
     graph.suggestions = {
       Y = { cmd = 'Y', trigger = 'p', level = 'beginner', category = 'edit' },
@@ -816,12 +779,7 @@ describe('when a candidate command has been remapped by the user', function()
 end)
 
 -- ── phase 2: integration promotions (#63) ────────────────────────────────────
--- graph.find_best() consumes a plain `promotions` table (cmd -> true) computed
--- by core/integrations.lua -- graph.lua itself never detects plugins or reads
--- config, keeping it pure (see lua/tobira/CLAUDE.md's module dependency
--- rules). A promoted candidate bypasses the ordinary "trigger_count > 0" gate
--- (integrations.lua already verified real usage evidence before promoting),
--- but still has to pass every other gate (mastery / suppression / shown cap).
+-- see docs/adr/0031-priority-pool-for-gate-bypassing-candidates.md for why
 
 describe('when a suggestion is promoted by the integrations layer', function()
   it('is offered even though its trigger has never been used', function()
@@ -859,10 +817,7 @@ describe('when a suggestion is promoted by the integrations layer', function()
 end)
 
 -- ── register underuse: "+y system-clipboard promotion (#59) ─────────────────
--- Scope note: only the clipboard heuristic (y count >= 20, "+y count == 0) is
--- implemented here. The issue's "wrong paste" / register-0 heuristics are
--- explicitly deferred to a follow-up pending design review — see the issue's
--- own "Phase 2 (later, needs discussion)" section.
+-- see docs/adr/0031-priority-pool-for-gate-bypassing-candidates.md for why
 
 describe('when checking whether y is used heavily but "+y (system clipboard) is not', function()
   it('is false when y has never been used', function()
@@ -910,11 +865,8 @@ describe('when y is yanked heavily but "+y has never been used', function()
   end)
 
   it('outranks a realistic long-term trigger count like j = 1030 (<C-d>)', function()
-    -- Regression test: a fixed +1000 additive boost (score = 1000 + y.count)
-    -- used to lose to <C-d>'s own score (trigger_count - cmd_count = 1030 - 0
-    -- = 1030) once j's raw count climbed past ~1000, which is unremarkable
-    -- for a real long-term user. "+y must win regardless of how high any
-    -- ordinary candidate's own count gets.
+    -- Regression: a fixed +1000 boost used to lose once j's count passed
+    -- ~1000 (ADR 0031). "+y must win regardless of the competing count.
     local usage = { y = usage_entry(20), j = usage_entry(1030) }
     assert.equals('"+y', graph.find_best(usage))
   end)

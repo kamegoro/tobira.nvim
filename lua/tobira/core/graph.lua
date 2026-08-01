@@ -17,14 +17,9 @@ for cmd, entry in pairs(commands.registry) do
       trigger = entry.requires,
       level = entry.level,
       category = entry.category,
-      -- Read by find_best() to apply the stricter "never tried" offer
-      -- gate instead of the generic mastery-level gate. Only ever true for
-      -- Ex-command suggestions (see commands.lua's 'ex:g' / 'ex:norm').
+      -- see docs/adr/0010-ex-command-never-tried-gate.md for why
       ex_command = entry.ex_command == true,
-      -- nil (default) means eligible; only `ambient = false` in commands.lua
-      -- opts an entry out of find_best()'s candidate pool. The reactive path
-      -- (suggest.queue called directly from a pattern module) never reads
-      -- this field, so it is unaffected either way — see find_best() below.
+      -- nil (default) means eligible. See docs/adr/0007-reactive-only-ambient-exclusion.md
       ambient = entry.ambient,
     }
   end
@@ -51,24 +46,16 @@ function M.is_adopted(data)
   return avg_last_n(data.sessions or {}, 3) >= 5
 end
 
--- Not user-configurable, consistent with this file's other hardcoded
--- thresholds (100/1000/5000 mastery counts, avg>=5 adoption bar) — these
--- aren't exposed via core/config.lua so there's one fewer thing users need
--- to understand.
-local FORGOTTEN_RECENT_WINDOW = 2 -- same recency window the old binary rule used
-local FORGOTTEN_ADOPTED_BAR = 5 -- reuses is_adopted's "meaningfully used" bar
-local FORGOTTEN_RATIO = 0.3 -- recent avg must fall below 30% of the historical avg
+-- Hardcoded, not exposed via core/config.lua (same as this file's other
+-- thresholds). See docs/adr/0029-graded-forgotten-command-detection.md for why.
+local FORGOTTEN_RECENT_WINDOW = 2
+local FORGOTTEN_ADOPTED_BAR = 5
+local FORGOTTEN_RATIO = 0.3
 
--- True when the command was meaningfully adopted in the past (its average
--- usage before the most recent FORGOTTEN_RECENT_WINDOW sessions reached
--- FORGOTTEN_ADOPTED_BAR) but recent usage has decayed below FORGOTTEN_RATIO
--- of that historical average. Requires at least 3 sessions to be meaningful.
---
--- Graded replacement for the old "last 2 sessions are exactly 0" rule:
--- a command fading from heavy to occasional use is now caught gradually
--- instead of requiring recent usage to hit exactly zero. Uses the average
--- (not the peak) of the historical window so one unusually heavy session
--- doesn't set a bar that makes otherwise-steady usage read as "forgotten".
+-- True when historical avg usage (all sessions before the last
+-- FORGOTTEN_RECENT_WINDOW) reached FORGOTTEN_ADOPTED_BAR but recent avg has
+-- decayed below FORGOTTEN_RATIO of it. Requires >= 3 sessions.
+-- see docs/adr/0029-graded-forgotten-command-detection.md for why
 function M.is_forgotten(data)
   local sessions = data.sessions or {}
   local n = #sessions
@@ -115,10 +102,9 @@ end
 
 -- Returns unmastered-or-forgotten commands grouped by category for the Guide panel.
 -- Ceiling level = lowest level that still has commands with is_mastered(data) == false.
--- Uses is_mastered() (not a raw mastery_level(data) < 2 check) so a command that
--- crossed the mastery threshold but has since gone quiet (is_forgotten) reappears
--- here instead of being permanently excluded.
 -- Commands within each category are sorted alphabetically for determinism.
+-- Uses is_mastered(), not a raw mastery_level(data) < 2 check —
+-- see docs/adr/0029-graded-forgotten-command-detection.md for why
 function M.guide_commands(usage)
   local cmds = require('tobira.commands')
 
@@ -190,16 +176,8 @@ end
 -- is rarely or never used, sorted by ratio descending.
 -- Only includes pairs where trigger count >= 50 and child mastery_level < 2.
 -- limit: optional cap on returned results.
--- overrides: optional table of cmd -> { rhs, equivalent } built by
--- core/integrations.lua, identical in shape to find_best's own `overrides`
--- parameter (see find_best's header comment for the full design -- this
--- mirrors it rather than reinventing it). Any candidate (child) present as a
--- key here is excluded from this pool entirely, regardless of `equivalent` --
--- this function powers :TobiraStats's "Try these next" section, which is
--- exactly as proactive a suggestion as anything find_best offers, so it must
--- honor the same "never suggest a command whose key you've remapped away"
--- rule. graph.lua stays pure/integrations-agnostic either way: this is only
--- ever read as plain data, never required from integrations.lua itself.
+-- overrides: same shape and exclusion rule as find_best's `overrides` param —
+-- see docs/adr/0030-keymap-override-exclusion-contract.md for why
 function M.efficiency_gaps(usage, limit, overrides)
   local cmds = require('tobira.commands')
   local gaps = {}
@@ -239,16 +217,8 @@ function M.efficiency_gaps(usage, limit, overrides)
   return gaps
 end
 
--- Registers "+y" as a suggestion candidate only when the user has
--- yanked heavily (y count >= REGISTER_UNDERUSE_TRIGGER) but has never once
--- reached for the system-clipboard register. This is intentionally NOT the
--- generic "trigger_count > 0" rule find_best() otherwise uses — that rule
--- would surface "+y after a single y, far too early for a suggestion this
--- different from an ordinary operator/motion pair (switching to a named or
--- system register is a bigger behavioral jump than, say, learning cw). Only
--- the clipboard heuristic is implemented — the issue's "wrong paste" /
--- register-0 heuristics are deferred pending design review (see the issue's
--- own "Phase 2" section).
+-- Only the y/"+y clipboard heuristic is implemented (not "wrong paste" or
+-- register-0). See docs/adr/0031-priority-pool-for-gate-bypassing-candidates.md for why
 local REGISTER_UNDERUSE_TRIGGER = 20
 
 -- True once the user has yanked (y) at least REGISTER_UNDERUSE_TRIGGER times
@@ -261,65 +231,38 @@ function M.is_register_underused(usage)
 end
 
 -- max_level: 'beginner' | 'intermediate' | 'advanced' | nil (no filter)
--- overrides: optional table of cmd -> { rhs, equivalent } built by
--- integrations.lua from the user's actual :nmap/:nnoremap state. Any
--- candidate present as a key here is excluded entirely, regardless of
--- `equivalent` — graph.lua only reads this as plain data (no require of
--- integrations.lua, keeping this file pure). Proactively nudging "learn X"
--- is never useful once the user has rebound X's key to something else,
--- equivalent or not — see ui/guide.lua for the one surface where the
--- equivalent/different distinction actually matters.
--- promotions: optional table of cmd -> true built by integrations.lua from
--- detected-plugin + usage-threshold rules. A promoted candidate bypasses the
--- ordinary "trigger_count > 0" gate below (same priority-pool machinery as
--- "+y" above) but still must pass every other gate (mastery/suppression/shown).
+-- overrides: table of cmd -> { rhs, equivalent } built by integrations.lua.
+-- see docs/adr/0030-keymap-override-exclusion-contract.md for why
+-- promotions: table of cmd -> true built by integrations.lua; bypasses the
+-- trigger_count > 0 gate below via the same priority pool as "+y" (still
+-- subject to every other gate). see docs/adr/0031-priority-pool-for-gate-bypassing-candidates.md
 function M.find_best(usage, max_shown, max_level, overrides, promotions)
   max_shown = max_shown or 3
   local max_level_num = max_level and (LEVEL_ORDER[max_level] or 3) or 3
   local best_cmd = nil
-  -- -math.huge (not -1): a real score can legitimately equal -1 (e.g.
-  -- trigger used 5 times, suggested cmd used 6), which used to collide with
-  -- this sentinel and let `cmd < best_cmd` run while best_cmd was still nil
-  -- -math.huge can never tie a real score, so best_cmd is always
-  -- non-nil by the time the tie-break branch is reached.
+  -- -math.huge, not -1: see docs/adr/0032-find-best-sentinel-negative-infinity.md for why
   local best_score = -math.huge
 
-  -- Register-underuse candidates are collected into their own pool instead of
-  -- being folded into best_score via an additive boost. A fixed boost
-  -- (previously +1000 added to usage.y.count) can never be "big enough": an
-  -- ordinary score (trigger_count - cmd_count) grows with the raw trigger
-  -- count, which for a real long-term user routinely reaches the thousands —
-  -- no constant outraces an unbounded competitor. A separate pool, falling
-  -- back to the ordinary one only when empty, makes "qualified always wins"
-  -- true by construction, not arithmetic.
+  -- Separate pool for candidates that bypass the trigger_count > 0 gate below.
+  -- see docs/adr/0031-priority-pool-for-gate-bypassing-candidates.md for why
   local best_priority_cmd = nil
   local best_priority_score = -math.huge
 
   for cmd, sug in pairs(M.suggestions) do
     local cmd_level_num = LEVEL_ORDER[sug.level] or 1
-    -- Entries marked ambient = false (reactive-only, e.g. the
-    -- terminal-mode exit suggestion) are never proactive candidates here —
-    -- they only ever reach the user via suggest.queue() called directly
-    -- from a pattern module, which does not go through find_best.
-    -- Entries whose own key is remapped (overrides[cmd] ~= nil) are
-    -- excluded the same way -- see this function's header comment.
+    -- ambient = false: see docs/adr/0007-reactive-only-ambient-exclusion.md
+    -- overridden: see docs/adr/0030-keymap-override-exclusion-contract.md
     local overridden = overrides and overrides[cmd] ~= nil
     if cmd_level_num <= max_level_num and sug.ambient ~= false and not overridden then
       local data = usage[cmd] or { count = 0, sessions = {}, shown = 0, suppressed = false }
 
-      -- Ex-command suggestions use a stricter "never tried at all" gate
-      -- instead of the generic mastery-level gate (count < 100) — a single
-      -- :g or :norm already does the work of many ordinary keystrokes, so
-      -- unlike e.g. cw (fine to keep nudging below 100 uses), continuing to
-      -- suggest one of these after even one real use would read as ignoring
-      -- feedback rather than teaching.
+      -- see docs/adr/0010-ex-command-never-tried-gate.md for why ex_command uses a
+      -- different gate than the generic mastery-level check
       local not_yet_known = sug.ex_command and data.count == 0 or (not sug.ex_command and not M.is_mastered(data))
       local offered = not_yet_known and not data.suppressed and data.shown < max_shown
 
       if offered and cmd == '"+y' then
-        -- Register-underuse gate replaces the generic trigger_count > 0
-        -- rule below — see is_register_underused() and the priority-pool
-        -- comment above.
+        -- see docs/adr/0031-priority-pool-for-gate-bypassing-candidates.md for why
         if M.is_register_underused(usage) then
           local score = usage.y.count
           if score > best_priority_score or (score == best_priority_score and cmd < best_priority_cmd) then
@@ -328,10 +271,7 @@ function M.find_best(usage, max_shown, max_level, overrides, promotions)
           end
         end
       elseif offered and promotions and promotions[cmd] then
-        -- Same priority-pool mechanism as "+y" above -- a
-        -- promoted candidate already has independently-verified usage
-        -- evidence (integrations.lua's own threshold check), so it bypasses
-        -- the ordinary trigger_count > 0 requirement just below.
+        -- see docs/adr/0031-priority-pool-for-gate-bypassing-candidates.md for why
         local score = (usage[sug.trigger] and usage[sug.trigger].count) or 0
         if score > best_priority_score or (score == best_priority_score and cmd < best_priority_cmd) then
           best_priority_score = score
