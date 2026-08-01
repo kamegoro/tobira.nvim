@@ -7,9 +7,8 @@ local _ns = vim.api.nvim_create_namespace('tobira_guide')
 local WIDTH = 60 -- widened to fit the mastery-symbol and count columns
 local ICON = '' -- nerd font fa-info-circle (matches nvim-notify INFO icon)
 
--- Caps each category's auto section so the panel stays a small "glance while
--- you code" sidebar regardless of how many commands a brand-new user hasn't
--- touched yet, instead of growing to fit everything.
+-- Per-category cap for the auto section — see
+-- docs/adr/0060-guide-auto-section-capped-never-tried-first.md for why.
 local MAX_PER_CATEGORY = 3
 
 local CATEGORY_ORDER = { 'motion', 'edit', 'search', 'window', 'fold', 'mark', 'macro', 'diff', 'ex', 'terminal' }
@@ -21,14 +20,11 @@ local function short_desc(title)
   return title:match(' — (.+)$') or title
 end
 
--- The auto section's suffix: forgotten_suffix plus a remapped_suffix for
--- commands remapped to something functionally equivalent to what
--- commands.lua documents (e.g. `nnoremap Y y$` — see integrations.lua's
--- EQUIVALENT_REMAPS). A *non*-equivalent remap never reaches this function —
--- M.build() drops that row from the auto section entirely, since showing
--- wrong information in a reference row is worse than omitting it. Shared by
--- the description-width pass and format_row so the two never disagree about
--- a row's rendered width.
+-- Builds the auto section's suffix: forgotten_suffix plus remapped_suffix
+-- for an equivalent remap. A non-equivalent remap never reaches this
+-- function — M.build() drops that row entirely. Shared by the
+-- description-width pass and format_row so both agree on row width.
+-- See docs/adr/0061-guide-auto-vs-pinned-remap-visibility.md for why.
 local function auto_suffix(cmd, data, str)
   local graph = require('tobira.core.graph')
   local integrations = require('tobira.core.integrations')
@@ -40,18 +36,12 @@ local function auto_suffix(cmd, data, str)
   return suffix
 end
 
--- Returns (glyph, hlgroup) for the mastery-symbol column, or (nil, nil) for a
--- never-tried command (blank cell + TobiraDim on the whole row instead — see
--- format_row). Forgotten takes priority over the numeric level: a command
--- once mastered that's gone quiet should read as "come back to this", not
--- whatever star count it reached before going quiet.
---
--- Only two branches are reachable here (is_forgotten, or level <= 1):
--- build() only calls this for rows guide_commands() included, whose filter
--- is `not is_mastered(data)` = `mastery_level < 2 or is_forgotten`. So a
--- level >= 2 row reaching here is always forgotten and already returns
--- above — there is deliberately no `elseif level >= 2` branch; it would be
--- dead code.
+-- Returns (glyph, hlgroup) for the mastery column, or (nil, nil) for a
+-- never-tried command (blank + TobiraDim row instead — see format_row).
+-- Only two branches are reachable: guide_commands()'s filter guarantees any
+-- row reaching here with level >= 2 is already forgotten, so there is no
+-- `elseif level >= 2` branch.
+-- See docs/adr/0062-guide-mastery-glyph-forgotten-priority.md for why.
 local function mastery_glyph(data)
   local graph = require('tobira.core.graph')
   if graph.is_forgotten(data) then
@@ -65,20 +55,10 @@ end
 
 -- Builds one pinned-section row. Position-tracking emit() avoids
 -- hand-computed byte offsets for highlight ranges (glyph and key are both
--- variable-width once combined with multi-byte glyphs).
---
--- `data` drives the same forgotten-state check format_row makes: a pinned
--- command once mastered that's gone quiet gets the ⟳ glyph + forgotten_suffix
--- here too, instead of staying a plain ● row forever.
---
--- A pinned row is never *omitted* for a remap, unlike the auto section
--- (which drops a non-equivalent remap entirely — see auto_suffix's header):
--- the user pinned this on purpose, so silently vanishing would read as
--- tobira losing track of the pin. An equivalent remap (`nnoremap Y y$`)
--- still substitutes wording via remapped_suffix; a *different* remap
--- replaces the description with remapped_invalid instead of appending a
--- correction after text that's now flatly wrong — the row stays visible,
--- just with an accurate note.
+-- variable-width once combined with multi-byte glyphs). Applies the same
+-- forgotten-state check as format_row, and never omits a row for a remap
+-- (unlike the auto section) — see
+-- docs/adr/0061-guide-auto-vs-pinned-remap-visibility.md for why.
 local function format_pinned_row(cmd, data, desc, str)
   local graph = require('tobira.core.graph')
   local integrations = require('tobira.core.integrations')
@@ -123,10 +103,9 @@ local function format_pinned_row(cmd, data, desc, str)
 end
 
 -- Builds one auto-section row: mastery glyph, key, description (+ forgotten
--- suffix), and a right-aligned count. `desc_col_w` is the max display width of
--- desc+suffix across every row in the current build pass (not a fixed global
--- constant) so the count column aligns without padding every row out to the
--- width of the single longest description in the whole command set.
+-- suffix), and a right-aligned count. `desc_col_w` is the max description
+-- width for the current build pass, not a fixed constant — see M.build's
+-- per-category pass below.
 local function format_row(cmd, desc, data, desc_col_w, str)
   local commands = require('tobira.commands')
   local glyph, glyph_hl = mastery_glyph(data)
@@ -167,9 +146,8 @@ local function format_row(cmd, desc, data, desc_col_w, str)
   return line, hls
 end
 
--- Pure: takes usage explicitly (mirrors ui/stats.lua's M.render(usage)) so
--- layout can be tested without opening a real window. M.open()/M.refresh()
--- are the only callers that read logger.get_all().
+-- Pure: takes usage explicitly, so layout can be tested without a real
+-- window. M.open()/M.refresh() are the only callers that read logger.get_all().
 function M.build(usage)
   local loc = require('tobira.i18n').load()
   local strings = loc.guide
@@ -191,14 +169,10 @@ function M.build(usage)
 
   local by_cat = graph.guide_commands(usage)
 
-  -- Remove pinned commands from the auto section to avoid duplication, sort
-  -- each category never-tried-first (Guide surfaces blind spots — Progress
-  -- already owns the "close to mastery" gradient, see ui/CLAUDE.md) with an
-  -- alphabetical tie-break, and cap to MAX_PER_CATEGORY. A command remapped
-  -- to something *not* equivalent to what commands.lua documents is dropped
-  -- entirely — this is a persistent reference row, and showing wrong
-  -- information is worse than omitting it. An equivalent remap
-  -- (`nnoremap Y y$`) still renders, suffixed via auto_suffix() instead.
+  -- Strip pinned commands, sort each category never-tried-first, cap to
+  -- MAX_PER_CATEGORY, and drop non-equivalent remaps entirely. See
+  -- docs/adr/0060-guide-auto-section-capped-never-tried-first.md and
+  -- docs/adr/0061-guide-auto-vs-pinned-remap-visibility.md for why.
   local integrations = require('tobira.core.integrations')
   local overflow_by_cat = {}
   for cat, cmds in pairs(by_cat) do
@@ -228,8 +202,8 @@ function M.build(usage)
     by_cat[cat] = filtered
   end
 
-  -- First pass: collect every auto-section row so the count column can be
-  -- aligned to the max description width actually being rendered right now.
+  -- First pass: collect every row so the count column aligns to the
+  -- description widths actually being rendered.
   local auto_rows = {}
   for _, cat in ipairs(CATEGORY_ORDER) do
     local cmds = by_cat[cat]
@@ -243,9 +217,8 @@ function M.build(usage)
     end
   end
 
-  -- Per category, not global — a long description in one category (e.g.
-  -- motion) must not force every row in a short category (e.g. fold) to pad
-  -- out to match it.
+  -- Per category, not global — a long description in one category must not
+  -- pad out rows in a shorter category.
   local desc_col_w_by_cat = {}
   for _, row in ipairs(auto_rows) do
     local suffix = auto_suffix(row.cmd, row.data, strings)
