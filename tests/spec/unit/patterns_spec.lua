@@ -221,11 +221,8 @@ end)
 
 -- ── j / k in diff mode: prefer ]c / [c hunk navigation over }/{ (#111) ────────
 -- feed()'s 4th argument is the caller-supplied "is &diff set on this window?"
--- flag. patterns.lua stays vim.*-free (see lua/tobira/CLAUDE.md's module
--- dependency rules), so it never reads vim.wo.diff itself — logger.lua reads
--- it and passes the boolean in. These tests inject that flag directly,
--- exactly as patterns_spec.lua's own template for unit-testing pure functions
--- prescribes (see tests/CLAUDE.md).
+-- flag (patterns.lua stays vim.*-free, so it never reads vim.wo.diff itself —
+-- logger.lua does and passes the boolean in). These tests inject it directly.
 
 describe('when j is pressed 10 times in a row while &diff is set', function()
   it('fires j_many_diff at 10 suggesting ]c instead of }', function()
@@ -1003,10 +1000,8 @@ describe('when the user enters and immediately leaves visual mode 3 times in a r
     patterns.feed(s, 'v', 1)
     patterns.feed(s, '\27', 1) -- <Esc>, 2nd clean tap
     local third_v = patterns.feed(s, 'v', 1)
-    -- The 3rd v must NOT fire yet — whether it's another clean tap or the
-    -- start of genuine visual usage (viw, v$, ...) isn't known until the
-    -- next key arrives (#55 follow-up: firing on the v itself misfired on
-    -- v<Esc>v<Esc>viw).
+    -- The 3rd v must NOT fire yet (#55 follow-up) — see
+    -- docs/adr/0021-visual-repeat-gv-detection.md
     assert.is_nil(third_v)
     local result = patterns.feed(s, '\27', 1) -- <Esc> confirms the 3rd tap was also clean
     assert.is_not_nil(result)
@@ -1080,10 +1075,7 @@ describe('when the user enters and immediately leaves visual mode 3 times in a r
 end)
 
 -- ── ci" / ci' × 3 (direct, non-visual) → suggest ya" / ya' (#53) ────────────
--- Distinct from visual_textobj above: this fires from the plain Normal-mode
--- c + i + "/' operator-pending sequence, never from v i " c. Streaks are
--- tracked separately per quote char, mirroring dd_streak/cc_streak's
--- per-operator split (#118).
+-- see docs/adr/0020-ci-quote-streak-and-tolerance.md
 
 describe('when the user changes inside double quotes (ci") 3 times in a row', function()
   it('fires ci_dquote_repeat suggesting ya" on the 3rd ci"', function()
@@ -1159,9 +1151,7 @@ describe("when the user changes inside single quotes (ci') 3 times in a row", fu
 end)
 
 -- ── ci_dquote_streak / ci_squote_streak tolerate plain navigation between ──
--- completions (#53 live-QA follow-up: the advertised feature almost never
--- fired in realistic usage, since ordinary navigation between two different
--- quoted strings reset the streak on the very first navigation keystroke).
+-- completions (#53 live-QA follow-up) — see docs/adr/0020-ci-quote-streak-and-tolerance.md
 
 describe('when plain single-key navigation connects ci" completions on different strings', function()
   it('fires ci_dquote_repeat suggesting ya" for the realistic ci"..<Esc> w w ci"..<Esc> w w ci" flow', function()
@@ -1513,10 +1503,7 @@ describe('when the user specifies a register with "', function()
 end)
 
 -- ── "+y system-clipboard yank compound (#59) ──────────────────────────────────
--- Tracked as its own compound (distinct from the generic "consume and forget
--- the register name" behavior above) so graph.is_register_underused() has a
--- real "+y count == 0" signal to gate on instead of never knowing this
--- ever happened.
+-- see docs/adr/0023-register-mark-bracket-prefix-consumers.md
 
 describe('when the user yanks to the system clipboard with "+y', function()
   it('tracks "+y as a completed compound', function()
@@ -1540,11 +1527,9 @@ end)
 
 describe('when "+yy completes (register-select, then a full linewise yank)', function()
   it('does not leave a dangling pending_op that swallows the next keystroke', function()
-    -- Regression test: the trailing y of "+yy used to fall through to the
-    -- generic "d/c/y operator start" branch and set pending_op = 'y', which
-    -- then silently consumed the very next keystroke as if it were y's
-    -- motion. That swallowed keystroke never reached run-tracking, so
-    -- j_repeat (count == 5) needed a 6th j instead of 5.
+    -- Regression test: the trailing y of "+yy used to swallow the next
+    -- keystroke, so j_repeat (count == 5) needed a 6th j — see
+    -- docs/adr/0023-register-mark-bracket-prefix-consumers.md
     local s = seq()
     patterns.feed(s, '"', 1)
     patterns.feed(s, '+', 1)
@@ -1640,11 +1625,7 @@ end)
 -- ── [ / ] navigation prefix ───────────────────────────────────────────────────
 
 describe('when the user uses [ or ] navigation', function()
-  -- Without a pending_bracket guard, ]c incorrectly sets pending_op='c'.
-  -- Then a second 'c' matches key==op and sets last_op='cc', so 'p' would
-  -- fall through (no cc_then_p pattern exists) and stay nil either way; the
-  -- pending_bracket guard is what prevents ]c from ever becoming pending_op
-  -- in the first place, which this test verifies.
+  -- Without a pending_bracket guard, ]c would incorrectly set pending_op='c'.
   it('does not fire dd_then_p for ]cc p (] c is navigation, not an operator)', function()
     local s = seq()
     patterns.feed(s, ']', 1)
@@ -1721,15 +1702,9 @@ describe('when the user presses g followed by a motion key', function()
 end)
 
 -- ── g-compounds must reset consecutive-run tracking for their 2nd key (#30 QA) ─
--- Bug: adopting e_repeat's own suggestion (typing ge) did not reset the e-streak,
--- unlike w_repeat/W and b_repeat/B — a genuine "ge" completion left an e×4 streak
--- alive, so one more bare e re-fired e_repeat immediately. Root cause: the
--- pending_g dispatch above resolves and returns nil without ever calling
--- track_run(), so seq.run is simply frozen mid-streak rather than reset — this
--- is a property of the pending_g block itself, not something specific to 'e', so
--- it silently affects every g_targets entry whose second character also has its
--- own consecutive-run tracking (gj/gk/gn/gx/gp/gu, and the zero_then_w/g0 pair
--- below), not just ge.
+-- Bug: adopting e_repeat's own suggestion (typing ge) did not reset the
+-- e-streak, re-firing e_repeat immediately — see
+-- docs/adr/0019-jumplist-changelist-underuse-detection.md
 describe('when a bare key streak is interrupted by a deliberate g-compound using the same key', function()
   it('does not fire e_repeat on the e right after a genuine ge completion', function()
     local s = seq()
@@ -1743,9 +1718,8 @@ describe('when a bare key streak is interrupted by a deliberate g-compound using
     assert.is_nil(result)
   end)
 
-  -- e/j/k/n/x/p/u all share the run_cases consecutive-run structure above AND are
-  -- reachable as a pending_g target's 2nd key (g_targets: ge/gj/gk/gn/gx/gp/gu) —
-  -- so they all share this same exposure. threshold matches run_cases above.
+  -- e/j/k/n/x/p/u are all reachable as a pending_g target's 2nd key, so they
+  -- all share this same exposure (threshold matches run_cases above).
   local reset_cases = {
     { key = 'e', threshold = 5, pattern = 'e_repeat', cmd = 'ge' },
     { key = 'j', threshold = 5, pattern = 'j_repeat', cmd = '{n}j' },
@@ -1908,11 +1882,7 @@ describe('when the user presses <C-w> followed by a window-command key', functio
 end)
 
 -- ── gq operator (format) + jump-back → suggest gw ─────────────────────────────
--- gq is a real Vim operator: unlike gg/gj/gd (simple two-key pending_g targets
--- that complete immediately), gq needs a further motion (gqq, gqap, gq}) before
--- it's "done". A completed gq followed immediately by a jump-back (`` ` ` `` or
--- <C-o>) means the user formatted text, then manually returned to where they
--- started — exactly what gw already does for free by leaving the cursor in place.
+-- see docs/adr/0022-gq-operator-pending-and-post-format-jumpback.md
 
 describe('when the user completes a gq format operation', function()
   it('records last_op = gq for the linewise gqq form', function()
@@ -2051,9 +2021,7 @@ describe('when a jump-back is not preceded by a completed gq', function()
 end)
 
 -- ── <C-w>q / <C-w>c repeated → <C-w>o (#107) ──────────────────────────────────
--- Closing windows one at a time with <C-w>q or <C-w>c, repeated (or alternated)
--- 2+ times in a row, means the user wants to get back down to a single window —
--- <C-w>o (close all other windows) does that in one step.
+-- see docs/adr/0024-ctrl-w-window-compound-and-close-streak.md
 
 describe('when the user closes windows one at a time', function()
   local ctrl_w = '\23'
@@ -2236,11 +2204,7 @@ describe('when a key is consumed as part of a preceding register, mark, or [ / ]
 end)
 
 -- ── op_completed flag (#119) ────────────────────────────────────────────────
--- seq.op_completed is true only on the exact feed() call that freshly assigns
--- seq.last_op. logger.lua increments usage from this flag rather than from a
--- value-change comparison, so two identical compounds back-to-back (dd dd,
--- dw dw, …) are each counted once — a value-change comparison cannot tell
--- "the same compound completed twice" from "nothing happened".
+-- see docs/adr/0026-state-machine-bookkeeping-invariants.md
 
 describe('when an operator command freshly completes, as opposed to merely repeating the same one', function()
   it('is false after only the first key of a pending operator', function()
@@ -2609,10 +2573,7 @@ end)
 
 -- ── arbitration when both preconditions are true at once (#61 regression) ───
 -- Reported by live QA: 10G → x (edit) → 40G → x (edit) → k×5 back always
--- suggested <C-o>, never g;, because the jumplist check ran first in
--- inner_feed and returned early — changelist_return never even got
--- evaluated on that keystroke. The fix is to evaluate both conditions before
--- deciding, and let the more recent "away" event win.
+-- suggested <C-o>, never g; — see docs/adr/0019-jumplist-changelist-underuse-detection.md
 
 describe('when both the jumplist and changelist preconditions are true on the same keystroke', function()
   it('fires changelist_return, not manual_return, when the second edit is more recent than the jump', function()
@@ -2647,14 +2608,8 @@ describe('when both the jumplist and changelist preconditions are true on the sa
 end)
 
 -- ── macro opportunity detection: repeated edit sequence → qq...q / @q (#60) ──
---
--- M.feed_macro(seq, token, now) is a separate entry point from M.feed(), fed
--- by logger.lua from BOTH the normal- and insert-mode branches of
--- handle_key() (unlike everything else in this file, which is normal-mode
--- only) — see patterns.lua's own header comment on M.feed_macro for why.
--- These tests call it directly with each character of the literal keystroke
--- sequence, exactly the same "expose a pure function, call it directly"
--- approach the rest of this file uses (see tests/CLAUDE.md).
+-- M.feed_macro(seq, token, now) is a separate entry point from M.feed() — see
+-- docs/adr/0018-macro-opportunity-detection.md
 
 local function feed_macro_seq(s, keys, now_start)
   local result
@@ -2668,11 +2623,9 @@ local function feed_macro_seq(s, keys, now_start)
   return result
 end
 
--- The literal issue-#60 example: cwFooBar<Esc> contains a lowercase 'w' and
--- an uppercase 'B' — both members of the same naive "motion key" set a wrong
--- implementation would use to classify gap characters. This is the pitfall
--- regression test: it must fire correctly despite S itself containing keys
--- that look like navigation.
+-- The literal issue-#60 example (see docs/adr/0018-macro-opportunity-detection.md):
+-- cwFooBar<Esc> contains a lowercase 'w' and an uppercase 'B', both
+-- classified as motion keys — the pitfall regression test below.
 local CW_FOOBAR_ESC = { 'c', 'w', 'F', 'o', 'o', 'B', 'a', 'r', '<Esc>' }
 
 describe('when the user manually repeats an identical edit sequence 3 times', function()
@@ -2830,10 +2783,7 @@ describe("seq.macro_buf's bounded growth", function()
 end)
 
 -- ── gg ↔ G double-jump: suggest '' (jump back to previous position) (#52) ────
--- Unlike manual_return above, this pattern requires the opposite jump to be
--- the very NEXT resolved action — no tolerance window, no streak. Any other
--- resolved key in between cancels it (see patterns.lua's inner_feed for how
--- last_op is reused, rather than a dedicated field, to get this for free).
+-- see docs/adr/0019-jumplist-changelist-underuse-detection.md
 
 describe('when the user jumps to the end of the file then back to the start', function()
   it("fires jump_back suggesting '' after G then gg", function()
@@ -2934,12 +2884,8 @@ describe('when the user jumps to the start of the file then back to the end', fu
 end)
 
 -- ── regression: jump_back firing must not skip jumplist bookkeeping ─────────
--- jump_back and manual_return (#61) share seq.jump_last_at. Both firing paths
--- above must leave it exactly as fresh as an ordinary G/gg keystroke would --
--- otherwise a later, entirely unrelated manual_return check reads a stale
--- timestamp and fires k_repeat instead. See patterns.lua's inner_feed: each
--- jump_back path now runs its jumplist bookkeeping BEFORE returning the
--- jump_back result, instead of returning early and skipping it.
+-- jump_back and manual_return (#61) share seq.jump_last_at — see
+-- docs/adr/0019-jumplist-changelist-underuse-detection.md
 
 describe('when a bare G fires jump_back via the gg -> G check (last_op already "gg")', function()
   it('refreshes jump_last_at so a real k-streak right after still fires manual_return', function()
@@ -2963,21 +2909,16 @@ describe('when a bare G fires jump_back via the gg -> G check (last_op already "
 
   it('reproduces the reported bug: earlier G -> gg fire, idle/paste gap, then a real G -> k-streak', function()
     local s = seq()
-    -- First, a legitimate G -> gg round trip fires jump_back via the
-    -- pending_g dispatch path. last_op is deliberately left as 'gg'
-    -- afterwards (by design, so a further alternation can still fire).
+    -- First, a legitimate G -> gg round trip fires jump_back (last_op is
+    -- deliberately left as 'gg' afterwards, by design).
     patterns.feed(s, 'G', 1, nil, 0)
     patterns.feed(s, 'g', 1, nil, 0)
     local first = patterns.feed(s, 'g', 1, nil, 0)
     assert.equals('jump_back', first.pattern)
 
-    -- Long idle gap (well past JUMP_TOLERANCE_MS from t=0), then a paste --
-    -- neither clears last_op == 'gg' by design -- then an entirely ordinary,
-    -- unrelated bare G: "check the end of the file", not part of any
-    -- alternation. Deliberately timed so a k-streak shortly after this G
-    -- only stays within tolerance of THIS G's timestamp, not the stale one
-    -- from the first jump_back -- proving jump_last_at was truly refreshed
-    -- rather than merely still coincidentally within range of the old value.
+    -- Long idle gap, then a paste (neither clears last_op == 'gg'), then an
+    -- unrelated bare G — timed so a k-streak after it only stays in
+    -- tolerance of THIS G's timestamp, proving jump_last_at was refreshed.
     patterns.feed(s, 'p', 1, nil, 3000)
     local second = patterns.feed(s, 'G', 1, nil, 20000)
     assert.equals('jump_back', second.pattern)
@@ -3023,13 +2964,9 @@ end)
 
 -- ── design decision: jump_back's own last_op reuse stays keystroke-only ─────
 -- Deliberately NOT given a JUMP_TOLERANCE_MS-style time bound, unlike
--- jump_last_at/manual_return above. Issue #52's acceptance criteria and the
--- existing "no tolerance window, no streak" comment above (see the "gg <->
--- G double-jump" section header) only ever describe back-to-back
--- KEYSTROKES, never elapsed time -- adding a bound here would be new scope,
--- not a fix for the reported bug (which is fully resolved by keeping
--- jump_last_at itself fresh, covered above). This test pins the existing,
--- intentional behavior down so a future change doesn't silently alter it.
+-- jump_last_at/manual_return above (#52's acceptance criteria only ever
+-- describes back-to-back keystrokes, never elapsed time). Pins this down so
+-- a future change doesn't silently alter it.
 describe("jump_back's last_op sentinel has no time bound (intentional, see above)", function()
   it('still fires after a long idle gap with no intervening key', function()
     local s = seq()
