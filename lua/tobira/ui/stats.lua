@@ -1,8 +1,6 @@
--- :TobiraStats renderer.
--- M.render(usage) is pure: takes a usage table, returns { title, body, hls }.
--- hls is a list of { lnum, group, cs, ce } (lnum 0-indexed against body's
--- line split) so M.open() can apply TobiraH1/TobiraDim without re-deriving
--- them from plain text.
+-- :TobiraStats renderer. M.render(usage) is pure: returns { title, body, hls }.
+-- hls is a list of { lnum, group, cs, ce } (lnum 0-indexed) so M.open() can
+-- apply highlights without re-deriving them from plain text.
 -- M.toggle() opens/closes a focused custom float window.
 local M = {}
 
@@ -19,15 +17,8 @@ local GAPS_N = 5
 local ICON = ''
 
 -- Minimum width of the command-key column shared by "Try these next" and
--- "Top commands". A bare constant here previously drifted out of sync
--- between the two sections (5 vs 6, #125) and, more importantly, any fixed
--- constant recurs as the same bug whenever a key longer than it becomes
--- reachable as a gap parent/child -- commands.lua already has <C-w>h/v/j/k/l/
--- q/= (6 columns) and <C-\><C-n> (10 columns, requires = 'i'), and nothing
--- stops a future entry from being longer still. M.render() below computes
--- the actual column width from the keys being rendered this call (floored at
--- this minimum so short-key-only renders still read as a deliberate column)
--- instead of hardcoding a number that only happens to fit today's registry.
+-- "Top commands"; M.render() computes the actual width per call and floors
+-- it here -- see docs/adr/0074-stats-dynamic-key-column-width.md for why.
 local KEY_COL_MIN = 6
 
 local setup_hls = require('tobira.ui.hls').setup
@@ -59,10 +50,8 @@ local function lpad(s, n)
   return string.rep(' ', math.max(0, n - vim.fn.strdisplaywidth(s))) .. s
 end
 
--- Order follows the dashboard "5-second rule" + actionable-vs-vanity-metrics
--- research: the one section that changes what the user does next (efficiency
--- gaps) leads; the section that's just a fun
--- number (raw keystroke count) trails as a de-emphasized closing line.
+-- Section order: Try these next -> Mastery -> Top commands -> footer summary.
+-- see docs/adr/0075-stats-actionable-first-ordering.md for why.
 function M.render(usage)
   local str = require('tobira.i18n').load().stats
   local graph = require('tobira.core.graph')
@@ -74,9 +63,8 @@ function M.render(usage)
   local discovered = total_cmds - dist.never
   local pct = total_cmds > 0 and math.floor(discovered / total_cmds * 100 + 0.5) or 0
 
-  -- Total keystrokes: sum ALL tracked commands (including basic keys like j/k
-  -- that live outside commands.registry). This is the raw "big number" metric
-  -- — fun to see, doesn't drive a decision, so it's demoted to the footer.
+  -- Sums every tracked key, not just registry commands -- see
+  -- docs/adr/0075-stats-actionable-first-ordering.md.
   local total_keys = 0
   for cmd, data in pairs(usage) do
     if cmd ~= '_meta' and type(data) == 'table' then
@@ -84,9 +72,8 @@ function M.render(usage)
     end
   end
 
-  -- Top commands: include every recorded command (basic keys, compound ops,
-  -- registry entries). This is a "what did I actually press" leaderboard —
-  -- distinct from the discovered/registry-based mastery metric above.
+  -- Includes every recorded command (basic keys, compound ops, registry
+  -- entries) -- see docs/adr/0075-stats-actionable-first-ordering.md.
   local sorted = {}
   for cmd, data in pairs(usage) do
     if cmd ~= '_meta' and type(data) == 'table' and (data.count or 0) > 0 then
@@ -100,15 +87,12 @@ function M.render(usage)
     return a.cmd < b.cmd
   end)
 
-  -- "Try these next" is this panel's own headline actionable section,
-  -- so it must honor the same keymap-override rule find_best() and Guide's
-  -- auto section already enforce -- see graph.efficiency_gaps's header
-  -- comment.
+  -- Honors the same keymap-override exclusion find_best() and Guide enforce
+  -- -- see docs/adr/0030-keymap-override-exclusion-contract.md.
   local gaps = graph.efficiency_gaps(usage, GAPS_N, integrations.get_overrides())
 
-  -- Shared key-column width for both sections below (see KEY_COL_MIN's
-  -- comment) -- computed from the actual keys this render will show, so a
-  -- longer key never overflows its column no matter how long it is.
+  -- Computed from the actual keys this render will show -- see
+  -- docs/adr/0074-stats-dynamic-key-column-width.md.
   local key_col_w = KEY_COL_MIN
   for _, g in ipairs(gaps) do
     key_col_w = math.max(key_col_w, vim.fn.strdisplaywidth(commands.display_key(g.parent)))
@@ -162,9 +146,8 @@ function M.render(usage)
     push('  ' .. str.top_commands, 'TobiraH1')
     for i = 1, math.min(TOP_N, #sorted) do
       local item = sorted[i]
-      -- Forgotten overrides the mastery-level star (mirrors graph.is_mastered's
-      -- own precedence) so a command that decayed doesn't still read as ★★★
-      -- here while Guide already shows it needs review.
+      -- Forgotten overrides the mastery star -- see
+      -- docs/adr/0076-stats-forgotten-overrides-mastery-star.md.
       local star
       if graph.is_forgotten(item.data) then
         star = SYM_FORGOTTEN
@@ -225,9 +208,8 @@ function M.open()
   _prev_win = vim.api.nvim_get_current_win()
   setup_hls()
 
-  -- Build line array from the rendered body. The keybinding hint lives on the
-  -- window footer (see below), not as a buffer line, so it stays pinned to the
-  -- border and matches the progress panel.
+  -- Keybinding hint lives on the window footer (below), not a buffer line --
+  -- matches the progress panel.
   local lines = {}
   for line in (rendered.body .. '\n'):gmatch('([^\n]*)\n') do
     table.insert(lines, line)

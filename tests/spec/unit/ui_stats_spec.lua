@@ -150,9 +150,8 @@ describe('when many commands have been recorded', function()
   end)
 
   -- ── forgotten state (#123) ──────────────────────────────────────────────────
-  -- Top commands derived its star purely from mastery_level() before this fix,
-  -- so a command that decayed into graph.is_forgotten() could still show as
-  -- ★★★ here while Guide already flagged it with ⟳ needing review. See #123.
+  -- Regression test for #123 -- see
+  -- docs/adr/0076-stats-forgotten-overrides-mastery-star.md.
 
   it('renders the ⟳ glyph instead of a mastery star for a forgotten command', function()
     -- cw is also the trigger for '.' and 'yiw', so it additionally spawns
@@ -230,11 +229,10 @@ describe('when an efficiency gap involves a 6-character command key (#125)', fun
   end)
 end)
 
--- Column width must not be a hardcoded constant that merely matches today's
--- longest key (#125 asked to check for this): commands.lua already has a
--- 10-character key, <C-\><C-n>, that can appear as a gap child. Sharing one
--- parent ('i') isolates the child-column width difference (10 vs 2 chars)
--- without depending on which candidates win the top-N ratio sort.
+-- Hardening test: the column width must adapt beyond the specific case #125
+-- first found -- see docs/adr/0074-stats-dynamic-key-column-width.md. Sharing
+-- one parent ('i') isolates the child-column width difference without
+-- depending on which candidates win the top-N ratio sort.
 describe('when a gap child key is longer than 6 characters (#125 hardening)', function()
   it('still aligns the child-count column against a shorter child key', function()
     local r = stats.render({ i = entry(100) })
@@ -273,9 +271,8 @@ describe('when there are no efficiency gaps', function()
 end)
 
 -- ── keymap overrides (#164) ───────────────────────────────────────────────────
--- "Try these next" is :TobiraStats's own headline actionable section -- it
--- must honor the same "never suggest a command whose key you've remapped
--- away" rule find_best() and Guide's auto section already enforce (#63).
+-- Regression test for #164 -- see
+-- docs/adr/0030-keymap-override-exclusion-contract.md.
 
 describe('when a "Try these next" candidate has been remapped by the user', function()
   local integrations = require('tobira.core.integrations')
