@@ -1,26 +1,11 @@
--- Detects the user's real editor environment -- their own keymap
--- overrides (phase 1) and any helper plugins they have installed (phase 2) --
--- and exposes it as plain data for graph.lua and the ui/ layer to consume.
+-- Detects the user's real editor environment: keymap overrides (phase 1) and
+-- installed helper plugins (phase 2). Exposes both as plain data for
+-- graph.lua and the ui/ layer; graph.lua itself never requires this module
+-- (see lua/tobira/CLAUDE.md's dependency rules and module-splitting policy).
 --
--- This does NOT belong in graph.lua (see lua/tobira/CLAUDE.md's module
--- splitting policy): it shares no state with graph.suggestions/find_best's
--- scoring loop, is never on the same call path as computing a score, and
--- unlike graph.lua it is fundamentally impure (nvim_get_keymap,
--- nvim_get_runtime_file, autocmds). graph.find_best() only ever receives this
--- module's *output* as plain `overrides`/`promotions` table parameters --
--- graph.lua itself never requires this file, keeping it pure and vim.*-free.
---
--- Phase 1 (keymap overrides) is intentionally NOT gated by
--- config.values.integrations -- "never suggest a command whose key you've
--- personally remapped" is baseline correctness, not an optional integration;
--- a flag to turn that off would be a footgun. Only phase 2 (plugin-detection
--- promotions) is gated, since it actively changes *which* commands get
--- pushed harder, which some users may reasonably want to opt out of.
---
--- Plugin presence (phase 2) is checked via nvim_get_runtime_file, never
--- require() -- requiring a lazy-loaded plugin's module would force it to
--- load, defeating the user's own lazy-loading setup as a side effect of
--- tobira just checking whether it's installed.
+-- Phase 1 is ungated; phase 2 is gated by config.values.integrations; plugin
+-- presence never triggers require() -- see docs/adr/0051-integrations-phase-gating.md
+-- and docs/adr/0053-plugin-presence-without-require.md for why.
 
 local commands = require('tobira.commands')
 local config = require('tobira.core.config')
@@ -33,26 +18,16 @@ local _overrides = {}
 -- modules is found on the runtimepath.
 local _plugins = {}
 -- cmd -> true once a debug notification has been emitted for its current
--- override, so a refresh that finds the same mapping still in place does not
--- re-log it every time (VimEnter + SourcePost both call refresh()).
+-- override (dedup across VimEnter/SourcePost refreshes).
+-- see docs/adr/0055-refresh-cadence-and-notification-dedup.md for why
 local _logged = {}
 
 local _initialized = false
 
--- Curated LHS -> accepted-equivalent RHS literal(s): remaps considered to
--- teach the exact same thing commands.lua already documents for that key, so
--- ui/guide.lua's persistent cheat-sheet can still show the row (with
--- substituted wording) instead of hiding it outright the way a genuinely
--- different remap (e.g. a <Plug> mapping to an unrelated plugin command) is.
---
--- Y is the seed (only) entry: Vim's real built-in Y is a synonym for yy
--- (linewise, the whole line) -- NOT y$. commands.lua's own 'Y' suggestion
--- body already documents the *y$* meaning ("same as y$"), which is only true
--- once the user has personally remapped Y that way (`nnoremap Y y$`, one of
--- the most common personal remaps, added for consistency with D=d$/C=c$).
--- This table exists to recognize exactly that specific, common remap as
--- "equivalent" rather than "wrong" -- see graph_spec.lua / ui_guide_spec.lua
--- for how the equivalent/different distinction is actually consumed.
+-- Curated LHS -> accepted-equivalent RHS literal(s). Y is the only entry:
+-- accepts exactly rhs == 'y$' (a common personal remap; Vim's real built-in
+-- Y is a synonym for yy, not y$). Any other rhs is "not equivalent".
+-- see docs/adr/0052-equivalent-remap-distinction.md for why this table exists
 local EQUIVALENT_REMAPS = {
   Y = { 'y$' },
 }
@@ -71,13 +46,9 @@ local KNOWN_PLUGINS = {
 
 -- Phase 2 promotion rules: plugin tag + an already-tracked trigger-count
 -- threshold -> an existing graph.suggestions cmd to promote into find_best's
--- priority pool. Deliberately reuses existing commands.lua entries rather
--- than inventing new ones (a literal "cs<char><char>" surround-change
--- suggestion, or a flash-specific jump suggestion) — new teachable commands
--- are a commands.lua registry change with its own locale-string and
--- test-coverage footprint, out of scope here. ciw/ci" (surround's "you
--- already reach for text objects" signal) and ; (flash's jump model builds
--- on the repeat-search convention ; already teaches) are the closest stand-ins.
+-- priority pool.
+-- see docs/adr/0054-promotion-rules-reuse-existing-commands.md for why these
+-- reuse existing commands.lua entries instead of new teachable commands
 local PROMOTION_RULES = {
   { plugin = 'surround', trigger = 'dw', cmd = 'ci"', threshold = 30 },
   { plugin = 'flash', trigger = 'f', cmd = ';', threshold = 30 },
