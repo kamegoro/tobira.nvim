@@ -144,11 +144,9 @@ describe('insert-mode streaks vs. the bounce counter', function()
 end)
 
 -- #105: <Esc> → exactly one normal-mode command → i/a/A/I is the manual round
--- trip that insert-mode <C-o> replaces (run one normal command without ever
--- fully leaving insert mode). feed_insert('<Esc>') arms the watch;
--- feed_after_escape() is what logger.lua feeds every normal-mode keystroke
--- while that watch is armed (see the module doc comment on feed_after_escape
--- for exactly why this crosses into the normal-mode keystroke stream).
+-- trip that insert-mode <C-o> replaces. See
+-- docs/adr/0037-insert-co-oneshot-crosses-mode-boundary.md for why detection
+-- crosses into the normal-mode keystroke stream.
 describe('when the user does <Esc> then exactly one normal-mode command then returns to insert', function()
   it('fires insert_co_oneshot suggesting the insert-mode <C-o>', function()
     local s = iseq()
@@ -237,16 +235,10 @@ describe('feed_after_escape after the watch has already fired or disarmed once',
 end)
 
 -- ── insert-mode completion detection (#112) ──────────────────────────────────
--- Reconstructs whole tokens from raw keystrokes (no buffer reads — see
--- lua/tobira/CLAUDE.md's tracking design principle) and remembers the last few
--- completed tokens of at least TOKEN_LEN_THRESHOLD (6) characters in a small
--- ring buffer. When the same token is typed out in full a second time, that's
--- a strong signal the user could have used <C-n>/<C-p> keyword completion
--- instead of retyping it by hand.
---
--- 6 was picked (not e.g. 3-4) specifically to stay clear of short, legitimately
--- repeated keywords: 'const', 'class', 'value', 'break', 'while' are all 5
--- characters and would otherwise false-positive constantly in real code.
+-- Reconstructs tokens from raw keystrokes and remembers recently completed
+-- ones in a ring buffer, firing insert_completion_repeat on an exact repeat.
+-- See docs/adr/0039-insert-completion-repeat-token-reconstruction.md for the
+-- token-boundary/threshold/ring-size rationale.
 
 local function type_str(s, str)
   for c in str:gmatch('.') do
