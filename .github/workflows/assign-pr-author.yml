@@ -9,7 +9,7 @@ jobs:
     name: Auto-assign PR author
     runs-on: ubuntu-latest
     permissions:
-      issues: write
+      pull-requests: write
     steps:
       - name: Add author as assignee
         uses: actions/github-script@v9
@@ -26,5 +26,5 @@ jobs:
               });
               core.info(`Assigned ${author} to PR #${issue_number}.`);
             } catch (error) {
-              core.warning(`Could not assign ${author} to PR #${issue_number}: ${error.message}`);
+              core.setFailed(`Could not assign ${author} to PR #${issue_number}: ${error.message}`);
             }
