@@ -49,6 +49,13 @@ Call `setup()` explicitly if not using lazy.nvim opts shorthand: >lua
   Show the next command suggestion immediately. Does not count toward the
   automatic suggestion cooldown.
 
+  Unlike the ambient window described under AUTOMATIC SUGGESTIONS below,
+  this manually-triggered window is "focused": it takes input focus, adds
+  its own `q` / `<Esc>` / `<C-c>` keymaps to close it, shows an extra
+  footer hint mentioning that binding, and closes itself if you switch to
+  another window. It still auto-dismisses on its own after a few seconds,
+  the same as the ambient window.
+
                                                                  *:TobiraStats*
 :TobiraStats
   Show a usage statistics panel. Leads with "Try these next" — efficiency
@@ -61,6 +68,7 @@ Call `setup()` explicitly if not using lazy.nvim opts shorthand: >lua
     `g`     Close stats and open the guide panel
     `p`     Close stats and open the progress panel
     `q`     Close the panel
+    `<Esc>` Close the panel
     `<C-c>` Close the panel
 
                                                                  *:TobiraGuide*
@@ -110,6 +118,7 @@ Call `setup()` explicitly if not using lazy.nvim opts shorthand: >lua
     `g`     Close progress and open the guide panel
     `s`     Close progress and open the stats panel
     `q`     Close the panel
+    `<Esc>` Close the panel
     `<C-c>` Close the panel
 
                                                                  *:TobiraReset*
@@ -212,7 +221,10 @@ macro / diff / ex / terminal) so a returning user can recognize the kind of
 suggestion at a glance.
 The window auto-dismisses on its own after a few seconds — roughly
 scaled to how much text it is showing — and never steals focus or blocks
-input. The terminal-mode suggestion (`<C-\><C-n>`, see below) stays on
+input. (Manually running |:Tobira| instead opens a distinct "focused"
+variant of this window with its own close keymaps — see |:Tobira| above
+for how it differs.)
+The terminal-mode suggestion (`<C-\><C-n>`, see below) stays on
 screen noticeably longer than the rest: it can only ever appear while you
 are still mid-attempt to leave terminal-job mode, so it gets extra time to
 actually be seen before it dismisses itself. For the same reason it is also
