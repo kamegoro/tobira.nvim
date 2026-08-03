@@ -6,7 +6,7 @@ Thank you for your interest in contributing!
 
 ### Prerequisites
 
-- [Neovim](https://neovim.io/) 0.8+
+- [Neovim](https://neovim.io/) 0.9+
 - [stylua](https://github.com/JohnnyMorganz/StyLua) — Lua formatter
 - [selene](https://github.com/Kampfkarren/selene) — Lua linter
 
