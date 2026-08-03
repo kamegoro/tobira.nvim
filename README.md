@@ -215,7 +215,3 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md). This project follows strict TDD — te
 ## License
 
 MIT
-
-## ⭐ Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=kamegoro/tobira.nvim&type=Date)](https://star-history.com/#kamegoro/tobira.nvim&Date)
