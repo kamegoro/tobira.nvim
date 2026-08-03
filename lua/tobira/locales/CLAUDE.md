@@ -3,11 +3,12 @@
 ## All display strings belong in locale files
 
 Hard-coding user-visible strings in UI modules is prohibited. Every string must be defined
-in `en.lua` and `ja.lua`, then accessed through `load_strings()` in the UI module.
+in `en.lua` and every other locale file in this directory, then accessed through
+`require('tobira.i18n').load()` in the UI module.
 
 ```lua
 -- ✅ correct
-local str = load_strings()
+local str = require('tobira.i18n').load()
 push(str.progress.mastered_total:format(n, total))
 
 -- ❌ prohibited
@@ -17,12 +18,14 @@ local label = lang == 'ja' and '次へ' or 'Next'  -- inline branching also proh
 
 ## Adding a new key
 
-1. Add the key to **both** `en.lua` and `ja.lua` before writing any UI code that uses it.
-2. Place it in the appropriate section (`guide`, `progress`, `notifications`, `stats`, `float`),
-   or create a new top-level key for a new module.
-3. Run the test suite — `locale_spec.lua` fails if the two files fall out of sync.
+1. Add the key to `en.lua` **and every other locale file in this directory**
+   (`ja.lua`, `de.lua`, `es.lua`, `fr.lua`, `zh.lua`) before writing any UI code that uses it.
+2. Place it in the appropriate section (`guide`, `progress`, `notifications`, `stats`, `float`,
+   `suggestions`), or create a new top-level key for a new module.
+3. Run the test suite — `locale_spec.lua` fails if any locale file falls out of sync with
+   `en.lua` (missing keys or orphaned keys, checked recursively and bidirectionally).
 
-## Adding a new locale (e.g., `ko.lua`, `fr.lua`)
+## Adding a new locale (e.g., `ko.lua`, `pt.lua`)
 
 1. Copy `en.lua` as a starting point.
 2. Translate all string **values**. Never translate key names.
@@ -52,20 +55,39 @@ local label = lang == 'ja' and '次へ' or 'Next'  -- inline branching also proh
    for k in pairs(en_keys) do if not other_keys[k] then print('missing: ' .. k) end end
    for k in pairs(other_keys) do if not en_keys[k] then print('stale: ' .. k) end end
    ```
-5. `locale_spec.lua` currently guards only `en` / `ja` sync. If you want the new locale
-   covered by CI (recommended — it would have caught the drift in #4 automatically), add a
-   parallel `describe` block in that file.
-6. Update `README.md`'s `lang` config example comment (`-- 'en' | 'ja'`) to list the new locale.
+5. No test-file changes needed. `locale_spec.lua` discovers every `*.lua` file in this
+   directory (other than `en.lua`) at run time via `discover_locale_names()`
+   (`vim.fn.readdir('lua/tobira/locales')`) and automatically checks each one recursively
+   and bidirectionally against `en.lua` — both missing keys (`assert_strings_match`) and
+   orphaned keys (`assert_no_orphan_keys`). Dropping a new locale file in this directory is
+   enough for CI to start covering it on the very next run; no parallel `describe` block or
+   any other registration step is required. See
+   `docs/adr/0094-locale-spec-dynamic-locale-discovery.md` for why this replaced an earlier
+   hardcoded-locale-list approach.
+6. Update `README.md`'s `lang` config example comment to list the new locale.
 
-## Standard load_strings() pattern
+## Standard locale-loading pattern
+
+Locale loading is centralized in `lua/tobira/i18n.lua` — UI modules call it directly rather
+than defining their own loader:
 
 ```lua
-local function load_strings()
+-- lua/tobira/i18n.lua
+local M = {}
+
+function M.load()
   local lang = require('tobira.core.config').values.lang
   local ok, loc = pcall(require, 'tobira.locales.' .. lang)
-  if not ok then loc = require('tobira.locales.en') end
-  return loc  -- or loc.progress, loc.stats, etc.
+  return ok and loc or require('tobira.locales.en')
 end
+
+return M
+```
+
+```lua
+-- in a UI module (e.g. ui/float.lua, ui/guide.lua, ui/progress.lua, ui/stats.lua)
+local str = require('tobira.i18n').load()
+-- or drill into a section directly, e.g. require('tobira.i18n').load().stats
 ```
 
 ## File structure
@@ -78,6 +100,8 @@ progress.*
 notifications.*
 stats.*
 float.*
+suggestions.*  -- keyed by command name (e.g. suggestions['cw']), each entry holding
+                -- title/body/example strings for that command's suggestion popup
 ```
 
 Arrays with numeric keys are intentional and not checked by `locale_spec.lua`.
