@@ -787,3 +787,74 @@ describe("the 'i_<C-o>' composite registry key on the Progress grid (#105)", fun
     teardown()
   end)
 end)
+
+-- ── extmark rendering (nvim_buf_add_highlight migration, #151) ────────────────
+-- M.build()'s hls table is already covered as pure data elsewhere in this
+-- file. These tests confirm the *actual* extmarks M.open() applies from
+-- that data match it exactly, both for a partial byte range (a level-0
+-- grid cell's TobiraDim highlight) and a full-line range that starts at a
+-- non-zero column (a category header's TobiraGuideHint count, old
+-- col_end == -1).
+
+describe('extmark rendering after the nvim_buf_add_highlight migration (#151)', function()
+  before_each(setup)
+  after_each(teardown)
+
+  local function real_extmark(buf, lnum, group)
+    local ns = vim.api.nvim_create_namespace('tobira_progress')
+    local marks = vim.api.nvim_buf_get_extmarks(buf, ns, { lnum, 0 }, { lnum, -1 }, { details = true })
+    for _, m in ipairs(marks) do
+      if m[4].hl_group == group then
+        return m
+      end
+    end
+    return nil
+  end
+
+  it('highlights a level-0 grid cell across exactly its byte range, not the whole line (partial range)', function()
+    -- logger.reset() (via setup()) leaves usage empty, so every grid item is
+    -- level 0 and gets a TobiraDim cell highlight -- no special seeding needed.
+    local usage = logger.get_all()
+    local lines, expected_hls = progress.build(usage)
+    local expected
+    for _, h in ipairs(expected_hls) do
+      if h.group == 'TobiraDim' then
+        expected = h
+      end
+    end
+    assert.is_not_nil(expected, 'expected at least one TobiraDim grid cell in the pure build output')
+    assert.is_true(expected.ce ~= -1, 'sanity check: this must be a partial (non full-line) range')
+
+    progress.open()
+    local buf = vim.api.nvim_get_current_buf()
+    assert.equals(lines[expected.lnum + 1], vim.api.nvim_buf_get_lines(buf, expected.lnum, expected.lnum + 1, false)[1])
+
+    local mark = real_extmark(buf, expected.lnum, 'TobiraDim')
+    assert.is_not_nil(mark, 'expected a real TobiraDim extmark on the grid row')
+    assert.equals(expected.cs, mark[3])
+    assert.equals(expected.ce, mark[4].end_col)
+    assert.equals(expected.lnum, mark[4].end_row, 'a partial range must stay on its own line')
+  end)
+
+  it('highlights a category header count through its real end of line, not just column 0 (full-line range starting mid-line)', function()
+    local usage = logger.get_all()
+    local lines, expected_hls = progress.build(usage)
+    local expected
+    for _, h in ipairs(expected_hls) do
+      if h.group == 'TobiraGuideHint' and h.ce == -1 and h.cs > 0 then
+        expected = h
+      end
+    end
+    assert.is_not_nil(expected, 'expected a full-line TobiraGuideHint range starting mid-line (category count)')
+
+    progress.open()
+    local buf = vim.api.nvim_get_current_buf()
+
+    local mark = real_extmark(buf, expected.lnum, 'TobiraGuideHint')
+    assert.is_not_nil(mark, 'expected a real TobiraGuideHint extmark on the category header line')
+    local details = mark[4]
+    assert.equals(expected.cs, mark[3])
+    assert.equals(expected.lnum, details.end_row, 'a full-line range must resolve on its own line, not roll onto the next')
+    assert.equals(#lines[expected.lnum + 1], details.end_col, 'must reach the real end of the line, not column 0')
+  end)
+end)

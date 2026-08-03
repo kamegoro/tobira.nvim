@@ -516,3 +516,63 @@ describe("the 'i_<C-o>' composite registry key in Top commands (#105)", function
     assert.is_nil(row:find('i_<C-o>', 1, true), 'row must not contain the raw internal key: ' .. row)
   end)
 end)
+
+-- ── extmark rendering (nvim_buf_add_highlight migration, #151) ────────────────
+-- Every highlight this module applies is a full-line highlight (M.render()
+-- never passes cs/ce, so every entry defaults to the old col_end == -1
+-- case). Confirms the new nvim_buf_set_extmark()-based call still reaches
+-- the real end of the line it's placed on.
+--
+-- NOTE: M.open() applies each highlight at `hl.lnum + 1`, one row below
+-- where M.render()'s own hls table says it belongs (pre-existing, not
+-- introduced by this migration -- see the code comment at the call site).
+-- This test targets that same (currently shipped) row so it verifies the
+-- migration preserves exact current rendering rather than silently
+-- "fixing" an unrelated, separately-flagged bug inside a migration PR.
+describe('extmark rendering after the nvim_buf_add_highlight migration (#151)', function()
+  local logger = require('tobira.core.logger')
+
+  before_each(function()
+    logger.reset()
+  end)
+
+  after_each(function()
+    stats.close()
+    logger.reset()
+  end)
+
+  it("highlights the row it actually targets (hl.lnum + 1) through that row's real end of line", function()
+    local usage = logger.get_all()
+    usage['j'] = { count = 1520, sessions = {}, shown = 0, suppressed = false, pinned = false }
+    usage['k'] = { count = 892, sessions = {}, shown = 0, suppressed = false, pinned = false }
+
+    local rendered = stats.render(usage)
+    local expected
+    for _, h in ipairs(rendered.hls) do
+      if h.group == 'TobiraH1' then
+        expected = h
+      end
+    end
+    assert.is_not_nil(expected, 'expected a TobiraH1 header range in the pure render output')
+    assert.equals(-1, expected.ce, 'sanity check: this must be the legacy col_end == -1 case')
+
+    stats.open()
+    local buf = vim.api.nvim_win_get_buf(vim.fn.win_getid())
+    local target_lnum = expected.lnum + 1 -- see NOTE above
+    local buf_lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+    assert.is_not_nil(buf_lines[target_lnum + 1], 'expected the targeted row to exist in the buffer')
+
+    local ns = vim.api.nvim_create_namespace('tobira_stats')
+    local marks = vim.api.nvim_buf_get_extmarks(buf, ns, { target_lnum, 0 }, { target_lnum, -1 }, { details = true })
+    local mark
+    for _, m in ipairs(marks) do
+      if m[4].hl_group == 'TobiraH1' then
+        mark = m
+      end
+    end
+    assert.is_not_nil(mark, 'expected a real TobiraH1 extmark on the targeted row')
+    local details = mark[4]
+    assert.equals(target_lnum, details.end_row, 'a full-line range must resolve on its own line, not roll onto the next')
+    assert.equals(#buf_lines[target_lnum + 1], details.end_col, 'must reach the real end of the line, not column 0')
+  end)
+end)

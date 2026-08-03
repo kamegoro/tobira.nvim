@@ -21,7 +21,12 @@ local ICON = ''
 -- it here -- see docs/adr/0074-stats-dynamic-key-column-width.md for why.
 local KEY_COL_MIN = 6
 
-local setup_hls = require('tobira.ui.hls').setup
+-- Named hls_mod, not hls -- `hls` is already used elsewhere in this file
+-- (M.render's local highlight-range list, and the `hls` field on its
+-- return table) as a variable/field name, so aliasing the module to the
+-- same name would be confusing even though it wouldn't actually collide.
+local hls_mod = require('tobira.ui.hls')
+local setup_hls = hls_mod.setup
 
 local function fmt_int_commas(n)
   local s = tostring(math.floor(n))
@@ -245,8 +250,16 @@ function M.open()
   vim.bo[_buf].modifiable = false
   vim.bo[_buf].bufhidden = 'wipe'
 
+  -- NOTE (#151 migration): the `+ 1` below renders each highlight one row
+  -- below the line M.render()'s own hls table says it belongs to (e.g. a
+  -- TobiraH1 header highlights the row *under* the header text, and the
+  -- last entry can land past the buffer's last line and get silently
+  -- dropped). This predates this migration and is preserved as-is here --
+  -- fixing it is a behavior change, not an API swap, and out of scope for
+  -- a "pure migration, pixel-for-pixel identical" change. Flagged for a
+  -- separate follow-up issue rather than fixed inline.
   for _, hl in ipairs(rendered.hls) do
-    vim.api.nvim_buf_add_highlight(_buf, _ns, hl.group, hl.lnum + 1, hl.cs, hl.ce)
+    hls_mod.set_range(_buf, _ns, hl.group, hl.lnum + 1, hl.cs, hl.ce)
   end
 
   vim.keymap.set('n', 'q', M.close, { buffer = _buf, nowait = true, silent = true })

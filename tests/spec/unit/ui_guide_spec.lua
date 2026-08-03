@@ -720,3 +720,102 @@ describe("the 'i_<C-o>' composite registry key (#105)", function()
     assert.is_nil(row:find('i_<C-o>', 1, true), 'row must not contain the raw internal key: ' .. row)
   end)
 end)
+
+-- ── extmark rendering (nvim_buf_add_highlight migration, #151) ────────────────
+-- M.build()'s hls table (cs/ce byte offsets) is already covered extensively
+-- above as pure data. These tests confirm the *actual* extmarks M.open()
+-- applies from that data match it exactly -- both a partial byte range
+-- (TobiraGuideKey's fixed-width field) and a full-line range (TobiraDim's
+-- old col_end == -1) really land where M.build() says they should once
+-- rendered through the real nvim_buf_set_extmark()-based call.
+
+describe('extmark rendering after the nvim_buf_add_highlight migration (#151)', function()
+  local logger = require('tobira.core.logger')
+
+  before_each(function()
+    logger.reset()
+  end)
+
+  after_each(function()
+    guide.close()
+    logger.reset()
+  end)
+
+  local function guide_buf()
+    for _, win in ipairs(vim.api.nvim_list_wins()) do
+      local b = vim.api.nvim_win_get_buf(win)
+      if vim.bo[b].filetype == 'tobira_guide' then
+        return b
+      end
+    end
+    return nil
+  end
+
+  local function real_extmark(buf, lnum, group)
+    local ns = vim.api.nvim_create_namespace('tobira_guide')
+    local marks = vim.api.nvim_buf_get_extmarks(buf, ns, { lnum, 0 }, { lnum, -1 }, { details = true })
+    for _, m in ipairs(marks) do
+      if m[4].hl_group == group then
+        return m
+      end
+    end
+    return nil
+  end
+
+  -- Seeds logger's live usage table with the same content used to compute
+  -- the expected (pure) hls table, so M.open()'s internal
+  -- logger.get_all() call sees identical data.
+  local function seed_live_usage(usage)
+    local live = logger.get_all()
+    for cmd, data in pairs(usage) do
+      live[cmd] = data
+    end
+  end
+
+  it('highlights the pinned key field across exactly its byte range, not the whole line (partial range)', function()
+    local usage = { ['ciw'] = entry({ pinned = true, count = 5 }) }
+    local _, expected_hls = guide.build(usage)
+    local expected
+    for _, h in ipairs(expected_hls) do
+      if h.group == 'TobiraGuideKey' then
+        expected = h
+      end
+    end
+    assert.is_not_nil(expected, 'expected a TobiraGuideKey range in the pure build output')
+
+    seed_live_usage(usage)
+    guide.open()
+    local buf = guide_buf()
+    assert.is_not_nil(buf, 'expected to find the open guide buffer')
+
+    local mark = real_extmark(buf, expected.lnum, 'TobiraGuideKey')
+    assert.is_not_nil(mark, 'expected a real TobiraGuideKey extmark on the pinned row')
+    assert.equals(expected.cs, mark[3])
+    assert.equals(expected.ce, mark[4].end_col)
+    assert.equals(expected.lnum, mark[4].end_row, 'a partial range must stay on its own line')
+  end)
+
+  it('highlights a never-tried row through its real end of line, not just column 0 (full-line range)', function()
+    local usage = usage_with_overrides({ [';'] = entry({ count = 0 }) })
+    local lines, expected_hls = guide.build(usage)
+    local expected
+    for _, h in ipairs(expected_hls) do
+      if h.group == 'TobiraDim' and lines[h.lnum + 1]:find(';', 1, true) then
+        expected = h
+      end
+    end
+    assert.is_not_nil(expected, 'expected a full-line TobiraDim range on the ; row')
+    assert.equals(-1, expected.ce, 'sanity check: this row must be the legacy col_end == -1 case')
+
+    seed_live_usage(usage)
+    guide.open()
+    local buf = guide_buf()
+    assert.is_not_nil(buf, 'expected to find the open guide buffer')
+
+    local mark = real_extmark(buf, expected.lnum, 'TobiraDim')
+    assert.is_not_nil(mark, 'expected a real TobiraDim extmark on the never-tried row')
+    local details = mark[4]
+    assert.equals(expected.lnum, details.end_row, 'a full-line range must resolve on its own line, not roll onto the next')
+    assert.equals(#lines[expected.lnum + 1], details.end_col, 'must reach the real end of the line, not column 0')
+  end)
+end)
