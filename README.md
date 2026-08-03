@@ -139,25 +139,14 @@ fires even on a stock install — a `Y` remapped to anything else still suppress
 |---|---|
 | `fa` → `fa` on the same line | `;` — repeat the last f/t |
 | `dw` → `i` | `cw` — change word in one command |
-| `v` `i` `w` `c` | `ciw` — text object, no visual needed |
-| `v` → `<Esc>` × 3 in a row | `gv` — reselect the last visual selection |
 | `j` × 10 in a row | `}` — jump by paragraph |
 | `j` × 10 in a row while `&diff` is set | `]c` — jump to the next diff hunk |
 | `dd` × 3 in a row | `{n}dd` — delete N lines at once |
-| `ci"` × 3 (navigation allowed between) | `ya"` — yank around the quotes (works for `'` too) |
-| `r{x}` × 3 in a row | `R` — enter replace mode |
 | `<C-w>q` / `<C-w>c` × 2 in a row | `<C-w>o` — close all other windows |
-| `<BS>` × 5 in insert mode | `<C-w>` — delete the whole word at once |
-| `<Esc>` → 1 motion → `i` | insert-mode `<C-o>` — run one command without leaving insert |
-| `<Esc>` × 2 in terminal mode, no effect | `<C-\><C-n>` — exit terminal mode |
-| `G`, then scroll back manually | `<C-o>` — jump back to where you were |
-| Edit here, edit there, scroll back manually | `g;` — jump to your last edit |
 | `G` then `gg` (or `gg` then `G`) | `''` — jump straight back to your previous position |
 | `cwFooBar<Esc>` repeated 3× (navigation allowed between) | `qq...q` / `@q` — record and replay a macro |
-| Same `:s/pat/repl/` retyped on a 2nd line | `&` — repeat the last substitute here |
-| Same `:s/pat/repl/` retyped on a 3rd line | `g&` — repeat it across the whole file |
-| `:e A` → `:e B` → `:e A` (or the equivalent with `:b`) | `<C-^>` — jump straight to the alternate file |
-| `:tabnew {distinct file}` × 3, one tab each | `<C-^>` — switch buffers instead of opening a tab per file |
+| Same `:s/pat/repl/` retyped 3× across lines | `g&` — repeat it across the whole file |
+| `<Esc>` × 2 in terminal mode, no effect | `<C-\><C-n>` — exit terminal mode |
 
 62 patterns total — see `:help tobira-patterns` for the full list.
 
