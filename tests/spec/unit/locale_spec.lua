@@ -25,6 +25,27 @@ local function assert_strings_match(en_tbl, other_tbl, path, locale_name)
   end
 end
 
+-- Recursively verify that every leaf string-key entry in other_tbl also
+-- exists in en_tbl. This is the reverse direction of assert_strings_match:
+-- it catches orphaned keys — e.g. a leftover translation key from a removed
+-- feature, or a typo'd key name that silently never gets read because the
+-- real code reads a different key name. Arrays (numeric keys) are skipped,
+-- matching assert_strings_match's convention.
+local function assert_no_orphan_keys(en_tbl, other_tbl, path, locale_name)
+  locale_name = locale_name or 'the other locale'
+  for k, v in pairs(other_tbl) do
+    if type(k) == 'string' then
+      local full = path .. '.' .. tostring(k)
+      local en_val = en_tbl and en_tbl[k]
+      if type(v) == 'string' then
+        assert.is_not_nil(en_val, full .. ': orphaned key in ' .. locale_name .. ' (not present in en.lua)')
+      elseif type(v) == 'table' then
+        assert_no_orphan_keys(en_val or {}, v, full, locale_name)
+      end
+    end
+  end
+end
+
 -- ── assert_strings_match self-test ───────────────────────────────────────────
 -- Proves the checker itself actually detects drift, independent of whatever
 -- state the real locale files happen to be in right now.
@@ -49,6 +70,34 @@ describe('assert_strings_match (the sync-check helper)', function()
     local complete = { a = 'bonjour', nested = { b = 'monde' } }
     local ok = pcall(assert_strings_match, reference, complete, 'test', 'complete')
     assert.is_true(ok, 'expected assert_strings_match to pass when all keys are present')
+  end)
+end)
+
+-- ── assert_no_orphan_keys self-test ──────────────────────────────────────────
+-- Proves the reverse-direction checker actually detects an orphaned key
+-- (one that exists in a locale but not in en.lua), independent of whatever
+-- state the real locale files happen to be in right now.
+
+describe('assert_no_orphan_keys (the orphan-check helper)', function()
+  it('fails when a locale has a top-level key the reference does not have', function()
+    local reference = { a = 'hello' }
+    local orphaned = { a = 'bonjour', b = 'stray' }
+    local ok = pcall(assert_no_orphan_keys, reference, orphaned, 'test', 'orphaned')
+    assert.is_false(ok, 'expected assert_no_orphan_keys to fail on an orphaned top-level key')
+  end)
+
+  it('fails when a locale has a nested key the reference does not have', function()
+    local reference = { nested = { a = 'hello' } }
+    local orphaned = { nested = { a = 'bonjour', b = 'stray' } }
+    local ok = pcall(assert_no_orphan_keys, reference, orphaned, 'test', 'orphaned')
+    assert.is_false(ok, 'expected assert_no_orphan_keys to fail on an orphaned nested key')
+  end)
+
+  it('passes when every key in the locale also exists in the reference', function()
+    local reference = { a = 'hello', nested = { b = 'world' } }
+    local complete = { a = 'bonjour', nested = { b = 'monde' } }
+    local ok = pcall(assert_no_orphan_keys, reference, complete, 'test', 'complete')
+    assert.is_true(ok, 'expected assert_no_orphan_keys to pass when no orphan keys exist')
   end)
 end)
 
@@ -86,6 +135,11 @@ describe('every locale file next to en.lua', function()
     it('has every en.lua key, fully recursively, present and non-empty in ' .. name .. '.lua', function()
       local loc = require('tobira.locales.' .. name)
       assert_strings_match(en, loc, name, name .. '.lua')
+    end)
+
+    it('has no orphaned keys not present in en.lua, fully recursively, in ' .. name .. '.lua', function()
+      local loc = require('tobira.locales.' .. name)
+      assert_no_orphan_keys(en, loc, name, name .. '.lua')
     end)
   end
 end)
@@ -126,9 +180,10 @@ describe('float.celebrate template', function()
 end)
 
 describe('float.reasons locale', function()
-  -- Mirrors the pattern names patterns.lua can fire (patterns_spec.lua tests each
-  -- individually). Kept as an explicit list so a new pattern with no reason text
-  -- is caught here instead of silently falling back at display time.
+  -- Mirrors the pattern names patterns.lua and patterns_insert.lua can fire
+  -- (patterns_spec.lua and patterns_insert_spec.lua test each individually).
+  -- Kept as an explicit list so a new pattern with no reason text is caught
+  -- here instead of silently falling back at display time.
   local all_patterns = {
     'b_repeat',
     'c_dollar',
@@ -150,6 +205,12 @@ describe('float.reasons locale', function()
     'gq_then_jumpback',
     'h_repeat',
     'indent_run',
+    'insert_bounce',
+    'insert_bs_repeat',
+    'insert_co_oneshot',
+    'insert_completion_repeat',
+    'insert_left_repeat',
+    'insert_right_repeat',
     'j_many',
     'j_repeat',
     'J_repeat',
@@ -179,7 +240,7 @@ describe('float.reasons locale', function()
     'zero_then_w',
   }
 
-  it('has a non-empty reason string in en.lua for every pattern patterns.lua can fire', function()
+  it('has a non-empty reason string in en.lua for every pattern patterns.lua/patterns_insert.lua can fire', function()
     for _, pattern in ipairs(all_patterns) do
       local reason = en.float.reasons[pattern]
       assert.is_string(reason, pattern .. ': missing from en.lua float.reasons')
