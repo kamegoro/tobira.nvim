@@ -250,16 +250,13 @@ function M.open()
   vim.bo[_buf].modifiable = false
   vim.bo[_buf].bufhidden = 'wipe'
 
-  -- NOTE (#151 migration): the `+ 1` below renders each highlight one row
-  -- below the line M.render()'s own hls table says it belongs to (e.g. a
-  -- TobiraH1 header highlights the row *under* the header text, and the
-  -- last entry can land past the buffer's last line and get silently
-  -- dropped). This predates this migration and is preserved as-is here --
-  -- fixing it is a behavior change, not an API swap, and out of scope for
-  -- a "pure migration, pixel-for-pixel identical" change. Flagged for a
-  -- separate follow-up issue rather than fixed inline.
+  -- hl.lnum is already 0-indexed and lines up 1:1 with rendered.body's lines
+  -- (see this file's header comment and M.render()'s `push()` helper) --
+  -- apply it as-is, same as guide.lua and progress.lua do for their own hls
+  -- tables. (#214: this used to add a stray + 1, landing every highlight one
+  -- row below where it belonged.)
   for _, hl in ipairs(rendered.hls) do
-    hls_mod.set_range(_buf, _ns, hl.group, hl.lnum + 1, hl.cs, hl.ce)
+    hls_mod.set_range(_buf, _ns, hl.group, hl.lnum, hl.cs, hl.ce)
   end
 
   vim.keymap.set('n', 'q', M.close, { buffer = _buf, nowait = true, silent = true })

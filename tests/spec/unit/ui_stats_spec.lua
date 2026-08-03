@@ -505,6 +505,95 @@ describe('when show() is called', function()
   end)
 end)
 
+-- ── highlight placement in the open window (#214) ────────────────────────────
+-- Regression test for #214: M.open() applied every highlight at hl.lnum + 1
+-- instead of hl.lnum, one row below where M.render()'s own hls table says it
+-- belongs. Confirmed impact: every TobiraH1 section header highlighted the
+-- row *under* the header text (the first data row got the header's bold
+-- styling while the header itself rendered unstyled), and the footer's
+-- TobiraDim highlight landed past the buffer's last line and was silently
+-- dropped.
+describe('highlight placement in the open stats window (#214)', function()
+  local logger = require('tobira.core.logger')
+
+  before_each(function()
+    logger.reset()
+  end)
+
+  after_each(function()
+    stats.close()
+    logger.reset()
+  end)
+
+  local function seeded_usage()
+    local usage = logger.get_all()
+    -- 'f' seeds a "Try these next" efficiency-gap row.
+    usage['f'] = { count = 200, sessions = {}, shown = 0, suppressed = false, pinned = false }
+    -- 'cw' seeds a "Top commands" row.
+    usage['cw'] = { count = 50, sessions = {}, shown = 0, suppressed = false, pinned = false }
+    return usage
+  end
+
+  it('places every highlight on the exact row M.render() assigned it, not one row below', function()
+    local usage = seeded_usage()
+    local rendered = stats.render(usage)
+
+    -- Sanity: this seed produces every section the bug affected.
+    local loc = require('tobira.i18n').load()
+    assert.is_not_nil(rendered.body:find(loc.stats.try_next, 1, true), 'expected a Try these next section')
+    assert.is_not_nil(rendered.body:find(loc.stats.mastery, 1, true), 'expected a Mastery section')
+    assert.is_not_nil(rendered.body:find(loc.stats.top_commands, 1, true), 'expected a Top commands section')
+    assert.is_true(#rendered.hls >= 4, 'expected the 3 TobiraH1 headers plus the footer highlight')
+
+    stats.open()
+    local buf = vim.api.nvim_win_get_buf(vim.fn.win_getid())
+    local ns = vim.api.nvim_create_namespace('tobira_stats')
+
+    for _, h in ipairs(rendered.hls) do
+      local marks = vim.api.nvim_buf_get_extmarks(buf, ns, { h.lnum, 0 }, { h.lnum, -1 }, { details = true })
+      local found = false
+      for _, m in ipairs(marks) do
+        if m[4].hl_group == h.group then
+          found = true
+        end
+      end
+      assert.is_true(
+        found,
+        string.format('expected a %s extmark on row %d (M.render() said it belongs there), got none', h.group, h.lnum)
+      )
+    end
+  end)
+
+  it('does not drop the footer summary highlight off the end of the buffer', function()
+    local usage = seeded_usage()
+    local rendered = stats.render(usage)
+    local footer_hl
+    for _, h in ipairs(rendered.hls) do
+      if h.group == 'TobiraDim' then
+        footer_hl = h
+      end
+    end
+    assert.is_not_nil(footer_hl, 'expected a TobiraDim footer highlight in the pure render output')
+
+    stats.open()
+    local buf = vim.api.nvim_win_get_buf(vim.fn.win_getid())
+    local buf_lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+    -- The row it belongs to must actually exist in the buffer.
+    assert.is_not_nil(buf_lines[footer_hl.lnum + 1], 'expected the footer row to exist in the buffer')
+
+    local ns = vim.api.nvim_create_namespace('tobira_stats')
+    local marks =
+      vim.api.nvim_buf_get_extmarks(buf, ns, { footer_hl.lnum, 0 }, { footer_hl.lnum, -1 }, { details = true })
+    local found = false
+    for _, m in ipairs(marks) do
+      if m[4].hl_group == 'TobiraDim' then
+        found = true
+      end
+    end
+    assert.is_true(found, 'expected the footer TobiraDim highlight to actually apply, not be silently dropped')
+  end)
+end)
+
 -- #105: 'i_<C-o>' is an internal composite registry key (see commands.lua's
 -- registry comment) — the Top-commands leaderboard must show the real
 -- keystroke the user pressed (<C-o>), never the raw internal key.
@@ -523,12 +612,10 @@ end)
 -- case). Confirms the new nvim_buf_set_extmark()-based call still reaches
 -- the real end of the line it's placed on.
 --
--- NOTE: M.open() applies each highlight at `hl.lnum + 1`, one row below
--- where M.render()'s own hls table says it belongs (pre-existing, not
--- introduced by this migration -- see the code comment at the call site).
--- This test targets that same (currently shipped) row so it verifies the
--- migration preserves exact current rendering rather than silently
--- "fixing" an unrelated, separately-flagged bug inside a migration PR.
+-- Targets hl.lnum directly (post-#214 fix). Before #214, M.open() applied
+-- each highlight at `hl.lnum + 1`, one row below where M.render()'s own hls
+-- table said it belonged; that off-by-one is now covered by the "highlight
+-- placement in the open stats window (#214)" describe block above.
 describe('extmark rendering after the nvim_buf_add_highlight migration (#151)', function()
   local logger = require('tobira.core.logger')
 
@@ -541,7 +628,7 @@ describe('extmark rendering after the nvim_buf_add_highlight migration (#151)', 
     logger.reset()
   end)
 
-  it("highlights the row it actually targets (hl.lnum + 1) through that row's real end of line", function()
+  it("highlights the row it actually targets (hl.lnum) through that row's real end of line", function()
     local usage = logger.get_all()
     usage['j'] = { count = 1520, sessions = {}, shown = 0, suppressed = false, pinned = false }
     usage['k'] = { count = 892, sessions = {}, shown = 0, suppressed = false, pinned = false }
@@ -558,7 +645,7 @@ describe('extmark rendering after the nvim_buf_add_highlight migration (#151)', 
 
     stats.open()
     local buf = vim.api.nvim_win_get_buf(vim.fn.win_getid())
-    local target_lnum = expected.lnum + 1 -- see NOTE above
+    local target_lnum = expected.lnum
     local buf_lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
     assert.is_not_nil(buf_lines[target_lnum + 1], 'expected the targeted row to exist in the buffer')
 
