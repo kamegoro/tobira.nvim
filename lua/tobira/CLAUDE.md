@@ -35,7 +35,7 @@ core/integrations.lua — requires commands + config (#63). Detects the user's o
                        module-splitting policy below.
 core/logger.lua     — requires patterns + patterns_insert + patterns_cmdline + patterns_terminal + commands
                       does NOT require suggest — notifies via on_pattern callback
-core/suggest.lua    — requires config / logger / graph / integrations
+core/suggest.lua    — requires config / logger / graph / level / integrations
                       ↓
 i18n.lua            — requires config + locales
 health.lua          — requires config / logger / locales (checkhealth entry point, not
@@ -43,9 +43,14 @@ health.lua          — requires config / logger / locales (checkhealth entry po
 ui/hls.lua          — requires nothing (highlight group definitions, plus a small
                        set_range() extmark helper shared by all 4 panels — see
                        nvim_buf_add_highlight() migration, #151)
+ui/footer.lua       — requires nothing (shared keybinding-footer renderer used by the
+                       progress and stats panels via nvim_open_win()'s footer option,
+                       so it stays visible even when the buffer scrolls)
+ui/spark.lua        — requires nothing (pure-Lua sparkline renderer — ▁▂▃▄▅▆▇█ —
+                       used by ui/progress.lua's cursor-following preview strip)
 ui/float.lua        — requires i18n (display strings) / hls (setup_hls + set_range)
-ui/stats.lua        — requires graph / logger / i18n / integrations / hls (setup_hls
-                       + set_range, #151)
+ui/stats.lua        — requires commands / graph / logger / i18n / integrations / hls
+                       (setup_hls + set_range, #151) / footer
                        (#164: "Try these next" — graph.efficiency_gaps() — is this
                        panel's own headline actionable section, so it passes
                        integrations.get_overrides() through to efficiency_gaps() the
@@ -60,8 +65,8 @@ ui/guide.lua        — requires commands / graph / logger / i18n / hls (setup_h
                        the Pinned section reads this same distinction, but unlike the
                        auto section never omits a row outright — see format_pinned_row's
                        header comment for why.)
-ui/progress.lua     — requires graph / level / logger / skills / i18n / hls (setup_hls
-                       + set_range, #151)
+ui/progress.lua     — requires graph / level / logger / skills / spark / i18n / hls
+                       (setup_hls + set_range, #151) / footer
                       ↓
 init.lua            — wiring layer: connects core and ui modules
 plugin/tobira.lua   — registers commands and autocmds; require() inside callbacks only
@@ -187,7 +192,7 @@ two-character command prefix.
    - New insert-mode pattern → add a unit test to `patterns_insert_spec.lua` (#99)
    - New cmdline (Ex-command) pattern → add a unit test to `patterns_cmdline_spec.lua` (#57)
    - New terminal-mode pattern → add a unit test to `patterns_terminal_spec.lua` (#110)
-3. Add display strings to both `locales/en.lua` and `locales/ja.lua` if needed
+3. Add display strings to all 6 locale files (`locales/{en,ja,de,es,fr,zh}.lua`) if needed
 4. Pass CI — `graph.lua`, `skills.lua`, and `logger.lua` update themselves automatically
 
 ## Existing data protection
