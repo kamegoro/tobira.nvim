@@ -1,9 +1,17 @@
 local M = {}
 
+-- Re-runs every nvim_set_hl() call below on every invocation -- never cache/early-return.
+-- setup_hls() (a cached local alias for this function) is called once per panel open
+-- (float/guide/progress/stats), so has_notify_hl must be freely re-evaluated each time
+-- too: in a lazy-loaded setup, nvim-notify may not be loaded yet when tobira's first
+-- panel opens, and skipping re-evaluation on later calls would permanently lock the
+-- Guide highlight groups onto the FloatBorder/NormalFloat/Title fallback even after
+-- nvim-notify becomes available (#126). This is cheap -- just nvim_set_hl() calls, no
+-- I/O or timers -- so re-running it on every panel open is an acceptable tradeoff for
+-- always picking up the current nvim-notify state. The accepted cost: a user's own
+-- manual customization of any of these groups is overwritten the next time any panel
+-- reopens and setup() re-runs.
 function M.setup()
-  if vim.fn.hlexists('TobiraGuideBorder') == 1 then
-    return
-  end
   local has_notify_hl = pcall(require, 'notify') and vim.fn.hlexists('NotifyINFOBorder') == 1
   if has_notify_hl then
     vim.api.nvim_set_hl(0, 'TobiraGuideBorder', { link = 'NotifyINFOBorder' })
