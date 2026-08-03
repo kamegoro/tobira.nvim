@@ -58,4 +58,32 @@ function M.setup()
   vim.api.nvim_set_hl(0, 'TobiraH1', { link = 'Title' })
 end
 
+-- Applies `group` to a byte range on one buffer line, replicating the
+-- semantics every panel (float/guide/progress/stats) relied on from the
+-- now-deprecated nvim_buf_add_highlight(): col_end == -1 meant "through
+-- the real end of the line", and any out-of-range col_end was silently
+-- tolerated rather than raising an error.
+--
+-- nvim_buf_set_extmark() has neither behavior with its default
+-- `strict = true` (both a -1 and an out-of-range end_col raise "Invalid
+-- 'end_col': out of range"). With `strict = false`, though, it resolves
+-- end_col == -1 to the line's actual length and clamps any other
+-- out-of-range end_col instead of erroring -- see :help
+-- nvim_buf_set_extmark(). Passing strict = false unconditionally here
+-- reproduces the legacy call's behavior exactly for every caller (#151).
+--
+-- Deliberately not vim.hl.range(): it targets visual-selection-shaped
+-- ranges (a pair of (line, col) endpoints run through getregionpos(),
+-- with -1 meaning v:maxcol rather than a plain byte offset) and always
+-- creates its own extmark bookkeeping for an optional auto-clear timeout
+-- neither of these call sites need. nvim_buf_set_extmark() is the more
+-- direct match for the old API's plain (line, col_start, col_end) shape.
+function M.set_range(buf, ns, group, lnum, col_start, col_end)
+  vim.api.nvim_buf_set_extmark(buf, ns, lnum, col_start, {
+    end_col = col_end,
+    hl_group = group,
+    strict = false,
+  })
+end
+
 return M

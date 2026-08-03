@@ -40,15 +40,19 @@ core/suggest.lua    — requires config / logger / graph / integrations
 i18n.lua            — requires config + locales
 health.lua          — requires config / logger / locales (checkhealth entry point, not
                        required by anything else)
-ui/hls.lua          — requires nothing (highlight group definitions only)
-ui/float.lua        — requires i18n (display strings only)
-ui/stats.lua        — requires graph / logger / i18n / integrations
+ui/hls.lua          — requires nothing (highlight group definitions, plus a small
+                       set_range() extmark helper shared by all 4 panels — see
+                       nvim_buf_add_highlight() migration, #151)
+ui/float.lua        — requires i18n (display strings) / hls (setup_hls + set_range)
+ui/stats.lua        — requires graph / logger / i18n / integrations / hls (setup_hls
+                       + set_range, #151)
                        (#164: "Try these next" — graph.efficiency_gaps() — is this
                        panel's own headline actionable section, so it passes
                        integrations.get_overrides() through to efficiency_gaps() the
                        same way find_best() already receives it, instead of bypassing
                        the override check the way it used to.)
-ui/guide.lua        — requires commands / graph / logger / i18n / hls / integrations
+ui/guide.lua        — requires commands / graph / logger / i18n / hls (setup_hls +
+                       set_range, #151) / integrations
                        (#63: the one surface bypassing find_best entirely, so it is
                        also the one place that reads integrations.lua's
                        equivalent/different distinction directly — see graph.lua's
@@ -56,7 +60,8 @@ ui/guide.lua        — requires commands / graph / logger / i18n / hls / integr
                        the Pinned section reads this same distinction, but unlike the
                        auto section never omits a row outright — see format_pinned_row's
                        header comment for why.)
-ui/progress.lua     — requires graph / level / logger / skills / i18n / hls
+ui/progress.lua     — requires graph / level / logger / skills / i18n / hls (setup_hls
+                       + set_range, #151)
                       ↓
 init.lua            — wiring layer: connects core and ui modules
 plugin/tobira.lua   — registers commands and autocmds; require() inside callbacks only

@@ -18,14 +18,20 @@ M.values = vim.deepcopy(_defaults)
 
 function M.setup(opts)
   local cfg = vim.tbl_deep_extend('force', _defaults, opts or {})
-  local ok, err = pcall(vim.validate, {
-    idle_delay = { cfg.idle_delay, 'number' },
-    idle_suggestions = { cfg.idle_suggestions, 'boolean' },
-    suggestion_cooldown = { cfg.suggestion_cooldown, 'number' },
-    max_shown = { cfg.max_shown, 'number' },
-    lang = { cfg.lang, 'string' },
-    integrations = { cfg.integrations, 'boolean' },
-  })
+  -- vim.validate(spec) (the table form) is deprecated; the replacement is
+  -- vim.validate(name, value, validator) called once per field. It raises
+  -- on the first failure (like the table form's "first failure" semantics),
+  -- so wrapping every call in one pcall preserves the exact ok/err contract
+  -- this function relied on. Order matches the table form's alphanumeric
+  -- evaluation order so the *first* reported failure is unchanged too.
+  local ok, err = pcall(function()
+    vim.validate('idle_delay', cfg.idle_delay, 'number')
+    vim.validate('idle_suggestions', cfg.idle_suggestions, 'boolean')
+    vim.validate('integrations', cfg.integrations, 'boolean')
+    vim.validate('lang', cfg.lang, 'string')
+    vim.validate('max_shown', cfg.max_shown, 'number')
+    vim.validate('suggestion_cooldown', cfg.suggestion_cooldown, 'number')
+  end)
   if not ok then
     -- Use i18n.load() with the *incoming* (possibly invalid) lang value:
     -- worst case it falls back to English inside i18n.

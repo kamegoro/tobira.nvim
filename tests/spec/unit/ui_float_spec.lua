@@ -36,6 +36,16 @@ local function get_open_buf_lines()
   return {}
 end
 
+local function get_open_buf()
+  for _, win in ipairs(vim.api.nvim_list_wins()) do
+    local buf = vim.api.nvim_win_get_buf(win)
+    if vim.bo[buf].bufhidden == 'wipe' then
+      return buf
+    end
+  end
+  return nil
+end
+
 local _data_file = vim.fn.stdpath('data') .. '/tobira/usage.json'
 local function wipe_disk()
   pcall(os.remove, _data_file)
@@ -314,6 +324,72 @@ describe('when neither a pattern nor a trigger is available', function()
       float.show(suggestion(';'), true)
     end)
     assert.is_true(float.is_open())
+  end)
+end)
+
+-- extmark-based highlighting (nvim_buf_add_highlight migration, #151)
+-- Every highlight this module applies is a full-line highlight (old
+-- col_end == -1). Confirms the new nvim_buf_set_extmark()-based call
+-- actually reaches the real end of each line's text, not just column 0.
+
+describe('extmark rendering after the nvim_buf_add_highlight migration (#151)', function()
+  before_each(setup)
+  after_each(teardown)
+
+  local function full_line_extmark(buf, lnum)
+    local ns = vim.api.nvim_create_namespace('tobira_float')
+    local marks = vim.api.nvim_buf_get_extmarks(buf, ns, { lnum, 0 }, { lnum, -1 }, { details = true })
+    return marks[1]
+  end
+
+  it('highlights the reason line through its real end column, not just column 0', function()
+    float.show(suggestion(';'), true, 'f_repeat')
+    local buf = get_open_buf()
+    assert.is_not_nil(buf)
+    local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+    local reason_lnum
+    for i, line in ipairs(lines) do
+      if line:find('repeated the same f/t search', 1, true) then
+        reason_lnum = i - 1
+      end
+    end
+    assert.is_not_nil(reason_lnum, 'expected to find the reason line')
+
+    local mark = full_line_extmark(buf, reason_lnum)
+    assert.is_not_nil(mark, 'expected an extmark on the reason line')
+    local details = mark[4]
+    assert.equals('TobiraSuggestReason', details.hl_group)
+    assert.equals(reason_lnum, details.end_row)
+    assert.equals(#lines[reason_lnum + 1], details.end_col)
+  end)
+
+  it('highlights the footer hint line through its real end column', function()
+    float.show(suggestion(';'), true)
+    local buf = get_open_buf()
+    assert.is_not_nil(buf)
+    local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+    local hint_lnum = #lines - 2 -- footer line is second-to-last (a blank line follows it)
+
+    local mark = full_line_extmark(buf, hint_lnum)
+    assert.is_not_nil(mark, 'expected an extmark on the footer hint line')
+    local details = mark[4]
+    assert.equals('TobiraGuideHint', details.hl_group)
+    assert.equals(hint_lnum, details.end_row)
+    assert.equals(#lines[hint_lnum + 1], details.end_col)
+  end)
+
+  it('highlights the celebrate line through its real end column', function()
+    float.celebrate(';')
+    local buf = get_open_buf()
+    assert.is_not_nil(buf)
+    local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+
+    local mark = full_line_extmark(buf, 1)
+    assert.is_not_nil(mark, 'expected an extmark on the celebrate line')
+    local details = mark[4]
+    assert.equals('TobiraCelebrate', details.hl_group)
+    assert.equals(1, details.end_row)
+    assert.equals(#lines[2], details.end_col)
   end)
 end)
 

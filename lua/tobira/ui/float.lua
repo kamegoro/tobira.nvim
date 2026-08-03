@@ -8,7 +8,8 @@ local _close_token = 0
 
 local ICON = '🚪'
 
-local setup_hls = require('tobira.ui.hls').setup
+local hls = require('tobira.ui.hls')
+local setup_hls = hls.setup
 
 local CATEGORY_HL = {
   motion = 'TobiraSuggestMotion',
@@ -164,9 +165,9 @@ function M.show(suggestion, focused, pattern)
   vim.bo[_buf].bufhidden = 'wipe'
 
   if reason_lnum then
-    vim.api.nvim_buf_add_highlight(_buf, _ns, 'TobiraSuggestReason', reason_lnum, 0, -1)
+    hls.set_range(_buf, _ns, 'TobiraSuggestReason', reason_lnum, 0, -1)
   end
-  vim.api.nvim_buf_add_highlight(_buf, _ns, 'TobiraGuideHint', hint_lnum, 0, -1)
+  hls.set_range(_buf, _ns, 'TobiraGuideHint', hint_lnum, 0, -1)
 
   if focused then
     vim.keymap.set('n', 'q', close, { buffer = _buf, nowait = true, silent = true })
@@ -251,7 +252,7 @@ function M.celebrate(cmd)
   vim.bo[_buf].modifiable = false
   vim.bo[_buf].bufhidden = 'wipe'
 
-  vim.api.nvim_buf_add_highlight(_buf, _ns, 'TobiraCelebrate', 1, 0, -1)
+  hls.set_range(_buf, _ns, 'TobiraCelebrate', 1, 0, -1)
 
   _win = vim.api.nvim_open_win(_buf, false, {
     relative = 'editor',

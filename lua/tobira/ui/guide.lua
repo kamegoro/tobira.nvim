@@ -13,7 +13,12 @@ local MAX_PER_CATEGORY = 3
 
 local CATEGORY_ORDER = { 'motion', 'edit', 'search', 'window', 'fold', 'mark', 'macro', 'diff', 'ex', 'terminal' }
 
-local setup_hls = require('tobira.ui.hls').setup
+-- Named hls_mod, not hls -- `hls` is already used throughout this file as
+-- the local variable name for the highlight-range list (M.build,
+-- apply_content, M.open), so aliasing the module to the same name would
+-- shadow it inside every function that builds or applies that list.
+local hls_mod = require('tobira.ui.hls')
+local setup_hls = hls_mod.setup
 
 -- Extract only the description part from a title like "cmd — description".
 local function short_desc(title)
@@ -311,7 +316,7 @@ local function apply_content(lines, hls)
   vim.api.nvim_buf_set_lines(_buf, 0, -1, false, lines)
   vim.api.nvim_buf_clear_namespace(_buf, _ns, 0, -1)
   for _, hl in ipairs(hls) do
-    vim.api.nvim_buf_add_highlight(_buf, _ns, hl.group, hl.lnum, hl.cs, hl.ce)
+    hls_mod.set_range(_buf, _ns, hl.group, hl.lnum, hl.cs, hl.ce)
   end
   vim.bo[_buf].modifiable = false
 end
@@ -354,7 +359,7 @@ function M.open()
   vim.bo[_buf].filetype = 'tobira_guide'
 
   for _, hl in ipairs(hls) do
-    vim.api.nvim_buf_add_highlight(_buf, _ns, hl.group, hl.lnum, hl.cs, hl.ce)
+    hls_mod.set_range(_buf, _ns, hl.group, hl.lnum, hl.cs, hl.ce)
   end
 
   local uis = vim.api.nvim_list_uis()
