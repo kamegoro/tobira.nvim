@@ -95,6 +95,44 @@ removed when #67 landed — the preview strip replaced that line entirely, so th
 remaining caller. If you're looking for the "what should I learn next" signal on Progress, that's
 now `progress.preview.to_next` in the cursor-driven preview strip, not a static hlgroup.
 
+## Applying highlights: `hls.set_range()`
+
+All 4 panel-rendering files (`float.lua`, `guide.lua`, `progress.lua`, `stats.lua`) apply the
+hlgroups above to buffer text through one shared helper rather than calling Neovim's extmark
+API directly:
+
+```lua
+-- hls.lua
+function M.set_range(buf, ns, group, lnum, col_start, col_end)
+```
+
+It wraps `nvim_buf_set_extmark()`, reproducing the semantics every panel relied on from the
+now-deprecated `nvim_buf_add_highlight()`: `col_end == -1` meant "through the real end of the
+line," and an out-of-range `col_end` was silently tolerated rather than raising an error.
+Plain `nvim_buf_set_extmark()` does neither under its default `strict = true` — both a `-1`
+and an out-of-range `end_col` raise `"Invalid 'end_col': out of range"`. `set_range()` passes
+`strict = false` unconditionally so every caller keeps the legacy call's exact behavior
+(#151, the deprecated-`nvim_buf_add_highlight()` migration).
+
+If you're painting a new highlighted range on any panel, call `hls.set_range()` — a bare
+`nvim_buf_set_extmark()` call will raise where the old API silently clamped.
+
+## Two UI files with no colors of their own
+
+`footer.lua` and `spark.lua` render UI content but neither defines a hlgroup — worth knowing
+before you go looking for their color logic in this file:
+
+- **`ui/footer.lua`** builds the keybinding footer shared by Progress and Stats
+  (`M.build(items)`, rendered via `nvim_open_win`'s `footer` option so it stays pinned to the
+  window border instead of scrolling with the buffer). It reuses two existing Guide hlgroups —
+  `TobiraGuideKey` for keys, `TobiraGuideHint` for labels — rather than adding `TobiraFooter*`
+  groups, the same "check this file's tables first" instinct as the rule at the top of this
+  doc.
+- **`ui/spark.lua`** renders a `sessions[]` usage-count array into a plain Unicode sparkline
+  string (`▁`–`█`) for Progress's preview strip. It's pure Lua with no `vim.*` calls and applies
+  no highlight at all — the string it returns is just characters; any styling of the line it's
+  embedded in happens in `progress.lua`, not per-bar inside `spark.lua`.
+
 ## Why these particular design choices (pointers, not restated here)
 
 Each screen's layout traces back to a specific piece of UX research, argued in full in its issue.
@@ -119,8 +157,8 @@ Don't re-derive these from scratch if you're touching one of these screens — r
 
 - [ ] New hlgroup? → `link` only, no hex, added to `hls.lua`'s existing category or state table
 - [ ] New state color? → check the State table above for a free `Diagnostic*` slot before adding one
-- [ ] New user-visible string? → both `locales/en.lua` and `locales/ja.lua` (see
-  `locales/CLAUDE.md`)
+- [ ] New user-visible string? → all 6 locale files (`en`/`ja`/`de`/`es`/`fr`/`zh`) under
+  `locales/` (see `locales/CLAUDE.md`)
 - [ ] Touching `guide.lua`/`progress.lua`/`stats.lua` rendering? → check whether the change reads
   usage data through `graph.lua`'s existing predicates (`is_mastered`, `is_forgotten`,
   `mastery_level`) rather than re-deriving thresholds inline
