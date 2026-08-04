@@ -616,6 +616,11 @@ return {
       body = 'Ejecuta el indentador incorporado en la línea actual según las reglas del tipo de archivo\nMás rápido que corregir manualmente con >> o << cuando la sangría es compleja',
       example = '== → la línea encaja automáticamente en el nivel de sangría correcto',
     },
+    ['=G'] = {
+      title = '=G — reindentar hasta el final del archivo',
+      body = 'Ejecuta el indentador incorporado desde el cursor hasta el final del archivo\nCombínalo primero con gg (gg=G) para reindentar todo el buffer, no solo desde el cursor hacia abajo',
+      example = 'gg=G → reindenta todo el archivo',
+    },
 
     -- ── case operators ────────────────────────────────────────────────────
     ['gu'] = {
@@ -901,6 +906,16 @@ return {
       body = 'Ejecuta exactamente un comando en modo Normal y vuelve directamente al modo inserción — sin necesidad de pulsar i/a de nuevo\nDistinto del <C-o> en modo Normal (volver atrás en la jumplist), que solo funciona fuera del modo inserción',
       example = 'escribiendo…<C-o>dd → borra la línea actual y el modo inserción continúa automáticamente',
     },
+    ['<C-t>'] = {
+      title = '<C-t> (modo inserción) — indenta la línea actual sin salir del modo inserción',
+      body = 'Desplaza la línea actual un nivel de sangría a la derecha mientras sigues escribiendo\nSin necesidad de pulsar <Esc>, >> y luego i de nuevo — <C-t> lo hace en el sitio',
+      example = 'escribiendo…<C-t> → la línea gana un nivel de sangría, el cursor sigue en modo inserción',
+    },
+    ['i_<C-d>'] = {
+      title = '<C-d> (modo inserción) — quita sangría a la línea actual sin salir del modo inserción',
+      body = 'Desplaza la línea actual un nivel de sangría a la izquierda mientras sigues escribiendo\nEl equivalente en modo inserción de <C-t> — distinto del <C-d> en modo Normal (desplazar media página), que solo funciona fuera del modo inserción',
+      example = 'escribiendo…<C-d> → la línea pierde un nivel de sangría, el cursor sigue en modo inserción',
+    },
 
     -- ── fold: additional commands ─────────────────────────────────────────
     ['zf'] = {
@@ -1024,6 +1039,16 @@ return {
       title = '"+y — copiar al portapapeles del sistema',
       body = 'Has copiado muchas veces sin usar nunca el portapapeles del sistema\n"+y copia directamente a él, así que pegar fuera de Neovim (o pegar desde fuera con "+p) simplemente funciona\nConfigura clipboard=unnamedplus para que y/p usen el portapapeles por defecto y evitar el prefijo "+',
       example = '"+yy una línea → pégala en otra aplicación con tu tecla de pegar habitual',
+    },
+    ['"ay'] = {
+      title = '"ay — copiar al registro con nombre a',
+      body = 'Copiar de nuevo sobrescribe el registro sin nombre, así que un segundo yank antes de pegar el primero lo pierde\n"ay copia al registro a en su lugar, así sobrevive a copias posteriores — pégalo con "ap\nUsa cualquier letra a-z para un registro distinto; "Ay (mayúscula) añade al registro a en vez de sobrescribirlo',
+      example = '"ayiw → copia una palabra al registro a; más tarde, "ap → la pegas',
+    },
+    ['"_d'] = {
+      title = '"_d — eliminar sin sobrescribir el registro sin nombre',
+      body = 'Un borrado normal sobrescribe el registro sin nombre, así que un yank que querías conservar se pierde con el siguiente borrado\n"_d envía el texto eliminado al registro de agujero negro en su lugar, descartándolo — tu último yank sobrevive',
+      example = 'yiw y luego "_dd → elimina una línea sin perder la palabra que acabas de copiar',
     },
 
     -- ── Ex commands ───────────────────────────────────────────────────────
