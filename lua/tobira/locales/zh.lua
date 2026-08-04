@@ -133,6 +133,7 @@ return {
       substitute_repeat_wide = '你手动在第三行也执行了同样的 :s/// 替换',
       ex_file_pingpong = '你用 :e/:b 连续多次在同两个文件之间来回切换',
       tabnew_run = '你用 :tabnew 打开了 3 个或更多文件，每个文件单独占一个标签页',
+      cmdline_history_recall = '你重新输入了完全相同的 Ex 命令，而不是从历史记录中调用它',
       ci_dquote_repeat = '你用 ci" 连续 3 次修改双引号内的内容',
       ci_squote_repeat = "你用 ci' 连续 3 次修改单引号内的内容",
     },

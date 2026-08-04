@@ -133,6 +133,7 @@ return {
       substitute_repeat_wide = 'Du hast dieselbe :s///-Ersetzung von Hand auf einer dritten Zeile ausgeführt',
       ex_file_pingpong = 'Du bist mehrmals hintereinander mit :e/:b zwischen denselben zwei Dateien hin- und hergesprungen',
       tabnew_run = 'Du hast 3 oder mehr Dateien mit :tabnew geöffnet, jede in einem eigenen Tab',
+      cmdline_history_recall = 'Du hast denselben Ex-Befehl erneut eingetippt, statt ihn aus dem Verlauf abzurufen',
       ci_dquote_repeat = 'Du hast mit ci" 3-mal hintereinander den Inhalt in doppelten Anführungszeichen geändert',
       ci_squote_repeat = "Du hast mit ci' 3-mal hintereinander den Inhalt in einfachen Anführungszeichen geändert",
     },
