@@ -133,6 +133,7 @@ return {
       substitute_repeat_wide = 'Ejecutaste la misma sustitución :s/// a mano en una tercera línea',
       ex_file_pingpong = 'Alternaste varias veces seguidas entre los mismos dos archivos con :e/:b',
       tabnew_run = 'Abriste 3 o más archivos con :tabnew, cada uno en su propia pestaña',
+      cmdline_history_recall = 'Volviste a escribir exactamente el mismo comando Ex en lugar de recuperarlo del historial',
       ci_dquote_repeat = 'Cambiaste el contenido entre comillas dobles con ci" 3 veces seguidas',
       ci_squote_repeat = "Cambiaste el contenido entre comillas simples con ci' 3 veces seguidas",
     },

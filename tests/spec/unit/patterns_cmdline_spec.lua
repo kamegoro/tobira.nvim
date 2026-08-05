@@ -531,3 +531,172 @@ describe('patterns_cmdline tabnew one-file-per-tab habit detection (#113)', func
     end)
   end)
 end)
+
+-- ── Verbatim Ex-command retype detection (#241) ─────────────────────────────
+-- Generalizes substitute_repeat/ex_file_pingpong/tabnew_run above: retyping
+-- the exact same full command-line string 2+ times is a signal for `:`+<Up>
+-- (or q:) history recall, for any command NOT already claimed by one of the
+-- 3 more specific patterns above. See
+-- docs/adr/0095-cmdline-history-recall-detection.md.
+describe('patterns_cmdline.feed_history_recall', function()
+  local function rseq()
+    return patterns_cmdline.new_history_recall_state()
+  end
+
+  it('does not fire on the first submission of a command', function()
+    local s = rseq()
+    local result = patterns_cmdline.feed_history_recall(s, '!somecommand --flags', nil, nil)
+    assert.is_nil(result)
+  end)
+
+  it('fires cmdline_history_recall suggesting q: when the identical command is retyped a second time', function()
+    local s = rseq()
+    patterns_cmdline.feed_history_recall(s, '!somecommand --flags', nil, nil)
+    local result = patterns_cmdline.feed_history_recall(s, '!somecommand --flags', nil, nil)
+    assert.equals('cmdline_history_recall', result.pattern)
+    assert.equals('q:', result.cmd)
+  end)
+
+  it('fires for a retyped :g command (word is a letter word, not excluded, and has an argument)', function()
+    local s = rseq()
+    patterns_cmdline.feed_history_recall(s, 'g/pattern/d', 'g', '/pattern/d')
+    local result = patterns_cmdline.feed_history_recall(s, 'g/pattern/d', 'g', '/pattern/d')
+    assert.equals('cmdline_history_recall', result.pattern)
+    assert.equals('q:', result.cmd)
+  end)
+
+  it('does not fire again on a third identical submission (fires once, then latches)', function()
+    local s = rseq()
+    patterns_cmdline.feed_history_recall(s, 'g/pattern/d', 'g', '/pattern/d')
+    patterns_cmdline.feed_history_recall(s, 'g/pattern/d', 'g', '/pattern/d') -- fires here
+    local result = patterns_cmdline.feed_history_recall(s, 'g/pattern/d', 'g', '/pattern/d')
+    assert.is_nil(result)
+  end)
+
+  it('does not fire when the command text differs between submissions', function()
+    local s = rseq()
+    patterns_cmdline.feed_history_recall(s, 'g/pattern/d', 'g', '/pattern/d')
+    local result = patterns_cmdline.feed_history_recall(s, 'g/other/d', 'g', '/other/d')
+    assert.is_nil(result)
+  end)
+
+  it('tracks distinct commands independently, each with their own 2-submission threshold', function()
+    local s = rseq()
+    patterns_cmdline.feed_history_recall(s, 'g/foo/d', 'g', '/foo/d')
+    patterns_cmdline.feed_history_recall(s, 'g/bar/d', 'g', '/bar/d')
+    local result = patterns_cmdline.feed_history_recall(s, 'g/foo/d', 'g', '/foo/d')
+    assert.equals('cmdline_history_recall', result.pattern)
+  end)
+
+  it('does not fire for a substitute command (claimed by substitute_repeat instead)', function()
+    local s = rseq()
+    patterns_cmdline.feed_history_recall(s, 's/foo/bar/', 's', '/foo/bar/')
+    local result = patterns_cmdline.feed_history_recall(s, 's/foo/bar/', 's', '/foo/bar/')
+    assert.is_nil(result)
+  end)
+
+  it('does not fire for a substitute abbreviation (su/sub/substitute), same word-family exclusion', function()
+    local s = rseq()
+    patterns_cmdline.feed_history_recall(s, 'substitute/foo/bar/', 'substitute', '/foo/bar/')
+    local result = patterns_cmdline.feed_history_recall(s, 'substitute/foo/bar/', 'substitute', '/foo/bar/')
+    assert.is_nil(result)
+  end)
+
+  it('does not fire for a ranged substitute either, by word-family rather than exact-scope match', function()
+    -- track_substitute() itself declines a ranged :%s (out of its scope, see
+    -- docs/adr/0006), but the generic detector still excludes it by word
+    -- alone so the same edit habit never earns two different suggestions.
+    local s = rseq()
+    patterns_cmdline.feed_history_recall(s, '%s/foo/bar/', 's', '/foo/bar/')
+    local result = patterns_cmdline.feed_history_recall(s, '%s/foo/bar/', 's', '/foo/bar/')
+    assert.is_nil(result)
+  end)
+
+  it('does not fire for a retyped :e command (claimed by ex_file_pingpong instead)', function()
+    local s = rseq()
+    patterns_cmdline.feed_history_recall(s, 'e foo.txt', 'e', 'foo.txt')
+    local result = patterns_cmdline.feed_history_recall(s, 'e foo.txt', 'e', 'foo.txt')
+    assert.is_nil(result)
+  end)
+
+  it('does not fire for a retyped :b command (claimed by ex_file_pingpong instead)', function()
+    local s = rseq()
+    patterns_cmdline.feed_history_recall(s, 'b foo.txt', 'b', 'foo.txt')
+    local result = patterns_cmdline.feed_history_recall(s, 'b foo.txt', 'b', 'foo.txt')
+    assert.is_nil(result)
+  end)
+
+  it('does not fire for a bare :e with no argument either (excluded by word alone, not by arg presence)', function()
+    local s = rseq()
+    patterns_cmdline.feed_history_recall(s, 'e', 'e', nil)
+    local result = patterns_cmdline.feed_history_recall(s, 'e', 'e', nil)
+    assert.is_nil(result)
+  end)
+
+  it('fires for a retyped :edit command (not excluded -- ping-pong only recognizes the literal word "e")', function()
+    local s = rseq()
+    patterns_cmdline.feed_history_recall(s, 'edit foo.txt', 'edit', 'foo.txt')
+    local result = patterns_cmdline.feed_history_recall(s, 'edit foo.txt', 'edit', 'foo.txt')
+    assert.equals('cmdline_history_recall', result.pattern)
+    assert.equals('q:', result.cmd)
+  end)
+
+  it('does not fire for a retyped :tabnew command (claimed by tabnew_run instead)', function()
+    local s = rseq()
+    patterns_cmdline.feed_history_recall(s, 'tabnew foo.txt', 'tabnew', 'foo.txt')
+    local result = patterns_cmdline.feed_history_recall(s, 'tabnew foo.txt', 'tabnew', 'foo.txt')
+    assert.is_nil(result)
+  end)
+
+  it('returns nil for nil text', function()
+    assert.is_nil(patterns_cmdline.feed_history_recall(rseq(), nil, nil, nil))
+  end)
+
+  it('returns nil for an empty command line', function()
+    assert.is_nil(patterns_cmdline.feed_history_recall(rseq(), '', nil, nil))
+  end)
+
+  it('returns nil for a whitespace-only command line', function()
+    assert.is_nil(patterns_cmdline.feed_history_recall(rseq(), '   ', nil, nil))
+  end)
+
+  describe('minimum-complexity floor: a bare command word with no argument (QA-found false positive)', function()
+    local trivial_commands = {
+      { text = 'w', word = 'w' },
+      { text = 'q', word = 'q' },
+      { text = 'x', word = 'x' },
+      { text = 'wq', word = 'wq' },
+      { text = 'qa', word = 'qa' },
+      { text = 'noh', word = 'noh' },
+    }
+
+    for _, case in ipairs(trivial_commands) do
+      it('never fires for a bare :' .. case.text .. ' retyped many times', function()
+        local s = rseq()
+        for _ = 1, 5 do
+          local result = patterns_cmdline.feed_history_recall(s, case.text, case.word, nil)
+          assert.is_nil(result)
+        end
+      end)
+    end
+
+    it('never fires for a bang-forced bare command (:qa!) either', function()
+      local s = rseq()
+      patterns_cmdline.feed_history_recall(s, 'qa!', 'qa', nil)
+      local result = patterns_cmdline.feed_history_recall(s, 'qa!', 'qa', nil)
+      assert.is_nil(result)
+    end)
+
+    it('still fires once a bare command word gains a real argument (:w somefile.txt)', function()
+      -- Proves the floor is an argument/complexity check, not a word
+      -- blacklist like the substitute/pingpong/tabnew exclusions above --
+      -- :w itself is never excluded by word, only by having nothing to
+      -- retype.
+      local s = rseq()
+      patterns_cmdline.feed_history_recall(s, 'w somefile.txt', 'w', 'somefile.txt')
+      local result = patterns_cmdline.feed_history_recall(s, 'w somefile.txt', 'w', 'somefile.txt')
+      assert.equals('cmdline_history_recall', result.pattern)
+      assert.equals('q:', result.cmd)
+    end)
+  end)
+end)

@@ -133,6 +133,7 @@ return {
       substitute_repeat_wide = '同じ :s/// 置換を手動で3行目にも実行しました',
       ex_file_pingpong = ':e / :b で同じ2つのファイルを何度も行き来しました',
       tabnew_run = ':tabnew で3つ以上のファイルを、1つずつ別のタブで開きました',
+      cmdline_history_recall = '履歴から呼び出さず、まったく同じExコマンドを再入力しました',
       ci_dquote_repeat = 'ci" で二重引用符の中身を3回連続で変更しました',
       ci_squote_repeat = "ci' で単一引用符の中身を3回連続で変更しました",
     },

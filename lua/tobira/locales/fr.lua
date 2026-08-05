@@ -133,6 +133,7 @@ return {
       substitute_repeat_wide = 'Vous avez rejoué la même substitution :s/// à la main sur une troisième ligne',
       ex_file_pingpong = 'Vous avez basculé plusieurs fois de suite entre les deux mêmes fichiers avec :e/:b',
       tabnew_run = 'Vous avez ouvert 3 fichiers ou plus avec :tabnew, chacun dans son propre onglet',
+      cmdline_history_recall = "Vous avez retapé exactement la même commande Ex au lieu de la rappeler depuis l'historique",
       ci_dquote_repeat = 'Vous avez changé le contenu entre guillemets doubles avec ci" 3 fois de suite',
       ci_squote_repeat = "Vous avez changé le contenu entre guillemets simples avec ci' 3 fois de suite",
     },

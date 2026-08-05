@@ -133,6 +133,7 @@ return {
       substitute_repeat_wide = 'You ran the same :s/// substitution manually on a third line',
       ex_file_pingpong = 'You bounced between the same two files with :e/:b a few times in a row',
       tabnew_run = 'You opened 3 or more files with :tabnew, one tab each',
+      cmdline_history_recall = 'You retyped the exact same Ex command instead of recalling it from history',
       ci_dquote_repeat = 'You changed inside double quotes with ci" 3 times in a row',
       ci_squote_repeat = "You changed inside single quotes with ci' 3 times in a row",
     },
