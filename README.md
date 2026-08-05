@@ -23,12 +23,12 @@ it quietly shows you the one command that would have helped. No quizzes. No inte
 ## ✨ Features
 
 - 👀 **Fully passive** — reads keystrokes via `vim.on_key()`; no config required, zero impact on your existing mappings
-- 🎯 **62 detected patterns** across motion, edit, search, window, fold, mark, macro, diff, ex, and terminal — repeated `f` searches, `dw`→`i` instead of `cw`, retyping the same `:s///` substitution instead of `&`/`g&`, and more (see [examples below](#-detected-patterns-examples))
+- 🎯 **70 detected patterns** across motion, edit, search, window, fold, mark, macro, diff, ex, and terminal — repeated `f` searches, `dw`→`i` instead of `cw`, retyping the same `:s///` substitution instead of `&`/`g&`, and more (see [examples below](#-detected-patterns-examples))
 - ⌨️ **Ex commands, too** — `:g`, `:norm`, `:s`, and friends are tracked from the command line itself, not just normal-mode keys, so `:g` / `:norm` can be suggested to users who have never tried them (tobira's own `:Tobira*` commands are excluded, so checking your stats never counts as usage)
 - 💬 **One suggestion at a time** — shown after a natural pause, capped per session, with a cooldown between auto-suggestions — never a popup quiz
 - 📈 **Mastery-aware** — once you've used a command ~100 times, tobira stops suggesting it and moves on
 - 🪜 **Level-aware** — beginner commands surface first, advanced ones once you're ready
-- 🗺️ **167 commands** in the learning graph, covering the full Neovim command surface
+- 🗺️ **171 commands** in the learning graph, covering the full Neovim command surface
 
 ## ⚡️ Requirements
 
