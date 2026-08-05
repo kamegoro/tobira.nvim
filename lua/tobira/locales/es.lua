@@ -133,6 +133,7 @@ return {
       substitute_repeat_wide = 'Ejecutaste la misma sustitución :s/// a mano en una tercera línea',
       ex_file_pingpong = 'Alternaste varias veces seguidas entre los mismos dos archivos con :e/:b',
       tabnew_run = 'Abriste 3 o más archivos con :tabnew, cada uno en su propia pestaña',
+      cmdline_history_recall = 'Volviste a escribir exactamente el mismo comando Ex en lugar de recuperarlo del historial',
       ci_dquote_repeat = 'Cambiaste el contenido entre comillas dobles con ci" 3 veces seguidas',
       ci_squote_repeat = "Cambiaste el contenido entre comillas simples con ci' 3 veces seguidas",
     },
@@ -1092,6 +1093,74 @@ return {
       title = "ya' — copiar el texto entre comillas simples",
       body = 'Como ya" pero para texto entre comillas simples\nCopia todo el texto, incluidas las comillas',
       example = "ya' → copia 'el texto citado' junto con sus comillas",
+    },
+
+    -- ── quickfix / location-list navigation (#228) ────────────────────────────
+    [']q'] = {
+      title = ']q — saltar a la siguiente entrada de quickfix',
+      body = 'Salta a la siguiente entrada de la lista quickfix (llenada por :vimgrep, :grep o diagnósticos LSP)\nReemplaza buscar o desplazarse manualmente por los resultados uno a uno',
+      example = ':vimgrep /TODO/g % y luego ]q → salta a la siguiente coincidencia',
+    },
+    ['[q'] = {
+      title = '[q — saltar a la entrada anterior de quickfix',
+      body = 'Como ]q pero retrocede por la lista quickfix\nEl complemento inverso de ]q',
+      example = '[q → vuelve a la coincidencia quickfix anterior',
+    },
+    [']l'] = {
+      title = ']l — saltar a la siguiente entrada de la lista de ubicaciones',
+      body = 'Como ]q pero para la lista de ubicaciones local a la ventana en lugar de la lista quickfix compartida\nÚtil cuando distintas ventanas necesitan su propia lista de resultados',
+      example = ':lvimgrep /TODO/g % y luego ]l → salta a la siguiente coincidencia en la lista de ubicaciones de esta ventana',
+    },
+    ['[l'] = {
+      title = '[l — saltar a la entrada anterior de la lista de ubicaciones',
+      body = 'Como [q pero para la lista de ubicaciones en lugar de la lista quickfix\nEl complemento inverso de ]l',
+      example = '[l → vuelve a la entrada anterior de la lista de ubicaciones',
+    },
+    ['ex:copen'] = {
+      title = ':copen — abrir la ventana quickfix',
+      body = 'Abre una ventana con todas las entradas de la lista quickfix para explorarlas o saltar a cualquiera\nReemplaza volver a ejecutar la búsqueda que llenó la lista solo para ver los resultados de nuevo',
+      example = ':copen → muestra la lista quickfix en una ventana dividida',
+    },
+    ['ex:cdo'] = {
+      title = ':cdo — ejecutar un comando en cada entrada de quickfix',
+      body = 'Ejecuta un comando Ex una vez por cada entrada de quickfix, saltando antes al archivo y línea de cada una\nReemplaza repetir manualmente una edición en todos los archivos de la lista',
+      example = ':cdo s/foo/bar/g → reemplaza foo por bar en cada coincidencia de quickfix',
+    },
+
+    -- ── spell-check (#229) ─────────────────────────────────────────────────────
+    [']s'] = {
+      title = ']s — saltar a la siguiente palabra mal escrita',
+      body = 'Salta hacia adelante a la siguiente palabra que el corrector ortográfico de Vim marca como mal escrita (requiere :set spell)\nReemplaza revisar el texto a simple vista buscando errores',
+      example = ']s → el cursor salta a la siguiente palabra mal escrita',
+    },
+    ['[s'] = {
+      title = '[s — saltar a la palabra mal escrita anterior',
+      body = 'Como ]s pero busca hacia atrás la palabra mal escrita anterior',
+      example = '[s → el cursor vuelve a la palabra mal escrita anterior',
+    },
+    ['z='] = {
+      title = 'z= — sugerir correcciones ortográficas',
+      body = 'Muestra una lista numerada de sugerencias ortográficas para la palabra bajo el cursor; elige una por número\nReemplaza borrar y volver a escribir a mano una palabra mal escrita',
+      example = 'z= y luego 2<CR> → reemplaza la palabra con la 2.ª sugerencia',
+    },
+
+    -- ── :sort (#239) ─────────────────────────────────────────────────────────
+    ['ex:sort'] = {
+      title = ':sort — ordenar líneas',
+      body = 'Ordena las líneas seleccionadas (o todo el archivo) alfabéticamente en un solo comando\nReemplaza cortar y pegar líneas manualmente para ordenarlas',
+      example = ':sort → ordena todas las líneas del archivo alfabéticamente',
+    },
+
+    -- ── ]p / [p indent-aware paste (#240) ──────────────────────────────────────
+    [']p'] = {
+      title = ']p — pegar y ajustar la sangría',
+      body = 'Como p pero reindenta el texto pegado para que coincida con la línea actual\nReemplaza pegar y luego corregir la sangría a mano',
+      example = ']p → pega texto por líneas, con la sangría de la línea de arriba',
+    },
+    ['[p'] = {
+      title = '[p — pegar antes y ajustar la sangría',
+      body = 'Como P pero reindenta el texto pegado para que coincida con la línea actual\nEl complemento inverso de ]p',
+      example = '[p → pega texto por líneas arriba, con la sangría de la línea actual',
     },
   },
 }

@@ -377,6 +377,22 @@ local chain_cases = {
   -- repeated :substitute detection (#115)
   { '&', 'n', 'n → &: repeat the last substitute on this line' },
   { 'g&', '&', '& → g&: repeat the last substitute across the whole file' },
+  -- quickfix / location-list navigation (#228)
+  { ']q', 'n', 'n → ]q: jump to next quickfix entry' },
+  { '[q', 'N', 'N → [q: jump to previous quickfix entry' },
+  { ']l', 'n', 'n → ]l: jump to next location-list entry' },
+  { '[l', 'N', 'N → [l: jump to previous location-list entry' },
+  { 'ex:copen', 'n', 'n → ex:copen: open the quickfix window' },
+  { 'ex:cdo', 'q', 'q → ex:cdo: run a command over every quickfix entry' },
+  -- spell-check (#229)
+  { ']s', 'n', 'n → ]s: jump to next misspelled word' },
+  { '[s', 'N', 'N → [s: jump to previous misspelled word' },
+  { 'z=', 'i', 'i → z=: suggest spelling corrections' },
+  -- :sort (#239)
+  { 'ex:sort', 'dd', 'dd → ex:sort: sort lines' },
+  -- ]p / [p indent-aware paste (#240)
+  { ']p', 'p', 'p → ]p: paste and adjust indent to match current line' },
+  { '[p', 'P', 'P → [p: paste before and adjust indent to match current line' },
 }
 
 describe('teaching chains', function()
@@ -391,7 +407,7 @@ end)
 -- ── Ex commands (#57) ────────────────────────────────────────────────────────
 
 describe('Ex command registry entries', function()
-  for _, cmd in ipairs({ 'ex:g', 'ex:norm' }) do
+  for _, cmd in ipairs({ 'ex:g', 'ex:norm', 'ex:copen', 'ex:cdo', 'ex:sort' }) do
     it(cmd .. ' is flagged ex_command = true with category = "ex"', function()
       assert.is_true(commands.registry[cmd].ex_command)
       assert.equals('ex', commands.registry[cmd].category)

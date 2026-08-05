@@ -133,6 +133,7 @@ return {
       substitute_repeat_wide = 'You ran the same :s/// substitution manually on a third line',
       ex_file_pingpong = 'You bounced between the same two files with :e/:b a few times in a row',
       tabnew_run = 'You opened 3 or more files with :tabnew, one tab each',
+      cmdline_history_recall = 'You retyped the exact same Ex command instead of recalling it from history',
       ci_dquote_repeat = 'You changed inside double quotes with ci" 3 times in a row',
       ci_squote_repeat = "You changed inside single quotes with ci' 3 times in a row",
     },
@@ -1093,6 +1094,74 @@ return {
       title = "ya' — yank around single quotes",
       body = 'Like ya" but for single-quoted strings\nYanks the whole string, including the quote marks',
       example = "ya' → yanks 'the quoted text' with its quotes",
+    },
+
+    -- ── quickfix / location-list navigation (#228) ────────────────────────────
+    [']q'] = {
+      title = ']q — jump to next quickfix entry',
+      body = 'Jumps to the next entry in the quickfix list (filled by :vimgrep, :grep, or LSP diagnostics)\nReplaces manually searching or scrolling through results one by one',
+      example = ':vimgrep /TODO/g % then ]q → jump to the next match',
+    },
+    ['[q'] = {
+      title = '[q — jump to previous quickfix entry',
+      body = 'Like ]q but moves backward through the quickfix list\nThe reverse complement of ]q',
+      example = '[q → jump back to the previous quickfix match',
+    },
+    [']l'] = {
+      title = ']l — jump to next location-list entry',
+      body = "Like ]q but for the current window's location list instead of the shared quickfix list\nUseful when different windows each need their own result list",
+      example = ":lvimgrep /TODO/g % then ]l → jump to the next match in this window's location list",
+    },
+    ['[l'] = {
+      title = '[l — jump to previous location-list entry',
+      body = 'Like [q but for the location list instead of the quickfix list\nThe reverse complement of ]l',
+      example = '[l → jump back to the previous location-list entry',
+    },
+    ['ex:copen'] = {
+      title = ':copen — open the quickfix window',
+      body = 'Opens a window listing every entry in the quickfix list so you can browse or jump to any of them\nReplaces re-running the search that filled the list just to see the results again',
+      example = ':copen → show the quickfix list in a split',
+    },
+    ['ex:cdo'] = {
+      title = ':cdo — run a command on every quickfix entry',
+      body = "Runs an Ex command once per quickfix entry, jumping to each match's file and line first\nReplaces manually repeating an edit across every file in the list",
+      example = ':cdo s/foo/bar/g → replace foo with bar at every quickfix match',
+    },
+
+    -- ── spell-check (#229) ─────────────────────────────────────────────────────
+    [']s'] = {
+      title = ']s — jump to next misspelled word',
+      body = "Jumps forward to the next word Vim's spell checker flags as misspelled (needs :set spell)\nReplaces scanning the text by eye for typos",
+      example = ']s → cursor jumps to the next misspelled word',
+    },
+    ['[s'] = {
+      title = '[s — jump to previous misspelled word',
+      body = 'Like ]s but searches backward for the previous misspelled word',
+      example = '[s → cursor jumps back to the previous misspelled word',
+    },
+    ['z='] = {
+      title = 'z= — suggest spelling corrections',
+      body = 'Shows a numbered list of spelling suggestions for the word under the cursor; pick one by number\nReplaces deleting and retyping a misspelled word by hand',
+      example = 'z= then 2<CR> → replace the word with the 2nd suggested correction',
+    },
+
+    -- ── :sort (#239) ─────────────────────────────────────────────────────────
+    ['ex:sort'] = {
+      title = ':sort — sort lines',
+      body = 'Sorts the selected lines (or the whole file) alphabetically in one command\nReplaces manually cutting and pasting lines into order',
+      example = ':sort → sort every line in the file alphabetically',
+    },
+
+    -- ── ]p / [p indent-aware paste (#240) ──────────────────────────────────────
+    [']p'] = {
+      title = ']p — paste and adjust indent',
+      body = 'Like p but re-indents the pasted text to match the current line\nReplaces pasting, then manually fixing the indentation by hand',
+      example = ']p → paste linewise text, indented to match the line above',
+    },
+    ['[p'] = {
+      title = '[p — paste before and adjust indent',
+      body = 'Like P but re-indents the pasted text to match the current line\nThe backward complement of ]p',
+      example = '[p → paste linewise text above, indented to match the current line',
     },
   },
 }

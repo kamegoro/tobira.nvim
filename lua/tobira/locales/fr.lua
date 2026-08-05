@@ -133,6 +133,7 @@ return {
       substitute_repeat_wide = 'Vous avez rejoué la même substitution :s/// à la main sur une troisième ligne',
       ex_file_pingpong = 'Vous avez basculé plusieurs fois de suite entre les deux mêmes fichiers avec :e/:b',
       tabnew_run = 'Vous avez ouvert 3 fichiers ou plus avec :tabnew, chacun dans son propre onglet',
+      cmdline_history_recall = "Vous avez retapé exactement la même commande Ex au lieu de la rappeler depuis l'historique",
       ci_dquote_repeat = 'Vous avez changé le contenu entre guillemets doubles avec ci" 3 fois de suite',
       ci_squote_repeat = "Vous avez changé le contenu entre guillemets simples avec ci' 3 fois de suite",
     },
@@ -1092,6 +1093,74 @@ return {
       title = "ya' — copier le texte entre guillemets simples",
       body = 'Comme ya", mais pour du texte entre guillemets simples\nCopie tout le texte, guillemets compris',
       example = "ya' → copie 'le texte cité' avec ses guillemets",
+    },
+
+    -- ── quickfix / location-list navigation (#228) ────────────────────────────
+    [']q'] = {
+      title = "]q — aller à l'entrée quickfix suivante",
+      body = "Saute à l'entrée suivante de la liste quickfix (remplie par :vimgrep, :grep ou les diagnostics LSP)\nRemplace la recherche ou le défilement manuel des résultats un par un",
+      example = ':vimgrep /TODO/g % puis ]q → saute à la prochaine occurrence',
+    },
+    ['[q'] = {
+      title = "[q — aller à l'entrée quickfix précédente",
+      body = 'Comme ]q mais recule dans la liste quickfix\nLe complément inverse de ]q',
+      example = "[q → revient à l'occurrence quickfix précédente",
+    },
+    [']l'] = {
+      title = "]l — aller à l'entrée suivante de la liste de positions",
+      body = 'Comme ]q mais pour la liste de positions locale à la fenêtre plutôt que la liste quickfix partagée\nUtile quand plusieurs fenêtres ont besoin de leur propre liste de résultats',
+      example = ':lvimgrep /TODO/g % puis ]l → saute à la prochaine occurrence dans la liste de positions de cette fenêtre',
+    },
+    ['[l'] = {
+      title = "[l — aller à l'entrée précédente de la liste de positions",
+      body = 'Comme [q mais pour la liste de positions plutôt que la liste quickfix\nLe complément inverse de ]l',
+      example = "[l → revient à l'entrée précédente de la liste de positions",
+    },
+    ['ex:copen'] = {
+      title = ':copen — ouvrir la fenêtre quickfix',
+      body = 'Ouvre une fenêtre listant toutes les entrées de la liste quickfix pour les parcourir ou y sauter\nRemplace le fait de relancer la recherche qui a rempli la liste juste pour revoir les résultats',
+      example = ':copen → affiche la liste quickfix dans une fenêtre scindée',
+    },
+    ['ex:cdo'] = {
+      title = ':cdo — exécuter une commande sur chaque entrée quickfix',
+      body = "Exécute une commande Ex une fois par entrée quickfix, en sautant d'abord au fichier et à la ligne de chacune\nRemplace la répétition manuelle d'une modification dans tous les fichiers de la liste",
+      example = ':cdo s/foo/bar/g → remplace foo par bar à chaque occurrence quickfix',
+    },
+
+    -- ── spell-check (#229) ─────────────────────────────────────────────────────
+    [']s'] = {
+      title = ']s — aller au mot mal orthographié suivant',
+      body = 'Saute en avant vers le prochain mot que le correcteur orthographique de Vim signale comme mal orthographié (nécessite :set spell)\nRemplace la relecture visuelle du texte à la recherche de fautes',
+      example = ']s → le curseur saute au prochain mot mal orthographié',
+    },
+    ['[s'] = {
+      title = '[s — aller au mot mal orthographié précédent',
+      body = 'Comme ]s mais recherche en arrière le mot mal orthographié précédent',
+      example = '[s → le curseur revient au mot mal orthographié précédent',
+    },
+    ['z='] = {
+      title = 'z= — suggérer des corrections orthographiques',
+      body = "Affiche une liste numérotée de suggestions orthographiques pour le mot sous le curseur ; on en choisit une par numéro\nRemplace la suppression puis la resaisie manuelle d'un mot mal orthographié",
+      example = 'z= puis 2<CR> → remplace le mot par la 2e suggestion',
+    },
+
+    -- ── :sort (#239) ─────────────────────────────────────────────────────────
+    ['ex:sort'] = {
+      title = ':sort — trier les lignes',
+      body = 'Trie les lignes sélectionnées (ou tout le fichier) par ordre alphabétique en une seule commande\nRemplace le découpage et le collage manuels des lignes pour les ordonner',
+      example = ':sort → trie toutes les lignes du fichier par ordre alphabétique',
+    },
+
+    -- ── ]p / [p indent-aware paste (#240) ──────────────────────────────────────
+    [']p'] = {
+      title = "]p — coller en ajustant l'indentation",
+      body = "Comme p mais réindente le texte collé pour correspondre à la ligne actuelle\nRemplace le collage suivi d'une correction manuelle de l'indentation",
+      example = ']p → colle du texte en mode ligne, indenté comme la ligne au-dessus',
+    },
+    ['[p'] = {
+      title = "[p — coller avant en ajustant l'indentation",
+      body = 'Comme P mais réindente le texte collé pour correspondre à la ligne actuelle\nLe complément inverse de ]p',
+      example = '[p → colle du texte en mode ligne au-dessus, indenté comme la ligne actuelle',
     },
   },
 }
