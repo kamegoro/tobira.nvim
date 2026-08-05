@@ -364,11 +364,11 @@ end
 
 -- ── Verbatim Ex-command retype detection ────────────────────────────────────
 --
--- M.feed_history_recall(state, text, word) generalizes the "retyping instead
--- of recalling" insight behind the three detectors above to any OTHER Ex
--- command (#241): the exact same full command-line string submitted 2+ times
--- is a signal for `:` + <Up> (or q:) history recall, regardless of what the
--- command actually does.
+-- M.feed_history_recall(state, text, word, arg) generalizes the "retyping
+-- instead of recalling" insight behind the three detectors above to any
+-- OTHER Ex command (#241): the exact same full command-line string submitted
+-- 2+ times is a signal for `:` + <Up> (or q:) history recall, regardless of
+-- what the command actually does.
 --
 -- word (command_arg()'s first return, already lowercased; nil for symbolic
 -- commands like :!) gates out anything the three more specific detectors
@@ -384,6 +384,22 @@ end
 --     generic detector instead).
 --   - :tabnew, exact word only -- same literal-word-only scope as
 --     feed_tabnew()'s own ":tabnew" name check in logger.lua.
+--
+-- arg (command_arg()'s second return for this same text, or nil) gates out
+-- bare commands with no argument at all -- a QA-found false positive fixed
+-- after this PR first landed: `word ~= nil and arg == nil` means the entire
+-- submitted line was nothing but a (possibly bang-forced) command word, e.g.
+-- `:w`, `:q`, `:x`, `:wq`, `:qa`, `:noh`, `:qa!`. There is nothing substantial
+-- in a bare command word to mistype or lose by retyping it -- the "avoid
+-- retyping this" pitch that `q:` sells only makes sense once there's an
+-- argument (a pattern, a range, a filename, flags) actually worth not
+-- retyping. This reuses command_arg()'s own bang-stripping/argument
+-- extraction rather than inventing a separate length threshold, so it stays
+-- an argument/complexity check, not a word blacklist: `:w somefile.txt`
+-- retyped verbatim still fires, exactly like `:g/foo/d` does. Symbolic
+-- commands (word == nil, e.g. `:!somecommand --flags`) are unaffected by
+-- this guard -- command_arg() cannot separate their "word" from their
+-- "argument", so the full text is still tracked as before.
 --
 -- Unlike substitute/pingpong/tabnew (see
 -- docs/adr/0015-ex-command-verify-before-credit.md), no defer-and-verify
@@ -402,15 +418,19 @@ end
 -- (same lifetime as new_substitute_state()'s state).
 -- text: the command-line buffer content (same shape tokenize() takes).
 -- word: command_arg()'s first return for this same text, or nil.
+-- arg: command_arg()'s second return for this same text, or nil.
 --
 -- Returns { pattern = 'cmdline_history_recall', cmd = 'q:' } the moment a
 -- given full command line is submitted for the second time, or nil.
-function M.feed_history_recall(state, text, word)
+function M.feed_history_recall(state, text, word, arg)
   if not text then
     return nil
   end
   if word and (is_substitute_word(word) or PINGPONG_COMMANDS[word] or word == 'tabnew') then
     return nil
+  end
+  if word and not arg then
+    return nil -- bare command word, no argument -- nothing worth recalling, see header comment above
   end
 
   local trimmed = text:match('^%s*(.-)%s*$')

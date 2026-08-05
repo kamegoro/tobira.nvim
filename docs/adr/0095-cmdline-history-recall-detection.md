@@ -59,6 +59,32 @@ submitted twice", so a naive implementation would fire the generic suggestion ON
   unconditionally, gated only by the pre-existing `OWN_CMD_PREFIX` check that already guards
   `increment()`.
 
+- **Minimum-complexity floor: `word ~= nil and arg == nil` is excluded too** (added after a
+  QA-found false positive on the shipped version of this detector, reproduced live: `:w`,
+  make a small edit, `:w` again — identical text `"w"` both times — fired the `q:` suggestion
+  for saving a file twice). `feed_history_recall(state, text, word, arg)` takes `arg`
+  (`command_arg()`'s second return, the same call already made at the `logger.lua` site for
+  `word`) and declines to track anything where a letter-word command was recognized but had no
+  argument beyond the (possibly bang-forced) word itself — `:w`, `:q`, `:x`, `:wq`, `:qa`,
+  `:noh`, `:qa!`, etc. A bare command word has nothing substantial to mistype or lose by
+  retyping it, so the "avoid retyping this" pitch behind `q:` doesn't apply.
+
+  This reuses `command_arg()`'s existing bang-stripping/argument-extraction logic rather than
+  inventing a separate length threshold, so it stays a genuine argument/complexity check, not a
+  word blacklist: `:w somefile.txt` retyped verbatim still fires, exactly like `:g/foo/d` does
+  — the floor is about whether there is content worth not retyping, not about which command
+  word was used. This is also why it is a second, independent guard rather than folded into the
+  word-family exclusion above: the word-family list excludes specific commands *regardless* of
+  argument (a bare `:e` is still ping-pong territory), while this floor excludes *any* command
+  that happens to have no argument, regardless of which word it is.
+
+  Scope limit: `command_arg()` only recognizes letter-word commands, so symbolic commands
+  (`word == nil`, e.g. `:!somecommand --flags`) are unaffected by this guard and remain fully
+  trackable on their raw text, same as before — a `:!` invocation's "word" and "argument" are
+  not separable by `command_arg()`. A future length/complexity guard for symbolic commands would
+  need its own mechanism; not needed by the QA repro that motivated this fix, which was
+  exclusively bare letter-word commands.
+
 - **State shape mirrors `new_substitute_state()`**: `{ entries = { [trimmed_text] =
   { count, fired } } }`, persisting for the whole session (not reset per-keystroke, same
   lifetime as `substitute_state`/`pingpong_seq`/`tabnew_seq`). Fires once, on the 2nd
@@ -101,3 +127,14 @@ submitted twice", so a naive implementation would fire the generic suggestion ON
 - Because entries never expire mid-session, a command line typed once early in a long
   session and identically retyped hours later still counts as a "2nd submission" — consistent
   with `substitute_repeat`'s existing whole-session behavior, not a new inconsistency.
+- The minimum-complexity floor is coarser than perfect in the other direction from the
+  word-family exclusion: it is keyed on `arg == nil`, not on how short/trivial the argument
+  itself is, so a bare command with a one-character argument (e.g. a hypothetical `:w x`) is
+  treated as tracked, not excluded. Accepted — the QA repro and the required test coverage are
+  all bare-word-only (`:w`, `:q`, `:x`, `:wq`, `:qa`, `:noh`), and a finer argument-quality
+  threshold is exactly the kind of arbitrary magic number this design deliberately avoids in
+  favor of reusing `command_arg()`'s existing nil/non-nil contract.
+- Symbolic commands (`:!`, `:@`, `:=`, ...) have no equivalent floor — see the scope-limit note
+  above. A bare `:!` retyped twice still fires today, same as before this fix. If that turns
+  out to be a real-world false positive too, it needs its own guard (symbolic commands have no
+  `command_arg()`-recognized word/argument split to reuse).

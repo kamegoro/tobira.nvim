@@ -1997,6 +1997,22 @@ describe('Verbatim Ex-command retype detection (#241)', function()
 
     assert.is_false(fired)
   end)
+
+  it('does not fire for a bare :w retyped many times (QA-found false positive: saving a file is not "avoid retyping")', function()
+    local fired = false
+    logger.on_pattern = function(pattern)
+      if pattern == 'cmdline_history_recall' then
+        fired = true
+      end
+    end
+
+    for _ = 1, 5 do
+      pcall(vim.api.nvim_input, 'x') -- small edit between saves, mirrors the QA repro
+      run('w')
+    end
+
+    assert.is_false(fired)
+  end)
 end)
 
 -- (stats rendering has moved to tests/spec/unit/ui_stats_spec.lua)
