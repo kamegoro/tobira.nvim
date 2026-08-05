@@ -24,12 +24,20 @@ local _logged = {}
 
 local _initialized = false
 
--- Curated LHS -> accepted-equivalent RHS literal(s). Y is the only entry:
--- accepts exactly rhs == 'y$' (a common personal remap; Vim's real built-in
--- Y is a synonym for yy, not y$). Any other rhs is "not equivalent".
+-- Curated LHS -> accepted-equivalent RHS literal(s).
+-- Y accepts exactly rhs == 'y$' (a common personal remap; Vim's real built-in
+-- Y is a synonym for yy, not y$).
+-- % accepts exactly rhs == '<Plug>(MatchitNormalForward)' -- Neovim auto-loads
+-- runtime/plugin/matchit.vim by default (packadd matchit), which does
+-- `nmap <silent> % <Plug>(MatchitNormalForward)`. That target is a strict,
+-- compatible superset of the built-in % for the basic bracket-jump behavior
+-- tobira teaches, so it must not suppress the % suggestion the way a
+-- genuinely different remap would.
+-- Any other rhs for either LHS is "not equivalent".
 -- see docs/adr/0052-equivalent-remap-distinction.md for why this table exists
 local EQUIVALENT_REMAPS = {
   Y = { 'y$' },
+  ['%'] = { '<Plug>(MatchitNormalForward)' },
 }
 
 -- module path -> integration tag. Presence-only check (see module_available

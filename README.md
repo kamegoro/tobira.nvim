@@ -129,9 +129,16 @@ require("tobira").setup({
 tobira always respects your own `:nmap`/`:nnoremap` overrides — it never suggests a
 command you've remapped away, and `integrations` above only gates the optional
 plugin-detection boost, not that baseline behavior (see `:help tobira-integrations`).
-One narrow exception: Neovim's own factory-default `nnoremap Y y$` is recognized as
+Two narrow exceptions: Neovim's own factory-default `nnoremap Y y$` is recognized as
 equivalent to what tobira already teaches, so the reactive `y$` → `Y` suggestion still
 fires even on a stock install — a `Y` remapped to anything else still suppresses it.
+Likewise, Neovim auto-loads `matchit.vim` by default, which remaps `%` to
+`<Plug>(MatchitNormalForward)` — a strict, compatible superset of the built-in `%`
+tobira teaches, so `:TobiraGuide`'s cheat sheet still lists `%` (with a "mapped to ..."
+note) on a stock install instead of hiding it outright; a `%` remapped to anything else
+still hides it like any other override. Both exceptions are still excluded from the
+proactive idle/`:Tobira` picks and `:TobiraStats`'s "Try these next" list either way —
+see `:help tobira-integrations` for why those two surfaces don't read this distinction.
 
 ## 🎯 Detected patterns (examples)
 
