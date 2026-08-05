@@ -216,6 +216,14 @@ M.registry = {
   ['<<'] = { requires = '>>', track = false, category = 'edit', level = 'intermediate' },
   ['=='] = { requires = '>>', track = false, category = 'edit', level = 'intermediate' },
 
+  -- ── G → =G whole-buffer reindent (#242) ──────────────────────────────────
+  -- track = false: no reactive detection, ambient-only registration, same
+  -- shape as == above. requires = 'G' (single char, base-tracked) rather than
+  -- '==' — '==' itself has no keystroke tracking path ('=' is not one of the
+  -- pending_op trigger characters in patterns.lua), so chaining off of it
+  -- would leave this entry's trigger permanently stuck at 0.
+  ['=G'] = { requires = 'G', track = false, category = 'edit', level = 'advanced' },
+
   -- ── ~ → gu / gU / g~ case operators ──────────────────────────────────────
   ['gu'] = { requires = '~', track = false, category = 'edit', level = 'intermediate' },
   ['gU'] = { requires = 'gu', track = false, category = 'edit', level = 'intermediate' },
@@ -320,6 +328,20 @@ M.registry = {
   -- see docs/adr/0008-composite-keys-for-dual-meaning-bytes.md for why.
   ['i_<C-o>'] = { requires = 'i', track = false, category = 'edit', level = 'intermediate' },
 
+  -- ── insert-mode <C-t> / <C-d>: indent/dedent without leaving insert (#246) ──
+  -- <C-t> has no existing normal-mode registry entry, so it is registered
+  -- under its plain raw keystroke — same precedent as insert-mode '<C-w>' /
+  -- '<C-n>' above (no collision, no composite prefix needed). '<C-d>' DOES
+  -- already have a normal-mode meaning (scroll half page down, see above), so
+  -- it must use the 'i_' composite-key prefix — same reasoning and same
+  -- docs/adr/0008-composite-keys-for-dual-meaning-bytes.md as 'i_<C-o>'.
+  -- track = false, ambient-only registration (no reactive detection, #246) —
+  -- no handle_insert_key() wiring is added for either key; a bespoke reactive
+  -- pattern mirroring insert_co_oneshot is called out in the issue as a
+  -- possible separate follow-up, not this issue's scope.
+  ['<C-t>'] = { requires = '>>', track = false, category = 'edit', level = 'intermediate' },
+  ['i_<C-d>'] = { requires = '<<', track = false, category = 'edit', level = 'intermediate' },
+
   -- ── window management ─────────────────────────────────────────────────────
   ['<C-w>s'] = { requires = '<C-o>', track = false, category = 'window', level = 'intermediate' },
   ['<C-w>v'] = { requires = '<C-w>s', track = false, category = 'window', level = 'intermediate' },
@@ -377,6 +399,20 @@ M.registry = {
   -- rule (graph.is_register_underused() applies its own threshold instead) —
   -- see docs/adr/0009-register-underuse-bypasses-trigger-count.md.
   ['"+y'] = { requires = 'y', track = false, category = 'mark', level = 'advanced' },
+
+  -- ── y → "ay named register (a-z stand-in, #233) ──────────────────────────
+  -- track = false: no reactive detection, pure ambient registration — unlike
+  -- "+y above, there is no per-register keystroke tracking here. Registration
+  -- alone is enough for efficiency_gaps()/find_best() to surface it once 'y'
+  -- usage is heavy and this command's own count stays at its default of 0.
+  ['"ay'] = { requires = 'y', track = false, category = 'mark', level = 'advanced' },
+
+  -- ── dd → "_d black-hole register (delete without clobbering unnamed, #234) ─
+  -- track = false: same ambient-only shape as "ay above. requires = 'dd' (the
+  -- tracked compound), not bare 'd' — bare 'd' is never counted anywhere, so
+  -- using it here would leave efficiency_gaps() with a permanently-0 trigger.
+  ['"_d'] = { requires = 'dd', track = false, category = 'mark', level = 'advanced' },
+
   -- ── diff mode: manual hunk navigation → ]c / [c ───────────────────────────────
   -- While &diff is set, gates the existing j_many/k_many thresholds to
   -- suggest ]c/[c instead of }/{ — see

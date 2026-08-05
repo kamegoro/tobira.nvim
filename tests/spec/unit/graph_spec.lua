@@ -879,12 +879,24 @@ describe('when y is yanked heavily but "+y has never been used', function()
   end)
 
   it('respects suppression like any other suggestion', function()
-    local usage = { y = usage_entry(20), ['"+y'] = usage_entry(0, {}, 0, true) }
+    -- '"ay' also requires 'y' (#233) — suppress it too, otherwise it would
+    -- surface as an ordinary (non-priority-pool) candidate once '"+y' itself
+    -- is gated out, masking what this test actually checks.
+    local usage = {
+      y = usage_entry(20),
+      ['"+y'] = usage_entry(0, {}, 0, true),
+      ['"ay'] = usage_entry(0, {}, 0, true),
+    }
     assert.is_nil(graph.find_best(usage))
   end)
 
   it('respects the shown-count cap like any other suggestion', function()
-    local usage = { y = usage_entry(20), ['"+y'] = usage_entry(0, {}, 3) }
+    -- see the suppression test above for why '"ay' must also be gated out here
+    local usage = {
+      y = usage_entry(20),
+      ['"+y'] = usage_entry(0, {}, 3),
+      ['"ay'] = usage_entry(0, {}, 3),
+    }
     assert.is_nil(graph.find_best(usage))
   end)
 end)

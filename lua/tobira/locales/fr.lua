@@ -617,6 +617,11 @@ return {
       body = "Exécute l'indenteur intégré sur la ligne actuelle selon les règles du type de fichier\nPlus rapide que de corriger manuellement avec >> ou << quand l'indentation est complexe",
       example = "== → la ligne se cale automatiquement au bon niveau d'indentation",
     },
+    ['=G'] = {
+      title = "=G — réindenter jusqu'à la fin du fichier",
+      body = "Exécute l'indenteur intégré depuis le curseur jusqu'à la fin du fichier\nCombinez d'abord avec gg (gg=G) pour réindenter tout le buffer, pas seulement à partir du curseur",
+      example = 'gg=G → réindente tout le fichier',
+    },
 
     -- ── case operators ────────────────────────────────────────────────────
     ['gu'] = {
@@ -902,6 +907,16 @@ return {
       body = 'Exécute exactement une commande en mode Normal, puis revient directement en mode insertion — inutile de retaper i/a\nDifférent du <C-o> en mode Normal (retour en arrière dans la jumplist), qui fonctionne seulement en dehors du mode insertion',
       example = 'en train de taper…<C-o>dd → supprime la ligne actuelle, puis le mode insertion reprend automatiquement',
     },
+    ['<C-t>'] = {
+      title = '<C-t> (mode insertion) — indente la ligne actuelle sans quitter le mode insertion',
+      body = "Décale la ligne actuelle d'un niveau d'indentation vers la droite pendant que vous continuez à taper\nInutile de faire <Esc>, >>, puis i à nouveau — <C-t> le fait directement sur place",
+      example = "en train de taper…<C-t> → la ligne gagne un niveau d'indentation, le curseur reste en mode insertion",
+    },
+    ['i_<C-d>'] = {
+      title = '<C-d> (mode insertion) — désindente la ligne actuelle sans quitter le mode insertion',
+      body = "Décale la ligne actuelle d'un niveau d'indentation vers la gauche pendant que vous continuez à taper\nLe pendant de <C-t> en mode insertion — différent du <C-d> en mode Normal (défilement d'une demi-page), qui fonctionne seulement en dehors du mode insertion",
+      example = "en train de taper…<C-d> → la ligne perd un niveau d'indentation, le curseur reste en mode insertion",
+    },
 
     -- ── fold: additional commands ─────────────────────────────────────────
     ['zf'] = {
@@ -1025,6 +1040,16 @@ return {
       title = '"+y — copier vers le presse-papiers système',
       body = 'Vous avez beaucoup copié sans jamais utiliser le presse-papiers système\n"+y copie directement dedans, donc coller en dehors de Neovim (ou coller depuis l\'extérieur avec "+p) fonctionne tout simplement\nDéfinissez clipboard=unnamedplus pour que y/p utilisent le presse-papiers par défaut et évitez le préfixe "+',
       example = '"+yy une ligne → collez-la dans une autre application avec votre touche de collage habituelle',
+    },
+    ['"ay'] = {
+      title = '"ay — copier dans le registre nommé a',
+      body = 'Copier à nouveau écrase le registre sans nom, donc un second yank avant de coller le premier le fait perdre\n"ay copie plutôt dans le registre a, qui survit aux copies suivantes — collez-le avec "ap\nUtilisez n\'importe quelle lettre a-z pour un registre distinct ; "Ay (majuscule) ajoute au registre a au lieu de l\'écraser',
+      example = '"ayiw → copie un mot dans le registre a ; plus tard, "ap → le colle',
+    },
+    ['"_d'] = {
+      title = '"_d — supprimer sans écraser le registre sans nom',
+      body = 'Une suppression normale écrase le registre sans nom, donc un yank que vous vouliez garder est écrasé par la suppression suivante\n"_d envoie plutôt le texte supprimé dans le registre trou noir, qui le rejette — votre dernier yank survit',
+      example = 'yiw puis "_dd → supprime une ligne sans perdre le mot que vous venez de copier',
     },
 
     -- ── Ex commands ───────────────────────────────────────────────────────

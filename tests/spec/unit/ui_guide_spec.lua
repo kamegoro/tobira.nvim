@@ -652,6 +652,29 @@ describe('keymap overrides (#63)', function()
     local loc = require('tobira.i18n').load()
     assert.is_nil(row:find(string.format(loc.guide.remapped_suffix, 'y$'), 1, true))
   end)
+
+  it(
+    "substitutes the description with remapped_suffix for %'s matchit.vim remap (<Plug>(MatchitNormalForward))",
+    function()
+      -- Neovim auto-loads runtime/plugin/matchit.vim by default, which does
+      -- `nmap <silent> % <Plug>(MatchitNormalForward)`. Before this was added
+      -- to EQUIVALENT_REMAPS, this row was hidden entirely on every stock
+      -- install with matchit loaded -- the same #63 bug class as Y.
+      integrations.refresh(fake_keymap({ { lhs = '%', rhs = '<Plug>(MatchitNormalForward)', noremap = 0 } }))
+      local loc = require('tobira.i18n').load()
+      local lines = guide.build(usage_with_overrides({ ['%'] = entry({ count = 0 }) }))
+      local row = find_line(lines, '%')
+      assert.is_not_nil(row, 'expected a row for %')
+      assert.is_not_nil(row:find(string.format(loc.guide.remapped_suffix, '<Plug>(MatchitNormalForward)'), 1, true))
+    end
+  )
+
+  it('excludes the % row entirely when it is remapped to something other than matchit', function()
+    integrations.refresh(fake_keymap({ { lhs = '%', rhs = '<Plug>(SomeOtherPluginJump)', noremap = 0 } }))
+    local lines = guide.build(usage_with_overrides({ ['%'] = entry({ count = 0 }) }))
+    local row = find_line(lines, '%')
+    assert.is_nil(row, 'a genuinely different % remap must still hide the row like any other override')
+  end)
 end)
 
 -- ── Pinned section + keymap overrides (#164) ─────────────────────────────────

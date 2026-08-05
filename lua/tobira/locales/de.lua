@@ -617,6 +617,11 @@ return {
       body = 'Führt den eingebauten Einrücker auf der aktuellen Zeile gemäß den Dateityp-Regeln aus\nSchneller als manuelles Korrigieren mit >> oder <<, wenn die Einrückung komplex ist',
       example = '== → Zeile rastet automatisch auf die richtige Einrückungsebene ein',
     },
+    ['=G'] = {
+      title = '=G — bis zum Dateiende neu einrücken',
+      body = 'Führt den eingebauten Einrücker von der Cursorposition bis zum Dateiende aus\nZuerst gg drücken (gg=G), um die gesamte Datei neu einzurücken, nicht nur ab dem Cursor',
+      example = 'gg=G → rückt die gesamte Datei neu ein',
+    },
 
     -- ── case operators ────────────────────────────────────────────────────
     ['gu'] = {
@@ -902,6 +907,16 @@ return {
       body = 'Führt genau einen Normal-Modus-Befehl aus und kehrt danach sofort in den Einfügemodus zurück — kein erneutes i/a nötig\nAnders als das normale <C-o> (Sprung zurück in der Jumplist), das nur außerhalb des Einfügemodus funktioniert',
       example = 'tippen…<C-o>dd → löscht die aktuelle Zeile, der Einfügemodus läuft danach automatisch weiter',
     },
+    ['<C-t>'] = {
+      title = '<C-t> (Einfügemodus) — aktuelle Zeile einrücken, ohne den Einfügemodus zu verlassen',
+      body = 'Verschiebt die aktuelle Zeile um eine Ebene nach rechts, während du weiterschreibst\nKein <Esc>, >>, dann wieder i nötig — <C-t> macht es direkt an Ort und Stelle',
+      example = 'tippen…<C-t> → Zeile rückt eine Ebene ein, der Cursor bleibt im Einfügemodus',
+    },
+    ['i_<C-d>'] = {
+      title = '<C-d> (Einfügemodus) — aktuelle Zeile ausrücken, ohne den Einfügemodus zu verlassen',
+      body = 'Verschiebt die aktuelle Zeile um eine Ebene nach links, während du weiterschreibst\nDas Gegenstück zu <C-t> — anders als das normale <C-d> (eine halbe Seite scrollen), das nur außerhalb des Einfügemodus funktioniert',
+      example = 'tippen…<C-d> → Zeile rückt eine Ebene aus, der Cursor bleibt im Einfügemodus',
+    },
 
     -- ── fold: additional commands ─────────────────────────────────────────
     ['zf'] = {
@@ -1025,6 +1040,16 @@ return {
       title = '"+y — in die Systemzwischenablage kopieren',
       body = 'Du hast oft kopiert, aber nie die Systemzwischenablage benutzt\n"+y kopiert direkt hinein, sodass Einfügen außerhalb von Neovim (oder mit "+p von außen) einfach funktioniert\nMit clipboard=unnamedplus nutzen y/p die Zwischenablage standardmäßig — dann brauchst du das "+ Präfix gar nicht mehr',
       example = '"+yy eine Zeile → in einer anderen App mit der gewohnten Einfügen-Taste einfügen',
+    },
+    ['"ay'] = {
+      title = '"ay — in das benannte Register a kopieren',
+      body = 'Ein erneutes y überschreibt das unbenannte Register — kopierst du vor dem Einfügen noch etwas anderes, geht das erste verloren\n"ay kopiert stattdessen in Register a, wo es erhalten bleibt — mit "ap wieder einfügen\nJeder Buchstabe a-z ergibt ein eigenes Register; "Ay (Großbuchstabe) hängt an Register a an, statt es zu überschreiben',
+      example = '"ayiw → ein Wort in Register a kopieren; später "ap → wieder einfügen',
+    },
+    ['"_d'] = {
+      title = '"_d — löschen, ohne das unbenannte Register zu überschreiben',
+      body = 'Ein normales Löschen überschreibt das unbenannte Register — ein aufgehobenes y geht beim nächsten Löschen verloren\n"_d schickt den gelöschten Text stattdessen ins Schwarze-Loch-Register und verwirft ihn — dein letztes y bleibt erhalten',
+      example = 'yiw, dann "_dd → eine Zeile löschen, ohne das gerade kopierte Wort zu verlieren',
     },
 
     -- ── Ex commands ───────────────────────────────────────────────────────

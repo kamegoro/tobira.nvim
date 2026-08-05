@@ -617,6 +617,11 @@ return {
       body = 'Runs the built-in indenter on the current line according to filetype rules\nFaster than manually correcting with >> or << when indentation is complex',
       example = '== → line snaps to the correct indentation level automatically',
     },
+    ['=G'] = {
+      title = '=G — reindent to the end of the file',
+      body = 'Runs the built-in indenter from the cursor to the end of the file\nCombine with gg first (gg=G) to reindent the entire buffer, not just from the cursor down',
+      example = 'gg=G → reindents the whole file',
+    },
 
     -- ── case operators ────────────────────────────────────────────────────
     ['gu'] = {
@@ -903,6 +908,16 @@ return {
       body = 'Runs exactly one Normal-mode command, then drops you right back into insert — no need to press i/a again\nDifferent from Normal-mode <C-o> (jump back in the jumplist), which only works outside insert mode',
       example = 'typing…<C-o>dd → deletes the current line, then insert mode resumes automatically',
     },
+    ['<C-t>'] = {
+      title = '<C-t> (insert mode) — indent the current line without leaving insert',
+      body = 'Shifts the current line right by one shiftwidth level while you keep typing\nNo need to press <Esc>, >>, then i again — <C-t> does it in place',
+      example = 'typing…<C-t> → line indents one level, cursor stays in insert mode',
+    },
+    ['i_<C-d>'] = {
+      title = '<C-d> (insert mode) — dedent the current line without leaving insert',
+      body = 'Shifts the current line left by one shiftwidth level while you keep typing\nThe insert-mode counterpart to <C-t> — different from Normal-mode <C-d> (scroll half page), which only works outside insert mode',
+      example = 'typing…<C-d> → line dedents one level, cursor stays in insert mode',
+    },
 
     -- ── fold: additional commands ─────────────────────────────────────────
     ['zf'] = {
@@ -1026,6 +1041,16 @@ return {
       title = '"+y — yank to the system clipboard',
       body = 'You\'ve yanked a lot without ever reaching for the system clipboard\n"+y yanks straight into it, so pasting outside Neovim (or from outside into it with "+p) just works\nSet clipboard=unnamedplus to make y/p use it by default and skip the "+ prefix entirely',
       example = '"+yy a line → paste it into another app with your normal paste key',
+    },
+    ['"ay'] = {
+      title = '"ay — yank into named register a',
+      body = 'Yanking again overwrites the unnamed register, so a second yank before pasting the first one loses it\n"ay yanks into register a instead, so it survives later yanks — paste it back with "ap\nUse any letter a-z for a separate register; "Ay (uppercase) appends to register a instead of overwriting it',
+      example = '"ayiw → yank a word into register a; later, "ap → paste it back',
+    },
+    ['"_d'] = {
+      title = '"_d — delete without overwriting the unnamed register',
+      body = 'A normal delete overwrites the unnamed register, so a yank you were saving gets clobbered by the next delete\n"_d routes the deleted text into the black-hole register instead, discarding it — your last yank survives',
+      example = 'yiw then "_dd → delete a line without losing the word you just yanked',
     },
 
     -- ── Ex commands ───────────────────────────────────────────────────────
