@@ -1068,5 +1068,73 @@ return {
       body = 'Wie ya", aber für Strings in einfachen Anführungszeichen\nKopiert den ganzen String samt Anführungszeichen',
       example = "ya' → kopiert 'den zitierten Text' samt Anführungszeichen",
     },
+
+    -- ── quickfix / location-list navigation (#228) ────────────────────────────
+    [']q'] = {
+      title = ']q — zum nächsten Quickfix-Eintrag springen',
+      body = 'Springt zum nächsten Eintrag der Quickfix-Liste (gefüllt durch :vimgrep, :grep oder LSP-Diagnosen)\nErsetzt manuelles Suchen oder Durchscrollen der Ergebnisse',
+      example = ':vimgrep /TODO/g % dann ]q → springt zum nächsten Treffer',
+    },
+    ['[q'] = {
+      title = '[q — zum vorherigen Quickfix-Eintrag springen',
+      body = 'Wie ]q, bewegt sich aber rückwärts durch die Quickfix-Liste\nDas Gegenstück zu ]q',
+      example = '[q → zurück zum vorherigen Quickfix-Treffer',
+    },
+    [']l'] = {
+      title = ']l — zum nächsten Location-List-Eintrag springen',
+      body = 'Wie ]q, aber für die fensterlokale Location-List statt der gemeinsamen Quickfix-Liste\nNützlich, wenn verschiedene Fenster jeweils eigene Ergebnislisten brauchen',
+      example = ':lvimgrep /TODO/g % dann ]l → springt zum nächsten Treffer in der Location-List dieses Fensters',
+    },
+    ['[l'] = {
+      title = '[l — zum vorherigen Location-List-Eintrag springen',
+      body = 'Wie [q, aber für die Location-List statt der Quickfix-Liste\nDas Gegenstück zu ]l',
+      example = '[l → zurück zum vorherigen Location-List-Eintrag',
+    },
+    ['ex:copen'] = {
+      title = ':copen — Quickfix-Fenster öffnen',
+      body = 'Öffnet ein Fenster mit allen Einträgen der Quickfix-Liste zum Durchsuchen und Springen\nErsetzt das erneute Ausführen der Suche, nur um die Ergebnisse wiederzusehen',
+      example = ':copen → zeigt die Quickfix-Liste in einem Split',
+    },
+    ['ex:cdo'] = {
+      title = ':cdo — Befehl auf jedem Quickfix-Eintrag ausführen',
+      body = 'Führt einen Ex-Befehl einmal pro Quickfix-Eintrag aus, springt vorher zu Datei und Zeile\nErsetzt manuelles Wiederholen einer Änderung in jeder Datei der Liste',
+      example = ':cdo s/foo/bar/g → ersetzt foo durch bar bei jedem Quickfix-Treffer',
+    },
+
+    -- ── spell-check (#229) ─────────────────────────────────────────────────────
+    [']s'] = {
+      title = ']s — zum nächsten falsch geschriebenen Wort springen',
+      body = 'Springt vorwärts zum nächsten Wort, das Vims Rechtschreibprüfung als falsch markiert (braucht :set spell)\nErsetzt das visuelle Absuchen des Texts nach Tippfehlern',
+      example = ']s → Cursor springt zum nächsten falsch geschriebenen Wort',
+    },
+    ['[s'] = {
+      title = '[s — zum vorherigen falsch geschriebenen Wort springen',
+      body = 'Wie ]s, sucht aber rückwärts nach dem vorherigen falsch geschriebenen Wort',
+      example = '[s → Cursor springt zurück zum vorherigen falsch geschriebenen Wort',
+    },
+    ['z='] = {
+      title = 'z= — Rechtschreibkorrekturen vorschlagen',
+      body = 'Zeigt eine nummerierte Liste von Korrekturvorschlägen für das Wort unter dem Cursor; per Nummer auswählen\nErsetzt das manuelle Löschen und Neutippen eines falsch geschriebenen Worts',
+      example = 'z= dann 2<CR> → ersetzt das Wort durch den 2. Vorschlag',
+    },
+
+    -- ── :sort (#239) ─────────────────────────────────────────────────────────
+    ['ex:sort'] = {
+      title = ':sort — Zeilen sortieren',
+      body = 'Sortiert die ausgewählten Zeilen (oder die ganze Datei) alphabetisch in einem Befehl\nErsetzt manuelles Ausschneiden und Einfügen von Zeilen in die richtige Reihenfolge',
+      example = ':sort → sortiert alle Zeilen der Datei alphabetisch',
+    },
+
+    -- ── ]p / [p indent-aware paste (#240) ──────────────────────────────────────
+    [']p'] = {
+      title = ']p — einfügen und Einrückung anpassen',
+      body = 'Wie p, passt aber die Einrückung des eingefügten Texts an die aktuelle Zeile an\nErsetzt das Einfügen und anschließende manuelle Korrigieren der Einrückung',
+      example = ']p → fügt zeilenweisen Text ein, eingerückt wie die Zeile darüber',
+    },
+    ['[p'] = {
+      title = '[p — davor einfügen und Einrückung anpassen',
+      body = 'Wie P, passt aber die Einrückung des eingefügten Texts an die aktuelle Zeile an\nDas Gegenstück zu ]p',
+      example = '[p → fügt zeilenweisen Text oberhalb ein, eingerückt wie die aktuelle Zeile',
+    },
   },
 }

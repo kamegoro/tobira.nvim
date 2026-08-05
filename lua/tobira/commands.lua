@@ -405,6 +405,53 @@ M.registry = {
   -- rationale and why 'g&' is deliberately not ambient = false.
   ['&'] = { requires = 'n', track = true, category = 'edit', level = 'intermediate' },
   ['g&'] = { requires = '&', track = false, category = 'edit', level = 'advanced' },
+
+  -- ── quickfix / location-list navigation (#228) ────────────────────────────
+  -- ]q/[q/]l/[l are default-mapped bracket commands (see :help ]q, :help ]l —
+  -- Neovim's built-in default-mappings, not a plugin convention), so they get
+  -- the same pending_bracket generic consume-and-forget handling in
+  -- patterns.lua that ]c/[c already rely on — no new dispatch entry needed.
+  -- requires = 'n'/'N' (not chained to each other): heavy manual search-repeat
+  -- is the "doing this the slow way" signal, same rationale as ex:g/ex:copen
+  -- below rather than an artificial dependency on one another.
+  [']q'] = { requires = 'n', track = false, category = 'search', level = 'intermediate' },
+  ['[q'] = { requires = 'N', track = false, category = 'search', level = 'intermediate' },
+  [']l'] = { requires = 'n', track = false, category = 'search', level = 'advanced' },
+  ['[l'] = { requires = 'N', track = false, category = 'search', level = 'advanced' },
+  -- Ex commands (#57-style): tracked generically by logger.lua's cmdline
+  -- handler via patterns_cmdline.tokenize(), not a keystroke — track = false.
+  -- ex_command = true applies the stricter "never tried" gate — see
+  -- docs/adr/0010-ex-command-never-tried-gate.md.
+  ['ex:copen'] = { requires = 'n', track = false, category = 'ex', level = 'intermediate', ex_command = true },
+  ['ex:cdo'] = { requires = 'q', track = false, category = 'ex', level = 'advanced', ex_command = true },
+
+  -- ── spell-check (#229) ────────────────────────────────────────────────────
+  -- ]s/[s are built-in bracket motions (:help ]s), handled by the same
+  -- generic pending_bracket consume-and-forget path as ]q/[q above.
+  [']s'] = { requires = 'n', track = false, category = 'motion', level = 'intermediate' },
+  ['[s'] = { requires = 'N', track = false, category = 'motion', level = 'intermediate' },
+  -- z= (:help z=) falls through patterns.lua's existing pending_z dispatch
+  -- table unmatched (no entry for '=' — see z_targets), which already
+  -- consumes-and-forgets same as any other untracked z-prefixed key; no
+  -- patterns.lua change needed. requires = 'i': manually deleting and
+  -- retyping a misspelled word is the "doing this the slow way" signal.
+  ['z='] = { requires = 'i', track = false, category = 'edit', level = 'advanced' },
+
+  -- ── :sort (#239) ───────────────────────────────────────────────────────────
+  -- requires = 'dd' (compound = true, so trackable per the requires-graph
+  -- integrity test): manually cutting and re-pasting lines into order is the
+  -- manual workaround a single :sort fully replaces — see
+  -- docs/adr/0010-ex-command-never-tried-gate.md's "single use fully replaces
+  -- the habit" criterion for defaulting ex_command = true.
+  ['ex:sort'] = { requires = 'dd', track = false, category = 'ex', level = 'advanced', ex_command = true },
+
+  -- ── ]p / [p indent-aware paste (#240) ─────────────────────────────────────
+  -- Built-in bracket paste variants (:help ]p, :help [p), same generic
+  -- pending_bracket handling as ]q/[q/]s/[s above. requires mirrors the
+  -- existing p→P / gp→gP asymmetry: forward variant intermediate, backward
+  -- variant advanced.
+  [']p'] = { requires = 'p', track = false, category = 'edit', level = 'intermediate' },
+  ['[p'] = { requires = 'P', track = false, category = 'edit', level = 'advanced' },
 }
 
 -- Strips the 'i_' composite-key prefix (see the 'i_<C-o>' entry above) so the
