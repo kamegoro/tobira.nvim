@@ -136,6 +136,14 @@ return {
       cmdline_history_recall = '你重新输入了完全相同的 Ex 命令，而不是从历史记录中调用它',
       ci_dquote_repeat = '你用 ci" 连续 3 次修改双引号内的内容',
       ci_squote_repeat = "你用 ci' 连续 3 次修改单引号内的内容",
+      ctrl_w_resize_repeat = '你连续 2 次单独调整了窗口大小',
+      cursor_center_repeat = '你反复使用 <C-e>/<C-y> 来调整光标所在行的位置',
+      visual_block_opportunity = '你手动在连续 3 行上做了相同的单行编辑',
+      diff_jump_then_insert_next = '你用 ]c 跳到下一个差异块后开始手动重新输入',
+      diff_jump_then_insert_prev = '你用 [c 跳到上一个差异块后开始手动重新输入',
+      named_mark_opportunity = '你返回同一行 3 次，期间在别处进行了编辑',
+      tilde_word_repeat = '你连续切换了 6 次大小写——足以覆盖一整个单词',
+      tilde_line_repeat = '你连续切换了 12 次大小写——足以覆盖一行的大部分',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -340,6 +348,16 @@ return {
       title = '[c — 跳到上一个差异块',
       body = ']c 的反向操作 — 跳到上一个变更的差异块\n比连续按 k 向前查找差异更快',
       example = '[c → 光标跳到上一个变更块',
+    },
+    ['do'] = {
+      title = 'do — diff obtain（从另一侧获取变更）',
+      body = '将当前差异块从另一个 diff 窗口复制到这一侧\n比手动重新输入更快也更不容易出错',
+      example = ']c → 跳到差异块; do → 从另一侧窗口获取该差异块',
+    },
+    ['dp'] = {
+      title = 'dp — diff put（将变更发送到另一侧）',
+      body = '将当前差异块从这一侧窗口复制到另一个 diff 窗口\ndo 的反向操作 — 推送你的版本而不是获取对方的',
+      example = '[c → 跳到差异块; dp → 将该差异块发送到另一侧窗口',
     },
 
     -- ── screen centering chain ─────────────────────────────────────────────
@@ -638,6 +656,16 @@ return {
       title = 'g~{motion} — 切换区域大小写',
       body = '反转动作覆盖的每个字符的大小写 — 大写变小写，反之亦然\n相当于把 ~ 一次性应用到整个动作而非单个字符',
       example = 'g~iw → "Hello World" 变为 "hELLO wORLD"',
+    },
+    ['g~iw'] = {
+      title = 'g~iw — 切换内部单词的大小写',
+      body = '一次性切换整个单词的大小写，而不是逐字符按 ~\n光标在单词内任意位置都可以，不必先移到词首',
+      example = '不用逐字符 ~~~~~~，g~iw 一条命令处理同一个单词',
+    },
+    ['g~$'] = {
+      title = 'g~$ — 切换从光标到行尾的大小写',
+      body = '一次性切换从光标位置到行尾的大小写\n比对剩余每个字符重复按 ~ 更快',
+      example = '不用一路 ~~~~~~~~~~~~ 到行尾，g~$ 一条命令处理完',
     },
 
     -- ── format text ───────────────────────────────────────────────────────

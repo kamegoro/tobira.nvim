@@ -494,6 +494,54 @@ describe('when the user types while in insert mode', function()
   end)
 end)
 
+-- ── is_diff wiring for insert-entry keys (#237) ──────────────────────────────
+-- Regression: is_diff used to be computed only for j/k (the only keys the
+-- original j_many_diff/k_many_diff branches needed), which silently broke
+-- diff_jump_then_insert_next/_prev — live QA caught this before it shipped.
+-- See docs/adr/0099-diff-obtain-put-after-hunk-jump.md.
+
+describe('when the user edits immediately after a diff-hunk jump while &diff is set', function()
+  before_each(function()
+    logger.reset()
+    logger.on_pattern = nil
+    logger.setup()
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+    vim.wo.diff = false
+    if vim.fn.mode() ~= 'n' then
+      vim.cmd('stopinsert')
+    end
+  end)
+
+  it('fires diff_jump_then_insert_next suggesting do', function()
+    vim.wo.diff = true
+    local fired = nil
+    logger.on_pattern = function(pattern, cmd)
+      fired = { pattern = pattern, cmd = cmd }
+    end
+    pcall(vim.fn.feedkeys, ']c', 'xt')
+    vim.fn.feedkeys('i', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_not_nil(fired)
+    assert.equals('diff_jump_then_insert_next', fired.pattern)
+    assert.equals('do', fired.cmd)
+  end)
+
+  it('does not fire when &diff is not set (is_diff correctly reads false)', function()
+    vim.wo.diff = false
+    local fired = nil
+    logger.on_pattern = function(pattern, cmd)
+      fired = { pattern = pattern, cmd = cmd }
+    end
+    pcall(vim.fn.feedkeys, ']c', 'xt')
+    vim.fn.feedkeys('i', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_nil(fired)
+  end)
+end)
+
 -- ── Visual mode: route keystrokes through pattern tracking instead of ───────
 -- ── wiping state (#179) ───────────────────────────────────────────────────
 -- See docs/adr/0017-mode-cache-state-reset-boundaries.md for the routing bug

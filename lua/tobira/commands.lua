@@ -229,6 +229,15 @@ M.registry = {
   ['gU'] = { requires = 'gu', track = false, category = 'edit', level = 'intermediate' },
   ['g~'] = { requires = '~', track = false, category = 'edit', level = 'intermediate' },
 
+  -- ── ~ streak (word/line span) → g~iw / g~$ text-object-scoped toggle ──────
+  -- Refines tilde_repeat once the streak plausibly spans a whole word/line —
+  -- g~ (toggle) is used rather than gu/gU (fixed direction) because
+  -- patterns.lua has no buffer-content visibility to know whether the
+  -- original characters were upper- or lowercase. See
+  -- docs/adr/0101-tilde-repeat-text-object-refinement.md.
+  ['g~iw'] = { requires = 'g~', track = false, category = 'edit', level = 'advanced' },
+  ['g~$'] = { requires = 'g~iw', track = false, category = 'edit', level = 'advanced' },
+
   -- ── . → gq format text ────────────────────────────────────────────────────
   ['gq'] = { requires = '.', track = false, category = 'edit', level = 'advanced' },
 
@@ -419,6 +428,12 @@ M.registry = {
   -- docs/adr/0011-diff-mode-reuses-existing-thresholds.md.
   [']c'] = { requires = 'j', track = false, category = 'diff', level = 'beginner' },
   ['[c'] = { requires = 'k', track = false, category = 'diff', level = 'beginner' },
+  -- ── diff mode: manual retyping after a hunk jump → do / dp ─────────────────
+  -- Reactive-only: fires when insert-mode editing immediately follows a
+  -- ]c/[c jump while &diff is set — see
+  -- docs/adr/0099-diff-obtain-put-after-hunk-jump.md.
+  ['do'] = { requires = ']c', track = false, category = 'diff', level = 'intermediate' },
+  ['dp'] = { requires = '[c', track = false, category = 'diff', level = 'intermediate' },
 
   -- ── Ex commands ───────────────────────────────────────────────────────────
   -- Tracked via logger.lua's cmdline handler (patterns_cmdline.lua), not a

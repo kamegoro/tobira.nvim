@@ -361,6 +361,8 @@ MOTION ~
                                Suggest `g;`   — jump back with the changelist
   `G` → `gg` (or `gg` → `G`), back to back
                                Suggest `''`   — jump back to your previous spot
+  `<C-e>` / `<C-y>` × 5 (any mix)
+                               Suggest `zz`   — center the cursor line on screen
 
 EDIT ~
 
@@ -383,6 +385,10 @@ EDIT ~
   `p` × 3                       Suggest `{n}p`  — paste N times
   `P` × 3                       Suggest `{n}P`  — paste above N times
   `~` × 3                       Suggest `{n}~`  — toggle case of N chars
+  `~` × 6 (consecutive chars)   Suggest `g~iw`  — toggle case of the inner word
+                                 (supersedes `{n}~` once the streak plausibly
+                                 spans a whole word)
+  `~` × 12 (consecutive chars)  Suggest `g~$`   — toggle case to end of line
   `.` × 3                       Suggest `{n}.`  — dot-repeat with a count
   `J` × 3                       Suggest `{n}J`  — join N lines at once
   `u` × 3                       Suggest `<C-r>` — redo instead of repeating undo
@@ -398,10 +404,26 @@ EDIT ~
                                 Suggest `&`     — repeat the last substitute here
   Identical `:s/pat/repl/` on a 3rd line
                                 Suggest `g&`    — repeat it across the whole file
+  Same single-line edit (e.g. `A;<Esc>`) on 3 consecutive lines
+                                Suggest `<C-v>` — block-visual edit them all at once
+                                 (cursor must move by exactly one line, `j`,
+                                 between repeats; excludes operator+motion
+                                 shapes like `cwFoo<Esc>`, which stay in the
+                                 MACRO pattern below)
 
 WINDOW ~
 
   `<C-w>q` / `<C-w>c` × 2       Suggest `<C-w>o` — close all other windows
+  `<C-w>+` / `<C-w>-` / `<C-w><` / `<C-w>>` × 2 (any mix)
+                                Suggest `<C-w>=` — equalize all window sizes
+
+MARK ~
+
+  Cursor returns to the same line × 3, with a real edit elsewhere
+  between each return            Suggest `ma`    — set a named mark here
+                                 (does not fire from a tight, edit-free
+                                 scroll-back streak — that is `<C-o>`'s
+                                 domain above)
 
 MACRO ~
 
@@ -414,6 +436,10 @@ DIFF ~
 
   `j` × 10 (while `&diff`)      Suggest `]c`    — jump to the next diff hunk
   `k` × 10 (while `&diff`)      Suggest `[c`    — jump to the previous diff hunk
+  Insert-mode edit right after `]c`
+                                Suggest `do`    — diff obtain: pull the hunk in
+  Insert-mode edit right after `[c`
+                                Suggest `dp`    — diff put: push the hunk out
 
 INSERT MODE ~
 

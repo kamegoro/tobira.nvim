@@ -545,6 +545,19 @@ describe('tracking integrity', function()
     -- deferred one hop removed since their nominal requires is itself above.
     ['ya"'] = true,
     ["ya'"] = true,
+    -- do / dp (#237): requires ]c / [c respectively — same bracket-pair
+    -- consume-and-discard gap as [( / ]) above (pending_bracket never
+    -- records which pair it was). Reactive-only anyway — see
+    -- docs/adr/0099-diff-obtain-put-after-hunk-jump.md.
+    ['do'] = true,
+    ['dp'] = true,
+    -- g~iw / g~$ (#235): requires g~ / g~iw respectively — g~ has no
+    -- pending_g dispatch-table entry (only gu does), so it is never recorded
+    -- via the PATTERN_TRACKED mechanism the same way gU also isn't. Both are
+    -- reactive-only anyway — see
+    -- docs/adr/0101-tilde-repeat-text-object-refinement.md.
+    ['g~iw'] = true,
+    ['g~$'] = true,
   }
 
   it('every requires target is track=true, compound=true, or pattern-tracked (or explicitly deferred)', function()

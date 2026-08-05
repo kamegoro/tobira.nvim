@@ -136,6 +136,14 @@ return {
       cmdline_history_recall = "Vous avez retapé exactement la même commande Ex au lieu de la rappeler depuis l'historique",
       ci_dquote_repeat = 'Vous avez changé le contenu entre guillemets doubles avec ci" 3 fois de suite',
       ci_squote_repeat = "Vous avez changé le contenu entre guillemets simples avec ci' 3 fois de suite",
+      ctrl_w_resize_repeat = 'Vous avez redimensionné des fenêtres une touche à la fois, 2 fois de suite',
+      cursor_center_repeat = 'Vous avez défilé avec <C-e>/<C-y> à plusieurs reprises pour repositionner la ligne du curseur',
+      visual_block_opportunity = "Vous avez fait la même modification d'une ligne à la main sur 3 lignes consécutives",
+      diff_jump_then_insert_next = 'Vous avez sauté au bloc de différences suivant avec ]c et commencé à le retaper à la main',
+      diff_jump_then_insert_prev = 'Vous avez sauté au bloc de différences précédent avec [c et commencé à le retaper à la main',
+      named_mark_opportunity = 'Vous êtes revenu à la même ligne 3 fois, en éditant ailleurs entre chaque retour',
+      tilde_word_repeat = 'Vous avez basculé la casse 6 fois de suite — assez pour couvrir tout un mot',
+      tilde_line_repeat = "Vous avez basculé la casse 12 fois de suite — assez pour couvrir la majeure partie d'une ligne",
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -340,6 +348,16 @@ return {
       title = '[c — sauter au bloc de différences précédent',
       body = "Le complément de ]c — saute au bloc modifié précédent\nPlus rapide que d'appuyer sur k de façon répétée pour chercher en arrière une différence",
       example = '[c → le curseur saute au bloc de modifications précédent',
+    },
+    ['do'] = {
+      title = "do — diff obtain (récupérer le changement de l'autre fenêtre)",
+      body = "Copie le bloc de différences actuel depuis l'autre fenêtre de diff vers celle-ci\nPlus rapide et plus sûr que de retaper le changement à la main",
+      example = "]c → sauter au bloc; do → récupérer ce bloc depuis l'autre fenêtre",
+    },
+    ['dp'] = {
+      title = "dp — diff put (envoyer le changement vers l'autre fenêtre)",
+      body = "Copie le bloc de différences actuel depuis cette fenêtre vers l'autre fenêtre de diff\nLe complément de do — envoie votre version au lieu de la récupérer",
+      example = "[c → sauter au bloc; dp → envoyer ce bloc vers l'autre fenêtre",
     },
 
     -- ── screen centering chain ─────────────────────────────────────────────
@@ -638,6 +656,16 @@ return {
       title = "g~{motion} — inverser la casse d'une région",
       body = "Inverse la casse de chaque caractère du mouvement — majuscule devient minuscule et vice versa\nComme appliquer ~ à tout un mouvement au lieu d'un seul caractère",
       example = 'g~iw → "Hello World" devient "hELLO wORLD"',
+    },
+    ['g~iw'] = {
+      title = 'g~iw — inverser la casse du mot intérieur',
+      body = "Inverse la casse du mot entier en un seul mouvement, au lieu d'appuyer sur ~ caractère par caractère\nFonctionne depuis n'importe où à l'intérieur du mot — pas besoin de partir de son bord",
+      example = 'Au lieu de ~~~~~~ caractère par caractère, g~iw fait le même mot en une seule commande',
+    },
+    ['g~$'] = {
+      title = "g~$ — inverser la casse du curseur jusqu'à la fin de la ligne",
+      body = "Inverse la casse du curseur jusqu'à la fin de la ligne en un seul mouvement\nPlus rapide que de répéter ~ pour chaque caractère restant",
+      example = "Au lieu de ~~~~~~~~~~~~ jusqu'à la fin, g~$ le fait en une seule commande",
     },
 
     -- ── format text ───────────────────────────────────────────────────────

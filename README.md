@@ -23,12 +23,12 @@ it quietly shows you the one command that would have helped. No quizzes. No inte
 ## ✨ Features
 
 - 👀 **Fully passive** — reads keystrokes via `vim.on_key()`; no config required, zero impact on your existing mappings
-- 🎯 **62 detected patterns** across motion, edit, search, window, fold, mark, macro, diff, ex, and terminal — repeated `f` searches, `dw`→`i` instead of `cw`, retyping the same `:s///` substitution instead of `&`/`g&`, and more (see [examples below](#-detected-patterns-examples))
+- 🎯 **71 detected patterns** across motion, edit, search, window, fold, mark, macro, diff, ex, and terminal — repeated `f` searches, `dw`→`i` instead of `cw`, retyping the same `:s///` substitution instead of `&`/`g&`, and more (see [examples below](#-detected-patterns-examples))
 - ⌨️ **Ex commands, too** — `:g`, `:norm`, `:s`, and friends are tracked from the command line itself, not just normal-mode keys, so `:g` / `:norm` can be suggested to users who have never tried them (tobira's own `:Tobira*` commands are excluded, so checking your stats never counts as usage)
 - 💬 **One suggestion at a time** — shown after a natural pause, capped per session, with a cooldown between auto-suggestions — never a popup quiz
 - 📈 **Mastery-aware** — once you've used a command ~100 times, tobira stops suggesting it and moves on
 - 🪜 **Level-aware** — beginner commands surface first, advanced ones once you're ready
-- 🗺️ **182 commands** in the learning graph, covering the full Neovim command surface
+- 🗺️ **188 commands** in the learning graph, covering the full Neovim command surface
 
 ## ⚡️ Requirements
 
@@ -154,8 +154,14 @@ see `:help tobira-integrations` for why those two surfaces don't read this disti
 | `cwFooBar<Esc>` repeated 3× (navigation allowed between) | `qq...q` / `@q` — record and replay a macro |
 | Same `:s/pat/repl/` retyped 3× across lines | `g&` — repeat it across the whole file |
 | `<Esc>` × 2 in terminal mode, no effect | `<C-\><C-n>` — exit terminal mode |
+| `<C-w>+` / `<C-w>-` / `<C-w><` / `<C-w>>` × 2 in a row | `<C-w>=` — equalize all window sizes |
+| `<C-e>` / `<C-y>` × 5 in a row | `zz` — center the cursor line on screen |
+| Same one-line edit (e.g. `A;<Esc>`) on 3 consecutive lines | `<C-v>` — block-visual edit them all at once |
+| Insert-mode edit right after a `]c`/`[c` diff-hunk jump | `do` / `dp` — diff obtain/put the whole hunk |
+| Cursor returns to the same line 3× with real edits in between | `ma` — set a named mark to jump back to |
+| `~` × 6 (spans a word) / × 12 (spans a line) | `g~iw` / `g~$` — toggle case in one motion |
 
-62 patterns total — see `:help tobira-patterns` for the full list.
+71 patterns total — see `:help tobira-patterns` for the full list.
 
 ## 🆚 Similar plugins
 
