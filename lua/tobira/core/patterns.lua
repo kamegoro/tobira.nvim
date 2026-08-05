@@ -6,7 +6,10 @@
 -- underuse), 0011 (ci-quote streak), 0012 (v/gv streak), 0013 (gq operator),
 -- 0014 (register/mark/bracket prefixes), 0015 (<C-w> window compound),
 -- 0016 (paste motion streak), 0017 (state-machine bookkeeping invariants),
--- 0018 (r/ctrl-a tolerated streaks), 0019 (dd/cc/indent/dedent streaks).
+-- 0018 (r/ctrl-a tolerated streaks), 0019 (dd/cc/indent/dedent streaks),
+-- 0095 (<C-w> resize streak), 0096 (cursor-centering streak), 0097
+-- (visual-block edit streak), 0098 (diff obtain/put after hunk jump), 0099
+-- (named-mark repeated line return), 0100 (tilde text-object refinement).
 
 local M = {}
 
@@ -55,10 +58,19 @@ function M.new_seq()
     -- <C-w>q / <C-w>c repeated (or alternated) 2+ times in a row → <C-w>o
     -- see docs/adr/0024-ctrl-w-window-compound-and-close-streak.md
     ctrl_w_close_streak = 0,
+    -- <C-w>+ / <C-w>- / <C-w>< / <C-w>> repeated (or alternated) 2+ times in
+    -- a row → <C-w>=. Tracked independently of ctrl_w_close_streak above so
+    -- the two families never interfere with each other's count — see
+    -- docs/adr/0095-ctrl-w-resize-streak.md
+    ctrl_w_resize_streak = 0,
     -- prefixes that consume exactly one following character
     pending_register = false, -- " or @ (register / macro name)
     pending_mark = false, -- m / ' / ` (mark name or target)
     pending_bracket = false, -- [ or ] (navigation pair)
+    -- last bracket-jump direction (']' or '[') when it resolved to a diff
+    -- hunk jump (]c / [c), armed for one following key only — see
+    -- docs/adr/0098-diff-obtain-put-after-hunk-jump.md
+    diff_jump_dir = nil,
     -- "+ immediately followed by y → "+y system-clipboard yank. Set by
     -- pending_register below only when the register was '+'.
     pending_clipboard_yank = false,
@@ -88,6 +100,18 @@ function M.new_seq()
     change_return_streak = 0,
     -- Mirrors ctrl_o_seen (for g;).
     g_semi_seen = false,
+    -- <C-e>/<C-y> repeated (any mix) → zz. Increments off the same two keys
+    -- RETURN_MOTION_KEYS already watches for manual_return, but is its own
+    -- independent counter — see docs/adr/0096-cursor-centering-streak.md
+    zz_streak = 0,
+    -- Named-mark opportunity: cursor returning to the same specific line 3+
+    -- times, with genuine editing elsewhere in between each return — see
+    -- docs/adr/0099-named-mark-repeated-line-return.md
+    mark_prev_line = nil,
+    mark_anchor_line = nil,
+    mark_return_count = 0,
+    mark_left_anchor = false,
+    mark_edited_away = false,
     -- Array of { tok, t, nav_run } entries fed by M.feed_macro() (below) from
     -- BOTH normal- and insert-mode branches of logger.lua's handle_key() —
     -- unlike this seq's other fields, which are normal-mode only. See
@@ -139,6 +163,24 @@ local CI_QUOTE_NAV_KEYS = {
 local JUMP_TOLERANCE_MS = 15000
 local CHANGE_TOLERANCE_MS = 15000
 local RETURN_MOTION_THRESHOLD = 5
+
+-- <C-e>/<C-y> repeated (any mix) → zz. Matches RETURN_MOTION_THRESHOLD's
+-- magnitude for the same key class rather than inventing a new number — see
+-- docs/adr/0096-cursor-centering-streak.md
+local CURSOR_CENTER_STREAK_THRESHOLD = 5
+
+-- Cursor returning to the same specific line, with genuine editing
+-- elsewhere in between each return — see
+-- docs/adr/0099-named-mark-repeated-line-return.md
+local NAMED_MARK_RETURN_THRESHOLD = 3
+
+-- ~ repeated across consecutive character positions: tilde_repeat({n}~)
+-- fires at 3, then supersedes to a text-object-scoped case operator once the
+-- streak plausibly spans a whole word (6, double the base threshold — same
+-- doubling convention as j_repeat(5)/j_many(10)) or a whole line (12,
+-- double again). See docs/adr/0100-tilde-repeat-text-object-refinement.md
+local TILDE_WORD_THRESHOLD = 6
+local TILDE_LINE_THRESHOLD = 12
 
 -- Keys that mean "the user just made a big navigational jump" — the same
 -- class of motion that adds a jumplist entry. 'gg' and '/' are deliberately
@@ -325,7 +367,77 @@ local function macro_check_len(buf, n, l)
   return (buf[n].t - buf[occ1_start].t) <= MACRO_WINDOW_MS
 end
 
+-- ── visual-block edit streak ─────────────────────────────────────────────────
+-- Same window S must repeat 3 times, like macro_check_len above, but with
+-- two extra restrictions: the gap between occurrences must be EXACTLY one
+-- 'j' (the cursor moving down one line, not macro_check_len's up-to-
+-- MACRO_MAX_GAP tolerance), and S itself must be a *plain* insert-then-Escape
+-- shape — starting with an INSERT_KEYS entry (i/I/a/A/o/O/s/S), ending with
+-- <Esc> — rather than any repeated edit sequence. That second restriction
+-- deliberately excludes operator+motion shapes like "cwFooBar<Esc>"
+-- (macro_opportunity's own canonical example, ADR 0018): that repeated edit
+-- also happens to have single-'j' gaps in its own regression test, so
+-- without this restriction visual-block would silently steal it. See
+-- docs/adr/0097-visual-block-edit-streak.md
+local function visual_block_check_len(buf, n, l)
+  local s_start = n - l + 1
+  if s_start < 1 then
+    return false
+  end
+  if not INSERT_KEYS[buf[s_start].tok] or buf[n].tok ~= '<Esc>' then
+    return false
+  end
+  if macro_contains_bad(buf, s_start, n) then
+    return false
+  end
+  -- No separate macro_contains_edit check here (unlike macro_check_len):
+  -- buf[s_start] is already guaranteed to be an INSERT_KEYS member above,
+  -- and INSERT_KEYS ⊂ EDIT_OP_KEYS ⊂ MACRO_EDIT_KEYS, so contains_edit would
+  -- always be true by construction — checking it would be dead code.
+
+  local gap1 = buf[s_start - 1]
+  if not gap1 or gap1.tok ~= 'j' then
+    return false
+  end
+  local occ2_start = s_start - 1 - l
+  if occ2_start < 1 then
+    return false
+  end
+  if not macro_windows_equal(buf, occ2_start, s_start, l) then
+    return false
+  end
+
+  local gap2 = buf[occ2_start - 1]
+  if not gap2 or gap2.tok ~= 'j' then
+    return false
+  end
+  local occ1_start = occ2_start - 1 - l
+  if occ1_start < 1 then
+    return false
+  end
+  if not macro_windows_equal(buf, occ1_start, s_start, l) then
+    return false
+  end
+
+  return (buf[n].t - buf[occ1_start].t) <= MACRO_WINDOW_MS
+end
+
+local function visual_block_detect(seq)
+  local buf = seq.macro_buf
+  local n = #buf
+  for l = MACRO_MIN_LEN, MACRO_MAX_LEN do
+    if visual_block_check_len(buf, n, l) then
+      return { pattern = 'visual_block_opportunity', cmd = '<C-v>' }
+    end
+  end
+  return nil
+end
+
 local function macro_detect(seq)
+  local vb = visual_block_detect(seq)
+  if vb then
+    return vb
+  end
   local buf = seq.macro_buf
   local n = #buf
   for l = MACRO_MIN_LEN, MACRO_MAX_LEN do
@@ -386,6 +498,50 @@ local function inner_feed(seq, key, line, is_diff, now)
   -- demonstrably already used it. See docs/adr/0019-jumplist-changelist-underuse-detection.md
   if key == '\15' then
     seq.ctrl_o_seen = true
+  end
+
+  -- ── named-mark opportunity bookkeeping ────────────────────────────────────
+  -- Observes every key unconditionally, like the changelist-underuse block
+  -- above, and never consumes/returns — only increments mark_return_count.
+  -- The actual fire-and-reset happens in the jumplist/changelist arbitration
+  -- block further down, as the lowest-priority branch. See
+  -- docs/adr/0099-named-mark-repeated-line-return.md
+  if line ~= seq.mark_prev_line then
+    if seq.mark_anchor_line == nil then
+      if seq.mark_prev_line ~= nil then
+        seq.mark_anchor_line = seq.mark_prev_line
+        -- 0, not 1: choosing an anchor (the line just LEFT) is not itself a
+        -- return to it — mark_return_count only counts genuine arrivals back
+        -- at the anchor below. See docs/adr/0099-named-mark-repeated-line-return.md
+        seq.mark_return_count = 0
+        seq.mark_left_anchor = true
+        seq.mark_edited_away = false
+      end
+    elseif line == seq.mark_anchor_line then
+      if seq.mark_left_anchor and seq.mark_edited_away then
+        seq.mark_return_count = seq.mark_return_count + 1
+      end
+      seq.mark_left_anchor = false
+      seq.mark_edited_away = false
+    elseif seq.mark_return_count == 0 then
+      -- No genuine return has ever confirmed the current anchor is actually
+      -- meaningful — re-anchor to the line just left instead of leaving the
+      -- session permanently stuck on whatever line the cursor happened to
+      -- be on before the very first navigation (often accidental, e.g. the
+      -- line the cursor was at when the file was opened). Once a real
+      -- return lands (mark_return_count > 0), the anchor is committed and
+      -- this branch is never reached again until it fires or the session
+      -- moves on. See docs/adr/0099-named-mark-repeated-line-return.md
+      seq.mark_anchor_line = seq.mark_prev_line
+      seq.mark_left_anchor = true
+      seq.mark_edited_away = false
+    else
+      seq.mark_left_anchor = true
+    end
+    seq.mark_prev_line = line
+  end
+  if seq.mark_anchor_line and seq.mark_left_anchor and EDIT_OP_KEYS[key] then
+    seq.mark_edited_away = true
   end
 
   -- ── p / P → rightward motion: cursor skipped past a paste ────────────────
@@ -514,7 +670,8 @@ local function inner_feed(seq, key, line, is_diff, now)
   end
 
   -- ── pending_ctrl_w: <C-w>X window-command two-key compound ────────────────
-  -- see docs/adr/0024-ctrl-w-window-compound-and-close-streak.md
+  -- see docs/adr/0024-ctrl-w-window-compound-and-close-streak.md and
+  -- docs/adr/0095-ctrl-w-resize-streak.md
   if seq.pending_ctrl_w then
     seq.pending_ctrl_w = false
     local ctrl_w_targets = {
@@ -528,6 +685,10 @@ local function inner_feed(seq, key, line, is_diff, now)
       q = '<C-w>q',
       c = '<C-w>c',
       ['='] = '<C-w>=',
+      ['+'] = '<C-w>+',
+      ['-'] = '<C-w>-',
+      ['<'] = '<C-w><',
+      ['>'] = '<C-w>>',
     }
     if ctrl_w_targets[key] then
       seq.last_op = ctrl_w_targets[key]
@@ -535,15 +696,27 @@ local function inner_feed(seq, key, line, is_diff, now)
       -- <C-w>q / <C-w>c repeated (or alternated) 2+ times → suggest <C-w>o
       if key == 'q' or key == 'c' then
         seq.ctrl_w_close_streak = seq.ctrl_w_close_streak + 1
+        seq.ctrl_w_resize_streak = 0
         if seq.ctrl_w_close_streak >= 2 then
           seq.ctrl_w_close_streak = 0
           return { pattern = 'ctrl_w_close_repeat', cmd = '<C-w>o' }
         end
+      -- <C-w>+ / <C-w>- / <C-w>< / <C-w>> repeated (or alternated) 2+ times
+      -- → suggest <C-w>= — see docs/adr/0095-ctrl-w-resize-streak.md
+      elseif key == '+' or key == '-' or key == '<' or key == '>' then
+        seq.ctrl_w_resize_streak = seq.ctrl_w_resize_streak + 1
+        seq.ctrl_w_close_streak = 0
+        if seq.ctrl_w_resize_streak >= 2 then
+          seq.ctrl_w_resize_streak = 0
+          return { pattern = 'ctrl_w_resize_repeat', cmd = '<C-w>=' }
+        end
       else
         seq.ctrl_w_close_streak = 0
+        seq.ctrl_w_resize_streak = 0
       end
     else
       seq.ctrl_w_close_streak = 0
+      seq.ctrl_w_resize_streak = 0
     end
     return nil
   end
@@ -682,8 +855,12 @@ local function inner_feed(seq, key, line, is_diff, now)
   end
 
   if seq.pending_bracket then
+    local bracket = seq.pending_bracket
     seq.pending_bracket = false
     seq.key_consumed = true
+    -- ]c / [c diff-hunk jump: arm diff_jump_dir for one following key only —
+    -- see docs/adr/0098-diff-obtain-put-after-hunk-jump.md
+    seq.diff_jump_dir = (key == 'c') and bracket or nil
     return nil
   end
 
@@ -864,7 +1041,10 @@ local function inner_feed(seq, key, line, is_diff, now)
     return nil
   end
   if key == '[' or key == ']' then
-    seq.pending_bracket = true
+    -- stores the bracket char itself (not a plain true) so the consumer
+    -- above can tell ]c apart from [c — see
+    -- docs/adr/0098-diff-obtain-put-after-hunk-jump.md
+    seq.pending_bracket = key
     return nil
   end
 
@@ -972,6 +1152,21 @@ local function inner_feed(seq, key, line, is_diff, now)
     return { pattern = 'dw_then_insert', cmd = 'cw' }
   end
 
+  -- ── diff-hunk jump → insert: suggest do/dp ────────────────────────────────
+  -- While &diff is set, entering insert mode immediately after a ]c/[c jump
+  -- means the user is about to manually retype a change do/dp would copy in
+  -- one command. Direction is picked off which bracket was pressed — see
+  -- docs/adr/0098-diff-obtain-put-after-hunk-jump.md
+  if is_diff and seq.diff_jump_dir and INSERT_KEYS[key] then
+    local dir = seq.diff_jump_dir
+    seq.diff_jump_dir = nil
+    if dir == ']' then
+      return { pattern = 'diff_jump_then_insert_next', cmd = 'do' }
+    else
+      return { pattern = 'diff_jump_then_insert_prev', cmd = 'dp' }
+    end
+  end
+
   -- ── gq → <C-o>: jump back after format, suggest gw ────────────────────────
   -- Raw byte for Ctrl-O (ASCII 15 / 0x0F). <C-o> is already a complete
   -- "jump back" command on its own (unlike `` ` ``, which needs a second key),
@@ -997,9 +1192,16 @@ local function inner_feed(seq, key, line, is_diff, now)
     seq.indent_streak = 0
     seq.dedent_streak = 0
     seq.ctrl_w_close_streak = 0
+    seq.ctrl_w_resize_streak = 0
     seq.v_streak = 0
     seq.v_clean_exit = false
   end
+
+  -- diff_jump_dir survives only until the very next key — any key reaching
+  -- this point already failed the diff_jump_then_insert check above (an
+  -- INSERT_KEYS match would have returned before here), so the "immediately
+  -- following" window has closed. See docs/adr/0098-diff-obtain-put-after-hunk-jump.md
+  seq.diff_jump_dir = nil
 
   -- ── consecutive-run patterns (count computed early) ────────────────────────
   -- track_run() must run unconditionally on every key — see
@@ -1061,11 +1263,36 @@ local function inner_feed(seq, key, line, is_diff, now)
     seq.change_return_streak = 0
   end
 
-  -- ── jumplist vs. changelist arbitration (follow-up bug) ───────────────────
-  -- Both patterns can be ready on the same keystroke; the more-recently
-  -- triggered one wins, the loser's streak resets without firing. See
-  -- docs/adr/0019-jumplist-changelist-underuse-detection.md
+  -- ── zz cursor-centering streak: <C-e>/<C-y> repeated (any mix) ───────────
+  -- Independent of the RETURN_MOTION_KEYS bookkeeping above — increments off
+  -- the same two keys but is never reset or read by jump_return_streak /
+  -- change_return_streak, and vice versa. See
+  -- docs/adr/0096-cursor-centering-streak.md
+  if key == '\5' or key == '\25' then
+    seq.zz_streak = seq.zz_streak + 1
+  else
+    seq.zz_streak = 0
+  end
+  local zz_ready = seq.zz_streak >= CURSOR_CENTER_STREAK_THRESHOLD
+
+  -- named-mark opportunity readiness — bookkeeping already ran at the top of
+  -- this function; this only reads the counter. See
+  -- docs/adr/0099-named-mark-repeated-line-return.md
+  local mark_ready = seq.mark_return_count >= NAMED_MARK_RETURN_THRESHOLD
+
+  -- ── arbitration (follow-up bug) ───────────────────────────────────────────
+  -- jump_ready/change_ready/zz_ready/mark_ready can all be true on the same
+  -- keystroke; jump vs. change already arbitrate by recency (the
+  -- more-recently triggered one wins). zz_ready and mark_ready are lower
+  -- priority than both — jump_back/manual_return/changelist_return are more
+  -- specific, contextual suggestions for the same underlying keystrokes. The
+  -- loser's streak resets without firing, not left dangling, so it can still
+  -- legitimately fire later if it genuinely repeats. See
+  -- docs/adr/0019-jumplist-changelist-underuse-detection.md,
+  -- docs/adr/0096-cursor-centering-streak.md,
+  -- docs/adr/0099-named-mark-repeated-line-return.md
   if jump_ready and change_ready then
+    seq.zz_streak = 0
     if seq.jump_last_at >= seq.edit_last_at then
       seq.jump_return_streak = 0
       seq.jump_last_at = nil
@@ -1081,12 +1308,23 @@ local function inner_feed(seq, key, line, is_diff, now)
   elseif jump_ready then
     seq.jump_return_streak = 0
     seq.jump_last_at = nil
+    seq.zz_streak = 0
     return { pattern = 'manual_return', cmd = '<C-o>' }
   elseif change_ready then
     seq.change_return_streak = 0
     seq.edit_second_seen = false
     seq.edit_last_at = nil
+    seq.zz_streak = 0
     return { pattern = 'changelist_return', cmd = 'g;' }
+  elseif zz_ready then
+    seq.zz_streak = 0
+    return { pattern = 'cursor_center_repeat', cmd = 'zz' }
+  elseif mark_ready then
+    seq.mark_return_count = 0
+    seq.mark_anchor_line = nil
+    seq.mark_left_anchor = false
+    seq.mark_edited_away = false
+    return { pattern = 'named_mark_opportunity', cmd = 'ma' }
   end
 
   -- == (not >=): each threshold fires exactly once, enabling multi-threshold
@@ -1133,6 +1371,12 @@ local function inner_feed(seq, key, line, is_diff, now)
     return { pattern = 'P_repeat', cmd = '{n}P' }
   elseif key == '~' and count == 3 then
     return { pattern = 'tilde_repeat', cmd = '{n}~' }
+  elseif key == '~' and count == TILDE_WORD_THRESHOLD then
+    -- Supersedes tilde_repeat once the streak plausibly spans a whole word —
+    -- see docs/adr/0100-tilde-repeat-text-object-refinement.md
+    return { pattern = 'tilde_word_repeat', cmd = 'g~iw' }
+  elseif key == '~' and count == TILDE_LINE_THRESHOLD then
+    return { pattern = 'tilde_line_repeat', cmd = 'g~$' }
   elseif key == '.' and count == 3 then
     return { pattern = 'dot_repeat', cmd = '{n}.' }
   elseif key == 'J' and count == 3 then

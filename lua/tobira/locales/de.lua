@@ -135,6 +135,14 @@ return {
       tabnew_run = 'Du hast 3 oder mehr Dateien mit :tabnew geöffnet, jede in einem eigenen Tab',
       ci_dquote_repeat = 'Du hast mit ci" 3-mal hintereinander den Inhalt in doppelten Anführungszeichen geändert',
       ci_squote_repeat = "Du hast mit ci' 3-mal hintereinander den Inhalt in einfachen Anführungszeichen geändert",
+      ctrl_w_resize_repeat = 'Du hast Fenster 2-mal hintereinander einzeln in der Größe angepasst',
+      cursor_center_repeat = 'Du hast mit <C-e>/<C-y> wiederholt die Cursorzeile neu positioniert',
+      visual_block_opportunity = 'Du hast dieselbe einzeilige Änderung von Hand auf 3 aufeinanderfolgenden Zeilen vorgenommen',
+      diff_jump_then_insert_next = 'Du bist mit ]c zum nächsten Diff-Hunk gesprungen und hast angefangen, ihn von Hand neu einzutippen',
+      diff_jump_then_insert_prev = 'Du bist mit [c zum vorherigen Diff-Hunk gesprungen und hast angefangen, ihn von Hand neu einzutippen',
+      named_mark_opportunity = 'Du bist 3-mal zur selben Zeile zurückgekehrt und hast dazwischen an anderer Stelle editiert',
+      tilde_word_repeat = 'Du hast 6-mal hintereinander die Groß-/Kleinschreibung umgeschaltet — genug für ein ganzes Wort',
+      tilde_line_repeat = 'Du hast 12-mal hintereinander die Groß-/Kleinschreibung umgeschaltet — genug für den Großteil einer Zeile',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -339,6 +347,16 @@ return {
       title = '[c — zum vorherigen Diff-Hunk springen',
       body = 'Die Gegenrichtung zu ]c — springt zum vorherigen geänderten Hunk\nSchneller als wiederholtes k, um rückwärts nach einem Unterschied zu suchen',
       example = '[c → Cursor springt zum vorherigen geänderten Hunk',
+    },
+    ['do'] = {
+      title = 'do — diff obtain (Änderung vom anderen Fenster übernehmen)',
+      body = 'Übernimmt den aktuellen Diff-Hunk aus dem anderen Diff-Fenster in dieses\nSchneller und sicherer als die Änderung von Hand neu einzutippen',
+      example = ']c → zum Hunk springen; do → diesen Hunk aus dem anderen Fenster übernehmen',
+    },
+    ['dp'] = {
+      title = 'dp — diff put (Änderung ans andere Fenster senden)',
+      body = 'Sendet den aktuellen Diff-Hunk aus diesem Fenster ins andere Diff-Fenster\nDie Gegenrichtung zu do — schiebt deine Version rüber statt sie zu übernehmen',
+      example = '[c → zum Hunk springen; dp → diesen Hunk ans andere Fenster senden',
     },
 
     -- ── screen centering chain ─────────────────────────────────────────────
@@ -632,6 +650,16 @@ return {
       title = 'g~{motion} — Groß-/Kleinschreibung eines Bereichs umschalten',
       body = 'Kehrt die Groß-/Kleinschreibung jedes Zeichens in der Bewegung um — Groß wird klein und umgekehrt\nWie ~ auf eine ganze Bewegung statt auf ein einzelnes Zeichen anzuwenden',
       example = 'g~iw → "Hello World" wird zu "hELLO wORLD"',
+    },
+    ['g~iw'] = {
+      title = 'g~iw — Groß-/Kleinschreibung des inneren Worts umschalten',
+      body = 'Schaltet die Schreibung für das ganze Wort in einem Schritt um, statt ~ einmal pro Zeichen zu drücken\nFunktioniert von überall innerhalb des Worts aus — kein Ansetzen am Rand nötig',
+      example = 'Statt ~~~~~~ Zeichen für Zeichen erledigt g~iw dasselbe Wort in einem Befehl',
+    },
+    ['g~$'] = {
+      title = 'g~$ — Groß-/Kleinschreibung vom Cursor bis Zeilenende umschalten',
+      body = 'Schaltet die Schreibung vom Cursor bis zum Zeilenende in einem Schritt um\nSchneller als ~ für jedes verbleibende Zeichen zu wiederholen',
+      example = 'Statt ~~~~~~~~~~~~ bis Zeilenende erledigt g~$ das in einem Befehl',
     },
 
     -- ── format text ───────────────────────────────────────────────────────

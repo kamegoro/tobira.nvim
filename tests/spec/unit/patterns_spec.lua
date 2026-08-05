@@ -161,6 +161,65 @@ for _, tc in ipairs(run_cases) do
   end)
 end
 
+-- ── ~ higher thresholds: text-object-scoped case toggle (#235) ───────────────
+-- see docs/adr/0100-tilde-repeat-text-object-refinement.md
+
+describe('when ~ is repeated across consecutive character positions', function()
+  it('still fires tilde_repeat suggesting {n}~ at 3 (existing behavior preserved)', function()
+    local s = seq()
+    patterns.feed(s, '~', 1)
+    patterns.feed(s, '~', 1)
+    local result = patterns.feed(s, '~', 1)
+    assert.is_not_nil(result)
+    assert.equals('tilde_repeat', result.pattern)
+    assert.equals('{n}~', result.cmd)
+  end)
+
+  it('does not refire between 3 and 6 presses', function()
+    local s = seq()
+    for _ = 1, 4 do
+      patterns.feed(s, '~', 1)
+    end
+    local result = patterns.feed(s, '~', 1) -- 5th press
+    assert.is_nil(result)
+  end)
+
+  it('fires tilde_word_repeat suggesting g~iw at 6, superseding {n}~', function()
+    local s = seq()
+    for _ = 1, 5 do
+      patterns.feed(s, '~', 1)
+    end
+    local result = patterns.feed(s, '~', 1)
+    assert.is_not_nil(result)
+    assert.equals('tilde_word_repeat', result.pattern)
+    assert.equals('g~iw', result.cmd)
+  end)
+
+  it('fires tilde_line_repeat suggesting g~$ at 12', function()
+    local s = seq()
+    for _ = 1, 11 do
+      patterns.feed(s, '~', 1)
+    end
+    local result = patterns.feed(s, '~', 1)
+    assert.is_not_nil(result)
+    assert.equals('tilde_line_repeat', result.pattern)
+    assert.equals('g~$', result.cmd)
+  end)
+
+  it('resets the streak when interrupted, so the word threshold needs a fresh run', function()
+    local s = seq()
+    for _ = 1, 3 do
+      patterns.feed(s, '~', 1)
+    end
+    patterns.feed(s, 'l', 1) -- interrupt
+    for _ = 1, 4 do
+      patterns.feed(s, '~', 1)
+    end
+    local result = patterns.feed(s, '~', 1) -- only 5 since the interrupt
+    assert.is_nil(result)
+  end)
+end)
+
 -- ── j / k higher-threshold: paragraph jump ────────────────────────────────────
 
 describe('when j is pressed 10 times in a row', function()
@@ -260,6 +319,63 @@ describe('when j is pressed 10 times in a row outside diff mode', function()
     assert.is_not_nil(at10)
     assert.equals('j_many', at10.pattern)
     assert.equals('}', at10.cmd)
+  end)
+end)
+
+-- ── diff hunk jump → insert: suggest do / dp (#237) ───────────────────────────
+-- see docs/adr/0098-diff-obtain-put-after-hunk-jump.md
+
+describe('when the user edits immediately after jumping to a diff hunk', function()
+  it('fires diff_jump_then_insert_next suggesting do after ]c then entering insert', function()
+    local s = seq()
+    patterns.feed(s, ']', 1, true)
+    patterns.feed(s, 'c', 1, true)
+    local result = patterns.feed(s, 'i', 1, true)
+    assert.is_not_nil(result)
+    assert.equals('diff_jump_then_insert_next', result.pattern)
+    assert.equals('do', result.cmd)
+  end)
+
+  it('fires diff_jump_then_insert_prev suggesting dp after [c then entering insert', function()
+    local s = seq()
+    patterns.feed(s, '[', 1, true)
+    patterns.feed(s, 'c', 1, true)
+    local result = patterns.feed(s, 'a', 1, true)
+    assert.is_not_nil(result)
+    assert.equals('diff_jump_then_insert_prev', result.pattern)
+    assert.equals('dp', result.cmd)
+  end)
+
+  it('does not fire when &diff is not set', function()
+    local s = seq()
+    patterns.feed(s, ']', 1, false)
+    patterns.feed(s, 'c', 1, false)
+    local result = patterns.feed(s, 'i', 1, false)
+    assert.is_nil(result)
+  end)
+
+  it('does not fire when another key interrupts between the hunk jump and insert', function()
+    local s = seq()
+    patterns.feed(s, ']', 1, true)
+    patterns.feed(s, 'c', 1, true)
+    patterns.feed(s, 'l', 1, true) -- interrupt
+    local result = patterns.feed(s, 'i', 1, true)
+    assert.is_nil(result)
+  end)
+
+  it('does not fire for a bracket pair other than ]c', function()
+    local s = seq()
+    patterns.feed(s, ']', 1, true)
+    patterns.feed(s, ']', 1, true) -- ]] not ]c
+    local result = patterns.feed(s, 'i', 1, true)
+    assert.is_nil(result)
+  end)
+
+  it('still consumes the bracket-target key as key_consumed, like any other bracket pair', function()
+    local s = seq()
+    patterns.feed(s, ']', 1, true)
+    patterns.feed(s, 'c', 1, true)
+    assert.is_true(s.key_consumed)
   end)
 end)
 
@@ -2122,6 +2238,98 @@ describe('when the user closes windows one at a time', function()
   end)
 end)
 
+-- ── <C-w>+ / <C-w>- / <C-w>< / <C-w>> repeated → <C-w>= (#231) ────────────────
+-- see docs/adr/0095-ctrl-w-resize-streak.md
+
+describe('when the user resizes windows one keystroke at a time', function()
+  local ctrl_w = '\23'
+
+  local function press(s, key)
+    patterns.feed(s, ctrl_w, 1)
+    return patterns.feed(s, key, 1)
+  end
+
+  it('fires ctrl_w_resize_repeat suggesting <C-w>= after two <C-w>+ in a row', function()
+    local s = seq()
+    press(s, '+')
+    local result = press(s, '+')
+    assert.is_not_nil(result)
+    assert.equals('ctrl_w_resize_repeat', result.pattern)
+    assert.equals('<C-w>=', result.cmd)
+  end)
+
+  it('fires after two <C-w>- in a row', function()
+    local s = seq()
+    press(s, '-')
+    local result = press(s, '-')
+    assert.is_not_nil(result)
+    assert.equals('ctrl_w_resize_repeat', result.pattern)
+    assert.equals('<C-w>=', result.cmd)
+  end)
+
+  it('fires when <C-w>+ is followed by <C-w>< (mixed resize actions count together)', function()
+    local s = seq()
+    press(s, '+')
+    local result = press(s, '<')
+    assert.is_not_nil(result)
+    assert.equals('ctrl_w_resize_repeat', result.pattern)
+  end)
+
+  it('fires when <C-w>> is followed by <C-w>- (mixed resize actions count together)', function()
+    local s = seq()
+    press(s, '>')
+    local result = press(s, '-')
+    assert.is_not_nil(result)
+    assert.equals('ctrl_w_resize_repeat', result.pattern)
+  end)
+
+  it('does not fire after only a single <C-w>+', function()
+    local s = seq()
+    local result = press(s, '+')
+    assert.is_nil(result)
+  end)
+
+  it('resets the streak after firing, so a 3rd resize does not immediately refire', function()
+    local s = seq()
+    press(s, '+')
+    press(s, '+') -- fires here
+    local result = press(s, '+')
+    assert.is_nil(result)
+  end)
+
+  it('resets the streak when interrupted by an unrelated window command (<C-w>s)', function()
+    local s = seq()
+    press(s, '+')
+    press(s, 's') -- interrupt: not a resize action
+    local result = press(s, '+')
+    assert.is_nil(result)
+  end)
+
+  it('resets the streak when interrupted by an unrelated normal-mode key', function()
+    local s = seq()
+    press(s, '+')
+    patterns.feed(s, 'j', 1) -- interrupt: unrelated key, no <C-w> prefix
+    local result = press(s, '+')
+    assert.is_nil(result)
+  end)
+
+  it('does not share state with ctrl_w_close_streak — a resize in between resets the close count', function()
+    local s = seq()
+    press(s, 'q') -- close streak = 1
+    press(s, '+') -- resize streak = 1, resets close streak
+    local result = press(s, 'q') -- close streak = 1 again, not 2
+    assert.is_nil(result)
+  end)
+
+  it('does not share state with ctrl_w_close_streak — a close in between resets the resize count', function()
+    local s = seq()
+    press(s, '+') -- resize streak = 1
+    press(s, 'q') -- close streak = 1, resets resize streak
+    local result = press(s, '+') -- resize streak = 1 again, not 2
+    assert.is_nil(result)
+  end)
+end)
+
 -- ── key_consumed flag ─────────────────────────────────────────────────────────
 
 describe('when a key is consumed as part of a preceding register, mark, or [ / ] prefix', function()
@@ -2457,6 +2665,100 @@ describe('when the user jumps to end of file then scrolls back manually', functi
   end
 end)
 
+-- ── zz cursor-centering streak: <C-e>/<C-y> repeated → zz (#243) ─────────────
+-- see docs/adr/0096-cursor-centering-streak.md
+
+describe('when the user repeatedly scrolls with <C-e>/<C-y> to reposition the cursor line', function()
+  local ctrl_e = '\5'
+  local ctrl_y = '\25'
+
+  it('fires cursor_center_repeat suggesting zz after 5 <C-e> presses with no preceding jump', function()
+    local s = seq()
+    for _ = 1, 4 do
+      patterns.feed(s, ctrl_e, 1, nil, 0)
+    end
+    local result = patterns.feed(s, ctrl_e, 1, nil, 0)
+    assert.is_not_nil(result)
+    assert.equals('cursor_center_repeat', result.pattern)
+    assert.equals('zz', result.cmd)
+  end)
+
+  it('fires after 5 <C-y> presses', function()
+    local s = seq()
+    for _ = 1, 4 do
+      patterns.feed(s, ctrl_y, 1, nil, 0)
+    end
+    local result = patterns.feed(s, ctrl_y, 1, nil, 0)
+    assert.is_not_nil(result)
+    assert.equals('cursor_center_repeat', result.pattern)
+    assert.equals('zz', result.cmd)
+  end)
+
+  it('fires for a mix of <C-e> and <C-y>', function()
+    local s = seq()
+    patterns.feed(s, ctrl_e, 1, nil, 0)
+    patterns.feed(s, ctrl_y, 1, nil, 0)
+    patterns.feed(s, ctrl_e, 1, nil, 0)
+    patterns.feed(s, ctrl_y, 1, nil, 0)
+    local result = patterns.feed(s, ctrl_e, 1, nil, 0)
+    assert.is_not_nil(result)
+    assert.equals('cursor_center_repeat', result.pattern)
+  end)
+
+  it('does not fire after only 4 presses', function()
+    local s = seq()
+    for _ = 1, 3 do
+      patterns.feed(s, ctrl_e, 1, nil, 0)
+    end
+    local result = patterns.feed(s, ctrl_e, 1, nil, 0)
+    assert.is_nil(result)
+  end)
+
+  it('resets the streak when interrupted by an unrelated key', function()
+    local s = seq()
+    patterns.feed(s, ctrl_e, 1, nil, 0)
+    patterns.feed(s, ctrl_e, 1, nil, 0)
+    patterns.feed(s, 'l', 1, nil, 0) -- interrupt
+    patterns.feed(s, ctrl_e, 1, nil, 0)
+    patterns.feed(s, ctrl_e, 1, nil, 0)
+    local result = patterns.feed(s, ctrl_e, 1, nil, 0)
+    assert.is_nil(result)
+  end)
+
+  it('does not fire manual_return for a plain 5x <C-e> streak with no preceding jump', function()
+    local s = seq()
+    for _ = 1, 4 do
+      patterns.feed(s, ctrl_e, 1, nil, 0)
+    end
+    local result = patterns.feed(s, ctrl_e, 1, nil, 0)
+    assert.is_not_equal('manual_return', result.pattern)
+  end)
+
+  it('fires manual_return instead of cursor_center_repeat when a significant jump precedes the streak', function()
+    -- Both manual_return's jump_return_streak and cursor_center_repeat's
+    -- zz_streak reach their threshold on this same 5th <C-e> — manual_return
+    -- is the more specific, contextual suggestion and wins. See
+    -- docs/adr/0096-cursor-centering-streak.md
+    local s = seq()
+    patterns.feed(s, 'G', 1, nil, 0)
+    for _ = 1, 4 do
+      patterns.feed(s, ctrl_e, 1, nil, 0)
+    end
+    local result = patterns.feed(s, ctrl_e, 1, nil, 0)
+    assert.is_not_nil(result)
+    assert.equals('manual_return', result.pattern)
+    assert.equals(0, s.zz_streak)
+  end)
+
+  it('does not increment zz_streak from the manual_return-relevant j/k keys, only <C-e>/<C-y>', function()
+    local s = seq()
+    for _ = 1, 10 do
+      patterns.feed(s, 'k', 1, nil, 0)
+    end
+    assert.equals(0, s.zz_streak)
+  end)
+end)
+
 -- ── changelist underuse: edit A, move, edit B, scroll back → g; (#61) ────────
 
 describe('when the user edits two different places then scrolls back', function()
@@ -2604,6 +2906,121 @@ describe('when both the jumplist and changelist preconditions are true on the sa
     assert.is_not_nil(result)
     assert.equals('manual_return', result.pattern)
     assert.equals('<C-o>', result.cmd)
+  end)
+end)
+
+-- ── named-mark opportunity: repeated returns to the same line → ma (#238) ────
+-- see docs/adr/0099-named-mark-repeated-line-return.md
+-- 'l' is used as the connecting/leaving motion below (not j/k/G/<C-e>/<C-y>)
+-- so these tests never touch jump_return_streak/change_return_streak/
+-- zz_streak, isolating them from the jumplist/changelist/zz patterns above.
+
+describe('when the cursor returns to the same line 3 times with real edits elsewhere in between', function()
+  local function leave_edit_return(s, away_line, anchor_line, edit_key)
+    patterns.feed(s, 'l', away_line) -- leave the anchor
+    patterns.feed(s, edit_key, away_line) -- genuine edit away from the anchor
+    return patterns.feed(s, 'l', anchor_line) -- return to the anchor
+  end
+
+  it('fires named_mark_opportunity suggesting ma on the 3rd genuine return', function()
+    local s = seq()
+    patterns.feed(s, 'i', 10)
+    patterns.feed(s, '\27', 10)
+    leave_edit_return(s, 20, 10, 'i') -- return #1
+    local second = leave_edit_return(s, 30, 10, 'x') -- return #2
+    assert.is_nil(second)
+    local third = leave_edit_return(s, 40, 10, 'x') -- return #3
+    assert.is_not_nil(third)
+    assert.equals('named_mark_opportunity', third.pattern)
+    assert.equals('ma', third.cmd)
+  end)
+
+  it('does not fire after only 2 genuine returns', function()
+    local s = seq()
+    patterns.feed(s, 'i', 10)
+    patterns.feed(s, '\27', 10)
+    leave_edit_return(s, 20, 10, 'i')
+    local result = leave_edit_return(s, 30, 10, 'x')
+    assert.is_nil(result)
+  end)
+
+  it(
+    're-anchors to the real reference line instead of getting stuck on the '
+      .. 'line the cursor happened to start the session on (live-QA regression)',
+    function()
+      -- Live QA caught this: a session's very first navigation "leaves" line
+      -- 1 (wherever the cursor happened to be, e.g. right after opening the
+      -- file), which used to permanently lock mark_anchor_line onto that
+      -- accidental line forever, since nothing ever reset it again.
+      -- Real work then happens around line 5, but named_mark_opportunity
+      -- would never fire for it — line 1 was never legitimately a reference
+      -- point. See docs/adr/0099-named-mark-repeated-line-return.md.
+      local s = seq()
+      patterns.feed(s, 'l', 1) -- session opens on line 1
+      patterns.feed(s, 'l', 5) -- first navigation: 1 -> 5 (no return yet)
+      -- Anchor is provisionally line 1 here, but no return has confirmed it —
+      -- moving on to line 10 must re-anchor to line 5, the line just left.
+      local second = leave_edit_return(s, 10, 5, 'i')
+      assert.is_nil(second)
+      local third = leave_edit_return(s, 20, 5, 'x')
+      assert.is_nil(third)
+      local fourth = leave_edit_return(s, 30, 5, 'x')
+      assert.is_not_nil(fourth)
+      assert.equals('named_mark_opportunity', fourth.pattern)
+      assert.equals('ma', fourth.cmd)
+    end
+  )
+
+  it('does not count a return with no genuine edit while away as progress', function()
+    local s = seq()
+    patterns.feed(s, 'i', 10)
+    patterns.feed(s, '\27', 10)
+    -- leave and return 3 times with no edit at all while away
+    for _ = 1, 3 do
+      patterns.feed(s, 'l', 20)
+      patterns.feed(s, 'l', 10)
+    end
+    -- a 4th leave+edit+return still only counts as the FIRST genuine return,
+    -- since none of the prior bare bounces advanced mark_return_count
+    local result = leave_edit_return(s, 20, 10, 'i')
+    assert.is_nil(result)
+  end)
+
+  it('resets after firing, so a 4th return alone does not immediately refire', function()
+    local s = seq()
+    patterns.feed(s, 'i', 10)
+    patterns.feed(s, '\27', 10)
+    leave_edit_return(s, 20, 10, 'i')
+    leave_edit_return(s, 30, 10, 'x')
+    leave_edit_return(s, 40, 10, 'x') -- fires here
+    local result = leave_edit_return(s, 50, 10, 'x')
+    assert.is_nil(result)
+  end)
+
+  it('does not fire manual_return/changelist_return for the same event (disjoint trigger shapes)', function()
+    -- manual_return/changelist_return need 5 CONSECUTIVE return-motion keys
+    -- with no edit in between; named_mark_opportunity needs a genuine edit
+    -- between every return. The two cannot fire from the same keystrokes.
+    local s = seq()
+    patterns.feed(s, 'i', 10)
+    patterns.feed(s, '\27', 10)
+    leave_edit_return(s, 20, 10, 'i')
+    leave_edit_return(s, 30, 10, 'x')
+    local result = leave_edit_return(s, 40, 10, 'x')
+    assert.equals('named_mark_opportunity', result.pattern)
+    assert.is_not_equal('manual_return', result.pattern)
+    assert.is_not_equal('changelist_return', result.pattern)
+  end)
+
+  it('does not increment mark_return_count from a tight manual_return-triggering streak (coexistence)', function()
+    local s = seq()
+    patterns.feed(s, 'G', 1, nil, 0) -- jump
+    for _ = 1, 4 do
+      patterns.feed(s, 'k', 1, nil, 0) -- line never changes in this test
+    end
+    local result = patterns.feed(s, 'k', 1, nil, 0)
+    assert.equals('manual_return', result.pattern)
+    assert.equals(0, s.mark_return_count)
   end)
 end)
 
@@ -2779,6 +3196,97 @@ describe("seq.macro_buf's bounded growth", function()
       patterns.feed_macro(s, 'TOK' .. tostring(i % 5))
     end
     assert.equals(100, #s.macro_buf)
+  end)
+end)
+
+-- ── visual-block edit streak: same single-line edit on 3+ consecutive ────────
+-- ── lines → suggest <C-v> (#230) ──────────────────────────────────────────────
+-- see docs/adr/0097-visual-block-edit-streak.md
+
+describe('when the user repeats the same single-line edit on consecutive lines', function()
+  it('fires visual_block_opportunity suggesting <C-v> for A;<Esc> repeated 3x with single-line gaps', function()
+    local s = seq()
+    feed_macro_seq(s, { 'A', ';', '<Esc>' })
+    feed_macro_seq(s, { 'j' })
+    feed_macro_seq(s, { 'A', ';', '<Esc>' })
+    feed_macro_seq(s, { 'j' })
+    local result = feed_macro_seq(s, { 'A', ';', '<Esc>' })
+    assert.is_not_nil(result)
+    assert.equals('visual_block_opportunity', result.pattern)
+    assert.equals('<C-v>', result.cmd)
+  end)
+
+  it('fires for I//<Esc> repeated 3x (comment-out-line shape)', function()
+    local s = seq()
+    feed_macro_seq(s, { 'I', '/', '/', '<Esc>' })
+    feed_macro_seq(s, { 'j' })
+    feed_macro_seq(s, { 'I', '/', '/', '<Esc>' })
+    feed_macro_seq(s, { 'j' })
+    local result = feed_macro_seq(s, { 'I', '/', '/', '<Esc>' })
+    assert.is_not_nil(result)
+    assert.equals('visual_block_opportunity', result.pattern)
+  end)
+
+  it('does not fire after only 2 repetitions', function()
+    local s = seq()
+    feed_macro_seq(s, { 'A', ';', '<Esc>' })
+    feed_macro_seq(s, { 'j' })
+    local result = feed_macro_seq(s, { 'A', ';', '<Esc>' })
+    assert.is_nil(result)
+  end)
+
+  it('falls back to macro_opportunity when the gap between repeats is more than one line', function()
+    local s = seq()
+    feed_macro_seq(s, { 'A', ';', '<Esc>' })
+    feed_macro_seq(s, { 'j', 'j' })
+    feed_macro_seq(s, { 'A', ';', '<Esc>' })
+    feed_macro_seq(s, { 'j', 'j' })
+    local result = feed_macro_seq(s, { 'A', ';', '<Esc>' })
+    assert.is_not_nil(result)
+    assert.equals('macro_opportunity', result.pattern)
+  end)
+
+  it('still fires macro_opportunity, not visual_block_opportunity, for operator+motion edits like cwFooBar<Esc> (regression)', function()
+    local s = seq()
+    feed_macro_seq(s, CW_FOOBAR_ESC)
+    feed_macro_seq(s, { 'j' })
+    feed_macro_seq(s, CW_FOOBAR_ESC)
+    feed_macro_seq(s, { 'j' })
+    local result = feed_macro_seq(s, CW_FOOBAR_ESC)
+    assert.is_not_nil(result)
+    assert.equals('macro_opportunity', result.pattern)
+  end)
+
+  it('does not fire when the repeated content contains a register/macro key', function()
+    local s = seq()
+    feed_macro_seq(s, { 'i', 'q', '<Esc>' })
+    feed_macro_seq(s, { 'j' })
+    feed_macro_seq(s, { 'i', 'q', '<Esc>' })
+    feed_macro_seq(s, { 'j' })
+    local result = feed_macro_seq(s, { 'i', 'q', '<Esc>' })
+    assert.is_not_equal('visual_block_opportunity', (result or {}).pattern)
+  end)
+
+  it('does not fire when only 2 occurrences fit before the buffer start (no room for a 3rd)', function()
+    local s = seq()
+    -- A leading 'j' with nothing before it: only 2 full occurrences of
+    -- A;<Esc> can possibly exist in the buffer, so the search for a 3rd,
+    -- earlier occurrence runs out of room.
+    feed_macro_seq(s, { 'j' })
+    feed_macro_seq(s, { 'A', ';', '<Esc>' })
+    feed_macro_seq(s, { 'j' })
+    local result = feed_macro_seq(s, { 'A', ';', '<Esc>' })
+    assert.is_not_equal('visual_block_opportunity', (result or {}).pattern)
+  end)
+
+  it('does not fire when the earliest occurrence has different content than the other two', function()
+    local s = seq()
+    feed_macro_seq(s, { 'B', ';', '<Esc>' }) -- earliest occurrence: different content
+    feed_macro_seq(s, { 'j' })
+    feed_macro_seq(s, { 'A', ';', '<Esc>' })
+    feed_macro_seq(s, { 'j' })
+    local result = feed_macro_seq(s, { 'A', ';', '<Esc>' })
+    assert.is_not_equal('visual_block_opportunity', (result or {}).pattern)
   end)
 end)
 

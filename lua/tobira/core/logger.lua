@@ -285,6 +285,24 @@ local function build_track_table()
 end
 local TRACK = build_track_table()
 
+-- Keys that make is_diff worth reading vim.wo.diff for: j/k (j_many_diff/
+-- k_many_diff) plus the plain insert-entry keys (diff_jump_then_insert_next/
+-- _prev, #237) — mirrors patterns.lua's own unexported INSERT_KEYS. See the
+-- is_diff computation below for why this stays a separate local table
+-- instead of exporting patterns.lua's internal one.
+local DIFF_GATE_KEYS = {
+  j = true,
+  k = true,
+  i = true,
+  I = true,
+  a = true,
+  A = true,
+  o = true,
+  O = true,
+  s = true,
+  S = true,
+}
+
 -- Raw on_key bytes -> canonical name for the handful of insert-mode-only keys
 -- patterns_insert.feed_insert() cares about. <C-w>/<C-n>/<C-o> each mean
 -- something different in Normal mode — see
@@ -547,12 +565,16 @@ local function handle_key(key)
   -- reconciliation below.
   local co_result = patterns_insert.feed_after_escape(insert_seq, key)
 
-  -- Only reads vim.wo.diff for j/k (the only keys patterns.lua's is_diff
-  -- branches consult) to keep the vim.on_key hot path cheap — see
-  -- "vim.on_key() performance" in lua/tobira/CLAUDE.md. patterns.lua stays
-  -- vim.*-free; this is the one call site that reads the option and threads
-  -- it in as a parameter.
-  local is_diff = (key == 'j' or key == 'k') and vim.wo.diff or false
+  -- Only reads vim.wo.diff for keys patterns.lua's is_diff branches actually
+  -- consult (j/k for j_many_diff/k_many_diff, plus the insert-entry keys for
+  -- diff_jump_then_insert_next/_prev, #237) to keep the vim.on_key hot path
+  -- cheap — see "vim.on_key() performance" in lua/tobira/CLAUDE.md.
+  -- patterns.lua stays vim.*-free; this is the one call site that reads the
+  -- option and threads it in as a parameter. DIFF_GATE_KEYS mirrors
+  -- patterns.lua's own (unexported) INSERT_KEYS plus j/k — kept as a
+  -- separate local table rather than exporting patterns.lua's internal one,
+  -- since Vim's insert-entry key set is fixed and effectively never changes.
+  local is_diff = DIFF_GATE_KEYS[key] and vim.wo.diff or false
   -- Read once, reused for feed_macro() below too — patterns.lua stays
   -- vim.*-free and only ever sees this caller-supplied monotonic ms value.
   local now = vim.loop.now()

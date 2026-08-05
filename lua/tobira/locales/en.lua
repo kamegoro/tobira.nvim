@@ -135,6 +135,14 @@ return {
       tabnew_run = 'You opened 3 or more files with :tabnew, one tab each',
       ci_dquote_repeat = 'You changed inside double quotes with ci" 3 times in a row',
       ci_squote_repeat = "You changed inside single quotes with ci' 3 times in a row",
+      ctrl_w_resize_repeat = 'You resized windows one keystroke at a time, 2 times in a row',
+      cursor_center_repeat = 'You scrolled with <C-e>/<C-y> repeatedly to reposition the cursor line',
+      visual_block_opportunity = 'You made the same single-line edit on 3 consecutive lines by hand',
+      diff_jump_then_insert_next = 'You jumped to the next diff hunk with ]c and started retyping it by hand',
+      diff_jump_then_insert_prev = 'You jumped to the previous diff hunk with [c and started retyping it by hand',
+      named_mark_opportunity = 'You returned to the same line 3 times, editing elsewhere in between',
+      tilde_word_repeat = 'You toggled case 6 times in a row — enough to span a whole word',
+      tilde_line_repeat = 'You toggled case 12 times in a row — enough to span most of a line',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -339,6 +347,16 @@ return {
       title = '[c — jump to previous diff hunk',
       body = 'The upward complement of ]c — jumps to the previous changed hunk\nFaster than hammering k to hunt backward for a difference',
       example = '[c → cursor jumps to the previous hunk of changes',
+    },
+    ['do'] = {
+      title = 'do — diff obtain (get change from the other window)',
+      body = 'Copies the current diff hunk from the other diff window into this one\nFaster and safer than manually retyping the change by hand',
+      example = ']c → jump to hunk; do → pull that hunk in from the other window',
+    },
+    ['dp'] = {
+      title = 'dp — diff put (send change to the other window)',
+      body = 'Copies the current diff hunk from this window into the other diff window\nThe complement of do — pushes your version across instead of pulling',
+      example = '[c → jump to hunk; dp → push that hunk out to the other window',
     },
 
     -- ── screen centering chain ─────────────────────────────────────────────
@@ -632,6 +650,16 @@ return {
       title = 'g~{motion} — swap case of a region',
       body = 'Inverts the case of every character in the motion — upper becomes lower and vice versa\nLike applying ~ to an entire motion at once instead of one character at a time',
       example = 'g~iw → "Hello World" becomes "hELLO wORLD"',
+    },
+    ['g~iw'] = {
+      title = 'g~iw — swap case of the inner word',
+      body = 'Toggles case for the whole word in one motion instead of pressing ~ once per character\nWorks from anywhere inside the word — no need to start at its edge',
+      example = '~~~~~~ one character at a time → g~iw does the same word in one command',
+    },
+    ['g~$'] = {
+      title = 'g~$ — swap case from cursor to end of line',
+      body = 'Toggles case for everything from the cursor to the end of the line in one motion\nFaster than repeating ~ once for every remaining character',
+      example = '~~~~~~~~~~~~ to the end of a line → g~$ does it in one command',
     },
 
     -- ── format text ───────────────────────────────────────────────────────

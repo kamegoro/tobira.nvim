@@ -135,6 +135,14 @@ return {
       tabnew_run = 'Abriste 3 o más archivos con :tabnew, cada uno en su propia pestaña',
       ci_dquote_repeat = 'Cambiaste el contenido entre comillas dobles con ci" 3 veces seguidas',
       ci_squote_repeat = "Cambiaste el contenido entre comillas simples con ci' 3 veces seguidas",
+      ctrl_w_resize_repeat = 'Redimensionaste ventanas una tecla a la vez, 2 veces seguidas',
+      cursor_center_repeat = 'Desplazaste la vista con <C-e>/<C-y> repetidamente para reposicionar la línea del cursor',
+      visual_block_opportunity = 'Hiciste la misma edición de una línea manualmente en 3 líneas consecutivas',
+      diff_jump_then_insert_next = 'Saltaste al siguiente bloque de diferencias con ]c y empezaste a reescribirlo a mano',
+      diff_jump_then_insert_prev = 'Saltaste al bloque de diferencias anterior con [c y empezaste a reescribirlo a mano',
+      named_mark_opportunity = 'Volviste a la misma línea 3 veces, editando en otro lugar entre medias',
+      tilde_word_repeat = 'Alternaste mayúsculas/minúsculas 6 veces seguidas — suficiente para toda una palabra',
+      tilde_line_repeat = 'Alternaste mayúsculas/minúsculas 12 veces seguidas — suficiente para la mayor parte de una línea',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -339,6 +347,16 @@ return {
       title = '[c — saltar al bloque de diferencias anterior',
       body = 'El complemento de ]c — salta al bloque modificado anterior\nMás rápido que pulsar k repetidamente para buscar hacia atrás una diferencia',
       example = '[c → el cursor salta al bloque de cambios anterior',
+    },
+    ['do'] = {
+      title = 'do — diff obtain (traer el cambio de la otra ventana)',
+      body = 'Copia el bloque de diferencias actual desde la otra ventana de diff a esta\nMás rápido y seguro que reescribir el cambio a mano',
+      example = ']c → saltar al bloque; do → traer ese bloque desde la otra ventana',
+    },
+    ['dp'] = {
+      title = 'dp — diff put (enviar el cambio a la otra ventana)',
+      body = 'Copia el bloque de diferencias actual desde esta ventana a la otra ventana de diff\nEl complemento de do — envía tu versión en lugar de traerla',
+      example = '[c → saltar al bloque; dp → enviar ese bloque a la otra ventana',
     },
 
     -- ── screen centering chain ─────────────────────────────────────────────
@@ -632,6 +650,16 @@ return {
       title = 'g~{motion} — invertir mayúsculas/minúsculas de una región',
       body = 'Invierte las mayúsculas/minúsculas de cada carácter en el movimiento — mayúsculas a minúsculas y viceversa\nComo aplicar ~ a todo un movimiento en vez de a un solo carácter',
       example = 'g~iw → "Hello World" se convierte en "hELLO wORLD"',
+    },
+    ['g~iw'] = {
+      title = 'g~iw — invertir mayúsculas/minúsculas de la palabra interior',
+      body = 'Invierte mayúsculas/minúsculas de toda la palabra en un solo movimiento, en vez de pulsar ~ carácter por carácter\nFunciona desde cualquier punto dentro de la palabra — no hace falta empezar en su borde',
+      example = 'En vez de ~~~~~~ carácter por carácter, g~iw hace la misma palabra en un solo comando',
+    },
+    ['g~$'] = {
+      title = 'g~$ — invertir mayúsculas/minúsculas desde el cursor hasta fin de línea',
+      body = 'Invierte mayúsculas/minúsculas desde el cursor hasta el final de la línea en un solo movimiento\nMás rápido que repetir ~ para cada carácter restante',
+      example = 'En vez de ~~~~~~~~~~~~ hasta el final, g~$ lo hace en un solo comando',
     },
 
     -- ── format text ───────────────────────────────────────────────────────
