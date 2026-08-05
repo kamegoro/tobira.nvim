@@ -162,7 +162,7 @@ for _, tc in ipairs(run_cases) do
 end
 
 -- ── ~ higher thresholds: text-object-scoped case toggle (#235) ───────────────
--- see docs/adr/0100-tilde-repeat-text-object-refinement.md
+-- see docs/adr/0101-tilde-repeat-text-object-refinement.md
 
 describe('when ~ is repeated across consecutive character positions', function()
   it('still fires tilde_repeat suggesting {n}~ at 3 (existing behavior preserved)', function()
@@ -323,7 +323,7 @@ describe('when j is pressed 10 times in a row outside diff mode', function()
 end)
 
 -- ── diff hunk jump → insert: suggest do / dp (#237) ───────────────────────────
--- see docs/adr/0098-diff-obtain-put-after-hunk-jump.md
+-- see docs/adr/0099-diff-obtain-put-after-hunk-jump.md
 
 describe('when the user edits immediately after jumping to a diff hunk', function()
   it('fires diff_jump_then_insert_next suggesting do after ]c then entering insert', function()
@@ -2239,7 +2239,7 @@ describe('when the user closes windows one at a time', function()
 end)
 
 -- ── <C-w>+ / <C-w>- / <C-w>< / <C-w>> repeated → <C-w>= (#231) ────────────────
--- see docs/adr/0095-ctrl-w-resize-streak.md
+-- see docs/adr/0096-ctrl-w-resize-streak.md
 
 describe('when the user resizes windows one keystroke at a time', function()
   local ctrl_w = '\23'
@@ -2666,7 +2666,7 @@ describe('when the user jumps to end of file then scrolls back manually', functi
 end)
 
 -- ── zz cursor-centering streak: <C-e>/<C-y> repeated → zz (#243) ─────────────
--- see docs/adr/0096-cursor-centering-streak.md
+-- see docs/adr/0097-cursor-centering-streak.md
 
 describe('when the user repeatedly scrolls with <C-e>/<C-y> to reposition the cursor line', function()
   local ctrl_e = '\5'
@@ -2738,7 +2738,7 @@ describe('when the user repeatedly scrolls with <C-e>/<C-y> to reposition the cu
     -- Both manual_return's jump_return_streak and cursor_center_repeat's
     -- zz_streak reach their threshold on this same 5th <C-e> — manual_return
     -- is the more specific, contextual suggestion and wins. See
-    -- docs/adr/0096-cursor-centering-streak.md
+    -- docs/adr/0097-cursor-centering-streak.md
     local s = seq()
     patterns.feed(s, 'G', 1, nil, 0)
     for _ = 1, 4 do
@@ -2910,7 +2910,7 @@ describe('when both the jumplist and changelist preconditions are true on the sa
 end)
 
 -- ── named-mark opportunity: repeated returns to the same line → ma (#238) ────
--- see docs/adr/0099-named-mark-repeated-line-return.md
+-- see docs/adr/0100-named-mark-repeated-line-return.md
 -- 'l' is used as the connecting/leaving motion below (not j/k/G/<C-e>/<C-y>)
 -- so these tests never touch jump_return_streak/change_return_streak/
 -- zz_streak, isolating them from the jumplist/changelist/zz patterns above.
@@ -2954,7 +2954,7 @@ describe('when the cursor returns to the same line 3 times with real edits elsew
       -- accidental line forever, since nothing ever reset it again.
       -- Real work then happens around line 5, but named_mark_opportunity
       -- would never fire for it — line 1 was never legitimately a reference
-      -- point. See docs/adr/0099-named-mark-repeated-line-return.md.
+      -- point. See docs/adr/0100-named-mark-repeated-line-return.md.
       local s = seq()
       patterns.feed(s, 'l', 1) -- session opens on line 1
       patterns.feed(s, 'l', 5) -- first navigation: 1 -> 5 (no return yet)
@@ -3201,7 +3201,7 @@ end)
 
 -- ── visual-block edit streak: same single-line edit on 3+ consecutive ────────
 -- ── lines → suggest <C-v> (#230) ──────────────────────────────────────────────
--- see docs/adr/0097-visual-block-edit-streak.md
+-- see docs/adr/0098-visual-block-edit-streak.md
 
 describe('when the user repeats the same single-line edit on consecutive lines', function()
   it('fires visual_block_opportunity suggesting <C-v> for A;<Esc> repeated 3x with single-line gaps', function()

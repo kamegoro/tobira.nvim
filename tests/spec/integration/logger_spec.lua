@@ -498,7 +498,7 @@ end)
 -- Regression: is_diff used to be computed only for j/k (the only keys the
 -- original j_many_diff/k_many_diff branches needed), which silently broke
 -- diff_jump_then_insert_next/_prev — live QA caught this before it shipped.
--- See docs/adr/0098-diff-obtain-put-after-hunk-jump.md.
+-- See docs/adr/0099-diff-obtain-put-after-hunk-jump.md.
 
 describe('when the user edits immediately after a diff-hunk jump while &diff is set', function()
   before_each(function()

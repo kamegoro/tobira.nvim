@@ -226,7 +226,7 @@ M.registry = {
   -- g~ (toggle) is used rather than gu/gU (fixed direction) because
   -- patterns.lua has no buffer-content visibility to know whether the
   -- original characters were upper- or lowercase. See
-  -- docs/adr/0100-tilde-repeat-text-object-refinement.md.
+  -- docs/adr/0101-tilde-repeat-text-object-refinement.md.
   ['g~iw'] = { requires = 'g~', track = false, category = 'edit', level = 'advanced' },
   ['g~$'] = { requires = 'g~iw', track = false, category = 'edit', level = 'advanced' },
 
@@ -395,7 +395,7 @@ M.registry = {
   -- ── diff mode: manual retyping after a hunk jump → do / dp ─────────────────
   -- Reactive-only: fires when insert-mode editing immediately follows a
   -- ]c/[c jump while &diff is set — see
-  -- docs/adr/0098-diff-obtain-put-after-hunk-jump.md.
+  -- docs/adr/0099-diff-obtain-put-after-hunk-jump.md.
   ['do'] = { requires = ']c', track = false, category = 'diff', level = 'intermediate' },
   ['dp'] = { requires = '[c', track = false, category = 'diff', level = 'intermediate' },
 
