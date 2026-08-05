@@ -251,6 +251,16 @@ local function is_valid_delimiter(c)
   return c ~= '' and c:match('%s') == nil and c:match('%w') == nil and c ~= '\\' and c ~= '"' and c ~= '|'
 end
 
+-- Shared by track_substitute() below and feed_history_recall() further down
+-- (#241) -- both need to know whether a lowercased command word belongs to
+-- the ":substitute" family, so this is factored out once rather than
+-- duplicated across two functions in the same file (unlike the cross-file
+-- duplication in logger.lua's looks_like_substitute(), which exists to keep
+-- this module vim.*-free -- see docs/adr/0015).
+local function is_substitute_word(lower_word)
+  return ('substitute'):sub(1, #lower_word) == lower_word
+end
+
 -- Finds the index of the next unescaped occurrence of `delim` in `text`
 -- starting at `start`. Returns nil if none is found before the end of the
 -- string. `\`-escaped characters (including an escaped delimiter) are
@@ -302,7 +312,7 @@ function M.track_substitute(state, text, line)
     return nil
   end
   local lower_word = word:lower()
-  if ('substitute'):sub(1, #lower_word) ~= lower_word then
+  if not is_substitute_word(lower_word) then
     return nil -- not a recognized abbreviation of :substitute
   end
 
@@ -348,6 +358,98 @@ function M.track_substitute(state, text, line)
     return { pattern = 'substitute_repeat', cmd = '&' }
   elseif entry.count == 3 then
     return { pattern = 'substitute_repeat_wide', cmd = 'g&' }
+  end
+  return nil
+end
+
+-- ── Verbatim Ex-command retype detection ────────────────────────────────────
+--
+-- M.feed_history_recall(state, text, word, arg) generalizes the "retyping
+-- instead of recalling" insight behind the three detectors above to any
+-- OTHER Ex command (#241): the exact same full command-line string submitted
+-- 2+ times is a signal for `:` + <Up> (or q:) history recall, regardless of
+-- what the command actually does.
+--
+-- word (command_arg()'s first return, already lowercased; nil for symbolic
+-- commands like :!) gates out anything the three more specific detectors
+-- above already claim, so this generic one never double-fires alongside them
+-- and can never race to fire first:
+--   - any abbreviation of :substitute (is_substitute_word) -- even scope
+--     track_substitute() itself declines (e.g. a ranged :%s/../../) is
+--     excluded here too, by word-family rather than by exact-scope match, so
+--     the same edit habit never earns two different suggestions.
+--   - :e / :b (PINGPONG_COMMANDS) -- regardless of whether an argument was
+--     given, matching feed_pingpong()'s own literal-word-only scope (no
+--     abbreviations recognized, so :edit/:buffer fall through to this
+--     generic detector instead).
+--   - :tabnew, exact word only -- same literal-word-only scope as
+--     feed_tabnew()'s own ":tabnew" name check in logger.lua.
+--
+-- arg (command_arg()'s second return for this same text, or nil) gates out
+-- bare commands with no argument at all -- a QA-found false positive fixed
+-- after this PR first landed: `word ~= nil and arg == nil` means the entire
+-- submitted line was nothing but a (possibly bang-forced) command word, e.g.
+-- `:w`, `:q`, `:x`, `:wq`, `:qa`, `:noh`, `:qa!`. There is nothing substantial
+-- in a bare command word to mistype or lose by retyping it -- the "avoid
+-- retyping this" pitch that `q:` sells only makes sense once there's an
+-- argument (a pattern, a range, a filename, flags) actually worth not
+-- retyping. This reuses command_arg()'s own bang-stripping/argument
+-- extraction rather than inventing a separate length threshold, so it stays
+-- an argument/complexity check, not a word blacklist: `:w somefile.txt`
+-- retyped verbatim still fires, exactly like `:g/foo/d` does. Symbolic
+-- commands (word == nil, e.g. `:!somecommand --flags`) are unaffected by
+-- this guard -- command_arg() cannot separate their "word" from their
+-- "argument", so the full text is still tracked as before.
+--
+-- Unlike substitute/pingpong/tabnew (see
+-- docs/adr/0015-ex-command-verify-before-credit.md), no defer-and-verify
+-- credit is needed here -- the signal is the retyping ITSELF, not any effect
+-- the command has. A command that fails identically both times still means
+-- the user typed the same doomed text twice instead of recalling and fixing
+-- it from history.
+--
+-- see docs/adr/0095-cmdline-history-recall-detection.md for the full
+-- rationale and the fires-once-per-distinct-text latch.
+function M.new_history_recall_state()
+  return { entries = {} }
+end
+
+-- state: from M.new_history_recall_state(), persists for the whole session
+-- (same lifetime as new_substitute_state()'s state).
+-- text: the command-line buffer content (same shape tokenize() takes).
+-- word: command_arg()'s first return for this same text, or nil.
+-- arg: command_arg()'s second return for this same text, or nil.
+--
+-- Returns { pattern = 'cmdline_history_recall', cmd = 'q:' } the moment a
+-- given full command line is submitted for the second time, or nil.
+function M.feed_history_recall(state, text, word, arg)
+  if not text then
+    return nil
+  end
+  if word and (is_substitute_word(word) or PINGPONG_COMMANDS[word] or word == 'tabnew') then
+    return nil
+  end
+  if word and not arg then
+    return nil -- bare command word, no argument -- nothing worth recalling, see header comment above
+  end
+
+  local trimmed = text:match('^%s*(.-)%s*$')
+  if trimmed == '' then
+    return nil
+  end
+
+  local entry = state.entries[trimmed]
+  if not entry then
+    entry = { count = 0, fired = false }
+    state.entries[trimmed] = entry
+  end
+  entry.count = entry.count + 1
+
+  -- Latches after firing once -- see ADR above for why a 3rd+ identical
+  -- resubmission must not notify again.
+  if entry.count == 2 and not entry.fired then
+    entry.fired = true
+    return { pattern = 'cmdline_history_recall', cmd = 'q:' }
   end
   return nil
 end

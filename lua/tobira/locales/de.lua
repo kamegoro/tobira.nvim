@@ -133,6 +133,7 @@ return {
       substitute_repeat_wide = 'Du hast dieselbe :s///-Ersetzung von Hand auf einer dritten Zeile ausgeführt',
       ex_file_pingpong = 'Du bist mehrmals hintereinander mit :e/:b zwischen denselben zwei Dateien hin- und hergesprungen',
       tabnew_run = 'Du hast 3 oder mehr Dateien mit :tabnew geöffnet, jede in einem eigenen Tab',
+      cmdline_history_recall = 'Du hast denselben Ex-Befehl erneut eingetippt, statt ihn aus dem Verlauf abzurufen',
       ci_dquote_repeat = 'Du hast mit ci" 3-mal hintereinander den Inhalt in doppelten Anführungszeichen geändert',
       ci_squote_repeat = "Du hast mit ci' 3-mal hintereinander den Inhalt in einfachen Anführungszeichen geändert",
       ctrl_w_resize_repeat = 'Du hast Fenster 2-mal hintereinander einzeln in der Größe angepasst',
@@ -634,6 +635,11 @@ return {
       body = 'Führt den eingebauten Einrücker auf der aktuellen Zeile gemäß den Dateityp-Regeln aus\nSchneller als manuelles Korrigieren mit >> oder <<, wenn die Einrückung komplex ist',
       example = '== → Zeile rastet automatisch auf die richtige Einrückungsebene ein',
     },
+    ['=G'] = {
+      title = '=G — bis zum Dateiende neu einrücken',
+      body = 'Führt den eingebauten Einrücker von der Cursorposition bis zum Dateiende aus\nZuerst gg drücken (gg=G), um die gesamte Datei neu einzurücken, nicht nur ab dem Cursor',
+      example = 'gg=G → rückt die gesamte Datei neu ein',
+    },
 
     -- ── case operators ────────────────────────────────────────────────────
     ['gu'] = {
@@ -929,6 +935,16 @@ return {
       body = 'Führt genau einen Normal-Modus-Befehl aus und kehrt danach sofort in den Einfügemodus zurück — kein erneutes i/a nötig\nAnders als das normale <C-o> (Sprung zurück in der Jumplist), das nur außerhalb des Einfügemodus funktioniert',
       example = 'tippen…<C-o>dd → löscht die aktuelle Zeile, der Einfügemodus läuft danach automatisch weiter',
     },
+    ['<C-t>'] = {
+      title = '<C-t> (Einfügemodus) — aktuelle Zeile einrücken, ohne den Einfügemodus zu verlassen',
+      body = 'Verschiebt die aktuelle Zeile um eine Ebene nach rechts, während du weiterschreibst\nKein <Esc>, >>, dann wieder i nötig — <C-t> macht es direkt an Ort und Stelle',
+      example = 'tippen…<C-t> → Zeile rückt eine Ebene ein, der Cursor bleibt im Einfügemodus',
+    },
+    ['i_<C-d>'] = {
+      title = '<C-d> (Einfügemodus) — aktuelle Zeile ausrücken, ohne den Einfügemodus zu verlassen',
+      body = 'Verschiebt die aktuelle Zeile um eine Ebene nach links, während du weiterschreibst\nDas Gegenstück zu <C-t> — anders als das normale <C-d> (eine halbe Seite scrollen), das nur außerhalb des Einfügemodus funktioniert',
+      example = 'tippen…<C-d> → Zeile rückt eine Ebene aus, der Cursor bleibt im Einfügemodus',
+    },
 
     -- ── fold: additional commands ─────────────────────────────────────────
     ['zf'] = {
@@ -1053,6 +1069,16 @@ return {
       body = 'Du hast oft kopiert, aber nie die Systemzwischenablage benutzt\n"+y kopiert direkt hinein, sodass Einfügen außerhalb von Neovim (oder mit "+p von außen) einfach funktioniert\nMit clipboard=unnamedplus nutzen y/p die Zwischenablage standardmäßig — dann brauchst du das "+ Präfix gar nicht mehr',
       example = '"+yy eine Zeile → in einer anderen App mit der gewohnten Einfügen-Taste einfügen',
     },
+    ['"ay'] = {
+      title = '"ay — in das benannte Register a kopieren',
+      body = 'Ein erneutes y überschreibt das unbenannte Register — kopierst du vor dem Einfügen noch etwas anderes, geht das erste verloren\n"ay kopiert stattdessen in Register a, wo es erhalten bleibt — mit "ap wieder einfügen\nJeder Buchstabe a-z ergibt ein eigenes Register; "Ay (Großbuchstabe) hängt an Register a an, statt es zu überschreiben',
+      example = '"ayiw → ein Wort in Register a kopieren; später "ap → wieder einfügen',
+    },
+    ['"_d'] = {
+      title = '"_d — löschen, ohne das unbenannte Register zu überschreiben',
+      body = 'Ein normales Löschen überschreibt das unbenannte Register — ein aufgehobenes y geht beim nächsten Löschen verloren\n"_d schickt den gelöschten Text stattdessen ins Schwarze-Loch-Register und verwirft ihn — dein letztes y bleibt erhalten',
+      example = 'yiw, dann "_dd → eine Zeile löschen, ohne das gerade kopierte Wort zu verlieren',
+    },
 
     -- ── Ex commands ───────────────────────────────────────────────────────
     ['ex:g'] = {
@@ -1095,6 +1121,74 @@ return {
       title = "ya' — mit einfachen Anführungszeichen kopieren",
       body = 'Wie ya", aber für Strings in einfachen Anführungszeichen\nKopiert den ganzen String samt Anführungszeichen',
       example = "ya' → kopiert 'den zitierten Text' samt Anführungszeichen",
+    },
+
+    -- ── quickfix / location-list navigation (#228) ────────────────────────────
+    [']q'] = {
+      title = ']q — zum nächsten Quickfix-Eintrag springen',
+      body = 'Springt zum nächsten Eintrag der Quickfix-Liste (gefüllt durch :vimgrep, :grep oder LSP-Diagnosen)\nErsetzt manuelles Suchen oder Durchscrollen der Ergebnisse',
+      example = ':vimgrep /TODO/g % dann ]q → springt zum nächsten Treffer',
+    },
+    ['[q'] = {
+      title = '[q — zum vorherigen Quickfix-Eintrag springen',
+      body = 'Wie ]q, bewegt sich aber rückwärts durch die Quickfix-Liste\nDas Gegenstück zu ]q',
+      example = '[q → zurück zum vorherigen Quickfix-Treffer',
+    },
+    [']l'] = {
+      title = ']l — zum nächsten Location-List-Eintrag springen',
+      body = 'Wie ]q, aber für die fensterlokale Location-List statt der gemeinsamen Quickfix-Liste\nNützlich, wenn verschiedene Fenster jeweils eigene Ergebnislisten brauchen',
+      example = ':lvimgrep /TODO/g % dann ]l → springt zum nächsten Treffer in der Location-List dieses Fensters',
+    },
+    ['[l'] = {
+      title = '[l — zum vorherigen Location-List-Eintrag springen',
+      body = 'Wie [q, aber für die Location-List statt der Quickfix-Liste\nDas Gegenstück zu ]l',
+      example = '[l → zurück zum vorherigen Location-List-Eintrag',
+    },
+    ['ex:copen'] = {
+      title = ':copen — Quickfix-Fenster öffnen',
+      body = 'Öffnet ein Fenster mit allen Einträgen der Quickfix-Liste zum Durchsuchen und Springen\nErsetzt das erneute Ausführen der Suche, nur um die Ergebnisse wiederzusehen',
+      example = ':copen → zeigt die Quickfix-Liste in einem Split',
+    },
+    ['ex:cdo'] = {
+      title = ':cdo — Befehl auf jedem Quickfix-Eintrag ausführen',
+      body = 'Führt einen Ex-Befehl einmal pro Quickfix-Eintrag aus, springt vorher zu Datei und Zeile\nErsetzt manuelles Wiederholen einer Änderung in jeder Datei der Liste',
+      example = ':cdo s/foo/bar/g → ersetzt foo durch bar bei jedem Quickfix-Treffer',
+    },
+
+    -- ── spell-check (#229) ─────────────────────────────────────────────────────
+    [']s'] = {
+      title = ']s — zum nächsten falsch geschriebenen Wort springen',
+      body = 'Springt vorwärts zum nächsten Wort, das Vims Rechtschreibprüfung als falsch markiert (braucht :set spell)\nErsetzt das visuelle Absuchen des Texts nach Tippfehlern',
+      example = ']s → Cursor springt zum nächsten falsch geschriebenen Wort',
+    },
+    ['[s'] = {
+      title = '[s — zum vorherigen falsch geschriebenen Wort springen',
+      body = 'Wie ]s, sucht aber rückwärts nach dem vorherigen falsch geschriebenen Wort',
+      example = '[s → Cursor springt zurück zum vorherigen falsch geschriebenen Wort',
+    },
+    ['z='] = {
+      title = 'z= — Rechtschreibkorrekturen vorschlagen',
+      body = 'Zeigt eine nummerierte Liste von Korrekturvorschlägen für das Wort unter dem Cursor; per Nummer auswählen\nErsetzt das manuelle Löschen und Neutippen eines falsch geschriebenen Worts',
+      example = 'z= dann 2<CR> → ersetzt das Wort durch den 2. Vorschlag',
+    },
+
+    -- ── :sort (#239) ─────────────────────────────────────────────────────────
+    ['ex:sort'] = {
+      title = ':sort — Zeilen sortieren',
+      body = 'Sortiert die ausgewählten Zeilen (oder die ganze Datei) alphabetisch in einem Befehl\nErsetzt manuelles Ausschneiden und Einfügen von Zeilen in die richtige Reihenfolge',
+      example = ':sort → sortiert alle Zeilen der Datei alphabetisch',
+    },
+
+    -- ── ]p / [p indent-aware paste (#240) ──────────────────────────────────────
+    [']p'] = {
+      title = ']p — einfügen und Einrückung anpassen',
+      body = 'Wie p, passt aber die Einrückung des eingefügten Texts an die aktuelle Zeile an\nErsetzt das Einfügen und anschließende manuelle Korrigieren der Einrückung',
+      example = ']p → fügt zeilenweisen Text ein, eingerückt wie die Zeile darüber',
+    },
+    ['[p'] = {
+      title = '[p — davor einfügen und Einrückung anpassen',
+      body = 'Wie P, passt aber die Einrückung des eingefügten Texts an die aktuelle Zeile an\nDas Gegenstück zu ]p',
+      example = '[p → fügt zeilenweisen Text oberhalb ein, eingerückt wie die aktuelle Zeile',
     },
   },
 }

@@ -20,6 +20,9 @@ local substitute_state = patterns_cmdline.new_substitute_state()
 -- Persists across separate :tabnew submissions within a session (unlike
 -- seq/insert_seq) -- not reset alongside them in handle_cmdline_key below.
 local tabnew_seq = patterns_cmdline.new_tabnew_seq()
+-- Persists across separate Ex-command submissions within a session (#241),
+-- same lifetime as substitute_state/tabnew_seq above.
+local history_recall_state = patterns_cmdline.new_history_recall_state()
 local session_counts = {}
 -- Snapshot of {count, shown, suppressed, pinned, celebrated} as of the last
 -- disk sync. See docs/adr/0014-usage-json-concurrent-merge-and-migration.md
@@ -442,6 +445,27 @@ local function handle_cmdline_key(key)
         M.on_pattern(result.pattern, result.cmd)
       end
     end
+
+    -- Verbatim Ex-command retype detection (#241): reuses the same `word`
+    -- AND `arg` command_arg() already extracted above -- `arg` is also what
+    -- feed_history_recall() uses to decline bare commands with nothing
+    -- worth recalling (`:w`, `:q`, `:noh`, ...), see that function's header
+    -- comment. Unlike the substitute/pingpong/tabnew detectors above, no
+    -- vim.schedule()/verify-before-credit deferral is needed here -- the
+    -- signal is the retyping itself, not the command's effect. Tobira's own
+    -- UI commands are excluded the same way increment() above excludes them
+    -- (OWN_CMD_PREFIX has no meaning inside the vim.*-free
+    -- patterns_cmdline.lua, hence the check living here — see
+    -- docs/adr/0015-ex-command-verify-before-credit.md).
+    -- See docs/adr/0095-cmdline-history-recall-detection.md for the
+    -- exclusion-by-word design this relies on to never double-fire alongside
+    -- substitute_repeat/ex_file_pingpong/tabnew_run above.
+    if name and name:sub(1, #OWN_CMD_PREFIX) ~= OWN_CMD_PREFIX then
+      local recall_result = patterns_cmdline.feed_history_recall(history_recall_state, cmdline_text, word, arg)
+      if recall_result and M.on_pattern then
+        M.on_pattern(recall_result.pattern, recall_result.cmd)
+      end
+    end
     return
   end
 
@@ -780,6 +804,7 @@ function M.reset()
   substitute_state = patterns_cmdline.new_substitute_state()
   pingpong_seq = patterns_cmdline.new_pingpong_seq()
   tabnew_seq = patterns_cmdline.new_tabnew_seq()
+  history_recall_state = patterns_cmdline.new_history_recall_state()
   current_mode = 'n'
   _recording_macro = false
   _initialized = false

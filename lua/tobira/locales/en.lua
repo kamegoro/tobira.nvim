@@ -133,6 +133,7 @@ return {
       substitute_repeat_wide = 'You ran the same :s/// substitution manually on a third line',
       ex_file_pingpong = 'You bounced between the same two files with :e/:b a few times in a row',
       tabnew_run = 'You opened 3 or more files with :tabnew, one tab each',
+      cmdline_history_recall = 'You retyped the exact same Ex command instead of recalling it from history',
       ci_dquote_repeat = 'You changed inside double quotes with ci" 3 times in a row',
       ci_squote_repeat = "You changed inside single quotes with ci' 3 times in a row",
       ctrl_w_resize_repeat = 'You resized windows one keystroke at a time, 2 times in a row',
@@ -634,6 +635,11 @@ return {
       body = 'Runs the built-in indenter on the current line according to filetype rules\nFaster than manually correcting with >> or << when indentation is complex',
       example = '== → line snaps to the correct indentation level automatically',
     },
+    ['=G'] = {
+      title = '=G — reindent to the end of the file',
+      body = 'Runs the built-in indenter from the cursor to the end of the file\nCombine with gg first (gg=G) to reindent the entire buffer, not just from the cursor down',
+      example = 'gg=G → reindents the whole file',
+    },
 
     -- ── case operators ────────────────────────────────────────────────────
     ['gu'] = {
@@ -930,6 +936,16 @@ return {
       body = 'Runs exactly one Normal-mode command, then drops you right back into insert — no need to press i/a again\nDifferent from Normal-mode <C-o> (jump back in the jumplist), which only works outside insert mode',
       example = 'typing…<C-o>dd → deletes the current line, then insert mode resumes automatically',
     },
+    ['<C-t>'] = {
+      title = '<C-t> (insert mode) — indent the current line without leaving insert',
+      body = 'Shifts the current line right by one shiftwidth level while you keep typing\nNo need to press <Esc>, >>, then i again — <C-t> does it in place',
+      example = 'typing…<C-t> → line indents one level, cursor stays in insert mode',
+    },
+    ['i_<C-d>'] = {
+      title = '<C-d> (insert mode) — dedent the current line without leaving insert',
+      body = 'Shifts the current line left by one shiftwidth level while you keep typing\nThe insert-mode counterpart to <C-t> — different from Normal-mode <C-d> (scroll half page), which only works outside insert mode',
+      example = 'typing…<C-d> → line dedents one level, cursor stays in insert mode',
+    },
 
     -- ── fold: additional commands ─────────────────────────────────────────
     ['zf'] = {
@@ -1054,6 +1070,16 @@ return {
       body = 'You\'ve yanked a lot without ever reaching for the system clipboard\n"+y yanks straight into it, so pasting outside Neovim (or from outside into it with "+p) just works\nSet clipboard=unnamedplus to make y/p use it by default and skip the "+ prefix entirely',
       example = '"+yy a line → paste it into another app with your normal paste key',
     },
+    ['"ay'] = {
+      title = '"ay — yank into named register a',
+      body = 'Yanking again overwrites the unnamed register, so a second yank before pasting the first one loses it\n"ay yanks into register a instead, so it survives later yanks — paste it back with "ap\nUse any letter a-z for a separate register; "Ay (uppercase) appends to register a instead of overwriting it',
+      example = '"ayiw → yank a word into register a; later, "ap → paste it back',
+    },
+    ['"_d'] = {
+      title = '"_d — delete without overwriting the unnamed register',
+      body = 'A normal delete overwrites the unnamed register, so a yank you were saving gets clobbered by the next delete\n"_d routes the deleted text into the black-hole register instead, discarding it — your last yank survives',
+      example = 'yiw then "_dd → delete a line without losing the word you just yanked',
+    },
 
     -- ── Ex commands ───────────────────────────────────────────────────────
     ['ex:g'] = {
@@ -1096,6 +1122,74 @@ return {
       title = "ya' — yank around single quotes",
       body = 'Like ya" but for single-quoted strings\nYanks the whole string, including the quote marks',
       example = "ya' → yanks 'the quoted text' with its quotes",
+    },
+
+    -- ── quickfix / location-list navigation (#228) ────────────────────────────
+    [']q'] = {
+      title = ']q — jump to next quickfix entry',
+      body = 'Jumps to the next entry in the quickfix list (filled by :vimgrep, :grep, or LSP diagnostics)\nReplaces manually searching or scrolling through results one by one',
+      example = ':vimgrep /TODO/g % then ]q → jump to the next match',
+    },
+    ['[q'] = {
+      title = '[q — jump to previous quickfix entry',
+      body = 'Like ]q but moves backward through the quickfix list\nThe reverse complement of ]q',
+      example = '[q → jump back to the previous quickfix match',
+    },
+    [']l'] = {
+      title = ']l — jump to next location-list entry',
+      body = "Like ]q but for the current window's location list instead of the shared quickfix list\nUseful when different windows each need their own result list",
+      example = ":lvimgrep /TODO/g % then ]l → jump to the next match in this window's location list",
+    },
+    ['[l'] = {
+      title = '[l — jump to previous location-list entry',
+      body = 'Like [q but for the location list instead of the quickfix list\nThe reverse complement of ]l',
+      example = '[l → jump back to the previous location-list entry',
+    },
+    ['ex:copen'] = {
+      title = ':copen — open the quickfix window',
+      body = 'Opens a window listing every entry in the quickfix list so you can browse or jump to any of them\nReplaces re-running the search that filled the list just to see the results again',
+      example = ':copen → show the quickfix list in a split',
+    },
+    ['ex:cdo'] = {
+      title = ':cdo — run a command on every quickfix entry',
+      body = "Runs an Ex command once per quickfix entry, jumping to each match's file and line first\nReplaces manually repeating an edit across every file in the list",
+      example = ':cdo s/foo/bar/g → replace foo with bar at every quickfix match',
+    },
+
+    -- ── spell-check (#229) ─────────────────────────────────────────────────────
+    [']s'] = {
+      title = ']s — jump to next misspelled word',
+      body = "Jumps forward to the next word Vim's spell checker flags as misspelled (needs :set spell)\nReplaces scanning the text by eye for typos",
+      example = ']s → cursor jumps to the next misspelled word',
+    },
+    ['[s'] = {
+      title = '[s — jump to previous misspelled word',
+      body = 'Like ]s but searches backward for the previous misspelled word',
+      example = '[s → cursor jumps back to the previous misspelled word',
+    },
+    ['z='] = {
+      title = 'z= — suggest spelling corrections',
+      body = 'Shows a numbered list of spelling suggestions for the word under the cursor; pick one by number\nReplaces deleting and retyping a misspelled word by hand',
+      example = 'z= then 2<CR> → replace the word with the 2nd suggested correction',
+    },
+
+    -- ── :sort (#239) ─────────────────────────────────────────────────────────
+    ['ex:sort'] = {
+      title = ':sort — sort lines',
+      body = 'Sorts the selected lines (or the whole file) alphabetically in one command\nReplaces manually cutting and pasting lines into order',
+      example = ':sort → sort every line in the file alphabetically',
+    },
+
+    -- ── ]p / [p indent-aware paste (#240) ──────────────────────────────────────
+    [']p'] = {
+      title = ']p — paste and adjust indent',
+      body = 'Like p but re-indents the pasted text to match the current line\nReplaces pasting, then manually fixing the indentation by hand',
+      example = ']p → paste linewise text, indented to match the line above',
+    },
+    ['[p'] = {
+      title = '[p — paste before and adjust indent',
+      body = 'Like P but re-indents the pasted text to match the current line\nThe backward complement of ]p',
+      example = '[p → paste linewise text above, indented to match the current line',
     },
   },
 }

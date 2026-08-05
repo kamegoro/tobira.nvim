@@ -133,6 +133,7 @@ return {
       substitute_repeat_wide = 'Ejecutaste la misma sustitución :s/// a mano en una tercera línea',
       ex_file_pingpong = 'Alternaste varias veces seguidas entre los mismos dos archivos con :e/:b',
       tabnew_run = 'Abriste 3 o más archivos con :tabnew, cada uno en su propia pestaña',
+      cmdline_history_recall = 'Volviste a escribir exactamente el mismo comando Ex en lugar de recuperarlo del historial',
       ci_dquote_repeat = 'Cambiaste el contenido entre comillas dobles con ci" 3 veces seguidas',
       ci_squote_repeat = "Cambiaste el contenido entre comillas simples con ci' 3 veces seguidas",
       ctrl_w_resize_repeat = 'Redimensionaste ventanas una tecla a la vez, 2 veces seguidas',
@@ -634,6 +635,11 @@ return {
       body = 'Ejecuta el indentador incorporado en la línea actual según las reglas del tipo de archivo\nMás rápido que corregir manualmente con >> o << cuando la sangría es compleja',
       example = '== → la línea encaja automáticamente en el nivel de sangría correcto',
     },
+    ['=G'] = {
+      title = '=G — reindentar hasta el final del archivo',
+      body = 'Ejecuta el indentador incorporado desde el cursor hasta el final del archivo\nCombínalo primero con gg (gg=G) para reindentar todo el buffer, no solo desde el cursor hacia abajo',
+      example = 'gg=G → reindenta todo el archivo',
+    },
 
     -- ── case operators ────────────────────────────────────────────────────
     ['gu'] = {
@@ -929,6 +935,16 @@ return {
       body = 'Ejecuta exactamente un comando en modo Normal y vuelve directamente al modo inserción — sin necesidad de pulsar i/a de nuevo\nDistinto del <C-o> en modo Normal (volver atrás en la jumplist), que solo funciona fuera del modo inserción',
       example = 'escribiendo…<C-o>dd → borra la línea actual y el modo inserción continúa automáticamente',
     },
+    ['<C-t>'] = {
+      title = '<C-t> (modo inserción) — indenta la línea actual sin salir del modo inserción',
+      body = 'Desplaza la línea actual un nivel de sangría a la derecha mientras sigues escribiendo\nSin necesidad de pulsar <Esc>, >> y luego i de nuevo — <C-t> lo hace en el sitio',
+      example = 'escribiendo…<C-t> → la línea gana un nivel de sangría, el cursor sigue en modo inserción',
+    },
+    ['i_<C-d>'] = {
+      title = '<C-d> (modo inserción) — quita sangría a la línea actual sin salir del modo inserción',
+      body = 'Desplaza la línea actual un nivel de sangría a la izquierda mientras sigues escribiendo\nEl equivalente en modo inserción de <C-t> — distinto del <C-d> en modo Normal (desplazar media página), que solo funciona fuera del modo inserción',
+      example = 'escribiendo…<C-d> → la línea pierde un nivel de sangría, el cursor sigue en modo inserción',
+    },
 
     -- ── fold: additional commands ─────────────────────────────────────────
     ['zf'] = {
@@ -1053,6 +1069,16 @@ return {
       body = 'Has copiado muchas veces sin usar nunca el portapapeles del sistema\n"+y copia directamente a él, así que pegar fuera de Neovim (o pegar desde fuera con "+p) simplemente funciona\nConfigura clipboard=unnamedplus para que y/p usen el portapapeles por defecto y evitar el prefijo "+',
       example = '"+yy una línea → pégala en otra aplicación con tu tecla de pegar habitual',
     },
+    ['"ay'] = {
+      title = '"ay — copiar al registro con nombre a',
+      body = 'Copiar de nuevo sobrescribe el registro sin nombre, así que un segundo yank antes de pegar el primero lo pierde\n"ay copia al registro a en su lugar, así sobrevive a copias posteriores — pégalo con "ap\nUsa cualquier letra a-z para un registro distinto; "Ay (mayúscula) añade al registro a en vez de sobrescribirlo',
+      example = '"ayiw → copia una palabra al registro a; más tarde, "ap → la pegas',
+    },
+    ['"_d'] = {
+      title = '"_d — eliminar sin sobrescribir el registro sin nombre',
+      body = 'Un borrado normal sobrescribe el registro sin nombre, así que un yank que querías conservar se pierde con el siguiente borrado\n"_d envía el texto eliminado al registro de agujero negro en su lugar, descartándolo — tu último yank sobrevive',
+      example = 'yiw y luego "_dd → elimina una línea sin perder la palabra que acabas de copiar',
+    },
 
     -- ── Ex commands ───────────────────────────────────────────────────────
     ['ex:g'] = {
@@ -1095,6 +1121,74 @@ return {
       title = "ya' — copiar el texto entre comillas simples",
       body = 'Como ya" pero para texto entre comillas simples\nCopia todo el texto, incluidas las comillas',
       example = "ya' → copia 'el texto citado' junto con sus comillas",
+    },
+
+    -- ── quickfix / location-list navigation (#228) ────────────────────────────
+    [']q'] = {
+      title = ']q — saltar a la siguiente entrada de quickfix',
+      body = 'Salta a la siguiente entrada de la lista quickfix (llenada por :vimgrep, :grep o diagnósticos LSP)\nReemplaza buscar o desplazarse manualmente por los resultados uno a uno',
+      example = ':vimgrep /TODO/g % y luego ]q → salta a la siguiente coincidencia',
+    },
+    ['[q'] = {
+      title = '[q — saltar a la entrada anterior de quickfix',
+      body = 'Como ]q pero retrocede por la lista quickfix\nEl complemento inverso de ]q',
+      example = '[q → vuelve a la coincidencia quickfix anterior',
+    },
+    [']l'] = {
+      title = ']l — saltar a la siguiente entrada de la lista de ubicaciones',
+      body = 'Como ]q pero para la lista de ubicaciones local a la ventana en lugar de la lista quickfix compartida\nÚtil cuando distintas ventanas necesitan su propia lista de resultados',
+      example = ':lvimgrep /TODO/g % y luego ]l → salta a la siguiente coincidencia en la lista de ubicaciones de esta ventana',
+    },
+    ['[l'] = {
+      title = '[l — saltar a la entrada anterior de la lista de ubicaciones',
+      body = 'Como [q pero para la lista de ubicaciones en lugar de la lista quickfix\nEl complemento inverso de ]l',
+      example = '[l → vuelve a la entrada anterior de la lista de ubicaciones',
+    },
+    ['ex:copen'] = {
+      title = ':copen — abrir la ventana quickfix',
+      body = 'Abre una ventana con todas las entradas de la lista quickfix para explorarlas o saltar a cualquiera\nReemplaza volver a ejecutar la búsqueda que llenó la lista solo para ver los resultados de nuevo',
+      example = ':copen → muestra la lista quickfix en una ventana dividida',
+    },
+    ['ex:cdo'] = {
+      title = ':cdo — ejecutar un comando en cada entrada de quickfix',
+      body = 'Ejecuta un comando Ex una vez por cada entrada de quickfix, saltando antes al archivo y línea de cada una\nReemplaza repetir manualmente una edición en todos los archivos de la lista',
+      example = ':cdo s/foo/bar/g → reemplaza foo por bar en cada coincidencia de quickfix',
+    },
+
+    -- ── spell-check (#229) ─────────────────────────────────────────────────────
+    [']s'] = {
+      title = ']s — saltar a la siguiente palabra mal escrita',
+      body = 'Salta hacia adelante a la siguiente palabra que el corrector ortográfico de Vim marca como mal escrita (requiere :set spell)\nReemplaza revisar el texto a simple vista buscando errores',
+      example = ']s → el cursor salta a la siguiente palabra mal escrita',
+    },
+    ['[s'] = {
+      title = '[s — saltar a la palabra mal escrita anterior',
+      body = 'Como ]s pero busca hacia atrás la palabra mal escrita anterior',
+      example = '[s → el cursor vuelve a la palabra mal escrita anterior',
+    },
+    ['z='] = {
+      title = 'z= — sugerir correcciones ortográficas',
+      body = 'Muestra una lista numerada de sugerencias ortográficas para la palabra bajo el cursor; elige una por número\nReemplaza borrar y volver a escribir a mano una palabra mal escrita',
+      example = 'z= y luego 2<CR> → reemplaza la palabra con la 2.ª sugerencia',
+    },
+
+    -- ── :sort (#239) ─────────────────────────────────────────────────────────
+    ['ex:sort'] = {
+      title = ':sort — ordenar líneas',
+      body = 'Ordena las líneas seleccionadas (o todo el archivo) alfabéticamente en un solo comando\nReemplaza cortar y pegar líneas manualmente para ordenarlas',
+      example = ':sort → ordena todas las líneas del archivo alfabéticamente',
+    },
+
+    -- ── ]p / [p indent-aware paste (#240) ──────────────────────────────────────
+    [']p'] = {
+      title = ']p — pegar y ajustar la sangría',
+      body = 'Como p pero reindenta el texto pegado para que coincida con la línea actual\nReemplaza pegar y luego corregir la sangría a mano',
+      example = ']p → pega texto por líneas, con la sangría de la línea de arriba',
+    },
+    ['[p'] = {
+      title = '[p — pegar antes y ajustar la sangría',
+      body = 'Como P pero reindenta el texto pegado para que coincida con la línea actual\nEl complemento inverso de ]p',
+      example = '[p → pega texto por líneas arriba, con la sangría de la línea actual',
     },
   },
 }

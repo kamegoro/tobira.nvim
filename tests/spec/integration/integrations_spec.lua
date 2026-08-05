@@ -61,6 +61,28 @@ describe('M.refresh — keymap override detection (phase 1)', function()
     assert.is_false(integrations.is_equivalent_override('Y'))
   end)
 
+  it(
+    "marks Neovim's bundled matchit.vim remap of % (<Plug>(MatchitNormalForward)) as equivalent",
+    function()
+      -- Neovim auto-loads runtime/plugin/matchit.vim by default (packadd
+      -- matchit), which does `nmap <silent> % <Plug>(MatchitNormalForward)`.
+      -- This is a strict, compatible superset of the built-in % for the
+      -- basic bracket-jump behavior tobira teaches, so it must not suppress
+      -- the % suggestion the way a genuinely different remap would.
+      integrations.refresh(fake_keymap({ { lhs = '%', rhs = '<Plug>(MatchitNormalForward)', noremap = 0 } }))
+      assert.is_true(integrations.is_overridden('%'))
+      assert.is_true(integrations.is_equivalent_override('%'))
+    end
+  )
+
+  it('marks a % remap to something outside the curated equivalents list as not equivalent', function()
+    -- A genuinely different % remap (not matchit's) must still suppress the
+    -- suggestion -- this is not a blanket "any % override is fine" rule.
+    integrations.refresh(fake_keymap({ { lhs = '%', rhs = '<Plug>(SomeOtherPluginJump)', noremap = 0 } }))
+    assert.is_true(integrations.is_overridden('%'))
+    assert.is_false(integrations.is_equivalent_override('%'))
+  end)
+
   it('ignores mappings for keys that are not suggestable commands in commands.lua', function()
     integrations.refresh(fake_keymap({ { lhs = 'Q', rhs = 'gqip', noremap = 1 } }))
     assert.is_false(integrations.is_overridden('Q'))

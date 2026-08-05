@@ -23,12 +23,12 @@ it quietly shows you the one command that would have helped. No quizzes. No inte
 ## ✨ Features
 
 - 👀 **Fully passive** — reads keystrokes via `vim.on_key()`; no config required, zero impact on your existing mappings
-- 🎯 **70 detected patterns** across motion, edit, search, window, fold, mark, macro, diff, ex, and terminal — repeated `f` searches, `dw`→`i` instead of `cw`, retyping the same `:s///` substitution instead of `&`/`g&`, and more (see [examples below](#-detected-patterns-examples))
+- 🎯 **71 detected patterns** across motion, edit, search, window, fold, mark, macro, diff, ex, and terminal — repeated `f` searches, `dw`→`i` instead of `cw`, retyping the same `:s///` substitution instead of `&`/`g&`, and more (see [examples below](#-detected-patterns-examples))
 - ⌨️ **Ex commands, too** — `:g`, `:norm`, `:s`, and friends are tracked from the command line itself, not just normal-mode keys, so `:g` / `:norm` can be suggested to users who have never tried them (tobira's own `:Tobira*` commands are excluded, so checking your stats never counts as usage)
 - 💬 **One suggestion at a time** — shown after a natural pause, capped per session, with a cooldown between auto-suggestions — never a popup quiz
 - 📈 **Mastery-aware** — once you've used a command ~100 times, tobira stops suggesting it and moves on
 - 🪜 **Level-aware** — beginner commands surface first, advanced ones once you're ready
-- 🗺️ **171 commands** in the learning graph, covering the full Neovim command surface
+- 🗺️ **188 commands** in the learning graph, covering the full Neovim command surface
 
 ## ⚡️ Requirements
 
@@ -129,9 +129,16 @@ require("tobira").setup({
 tobira always respects your own `:nmap`/`:nnoremap` overrides — it never suggests a
 command you've remapped away, and `integrations` above only gates the optional
 plugin-detection boost, not that baseline behavior (see `:help tobira-integrations`).
-One narrow exception: Neovim's own factory-default `nnoremap Y y$` is recognized as
+Two narrow exceptions: Neovim's own factory-default `nnoremap Y y$` is recognized as
 equivalent to what tobira already teaches, so the reactive `y$` → `Y` suggestion still
 fires even on a stock install — a `Y` remapped to anything else still suppresses it.
+Likewise, Neovim auto-loads `matchit.vim` by default, which remaps `%` to
+`<Plug>(MatchitNormalForward)` — a strict, compatible superset of the built-in `%`
+tobira teaches, so `:TobiraGuide`'s cheat sheet still lists `%` (with a "mapped to ..."
+note) on a stock install instead of hiding it outright; a `%` remapped to anything else
+still hides it like any other override. Both exceptions are still excluded from the
+proactive idle/`:Tobira` picks and `:TobiraStats`'s "Try these next" list either way —
+see `:help tobira-integrations` for why those two surfaces don't read this distinction.
 
 ## 🎯 Detected patterns (examples)
 
@@ -154,7 +161,7 @@ fires even on a stock install — a `Y` remapped to anything else still suppress
 | Cursor returns to the same line 3× with real edits in between | `ma` — set a named mark to jump back to |
 | `~` × 6 (spans a word) / × 12 (spans a line) | `g~iw` / `g~$` — toggle case in one motion |
 
-70 patterns total — see `:help tobira-patterns` for the full list.
+71 patterns total — see `:help tobira-patterns` for the full list.
 
 ## 🆚 Similar plugins
 

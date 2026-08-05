@@ -133,6 +133,7 @@ return {
       substitute_repeat_wide = 'Vous avez rejoué la même substitution :s/// à la main sur une troisième ligne',
       ex_file_pingpong = 'Vous avez basculé plusieurs fois de suite entre les deux mêmes fichiers avec :e/:b',
       tabnew_run = 'Vous avez ouvert 3 fichiers ou plus avec :tabnew, chacun dans son propre onglet',
+      cmdline_history_recall = "Vous avez retapé exactement la même commande Ex au lieu de la rappeler depuis l'historique",
       ci_dquote_repeat = 'Vous avez changé le contenu entre guillemets doubles avec ci" 3 fois de suite',
       ci_squote_repeat = "Vous avez changé le contenu entre guillemets simples avec ci' 3 fois de suite",
       ctrl_w_resize_repeat = 'Vous avez redimensionné des fenêtres une touche à la fois, 2 fois de suite',
@@ -634,6 +635,11 @@ return {
       body = "Exécute l'indenteur intégré sur la ligne actuelle selon les règles du type de fichier\nPlus rapide que de corriger manuellement avec >> ou << quand l'indentation est complexe",
       example = "== → la ligne se cale automatiquement au bon niveau d'indentation",
     },
+    ['=G'] = {
+      title = "=G — réindenter jusqu'à la fin du fichier",
+      body = "Exécute l'indenteur intégré depuis le curseur jusqu'à la fin du fichier\nCombinez d'abord avec gg (gg=G) pour réindenter tout le buffer, pas seulement à partir du curseur",
+      example = 'gg=G → réindente tout le fichier',
+    },
 
     -- ── case operators ────────────────────────────────────────────────────
     ['gu'] = {
@@ -929,6 +935,16 @@ return {
       body = 'Exécute exactement une commande en mode Normal, puis revient directement en mode insertion — inutile de retaper i/a\nDifférent du <C-o> en mode Normal (retour en arrière dans la jumplist), qui fonctionne seulement en dehors du mode insertion',
       example = 'en train de taper…<C-o>dd → supprime la ligne actuelle, puis le mode insertion reprend automatiquement',
     },
+    ['<C-t>'] = {
+      title = '<C-t> (mode insertion) — indente la ligne actuelle sans quitter le mode insertion',
+      body = "Décale la ligne actuelle d'un niveau d'indentation vers la droite pendant que vous continuez à taper\nInutile de faire <Esc>, >>, puis i à nouveau — <C-t> le fait directement sur place",
+      example = "en train de taper…<C-t> → la ligne gagne un niveau d'indentation, le curseur reste en mode insertion",
+    },
+    ['i_<C-d>'] = {
+      title = '<C-d> (mode insertion) — désindente la ligne actuelle sans quitter le mode insertion',
+      body = "Décale la ligne actuelle d'un niveau d'indentation vers la gauche pendant que vous continuez à taper\nLe pendant de <C-t> en mode insertion — différent du <C-d> en mode Normal (défilement d'une demi-page), qui fonctionne seulement en dehors du mode insertion",
+      example = "en train de taper…<C-d> → la ligne perd un niveau d'indentation, le curseur reste en mode insertion",
+    },
 
     -- ── fold: additional commands ─────────────────────────────────────────
     ['zf'] = {
@@ -1053,6 +1069,16 @@ return {
       body = 'Vous avez beaucoup copié sans jamais utiliser le presse-papiers système\n"+y copie directement dedans, donc coller en dehors de Neovim (ou coller depuis l\'extérieur avec "+p) fonctionne tout simplement\nDéfinissez clipboard=unnamedplus pour que y/p utilisent le presse-papiers par défaut et évitez le préfixe "+',
       example = '"+yy une ligne → collez-la dans une autre application avec votre touche de collage habituelle',
     },
+    ['"ay'] = {
+      title = '"ay — copier dans le registre nommé a',
+      body = 'Copier à nouveau écrase le registre sans nom, donc un second yank avant de coller le premier le fait perdre\n"ay copie plutôt dans le registre a, qui survit aux copies suivantes — collez-le avec "ap\nUtilisez n\'importe quelle lettre a-z pour un registre distinct ; "Ay (majuscule) ajoute au registre a au lieu de l\'écraser',
+      example = '"ayiw → copie un mot dans le registre a ; plus tard, "ap → le colle',
+    },
+    ['"_d'] = {
+      title = '"_d — supprimer sans écraser le registre sans nom',
+      body = 'Une suppression normale écrase le registre sans nom, donc un yank que vous vouliez garder est écrasé par la suppression suivante\n"_d envoie plutôt le texte supprimé dans le registre trou noir, qui le rejette — votre dernier yank survit',
+      example = 'yiw puis "_dd → supprime une ligne sans perdre le mot que vous venez de copier',
+    },
 
     -- ── Ex commands ───────────────────────────────────────────────────────
     ['ex:g'] = {
@@ -1095,6 +1121,74 @@ return {
       title = "ya' — copier le texte entre guillemets simples",
       body = 'Comme ya", mais pour du texte entre guillemets simples\nCopie tout le texte, guillemets compris',
       example = "ya' → copie 'le texte cité' avec ses guillemets",
+    },
+
+    -- ── quickfix / location-list navigation (#228) ────────────────────────────
+    [']q'] = {
+      title = "]q — aller à l'entrée quickfix suivante",
+      body = "Saute à l'entrée suivante de la liste quickfix (remplie par :vimgrep, :grep ou les diagnostics LSP)\nRemplace la recherche ou le défilement manuel des résultats un par un",
+      example = ':vimgrep /TODO/g % puis ]q → saute à la prochaine occurrence',
+    },
+    ['[q'] = {
+      title = "[q — aller à l'entrée quickfix précédente",
+      body = 'Comme ]q mais recule dans la liste quickfix\nLe complément inverse de ]q',
+      example = "[q → revient à l'occurrence quickfix précédente",
+    },
+    [']l'] = {
+      title = "]l — aller à l'entrée suivante de la liste de positions",
+      body = 'Comme ]q mais pour la liste de positions locale à la fenêtre plutôt que la liste quickfix partagée\nUtile quand plusieurs fenêtres ont besoin de leur propre liste de résultats',
+      example = ':lvimgrep /TODO/g % puis ]l → saute à la prochaine occurrence dans la liste de positions de cette fenêtre',
+    },
+    ['[l'] = {
+      title = "[l — aller à l'entrée précédente de la liste de positions",
+      body = 'Comme [q mais pour la liste de positions plutôt que la liste quickfix\nLe complément inverse de ]l',
+      example = "[l → revient à l'entrée précédente de la liste de positions",
+    },
+    ['ex:copen'] = {
+      title = ':copen — ouvrir la fenêtre quickfix',
+      body = 'Ouvre une fenêtre listant toutes les entrées de la liste quickfix pour les parcourir ou y sauter\nRemplace le fait de relancer la recherche qui a rempli la liste juste pour revoir les résultats',
+      example = ':copen → affiche la liste quickfix dans une fenêtre scindée',
+    },
+    ['ex:cdo'] = {
+      title = ':cdo — exécuter une commande sur chaque entrée quickfix',
+      body = "Exécute une commande Ex une fois par entrée quickfix, en sautant d'abord au fichier et à la ligne de chacune\nRemplace la répétition manuelle d'une modification dans tous les fichiers de la liste",
+      example = ':cdo s/foo/bar/g → remplace foo par bar à chaque occurrence quickfix',
+    },
+
+    -- ── spell-check (#229) ─────────────────────────────────────────────────────
+    [']s'] = {
+      title = ']s — aller au mot mal orthographié suivant',
+      body = 'Saute en avant vers le prochain mot que le correcteur orthographique de Vim signale comme mal orthographié (nécessite :set spell)\nRemplace la relecture visuelle du texte à la recherche de fautes',
+      example = ']s → le curseur saute au prochain mot mal orthographié',
+    },
+    ['[s'] = {
+      title = '[s — aller au mot mal orthographié précédent',
+      body = 'Comme ]s mais recherche en arrière le mot mal orthographié précédent',
+      example = '[s → le curseur revient au mot mal orthographié précédent',
+    },
+    ['z='] = {
+      title = 'z= — suggérer des corrections orthographiques',
+      body = "Affiche une liste numérotée de suggestions orthographiques pour le mot sous le curseur ; on en choisit une par numéro\nRemplace la suppression puis la resaisie manuelle d'un mot mal orthographié",
+      example = 'z= puis 2<CR> → remplace le mot par la 2e suggestion',
+    },
+
+    -- ── :sort (#239) ─────────────────────────────────────────────────────────
+    ['ex:sort'] = {
+      title = ':sort — trier les lignes',
+      body = 'Trie les lignes sélectionnées (ou tout le fichier) par ordre alphabétique en une seule commande\nRemplace le découpage et le collage manuels des lignes pour les ordonner',
+      example = ':sort → trie toutes les lignes du fichier par ordre alphabétique',
+    },
+
+    -- ── ]p / [p indent-aware paste (#240) ──────────────────────────────────────
+    [']p'] = {
+      title = "]p — coller en ajustant l'indentation",
+      body = "Comme p mais réindente le texte collé pour correspondre à la ligne actuelle\nRemplace le collage suivi d'une correction manuelle de l'indentation",
+      example = ']p → colle du texte en mode ligne, indenté comme la ligne au-dessus',
+    },
+    ['[p'] = {
+      title = "[p — coller avant en ajustant l'indentation",
+      body = 'Comme P mais réindente le texte collé pour correspondre à la ligne actuelle\nLe complément inverse de ]p',
+      example = '[p → colle du texte en mode ligne au-dessus, indenté comme la ligne actuelle',
     },
   },
 }

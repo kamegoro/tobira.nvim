@@ -275,6 +275,8 @@ local chain_cases = {
   { '>>', 'cc', 'cc → >>: indent current line' },
   { '<<', '>>', '>> → <<: unindent current line' },
   { '==', '>>', '>> → ==: auto-indent current line' },
+  -- whole-buffer reindent (#242)
+  { '=G', 'G', 'G → =G: reindent to the end of the file' },
   -- case operators
   { 'gu', '~', '~ → gu: lowercase a region' },
   { 'gU', 'gu', 'gu → gU: uppercase a region' },
@@ -355,8 +357,15 @@ local chain_cases = {
   { '_', '^', '^ → _: first non-blank (N-1 lines lower)' },
   -- register underuse: system clipboard (#59)
   { '"+y', 'y', 'y → "+y: yank to the system clipboard register' },
+  -- named register a-z stand-in (#233)
+  { '"ay', 'y', 'y → "ay: yank into named register a' },
+  -- black-hole register (#234)
+  { '"_d', 'dd', 'dd → "_d: delete without overwriting the unnamed register' },
   -- insert-mode <C-o>: one-shot normal command without leaving insert (#105)
   { 'i_<C-o>', 'i', 'i → i_<C-o>: run one normal command without leaving insert mode' },
+  -- insert-mode <C-t> / <C-d>: indent/dedent without leaving insert (#246)
+  { '<C-t>', '>>', '>> → <C-t>: indent the current line without leaving insert mode' },
+  { 'i_<C-d>', '<<', '<< → i_<C-d>: dedent the current line without leaving insert mode' },
   -- diff-mode hunk navigation (#111)
   { ']c', 'j', 'j → ]c: jump to next diff hunk (while &diff is set)' },
   { '[c', 'k', 'k → [c: jump to previous diff hunk (while &diff is set)' },
@@ -368,6 +377,22 @@ local chain_cases = {
   -- repeated :substitute detection (#115)
   { '&', 'n', 'n → &: repeat the last substitute on this line' },
   { 'g&', '&', '& → g&: repeat the last substitute across the whole file' },
+  -- quickfix / location-list navigation (#228)
+  { ']q', 'n', 'n → ]q: jump to next quickfix entry' },
+  { '[q', 'N', 'N → [q: jump to previous quickfix entry' },
+  { ']l', 'n', 'n → ]l: jump to next location-list entry' },
+  { '[l', 'N', 'N → [l: jump to previous location-list entry' },
+  { 'ex:copen', 'n', 'n → ex:copen: open the quickfix window' },
+  { 'ex:cdo', 'q', 'q → ex:cdo: run a command over every quickfix entry' },
+  -- spell-check (#229)
+  { ']s', 'n', 'n → ]s: jump to next misspelled word' },
+  { '[s', 'N', 'N → [s: jump to previous misspelled word' },
+  { 'z=', 'i', 'i → z=: suggest spelling corrections' },
+  -- :sort (#239)
+  { 'ex:sort', 'dd', 'dd → ex:sort: sort lines' },
+  -- ]p / [p indent-aware paste (#240)
+  { ']p', 'p', 'p → ]p: paste and adjust indent to match current line' },
+  { '[p', 'P', 'P → [p: paste before and adjust indent to match current line' },
 }
 
 describe('teaching chains', function()
@@ -382,7 +407,7 @@ end)
 -- ── Ex commands (#57) ────────────────────────────────────────────────────────
 
 describe('Ex command registry entries', function()
-  for _, cmd in ipairs({ 'ex:g', 'ex:norm' }) do
+  for _, cmd in ipairs({ 'ex:g', 'ex:norm', 'ex:copen', 'ex:cdo', 'ex:sort' }) do
     it(cmd .. ' is flagged ex_command = true with category = "ex"', function()
       assert.is_true(commands.registry[cmd].ex_command)
       assert.equals('ex', commands.registry[cmd].category)
@@ -608,6 +633,48 @@ describe('when converting a registry key into the form shown in the UI', functio
   it('returns non-registry keys (basic tracked keys, compound ops) unchanged', function()
     assert.equals('j', commands.display_key('j'))
     assert.equals('dd', commands.display_key('dd'))
+  end)
+end)
+
+-- ── i_<C-d>: insert-mode <C-d> composite key (#246) ──────────────────────────
+-- Same collision shape as i_<C-o> above: normal-mode '<C-d>' already owns that
+-- raw keystroke (scroll half page down), so the insert-mode dedent meaning
+-- needs its own composite key. See
+-- docs/adr/0008-composite-keys-for-dual-meaning-bytes.md.
+
+describe("the 'i_<C-d>' registry entry (insert-mode dedent, #246)", function()
+  it('is a distinct entry from the normal-mode scroll-half-page-down <C-d>', function()
+    assert.is_not_nil(commands.registry['i_<C-d>'])
+    assert.is_not_nil(commands.registry['<C-d>'])
+    assert.are_not.equal(commands.registry['i_<C-d>'], commands.registry['<C-d>'])
+  end)
+
+  it('requires << (dedent knowledge), not the normal-mode <C-d>', function()
+    assert.equals('<<', commands.registry['i_<C-d>'].requires)
+  end)
+
+  it('is not tracked via the generic single-char TRACK table', function()
+    assert.is_false(commands.registry['i_<C-d>'].track)
+  end)
+
+  it('strips the i_ disambiguation prefix so the UI shows the real keystroke', function()
+    assert.equals('<C-d>', commands.display_key('i_<C-d>'))
+  end)
+end)
+
+-- ── <C-t>: insert-mode indent, no collision with any normal-mode entry (#246) ─
+
+describe("the '<C-t>' registry entry (insert-mode indent, #246)", function()
+  it('is registered under its plain raw keystroke (no normal-mode <C-t> entry exists)', function()
+    assert.is_not_nil(commands.registry['<C-t>'])
+  end)
+
+  it('requires >> (indent knowledge)', function()
+    assert.equals('>>', commands.registry['<C-t>'].requires)
+  end)
+
+  it('is not tracked via the generic single-char TRACK table', function()
+    assert.is_false(commands.registry['<C-t>'].track)
   end)
 end)
 

@@ -1906,6 +1906,163 @@ describe('tabnew one-file-per-tab habit detection (#113)', function()
   end)
 end)
 
+-- ── Verbatim Ex-command retype detection (#241) ─────────────────────────────
+-- Wires patterns_cmdline.feed_history_recall() into the same <CR> handling
+-- as the substitute/pingpong/tabnew detectors above, reusing the same `word`
+-- command_arg() already extracts. See
+-- docs/adr/0095-cmdline-history-recall-detection.md for the exclusion design
+-- and why this one detector needs no vim.schedule()/verify-before-credit
+-- deferral, unlike its three siblings.
+
+describe('Verbatim Ex-command retype detection (#241)', function()
+  local cr = vim.api.nvim_replace_termcodes('<CR>', true, true, true)
+  local esc = vim.api.nvim_replace_termcodes('<Esc>', true, true, true)
+
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    logger.on_pattern = nil
+    logger.setup()
+    vim.cmd('enew!')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'foo', 'foo', 'foo' })
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+    if vim.fn.mode() ~= 'n' then
+      pcall(vim.api.nvim_input, esc)
+    end
+  end)
+
+  local function run(cmdline)
+    pcall(vim.fn.feedkeys, ':' .. cmdline .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+  end
+
+  it('fires cmdline_history_recall suggesting q: when a non-special Ex command is retyped verbatim', function()
+    local fired_pattern, fired_cmd = nil, nil
+    logger.on_pattern = function(pattern, cmd)
+      fired_pattern = pattern
+      fired_cmd = cmd
+    end
+
+    run('g/foo/d')
+    assert.is_nil(fired_pattern)
+    -- undo the deletion :g just did, so the identical :g/foo/d has something
+    -- to delete a second time
+    pcall(vim.api.nvim_input, 'u')
+    run('g/foo/d')
+
+    assert.equals('cmdline_history_recall', fired_pattern)
+    assert.equals('q:', fired_cmd)
+  end)
+
+  it('does not fire again on a third identical submission', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+
+    run('g/foo/d')
+    pcall(vim.api.nvim_input, 'u')
+    run('g/foo/d') -- fires here
+    pcall(vim.api.nvim_input, 'u')
+    run('g/foo/d')
+
+    assert.equals(1, #fired)
+  end)
+
+  it('does not fire when the retyped command is aborted with <Esc> before <CR>', function()
+    local fired = false
+    logger.on_pattern = function()
+      fired = true
+    end
+
+    run('g/foo/d')
+    pcall(vim.fn.feedkeys, ':g/foo/d' .. esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+
+    assert.is_false(fired)
+  end)
+
+  it('does not fire for a retyped :s/// substitute (claimed by substitute_repeat instead)', function()
+    local fired_pattern = nil
+    logger.on_pattern = function(pattern)
+      fired_pattern = pattern
+    end
+
+    run('s/foo/bar/')
+    vim.wait(20) -- deferred credit — see docs/adr/0015
+    run('s/foo/bar/')
+    vim.wait(20)
+
+    assert.are_not.equal('cmdline_history_recall', fired_pattern)
+  end)
+
+  it('does not fire for a retyped :e/:b bounce (claimed by ex_file_pingpong instead)', function()
+    local fired_pattern = nil
+    logger.on_pattern = function(pattern)
+      fired_pattern = pattern
+    end
+
+    run('e tobira_recall_a.txt')
+    vim.wait(20)
+    run('e tobira_recall_b.txt')
+    vim.wait(20)
+    run('e tobira_recall_a.txt')
+    vim.wait(20)
+
+    assert.are_not.equal(
+      'cmdline_history_recall',
+      fired_pattern,
+      'the :e A -> B -> A bounce must fire ex_file_pingpong, never the generic recall pattern'
+    )
+  end)
+
+  it('does not fire for a retyped :tabnew streak (claimed by tabnew_run instead)', function()
+    vim.cmd('silent! tabonly!')
+    local fired_pattern = nil
+    logger.on_pattern = function(pattern)
+      fired_pattern = pattern
+    end
+
+    run('tabnew tobira_recall_1.txt')
+    run('tabnew tobira_recall_2.txt')
+    run('tabnew tobira_recall_3.txt')
+
+    assert.are_not.equal('cmdline_history_recall', fired_pattern)
+    vim.cmd('silent! tabonly!')
+  end)
+
+  it("does not track tobira's own UI commands (e.g. :TobiraStats retyped twice)", function()
+    local fired = false
+    logger.on_pattern = function()
+      fired = true
+    end
+
+    run('TobiraStats')
+    run('TobiraStats')
+
+    assert.is_false(fired)
+  end)
+
+  it('does not fire for a bare :w retyped many times (QA-found false positive: saving a file is not "avoid retyping")', function()
+    local fired = false
+    logger.on_pattern = function(pattern)
+      if pattern == 'cmdline_history_recall' then
+        fired = true
+      end
+    end
+
+    for _ = 1, 5 do
+      pcall(vim.api.nvim_input, 'x') -- small edit between saves, mirrors the QA repro
+      run('w')
+    end
+
+    assert.is_false(fired)
+  end)
+end)
+
 -- (stats rendering has moved to tests/spec/unit/ui_stats_spec.lua)
 
 -- ── save ─────────────────────────────────────────────────────────────────────
