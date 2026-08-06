@@ -114,6 +114,28 @@ submitted twice", so a naive implementation would fire the generic suggestion ON
   itself, only a new `float.reasons.cmdline_history_recall` entry (the "why this fired"
   line) per locale.
 
+- **Genuine history recall is excluded too, via a 5th `recalled_via_history` param**
+  (added after a QA-found false positive, #259: `:g/uniquepattern123/d<CR>`, then `:`
+  `<Up>` `<CR>` — a genuine recall via `<Up>` — still fired the "you retyped instead of
+  recalling" suggestion, which is self-contradictory since `<Up>` recall is exactly what
+  `q:` teaches). Text equality alone cannot distinguish "manually retyped the same
+  command" from "recalled it via `<Up>`/`<Down>` and resubmitted unchanged" — both look
+  identical to `vim.fn.getcmdline()` at `<CR>` time. `feed_history_recall(state, text,
+  word, arg, recalled_via_history)` now takes a 5th argument and, when true, skips the
+  submission ENTIRELY — `state.entries` is left untouched, not merely "not fired" — so a
+  genuine recall never consumes the 2-submission slot a later manual retype of the same
+  text would need to fire on its own merits.
+
+  `patterns_cmdline.lua` stays vim.\*-free (see the file header) and only ever sees one
+  complete string at `<CR>` time, so it cannot observe an `<Up>`/`<Down>` keystroke
+  itself. `logger.lua`'s `handle_cmdline_key` tracks it instead: a module-local
+  `cmdline_recalled_via_history` flag, set true the moment `<Up>` or `<Down>` is seen
+  while `getcmdtype() == ':'`, reset to `false` the moment the cmdline session ends
+  (`<CR>`/`<Esc>`/`<C-c>`) — scoped to one open-to-close cmdline session, unlike
+  `history_recall_state` which persists for the whole plugin session. This mirrors how
+  `word`/`arg`/`win_count` are already threaded in from vim.\* calls this module cannot
+  make itself.
+
 ## Consequences
 
 - Any future 4th+ cmdline-specific detector must extend `feed_history_recall()`'s exclusion
@@ -134,6 +156,23 @@ submitted twice", so a naive implementation would fire the generic suggestion ON
   all bare-word-only (`:w`, `:q`, `:x`, `:wq`, `:qa`, `:noh`), and a finer argument-quality
   threshold is exactly the kind of arbitrary magic number this design deliberately avoids in
   favor of reusing `command_arg()`'s existing nil/non-nil contract.
+- The `recalled_via_history` signal (#259) is a simple whole-session-scoped boolean, not a
+  precise "was THIS submission's text exactly what history returned" check: if the user
+  presses `<Up>` and then edits the recalled text before `<CR>`, the submission is still
+  treated as a recall and skipped, even though it now differs from — or coincidentally
+  matches — a prior manual entry. Accepted: the flag exists to fix the specific
+  self-contradictory case (recall-then-resubmit-unchanged), not to build a full
+  keystroke-level diff of "how much editing happened after recall." A finer-grained signal
+  would need to track cursor/text state across the whole cmdline session, which is exactly
+  the per-keystroke complexity `patterns_cmdline.lua`'s one-shot-string design (see this
+  ADR's own file header) and the tracking design principle in `lua/tobira/CLAUDE.md`
+  deliberately avoid.
+- Only `<Up>`/`<Down>` are treated as history-navigation keys, matching the issue's own
+  repro. `<C-p>`/`<C-n>` (which behave identically to `<Up>`/`<Down>` for cmdline history
+  recall per `:help c_CTRL-P`) and the command-line window (`q:`/`c_CTRL-F`) are not
+  tracked as recall signals yet. If a future QA repro surfaces a false positive through one
+  of those paths, extend the `key == CMDLINE_UP or key == CMDLINE_DOWN` check in
+  `logger.lua`'s `handle_cmdline_key` the same way.
 - Symbolic commands (`:!`, `:@`, `:=`, ...) have no equivalent floor — see the scope-limit note
   above. A bare `:!` retyped twice still fires today, same as before this fix. If that turns
   out to be a real-world false positive too, it needs its own guard (symbolic commands have no

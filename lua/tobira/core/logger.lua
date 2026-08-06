@@ -353,6 +353,23 @@ local CMDLINE_CR = vim.api.nvim_replace_termcodes('<CR>', true, true, true)
 local CMDLINE_ESC = vim.api.nvim_replace_termcodes('<Esc>', true, true, true)
 local CMDLINE_CTRL_C = vim.api.nvim_replace_termcodes('<C-c>', true, true, true)
 
+-- <Up>/<Down> (command-line history recall) -- #259. Tracked separately from
+-- the terminating keys above: these don't end the cmdline session, they're a
+-- signal observed WHILE it's open, consumed at the terminating key.
+local CMDLINE_UP = vim.api.nvim_replace_termcodes('<Up>', true, true, true)
+local CMDLINE_DOWN = vim.api.nvim_replace_termcodes('<Down>', true, true, true)
+
+-- Whether <Up>/<Down> was pressed at least once during the CURRENTLY-OPEN ':'
+-- cmdline session (#259). Scoped to one open-to-close cmdline session --
+-- reset the moment that session ends (<CR>/<Esc>/<C-c> below) -- unlike
+-- history_recall_state above, which persists across the whole plugin
+-- session. This has to live here rather than inside patterns_cmdline.lua:
+-- that module is intentionally vim.*-free and only ever sees one complete
+-- string at <CR> time (see its file header) -- it has no per-keystroke entry
+-- point to observe an <Up>/<Down> press itself, only the RESULT (the recalled
+-- text already sitting in the buffer) once the terminating key arrives.
+local cmdline_recalled_via_history = false
+
 -- Tobira's own UI commands (:Tobira, :TobiraStats, :TobiraGuide,
 -- :TobiraProgress, :TobiraReset) must never be tracked as Ex-command usage.
 -- See docs/adr/0015-ex-command-verify-before-credit.md for why this lives
@@ -460,17 +477,33 @@ local function handle_cmdline_key(key)
     -- See docs/adr/0095-cmdline-history-recall-detection.md for the
     -- exclusion-by-word design this relies on to never double-fire alongside
     -- substitute_repeat/ex_file_pingpong/tabnew_run above.
+    --
+    -- recalled_via_history (#259): captured BEFORE the flag is reset below,
+    -- so this <CR> still sees whether <Up>/<Down> was pressed earlier in
+    -- THIS cmdline session.
     if name and name:sub(1, #OWN_CMD_PREFIX) ~= OWN_CMD_PREFIX then
-      local recall_result = patterns_cmdline.feed_history_recall(history_recall_state, cmdline_text, word, arg)
+      local recall_result = patterns_cmdline.feed_history_recall(
+        history_recall_state,
+        cmdline_text,
+        word,
+        arg,
+        cmdline_recalled_via_history
+      )
       if recall_result and M.on_pattern then
         M.on_pattern(recall_result.pattern, recall_result.cmd)
       end
     end
+    cmdline_recalled_via_history = false -- session over, one way or another
     return
   end
 
   if key == CMDLINE_ESC or key == CMDLINE_CTRL_C then
+    cmdline_recalled_via_history = false -- aborted session over — do not carry the flag into the next one
     return -- aborted or canceled — do not count
+  end
+
+  if key == CMDLINE_UP or key == CMDLINE_DOWN then
+    cmdline_recalled_via_history = true
   end
   -- Any other key: still typing. Nothing to do until the terminating key.
 end
@@ -805,6 +838,7 @@ function M.reset()
   pingpong_seq = patterns_cmdline.new_pingpong_seq()
   tabnew_seq = patterns_cmdline.new_tabnew_seq()
   history_recall_state = patterns_cmdline.new_history_recall_state()
+  cmdline_recalled_via_history = false
   current_mode = 'n'
   _recording_macro = false
   _initialized = false

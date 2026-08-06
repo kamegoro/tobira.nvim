@@ -408,6 +408,22 @@ end
 -- the user typed the same doomed text twice instead of recalling and fixing
 -- it from history.
 --
+-- recalled_via_history (#259): true when the caller observed an <Up>/<Down>
+-- history-navigation keystroke during THIS cmdline session, before the
+-- terminating key. Text equality alone cannot distinguish "manually retyped
+-- the exact same command" from "recalled it via <Up> and resubmitted
+-- unchanged" -- both look identical to vim.fn.getcmdline() at <CR> time, but
+-- only the former is the habit q: is meant to fix; the latter is the user
+-- already doing exactly what q: teaches, so flagging it is self-contradictory
+-- (the shipped bug, see the QA repro in docs/adr/0095). When true, this
+-- submission is skipped ENTIRELY -- state.entries is left untouched, not just
+-- "not fired" -- so a genuine recall never consumes the 2-submission slot a
+-- later manual retype of the same text would need to fire on its own merits.
+-- This module stays vim.*-free (see the file header), so it cannot observe
+-- the <Up>/<Down> keystroke itself; logger.lua tracks it and passes the
+-- result in, the same way it already threads win_count/word/arg through from
+-- vim.* calls this module cannot make.
+--
 -- see docs/adr/0095-cmdline-history-recall-detection.md for the full
 -- rationale and the fires-once-per-distinct-text latch.
 function M.new_history_recall_state()
@@ -419,12 +435,17 @@ end
 -- text: the command-line buffer content (same shape tokenize() takes).
 -- word: command_arg()'s first return for this same text, or nil.
 -- arg: command_arg()'s second return for this same text, or nil.
+-- recalled_via_history: true if <Up>/<Down> was pressed during this cmdline
+-- session before submission -- see header comment above.
 --
 -- Returns { pattern = 'cmdline_history_recall', cmd = 'q:' } the moment a
 -- given full command line is submitted for the second time, or nil.
-function M.feed_history_recall(state, text, word, arg)
+function M.feed_history_recall(state, text, word, arg, recalled_via_history)
   if not text then
     return nil
+  end
+  if recalled_via_history then
+    return nil -- genuine recall, not retyping -- see header comment above (#259)
   end
   if word and (is_substitute_word(word) or PINGPONG_COMMANDS[word] or word == 'tabnew') then
     return nil

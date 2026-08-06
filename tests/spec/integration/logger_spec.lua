@@ -2061,6 +2061,85 @@ describe('Verbatim Ex-command retype detection (#241)', function()
 
     assert.is_false(fired)
   end)
+
+  -- #259: the shipped detector fired even when the user did exactly what the
+  -- q: suggestion teaches -- recall via <Up> instead of retyping. Repro from
+  -- the issue: :g/uniquepattern123/d<CR>, then : <Up> <CR>.
+  describe('genuine history recall via <Up>/<Down> does not trigger the "you retyped" suggestion (#259)', function()
+    local up = vim.api.nvim_replace_termcodes('<Up>', true, true, true)
+    local down = vim.api.nvim_replace_termcodes('<Down>', true, true, true)
+
+    it('does not fire when the identical command is recalled via <Up> and resubmitted unchanged', function()
+      local fired_pattern = nil
+      logger.on_pattern = function(pattern)
+        fired_pattern = pattern
+      end
+
+      run('g/foo/d')
+      pcall(vim.api.nvim_input, 'u')
+
+      pcall(vim.fn.feedkeys, ':' .. up .. cr, 'xt')
+      vim.api.nvim_feedkeys('', 'x', false)
+
+      assert.is_nil(
+        fired_pattern,
+        'genuine <Up> history recall is exactly what q: teaches -- it must not be flagged as a retype'
+      )
+    end)
+
+    it('does not fire when the identical command is recalled via <Down> (after <Up><Up>) and resubmitted unchanged', function()
+      local fired_pattern = nil
+      logger.on_pattern = function(pattern)
+        fired_pattern = pattern
+      end
+
+      run('g/foo/d')
+      pcall(vim.api.nvim_input, 'u')
+      run('g/bar/d')
+      pcall(vim.api.nvim_input, 'u')
+
+      -- <Up><Up> recalls 'g/foo/d' (2 entries back), <Down> steps forward to
+      -- the more recent 'g/bar/d' -- still genuine navigation, not retyping.
+      pcall(vim.fn.feedkeys, ':' .. up .. up .. down .. cr, 'xt')
+      vim.api.nvim_feedkeys('', 'x', false)
+
+      assert.is_nil(fired_pattern, 'genuine <Down> history navigation must not be flagged as a retype either')
+    end)
+
+    it('resets the recall flag after each cmdline session so a later manual retype of a different command still fires', function()
+      local fired_pattern = nil
+      logger.on_pattern = function(pattern)
+        fired_pattern = pattern
+      end
+
+      run('g/foo/d')
+      pcall(vim.api.nvim_input, 'u')
+      pcall(vim.fn.feedkeys, ':' .. up .. cr, 'xt')
+      vim.api.nvim_feedkeys('', 'x', false)
+      assert.is_nil(fired_pattern, 'the recall session itself must not fire')
+
+      run('g/bar/d')
+      run('g/bar/d')
+      assert.equals(
+        'cmdline_history_recall',
+        fired_pattern,
+        'a later, unrelated manual retype must still fire normally -- the recall flag must not leak across sessions'
+      )
+    end)
+
+    it('still fires when the command is manually retyped rather than recalled (non-regression)', function()
+      local fired_pattern = nil
+      logger.on_pattern = function(pattern)
+        fired_pattern = pattern
+      end
+
+      run('g/baz/d')
+      pcall(vim.api.nvim_input, 'u')
+      run('g/baz/d')
+
+      assert.equals('cmdline_history_recall', fired_pattern)
+    end)
+  end)
 end)
 
 -- (stats rendering has moved to tests/spec/unit/ui_stats_spec.lua)

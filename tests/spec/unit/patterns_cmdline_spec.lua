@@ -699,4 +699,44 @@ describe('patterns_cmdline.feed_history_recall', function()
       assert.equals('q:', result.cmd)
     end)
   end)
+
+  -- #259: feed_history_recall() cannot tell "manually retyped" apart from
+  -- "recalled via <Up>/<Down> and resubmitted unchanged" from text alone --
+  -- both look identical to vim.fn.getcmdline() at <CR> time. The caller
+  -- (logger.lua) now tracks whether a history-navigation keystroke happened
+  -- during the cmdline session and passes it as this 5th param.
+  describe('genuine history recall via <Up>/<Down> (#259) -- recalled_via_history param', function()
+    it('does not fire when the identical command was recalled via history rather than retyped', function()
+      local s = rseq()
+      patterns_cmdline.feed_history_recall(s, 'g/pattern/d', 'g', '/pattern/d')
+      local result = patterns_cmdline.feed_history_recall(s, 'g/pattern/d', 'g', '/pattern/d', true)
+      assert.is_nil(result)
+    end)
+
+    it('still fires when the identical command is manually retyped (recalled_via_history is falsy)', function()
+      local s = rseq()
+      patterns_cmdline.feed_history_recall(s, 'g/pattern/d', 'g', '/pattern/d', false)
+      local result = patterns_cmdline.feed_history_recall(s, 'g/pattern/d', 'g', '/pattern/d', false)
+      assert.equals('cmdline_history_recall', result.pattern)
+      assert.equals('q:', result.cmd)
+    end)
+
+    it(
+      'does not count a recalled submission toward the 2-submission threshold -- a later manual retype still fires on its own merits',
+      function()
+        local s = rseq()
+        patterns_cmdline.feed_history_recall(s, 'g/pattern/d', 'g', '/pattern/d') -- manual, count = 1
+        patterns_cmdline.feed_history_recall(s, 'g/pattern/d', 'g', '/pattern/d', true) -- recalled, ignored entirely
+        local result = patterns_cmdline.feed_history_recall(s, 'g/pattern/d', 'g', '/pattern/d') -- manual again, count = 2
+        assert.equals('cmdline_history_recall', result.pattern)
+      end
+    )
+
+    it('never fires purely from repeated recalls with no manual retyping at all', function()
+      local s = rseq()
+      patterns_cmdline.feed_history_recall(s, 'g/pattern/d', 'g', '/pattern/d', true)
+      local result = patterns_cmdline.feed_history_recall(s, 'g/pattern/d', 'g', '/pattern/d', true)
+      assert.is_nil(result)
+    end)
+  end)
 end)
