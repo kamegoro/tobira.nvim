@@ -432,6 +432,15 @@ MACRO ~
                                  while already recording, or if the sequence itself
                                  contains `q` or `@`)
 
+  Same Ex command line retyped verbatim, 2nd submission
+                                Suggest `q:`    — open the command-line
+                                 window and recall it from history instead
+                                 of retyping it (skips `:s///`, already
+                                 covered above under EDIT, and `:e`/`:b`/
+                                 `:tabnew`, covered below under EX; also
+                                 skips a bare command with no argument,
+                                 e.g. `:w`, `:q`)
+
 DIFF ~
 
   `j` × 10 (while `&diff`)      Suggest `]c`    — jump to the next diff hunk
