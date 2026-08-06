@@ -167,7 +167,7 @@ return {
     ['ciw'] = {
       title = 'ciw — cambiar palabra interior',
       body = 'Funciona incluso con el cursor en medio de una palabra\ncw solo borra desde el cursor hacia adelante; ciw reemplaza toda la palabra',
-      example = 'hel|lo → ciw → world',
+      example = 'hel|lo → ciw → world (se reemplaza toda la palabra)',
     },
     ['<C-r>'] = {
       title = '<C-r> — rehacer',
@@ -192,7 +192,7 @@ return {
     ['cgn'] = {
       title = 'cgn — cambiar la siguiente coincidencia de búsqueda',
       body = 'Después de /, usa cgn para cambiar la siguiente coincidencia\nLuego pulsa . para repetir en cada coincidencia siguiente',
-      example = '/word → cgn → new → Esc → . . .',
+      example = '/word → cgn → texto nuevo → Esc → . . .',
     },
     ['.'] = {
       title = '. — repetir el último cambio',
@@ -202,7 +202,7 @@ return {
     ['<C-w>'] = {
       title = '<C-w> — borrar la palabra antes del cursor',
       body = 'Funciona en modo inserción sin salir de él — una sola pulsación en vez de varios <BS>\nSe detiene al inicio de la palabra, así que nunca borra de más',
-      example = 'foo bar<C-w> → foo ',
+      example = 'foo bar<C-w> → foo (se borra la palabra anterior)',
     },
     ['A'] = {
       title = 'A — añadir al final de línea',

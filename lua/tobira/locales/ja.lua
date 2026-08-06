@@ -44,7 +44,7 @@ return {
       mastered = 'マスター済み',
       forgotten = '忘れかけ',
       never_tried = '未使用',
-      to_next = '%s まであと %d',
+      to_next = 'あと%d回で%sに到達',
     },
   },
   notifications = {
@@ -167,7 +167,7 @@ return {
     ['ciw'] = {
       title = 'ciw — 単語全体を変更',
       body = 'カーソルが単語の途中にあっても動作する\ncw はカーソルより後ろを削除するが ciw は単語全体を置換',
-      example = 'hel|lo → ciw → world',
+      example = 'hel|lo → ciw → world（単語全体が置き換わる）',
     },
     ['<C-r>'] = {
       title = '<C-r> — redo',
@@ -192,7 +192,7 @@ return {
     ['cgn'] = {
       title = 'cgn — 次の検索マッチを変更',
       body = '/ で検索後、cgn で次のマッチを変更\n. で次のマッチにも同じ変更を繰り返せる',
-      example = '/word → cgn → new → Esc → . . .',
+      example = '/word → cgn → 新テキスト → Esc → . . .',
     },
     ['.'] = {
       title = '. — 最後の変更を繰り返す',
@@ -202,7 +202,7 @@ return {
     ['<C-w>'] = {
       title = '<C-w> — カーソル前の単語を削除',
       body = 'インサートモードを抜けずに削除できる — <BS>を何度も押す代わりに1回で済む\n単語の先頭で止まるので、消しすぎることがない',
-      example = 'foo bar<C-w> → foo ',
+      example = 'foo bar<C-w> → foo （直前の単語が削除される）',
     },
     ['A'] = {
       title = 'A — 行末に追記',
@@ -1014,7 +1014,7 @@ return {
     ['{n}~'] = {
       title = '{n}~ — 複数文字の大文字小文字を切り替え',
       body = '~ は1文字切り替えてカーソルを進める。数字で複数文字を一度に切り替え\n3~ で次の3文字の大文字小文字を反転',
-      example = '3~ on "hello" → "HEllo"',
+      example = '"hello" の上で 3~ → "HEllo"',
     },
 
     -- ── diw ──────────────────────────────────────────────────────────────────

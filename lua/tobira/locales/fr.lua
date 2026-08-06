@@ -167,7 +167,7 @@ return {
     ['ciw'] = {
       title = 'ciw — modifier le mot intérieur',
       body = "Fonctionne même si le curseur est au milieu d'un mot\ncw ne supprime qu'à partir du curseur ; ciw remplace le mot entier",
-      example = 'hel|lo → ciw → world',
+      example = 'hel|lo → ciw → world (tout le mot est remplacé)',
     },
     ['<C-r>'] = {
       title = '<C-r> — rétablir',
@@ -192,7 +192,7 @@ return {
     ['cgn'] = {
       title = 'cgn — modifier la prochaine correspondance de recherche',
       body = 'Après /, utilisez cgn pour modifier la prochaine correspondance\nAppuyez ensuite sur . pour répéter sur chaque correspondance suivante',
-      example = '/word → cgn → new → Esc → . . .',
+      example = '/word → cgn → nouveau texte → Esc → . . .',
     },
     ['.'] = {
       title = '. — répéter la dernière modification',
@@ -202,7 +202,7 @@ return {
     ['<C-w>'] = {
       title = '<C-w> — supprimer le mot avant le curseur',
       body = "Fonctionne en mode insertion sans le quitter — une seule touche au lieu de plusieurs <BS>\nS'arrête au début du mot, donc ne supprime jamais plus que prévu",
-      example = 'foo bar<C-w> → foo ',
+      example = 'foo bar<C-w> → foo (le mot précédent est supprimé)',
     },
     ['A'] = {
       title = 'A — ajouter en fin de ligne',
