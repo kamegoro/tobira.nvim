@@ -239,6 +239,50 @@ describe('when an adopted motion skill is suppressed', function()
   end)
 end)
 
+-- ── suppressed + never-tried highlighting (#260) ─────────────────────────────
+-- Regression for #260: mastery_sym()'s suppressed branch returns a non-nil
+-- group regardless of data.count, but M.build()'s `if group and data.count > 0`
+-- gate used to require count > 0 too, so a suppressed command that had never
+-- been used (count = 0) fell through to the `elseif data.count == 0` branch
+-- instead and got TobiraDim -- no visual confirmation the suppression worked.
+
+describe('when an adopted motion skill is suppressed but has never been tried (count = 0)', function()
+  before_each(setup)
+  after_each(teardown)
+
+  it('renders the suppressed glyph on the skill row', function()
+    local lines = open_with_semicolon(0, true, false)
+    assert.is_true(lines_contain(lines, '✗'))
+  end)
+
+  it('highlights its own glyph range with TobiraGuideSuppressed, not TobiraDim on its own key', function()
+    -- Scoped to this item's own byte ranges rather than the whole row: the
+    -- row's other (untouched) sibling cells legitimately get their own
+    -- TobiraDim highlight, so asserting "no TobiraDim anywhere on the row"
+    -- would be a false positive for the bug this test targets.
+    local usage = logger.get_all()
+    usage[';'] = entry({ count = 0, suppressed = true })
+    local lines, hls = progress.build(usage)
+    local row, key_col = find_pos(lines, ';')
+    row = row - 1 -- 0-indexed lnum
+    local sym_bytes = 5 -- SYM_SUPPRESSED .. '  ', see mastery_sym()
+    local sym_cs = key_col - sym_bytes - 1 -- -1 for the separating space before the key
+    local sym_ce = sym_cs + sym_bytes
+
+    local found_suppressed, found_dim_on_key = false, false
+    for _, h in ipairs(hls) do
+      if h.lnum == row and h.cs == sym_cs and h.ce == sym_ce and h.group == 'TobiraGuideSuppressed' then
+        found_suppressed = true
+      end
+      if h.lnum == row and h.cs == key_col and h.group == 'TobiraDim' then
+        found_dim_on_key = true
+      end
+    end
+    assert.is_true(found_suppressed, 'expected TobiraGuideSuppressed on the glyph byte range even though count is 0')
+    assert.is_false(found_dim_on_key, 'did not expect TobiraDim on the suppressed item key text')
+  end)
+end)
+
 -- ── forgotten state (#123) ────────────────────────────────────────────────────
 -- Regression for #123. See docs/adr/0068-progress-forgotten-overrides-mastery-glyph.md
 -- and docs/adr/0069-progress-mastered-ratio-uses-is-mastered.md.
@@ -462,6 +506,64 @@ describe('the H1 line', function()
     usage[';'] = entry({ count = 200 })
     local after = progress.build(usage)
     assert.not_equals(before[2], after[2])
+  end)
+end)
+
+-- ── header/separator width matches actual content width (#269) ──────────────
+-- Regression for #269: the H1 ratio line and separator used to be built at a
+-- fixed PANEL_W (58) constant regardless of how wide the window actually
+-- ends up once title/footer text is taken into account -- in locales whose
+-- footer text is wider than one grid row (e.g. de), the window itself sized
+-- correctly to fit that text, but the header/separator stayed stuck at 58,
+-- leaving a dead gap on the right border. Both must now scale with the
+-- widest real content, mirroring how ui/stats.lua's M.open() has always
+-- computed its window width from actual title/footer/body content instead
+-- of a fixed constant.
+
+describe('the H1 line and separator width in the default locale (non-regression)', function()
+  before_each(setup)
+  after_each(teardown)
+
+  it('matches the width of a full grid row', function()
+    local lines = progress.build(logger.get_all())
+    local h1, separator, grid_row = lines[2], lines[3], lines[6]
+    local grid_w = vim.fn.strdisplaywidth(grid_row)
+    assert.equals(grid_w, vim.fn.strdisplaywidth(h1))
+    assert.equals(grid_w, vim.fn.strdisplaywidth(separator))
+  end)
+end)
+
+describe('the H1 line and separator width in a locale whose footer text is wider than the grid', function()
+  before_each(setup)
+  after_each(teardown)
+
+  it('extends to match the wider footer/title content, not the narrower fixed grid width', function()
+    config.reset()
+    config.setup({ lang = 'de' })
+
+    local lines = progress.build(logger.get_all())
+    local loc = require('tobira.i18n').load()
+    local str = loc.progress
+
+    -- Same title/footer width calc M.open() uses to size the actual window.
+    local title_text = '  ' .. str.title .. ' '
+    local footer_items = {
+      { 'x', str.footer.suppress },
+      { 'p', str.footer.pin },
+      { 'g', str.footer.guide },
+      { 's', str.footer.stats },
+      { 'q', str.footer.close },
+    }
+    local _, footer_w = require('tobira.ui.footer').build(footer_items)
+    local expected_w = math.max(vim.fn.strdisplaywidth(title_text) + 2, footer_w + 2)
+
+    local h1, separator = lines[2], lines[3]
+    assert.is_true(expected_w > 58, 'sanity check: de footer must be wider than the old fixed 58-col constant')
+    assert.equals(expected_w, vim.fn.strdisplaywidth(h1))
+    assert.equals(expected_w, vim.fn.strdisplaywidth(separator))
+
+    config.reset()
+    config.setup({})
   end)
 end)
 
