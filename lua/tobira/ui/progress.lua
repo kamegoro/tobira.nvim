@@ -160,8 +160,21 @@ function M.preview_lines(item, usage)
   return line1, line2
 end
 
-local function separator()
-  return '  ' .. string.rep('─', PANEL_W - 2)
+local function separator(width)
+  return '  ' .. string.rep('─', width - 2)
+end
+
+-- The header/separator must span the same width M.open() will ultimately
+-- size the window to, not the fixed PANEL_W grid-row constant -- in locales
+-- whose title/footer text is wider than one grid row (e.g. de), staying at
+-- PANEL_W left a dead gap on the right border (#269). Mirrors the same
+-- title/footer width calc M.open() already performs when sizing the window,
+-- and ui/stats.lua's M.open() sizing from actual content rather than a
+-- fixed constant.
+local function panel_width(str)
+  local title_text = ' ' .. ICON .. ' ' .. str.title .. ' '
+  local _, footer_w = footer_chunks(str)
+  return math.max(PANEL_W, vim.fn.strdisplaywidth(title_text) + 2, footer_w + 2)
 end
 
 -- Pure: takes usage explicitly (mirrors ui/stats.lua's M.render(usage) and
@@ -187,6 +200,8 @@ function M.build(usage)
     end
   end
 
+  local panel_w = panel_width(str)
+
   -- ── H1: level (left) + mastered ratio (right) ──────────────────────────────
   local total_mastered, total_items = 0, 0
   for _, cat in ipairs(skills.tree) do
@@ -204,9 +219,9 @@ function M.build(usage)
   local lv_label = str.levels[lv] or lv
   local h1_left = '  ' .. str.level_label .. lv_label
   local h1_right = str.mastered_total:format(total_mastered, total_items)
-  local h1_pad = math.max(1, PANEL_W - vim.fn.strdisplaywidth(h1_left) - vim.fn.strdisplaywidth(h1_right))
+  local h1_pad = math.max(1, panel_w - vim.fn.strdisplaywidth(h1_left) - vim.fn.strdisplaywidth(h1_right))
   push(h1_left .. string.rep(' ', h1_pad) .. h1_right, 'TobiraH1')
-  push(separator(), 'TobiraGuideHint')
+  push(separator(panel_w), 'TobiraGuideHint')
 
   -- ── category grids ──────────────────────────────────────────────────────────
   for _, cat in ipairs(skills.tree) do
@@ -244,7 +259,11 @@ function M.build(usage)
         local disp_w = sym_disp + 1 + #item.keys + pin_disp
         local pad = string.rep(' ', math.max(1, COL_W - disp_w))
 
-        if group and data.count > 0 then
+        if group then
+          -- Not gated on data.count > 0: mastery_sym()'s suppressed branch
+          -- returns a group regardless of count, so a never-tried (count=0)
+          -- suppressed command must still get its glyph highlighted here
+          -- instead of falling through to the level-0 TobiraDim branch (#260).
           table.insert(row_hls, { cs = byte_pos, ce = byte_pos + sym_bytes, group = group })
         elseif data.count == 0 then
           -- Level 0: no glyph, whole cell dimmed instead (no ○ marker, no NEW badge).
@@ -275,7 +294,7 @@ function M.build(usage)
   -- ── preview strip (content filled in by update_preview() after open/refresh) ─
   -- Nav-hint keybindings are NOT pushed here; see docs/adr/0073-progress-nav-hints-in-window-footer.md.
   push('')
-  push(separator(), 'TobiraGuideHint')
+  push(separator(panel_w), 'TobiraGuideHint')
   push('')
   local preview_lnum = #lines
   push('')
