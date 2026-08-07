@@ -33,6 +33,36 @@ local function find_hl(hls, lnum, group)
   return nil
 end
 
+-- Reconstructs the full text of a row that may have wrapped onto
+-- continuation lines (#267): a continuation line is identified by its large
+-- (>= 15 char) alignment indent, distinct from every other kind of line this
+-- panel renders (rows themselves start with 3 spaces, headers with 2,
+-- overflow lines with 6). `start_idx` is the 1-based index into `lines` of
+-- the row's first physical line.
+local function row_text(lines, start_idx)
+  local parts = { lines[start_idx] }
+  local i = start_idx + 1
+  while i <= #lines do
+    local leading = lines[i]:match('^( *)')
+    if lines[i]:match('^%s*$') or not leading or #leading < 15 then
+      break
+    end
+    table.insert(parts, (lines[i]:gsub('^%s+', '')))
+    i = i + 1
+  end
+  return table.concat(parts, ' ')
+end
+
+local function find_guide_win()
+  for _, win in ipairs(vim.api.nvim_list_wins()) do
+    local buf = vim.api.nvim_win_get_buf(win)
+    if vim.bo[buf].filetype == 'tobira_guide' then
+      return win
+    end
+  end
+  return nil
+end
+
 -- Masters every non-compound command (count = 200, so nothing else can appear
 -- in the auto section), then applies overrides for the specific commands a
 -- test cares about. This isolates a test to exactly the commands it names,
@@ -159,10 +189,14 @@ describe('when a pinned command has decayed into a forgotten state', function()
   end)
 
   it('appends the forgotten_suffix to the description', function()
+    -- The full description (with the forgotten_suffix appended) is long
+    -- enough to wrap onto a continuation line (#267), so the suffix is not
+    -- necessarily on the same physical line as the key -- check the whole
+    -- rendered row instead of only the line find_line(lines, ';') happens to
+    -- match first.
     local loc = require('tobira.i18n').load()
     local lines = guide.build({ [';'] = forgotten_data })
-    local row = find_line(lines, ';')
-    assert.is_not_nil(row:find(loc.guide.forgotten_suffix, 1, true))
+    assert.is_not_nil(find_line(lines, loc.guide.forgotten_suffix))
   end)
 end)
 
@@ -235,16 +269,16 @@ describe('when a command was mastered but is now forgotten', function()
   end)
 
   it('appends the forgotten_suffix to the description', function()
+    -- Same wrap caveat as the pinned-forgotten test above (#267): check the
+    -- whole rendered row, not just the first physical line find_line finds.
     local loc = require('tobira.i18n').load()
     local lines = guide.build(usage_with_overrides({ [';'] = forgotten_data }))
-    local row = find_line(lines, ';')
-    assert.is_not_nil(row:find(loc.guide.forgotten_suffix, 1, true))
+    assert.is_not_nil(find_line(lines, loc.guide.forgotten_suffix))
   end)
 
   it('still shows the count', function()
     local lines = guide.build(usage_with_overrides({ [';'] = forgotten_data }))
-    local row = find_line(lines, ';')
-    assert.is_not_nil(row:find('200×', 1, true))
+    assert.is_not_nil(find_line(lines, '200×'))
   end)
 end)
 
@@ -356,10 +390,15 @@ describe('per-category description width (#96)', function()
 end)
 
 -- ── footer (#92) ─────────────────────────────────────────────────────────────
--- Guide is focusable = false (recognition-over-recall, not an interactive
--- panel — see ui/CLAUDE.md), so a footer advertising <C-w>w / q / r used to
--- list three keys that could never fire. #92 removed the dead hint outright
--- rather than making the panel interactive to match it.
+-- At the time of #92, Guide was focusable = false (recognition-over-recall,
+-- not an interactive panel — see ui/CLAUDE.md), so a footer advertising
+-- <C-w>w / q / r used to list three keys that could never fire. #92 removed
+-- the dead hint outright rather than making the panel interactive to match
+-- it. #266 later made the window focusable so its own overflow can be
+-- scrolled (see docs/adr/0102-guide-scrollable-focusable-window.md), but
+-- that only enables Neovim's own default window/scroll keys -- Guide still
+-- defines no keymaps or footer hint of its own, so #92's reasoning still
+-- holds for this section.
 
 describe('the footer', function()
   it('does not render a separator line (no hint left to separate from content)', function()
@@ -377,6 +416,188 @@ describe('the footer', function()
   it('ends with a trailing blank line, matching the leading blank line', function()
     local lines = guide.build({})
     assert.equals('', lines[#lines])
+  end)
+end)
+
+-- ── scrollable window (#266) ─────────────────────────────────────────────────
+-- With realistic usage spanning many categories, the panel's raw content can
+-- run well past screen_h - 4 rows. Before this fix the window was
+-- `focusable = false`, so that overflow was permanently unreachable -- no
+-- scroll, no pagination. See docs/adr/0102-guide-scrollable-focusable-window.md.
+
+describe('the guide window is enterable so overflow can be scrolled (#266)', function()
+  after_each(function()
+    guide.close()
+  end)
+
+  it('is focusable, so Neovim default window navigation (<C-w>w, mouse) can enter it', function()
+    guide.open()
+    local win = find_guide_win()
+    assert.is_not_nil(win, 'expected to find the open guide window')
+    local config = vim.api.nvim_win_get_config(win)
+    assert.is_true(config.focusable, 'expected the guide window to be focusable so its own overflow can be scrolled')
+  end)
+
+  it('still does not steal focus when opened (stays passive/ambient)', function()
+    local win_before = vim.api.nvim_get_current_win()
+    guide.open()
+    assert.equals(win_before, vim.api.nvim_get_current_win())
+  end)
+end)
+
+describe('M.refresh() respects the same height cap as M.open() (#266 regression)', function()
+  local logger = require('tobira.core.logger')
+
+  before_each(function()
+    logger.reset()
+  end)
+
+  after_each(function()
+    guide.close()
+    logger.reset()
+  end)
+
+  it('does not grow the window past screen_h - 4 after refresh recomputes content', function()
+    -- Pinned commands bypass the mastery-level category ceiling entirely, so
+    -- pinning most of the registry is the simplest way to reliably blow past
+    -- the height cap without having to engineer a specific mastery profile.
+    local commands = require('tobira.commands')
+    local pinned_count = 0
+    for cmd, e in pairs(commands.registry) do
+      if not e.compound then
+        logger.set_pinned(cmd, true)
+        pinned_count = pinned_count + 1
+      end
+    end
+    assert.is_true(pinned_count > 40, 'expected enough registry commands to pin to exceed the height cap')
+
+    guide.open()
+    guide.refresh()
+
+    local guide_win = find_guide_win()
+    assert.is_not_nil(guide_win, 'expected to find the open guide window')
+
+    local height = vim.api.nvim_win_get_height(guide_win)
+    local uis = vim.api.nvim_list_uis()
+    local screen_h = (uis[1] and uis[1].height) or 40
+    assert.is_true(
+      height <= screen_h - 4,
+      'expected refresh() to respect the same height cap as open(), got height=' .. height .. ' cap=' .. (screen_h - 4)
+    )
+  end)
+end)
+
+-- ── wrapped annotation indent (#267) ─────────────────────────────────────────
+-- format_row()/format_pinned_row() previously relied on the window's own
+-- wrap/linebreak/breakindent with no reflow-aware alignment, so a long
+-- "mapped to X" / "remapped to X — no longer valid" annotation wrapped with
+-- zero indent on continuation lines, and a trailing count could dangle.
+
+describe('wrapped continuation lines for long annotations are indented (#267)', function()
+  local integrations = require('tobira.core.integrations')
+
+  local function fake_keymap(entries)
+    return function(_mode)
+      return entries
+    end
+  end
+
+  before_each(function()
+    integrations.reset()
+  end)
+  after_each(function()
+    integrations.reset()
+  end)
+
+  it(
+    'indents a wrapped pinned-row "remapped ... no longer valid" annotation instead of starting at column 0',
+    function()
+      integrations.refresh(
+        fake_keymap({ { lhs = 'w', rhs = ':echo "qa-w-not-a-real-motion-at-all"<CR>', noremap = 0 } })
+      )
+      local forgotten_data = { count = 200, sessions = { 8, 9, 0, 0 }, shown = 0, suppressed = false, pinned = true }
+      local lines = guide.build({ ['w'] = forgotten_data })
+
+      local row_lnum
+      for i, line in ipairs(lines) do
+        if line:find('●', 1, true) and line:find('remapped to', 1, true) then
+          row_lnum = i
+        end
+      end
+      assert.is_not_nil(row_lnum, 'expected a pinned row for w with a remapped_invalid annotation')
+
+      local continuation = lines[row_lnum + 1]
+      assert.is_not_nil(continuation, 'expected the long remapped_invalid annotation to wrap onto a continuation line')
+      assert.is_nil(continuation:match('^%S'), 'continuation line must not start flush at column 0: ' .. continuation)
+      local leading_spaces = continuation:match('^( *)')
+      assert.equals(22, #leading_spaces, 'continuation line must align under the description column')
+    end
+  )
+
+  it('indents a wrapped auto-section "mapped to" annotation and keeps the trailing count attached', function()
+    integrations.refresh(fake_keymap({ { lhs = 'Y', rhs = 'y$', noremap = 1 } }))
+    local lines = guide.build(usage_with_overrides({ ['Y'] = entry({ count = 2 }) }))
+
+    local row_lnum
+    for i, line in ipairs(lines) do
+      if line:find('Y', 1, true) and line:find('yank', 1, true) then
+        row_lnum = i
+      end
+    end
+    assert.is_not_nil(row_lnum, 'expected a Y row with its description')
+
+    local continuation = lines[row_lnum + 1]
+    assert.is_not_nil(continuation, "expected the 'mapped to y$' annotation to wrap onto a continuation line")
+    assert.is_nil(continuation:match('^%S'), 'continuation line must not start flush at column 0: ' .. continuation)
+    local leading_spaces = continuation:match('^( *)')
+    assert.equals(20, #leading_spaces, 'continuation line must align under the description column')
+    assert.is_not_nil(
+      continuation:find('2×', 1, true),
+      'expected the trailing count to stay attached to the wrapped text, not dangle alone: ' .. continuation
+    )
+  end)
+end)
+
+-- ── per-category padding overflow (#267 regression, found in live testing) ──
+-- format_row() originally only checked whether `desc .. suffix` alone fit
+-- within WIDTH before deciding not to wrap. But the count column pads every
+-- row in a category out to that category's *widest* description
+-- (desc_col_w) before appending the count -- so a short description in a
+-- category that also has a much longer one could still overflow WIDTH once
+-- padding + count were added, even though the short description alone fit
+-- fine. Caught live (not by a unit test) because M.build()'s pure lines
+-- array only reflects this once the fix makes format_row() itself stop
+-- emitting an over-wide line -- before the fix, M.build() still returned one
+-- (too-wide) string per row, and the resulting zero-indent wrap only showed
+-- up once Neovim actually rendered it in a real window.
+
+describe('per-category padding never produces a line wider than WIDTH (#267 regression)', function()
+  it('keeps a short row single-line, unpadded, instead of overflowing when a sibling row is much longer', function()
+    -- '#' (long description, never tried) sets a wide desc_col_w for
+    -- 'search'; 'N' (short description) plus its count would overflow WIDTH
+    -- if padded out to match '#'.
+    local usage = usage_with_overrides({
+      ['#'] = entry({ count = 0 }),
+      ['N'] = entry({ count = 7 }),
+    })
+    local lines = guide.build(usage)
+    for i, line in ipairs(lines) do
+      assert.is_true(
+        vim.fn.strdisplaywidth(line) <= 60,
+        'line '
+          .. i
+          .. ' is '
+          .. vim.fn.strdisplaywidth(line)
+          .. ' display columns wide, wider than the window: ['
+          .. line
+          .. ']'
+      )
+    end
+    -- N's key and its count must land on the very same physical line (no
+    -- silent split forced by padding).
+    local row = find_line(lines, '7×')
+    assert.is_not_nil(row, "expected N's count to appear")
+    assert.is_not_nil(row:find('N', 1, true), "expected N's key and its count on the same physical line")
   end)
 end)
 
@@ -545,7 +766,9 @@ describe('when the guide window is opened, closed, or toggled', function()
     guide.close()
   end)
 
-  it('opens a non-focusable floating window', function()
+  it('opens a floating window', function()
+    -- Focusable-so-it-can-be-scrolled is covered separately, see "the guide
+    -- window is enterable so overflow can be scrolled (#266)" below.
     guide.open()
     assert.is_true(guide.is_open())
   end)
@@ -631,16 +854,27 @@ describe('keymap overrides (#63)', function()
     integrations.refresh(fake_keymap({ { lhs = 'Y', rhs = 'y$', noremap = 1 } }))
     local loc = require('tobira.i18n').load()
     local lines = guide.build(usage_with_overrides({ ['Y'] = entry({ count = 0 }) }))
-    local row = find_line(lines, 'Y')
-    assert.is_not_nil(row, 'expected a row for Y')
-    assert.is_not_nil(row:find(string.format(loc.guide.remapped_suffix, 'y$'), 1, true))
+    local row_lnum
+    for i, line in ipairs(lines) do
+      if line:find('Y', 1, true) then
+        row_lnum = i
+      end
+    end
+    assert.is_not_nil(row_lnum, 'expected a row for Y')
+    -- The annotated description is long enough to wrap onto a continuation
+    -- line (#267) -- reconstruct the full row text rather than checking only
+    -- the first physical line.
+    assert.is_not_nil(row_text(lines, row_lnum):find(string.format(loc.guide.remapped_suffix, 'y$'), 1, true))
   end)
 
   it('excludes the row entirely when the remap is not functionally equivalent', function()
     integrations.refresh(fake_keymap({ { lhs = 's', rhs = '<Plug>(some-plugin-thing)', noremap = 0 } }))
     local lines = guide.build(usage_with_overrides({ ['s'] = entry({ count = 0 }) }))
     for _, line in ipairs(lines) do
-      assert.is_nil(line:find('substitute character', 1, true), 's must not render its stock description once remapped away')
+      assert.is_nil(
+        line:find('substitute character', 1, true),
+        's must not render its stock description once remapped away'
+      )
     end
   end)
 
@@ -663,9 +897,22 @@ describe('keymap overrides (#63)', function()
       integrations.refresh(fake_keymap({ { lhs = '%', rhs = '<Plug>(MatchitNormalForward)', noremap = 0 } }))
       local loc = require('tobira.i18n').load()
       local lines = guide.build(usage_with_overrides({ ['%'] = entry({ count = 0 }) }))
-      local row = find_line(lines, '%')
-      assert.is_not_nil(row, 'expected a row for %')
-      assert.is_not_nil(row:find(string.format(loc.guide.remapped_suffix, '<Plug>(MatchitNormalForward)'), 1, true))
+      local row_lnum
+      for i, line in ipairs(lines) do
+        if line:find('%', 1, true) then
+          row_lnum = i
+        end
+      end
+      assert.is_not_nil(row_lnum, 'expected a row for %')
+      -- matchit's target is long enough that the annotation wraps onto a
+      -- continuation line (#267) -- reconstruct the full row text.
+      assert.is_not_nil(
+        row_text(lines, row_lnum):find(
+          string.format(loc.guide.remapped_suffix, '<Plug>(MatchitNormalForward)'),
+          1,
+          true
+        )
+      )
     end
   )
 
@@ -703,21 +950,40 @@ describe('pinned row + keymap overrides (#164)', function()
     integrations.refresh(fake_keymap({ { lhs = 'Y', rhs = 'y$', noremap = 1 } }))
     local loc = require('tobira.i18n').load()
     local lines = guide.build(usage_with_overrides({ ['Y'] = entry({ pinned = true, count = 0 }) }))
-    local row = find_line(lines, 'Y')
-    assert.is_not_nil(row, 'expected a pinned row for Y')
-    assert.is_not_nil(row:find(string.format(loc.guide.remapped_suffix, 'y$'), 1, true))
+    local row_lnum
+    for i, line in ipairs(lines) do
+      if line:find('Y', 1, true) then
+        row_lnum = i
+      end
+    end
+    assert.is_not_nil(row_lnum, 'expected a pinned row for Y')
+    -- The annotated description is long enough to wrap onto a continuation
+    -- line (#267) -- reconstruct the full row text.
+    assert.is_not_nil(row_text(lines, row_lnum):find(string.format(loc.guide.remapped_suffix, 'y$'), 1, true))
   end)
 
   it('keeps a non-equivalent remap visible with a "no longer valid" note instead of omitting it', function()
     integrations.refresh(fake_keymap({ { lhs = 's', rhs = '<Plug>(some-plugin-thing)', noremap = 0 } }))
     local loc = require('tobira.i18n').load()
     local lines = guide.build(usage_with_overrides({ ['s'] = entry({ pinned = true, count = 0 }) }))
-    local row = find_line(lines, 's')
-    assert.is_not_nil(row, 'a pinned command must never disappear from the Pinned section, even when remapped away')
-    assert.is_not_nil(row:find('●', 1, true), 'the row must keep its pinned marker')
-    assert.is_nil(row:find('substitute character', 1, true), 'stock (now-wrong) description must not remain')
+    local row_lnum
+    for i, line in ipairs(lines) do
+      if line:find('s', 1, true) then
+        row_lnum = i
+      end
+    end
     assert.is_not_nil(
-      row:find(string.format(loc.guide.remapped_invalid, '<Plug>(some-plugin-thing)'), 1, true),
+      row_lnum,
+      'a pinned command must never disappear from the Pinned section, even when remapped away'
+    )
+    local full = row_text(lines, row_lnum)
+    assert.is_not_nil(full:find('●', 1, true), 'the row must keep its pinned marker')
+    assert.is_nil(full:find('substitute character', 1, true), 'stock (now-wrong) description must not remain')
+    -- The remapped-to target is long enough that this annotation wraps onto
+    -- a continuation line (#267) -- reconstruct the full row text rather
+    -- than checking only the first physical line.
+    assert.is_not_nil(
+      full:find(string.format(loc.guide.remapped_invalid, '<Plug>(some-plugin-thing)'), 1, true),
       'expected the remapped_invalid annotation in place of the stock description'
     )
   end)
@@ -838,7 +1104,11 @@ describe('extmark rendering after the nvim_buf_add_highlight migration (#151)', 
     local mark = real_extmark(buf, expected.lnum, 'TobiraDim')
     assert.is_not_nil(mark, 'expected a real TobiraDim extmark on the never-tried row')
     local details = mark[4]
-    assert.equals(expected.lnum, details.end_row, 'a full-line range must resolve on its own line, not roll onto the next')
+    assert.equals(
+      expected.lnum,
+      details.end_row,
+      'a full-line range must resolve on its own line, not roll onto the next'
+    )
     assert.equals(#lines[expected.lnum + 1], details.end_col, 'must reach the real end of the line, not column 0')
   end)
 end)
