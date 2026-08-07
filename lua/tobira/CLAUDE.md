@@ -107,6 +107,37 @@ inline "why" prose. If you're about to touch a module with one of these, **read 
 ADR first** — it has the rationale/history. Don't re-derive or re-explain it inline;
 if the decision changes, update the ADR. See `docs/adr/README.md` for the format.
 
+**The pointer replaces the prose — it doesn't precede it.** If an ADR exists (or you're
+writing one for this change), the inline comment is the one-liner pointing at it, not a
+summary of it. Recurring anti-pattern to avoid: writing the ADR *and* leaving a
+multi-paragraph comment in the code that restates the same rationale, sometimes down to
+"here's what I tested and found" — that's a QA transcript, not a comment, and it rots the
+moment the next fix changes the behavior it describes. If you catch yourself writing
+"see docs/adr/NNNN for the full rationale" at the *end* of a long comment, delete
+everything above that line instead — the ADR already has it.
+
+Never reference an issue or PR number in a code comment (`#123`) — issue numbers are
+meaningless to a reader six months later and belong in the git history / PR description,
+not the source. If the number is load-bearing context, it belongs in the ADR, not the
+comment.
+
+Bad (this actually shipped in this codebase before being trimmed):
+```lua
+-- Neovim's own internal keymap script-id sentinel (#255): every mapping
+-- $VIMRUNTIME/lua/vim/_defaults.lua registers at boot -- gx, &, ]q/[q/]l/[l,
+-- and on Neovim 0.10+ even Y=y$ -- goes through the Lua/C API with no
+-- attached sourced script, which nvim_get_keymap() surfaces as sid == -8.
+-- [...30 more lines of rationale, test results, and version notes...]
+-- see docs/adr/0102-builtin-default-mapping-sid-detection.md for how and why
+```
+
+Good:
+```lua
+-- Neovim's own boot-time default mappings surface as sid == -8; see
+-- docs/adr/0102-builtin-default-mapping-sid-detection.md.
+local NVIM_BUILTIN_DEFAULT_SID = -8
+```
+
 ## Tracking design principle
 
 **tobira uses only `vim.on_key()`. No TextYankPost, no vim.keymap.set.**
