@@ -395,7 +395,7 @@ end)
 -- <C-w>w / q / r used to list three keys that could never fire. #92 removed
 -- the dead hint outright rather than making the panel interactive to match
 -- it. #266 later made the window focusable so its own overflow can be
--- scrolled (see docs/adr/0102-guide-scrollable-focusable-window.md), but
+-- scrolled (see docs/adr/0103-guide-scrollable-focusable-window.md), but
 -- that only enables Neovim's own default window/scroll keys -- Guide still
 -- defines no keymaps or footer hint of its own, so #92's reasoning still
 -- holds for this section.
@@ -423,7 +423,7 @@ end)
 -- With realistic usage spanning many categories, the panel's raw content can
 -- run well past screen_h - 4 rows. Before this fix the window was
 -- `focusable = false`, so that overflow was permanently unreachable -- no
--- scroll, no pagination. See docs/adr/0102-guide-scrollable-focusable-window.md.
+-- scroll, no pagination. See docs/adr/0103-guide-scrollable-focusable-window.md.
 
 describe('the guide window is enterable so overflow can be scrolled (#266)', function()
   after_each(function()
@@ -598,6 +598,73 @@ describe('per-category padding never produces a line wider than WIDTH (#267 regr
     local row = find_line(lines, '7×')
     assert.is_not_nil(row, "expected N's count to appear")
     assert.is_not_nil(row:find('N', 1, true), "expected N's key and its count on the same physical line")
+  end)
+end)
+
+-- ── unbroken long token can't be wrapped by whitespace splitting alone
+-- (#267 regression, found during independent re-verification) ──────────────
+-- wrap_indented() only splits on whitespace (`text:gmatch('%S+')`), so a
+-- single token with no internal spaces at all -- e.g. a <Plug>(...)-style
+-- remap target, exactly what many real plugin-provided mappings look like --
+-- can never be broken across lines no matter how long it is: it is placed on
+-- its own line verbatim, unbounded by WIDTH. This is independent of the
+-- per-category padding overflow above (that one is about the count column;
+-- this one is about a single word having no spaces to break on at all).
+
+describe("a long <Plug>(...)-style remap target can't be wrapped by whitespace splitting (#267 regression)", function()
+  local integrations = require('tobira.core.integrations')
+
+  before_each(function()
+    integrations.reset()
+  end)
+  after_each(function()
+    integrations.reset()
+  end)
+
+  it('keeps the pinned "remapped ... no longer valid" row within WIDTH even when the rhs has no spaces', function()
+    integrations.refresh(function(_mode)
+      return {
+        { lhs = 'w', rhs = '<Plug>(some-really-long-plugin-provided-mapping-target-name)', noremap = 0 },
+      }
+    end)
+    local forgotten_data = { count = 200, sessions = { 8, 9, 0, 0 }, shown = 0, suppressed = false, pinned = true }
+    local lines = guide.build({ ['w'] = forgotten_data })
+
+    for i, line in ipairs(lines) do
+      assert.is_true(
+        vim.fn.strdisplaywidth(line) <= 60,
+        'line ' .. i .. ' is ' .. vim.fn.strdisplaywidth(line) .. ' display columns wide: [' .. line .. ']'
+      )
+    end
+  end)
+end)
+
+-- ── a large count can overflow WIDTH even on an unpadded, unwrapped single
+-- line (#267 regression, found during independent re-verification) ─────────
+-- format_row()'s fallback for the padding-overflow case above emits the
+-- row's own (unpadded) single wrapped line and then unconditionally appends
+-- the count column, without re-checking whether the count itself pushes the
+-- line past WIDTH. A forgotten command with a very large historical count is
+-- entirely realistic for a long-time user's most-used commands (a command
+-- must be forgotten, not merely unmastered, to still appear here at all once
+-- its count is this high -- see graph.is_forgotten()) and can overflow this
+-- way even with no sibling row's padding involved at all.
+
+describe('a large count appended to a single-line row must not overflow WIDTH (#267 regression)', function()
+  it('keeps the row within WIDTH when a forgotten command has a very large historical count', function()
+    local usage = usage_with_overrides({
+      e = { count = 99999999, sessions = { 99999999, 99999999, 99999999, 0, 0 } },
+    })
+
+    local lines = guide.build(usage)
+    for i, line in ipairs(lines) do
+      assert.is_true(
+        vim.fn.strdisplaywidth(line) <= 60,
+        'line ' .. i .. ' is ' .. vim.fn.strdisplaywidth(line) .. ' display columns wide: [' .. line .. ']'
+      )
+    end
+    local row = find_line(lines, '99999999×')
+    assert.is_not_nil(row, "expected e's huge count to appear")
   end)
 end)
 

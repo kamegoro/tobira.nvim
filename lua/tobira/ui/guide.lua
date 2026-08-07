@@ -58,37 +58,73 @@ local function mastery_glyph(data)
   return nil, nil
 end
 
+-- Breaks a single token whose own display width exceeds `avail` into
+-- avail-sized chunks, by character (never mid-byte, via strcharpart/
+-- strdisplaywidth) rather than by word, since it has no whitespace of its
+-- own to split on. Needed because a real remap target can be one long
+-- unbroken token with no internal spaces at all -- e.g. a plugin-provided
+-- `<Plug>(...)` mapping name -- which whitespace-only splitting can never
+-- bound no matter how long it is (#267 regression, found during independent
+-- QA re-verification). Always returns at least one chunk.
+local function hard_break(word, avail)
+  local chunks = {}
+  local buf = {}
+  local buf_w = 0
+  for i = 0, vim.fn.strchars(word) - 1 do
+    local ch = vim.fn.strcharpart(word, i, 1)
+    local ch_w = vim.fn.strdisplaywidth(ch)
+    if buf_w > 0 and buf_w + ch_w > avail then
+      table.insert(chunks, table.concat(buf))
+      buf, buf_w = {}, 0
+    end
+    table.insert(buf, ch)
+    buf_w = buf_w + ch_w
+  end
+  table.insert(chunks, table.concat(buf))
+  return chunks
+end
+
 -- Splits `text` into physical lines that fit within `width` display columns
 -- once `indent` display columns are already spoken for on the first line.
 -- Every line after the first carries its own `indent` leading spaces, so a
 -- wrapped annotation (e.g. "mapped to ...", "remapped to ... — no longer
 -- valid") lines up under the description column instead of the zero-indent
 -- word-wrap Neovim applies on its own with only `wrap`/`linebreak` set (#267).
--- Splits on whitespace only, mirroring what `linebreak` does for lines short
--- enough not to need this. `indent` must be a *display*-column count, not a
--- byte count -- callers track it separately from the byte-offset `pos` used
--- for extmark ranges, since a mastery glyph is multiple bytes but a single
--- display column. `text` is assumed non-empty -- both call sites build it
--- from short_desc(), which always falls back to a non-empty command key.
+-- Splits on whitespace, mirroring what `linebreak` does for lines short
+-- enough not to need this -- except for a single token wider than `avail` on
+-- its own (see hard_break above), which whitespace splitting alone can never
+-- bound. `indent` must be a *display*-column count, not a byte count --
+-- callers track it separately from the byte-offset `pos` used for extmark
+-- ranges, since a mastery glyph is multiple bytes but a single display
+-- column. `text` is assumed non-empty -- both call sites build it from
+-- short_desc(), which always falls back to a non-empty command key.
 local function wrap_indented(text, indent, width)
   local avail = math.max(1, width - indent)
   local words = {}
   for w in text:gmatch('%S+') do
     table.insert(words, w)
   end
-  local lines = { words[1] }
-  local cur_w = vim.fn.strdisplaywidth(words[1])
-  for i = 2, #words do
-    local w = words[i]
+
+  local lines = {}
+  local cur_w = 0
+  for _, w in ipairs(words) do
     local w_w = vim.fn.strdisplaywidth(w)
-    if cur_w + 1 + w_w <= avail then
+    if w_w > avail then
+      for _, chunk in ipairs(hard_break(w, avail)) do
+        table.insert(lines, chunk)
+        cur_w = vim.fn.strdisplaywidth(chunk)
+      end
+    elseif #lines > 0 and cur_w + 1 + w_w <= avail then
       lines[#lines] = lines[#lines] .. ' ' .. w
       cur_w = cur_w + 1 + w_w
     else
+      -- Either the very first word (lines is still empty), or the current
+      -- line is full -- either way, w starts a new line.
       table.insert(lines, w)
       cur_w = w_w
     end
   end
+
   return lines
 end
 
@@ -203,9 +239,12 @@ local function format_row(cmd, desc, data, desc_col_w, str)
   -- description in a category whose widest row is long. Checking only
   -- `#wrapped == 1` misses that case and left it to Neovim's own
   -- zero-indent wrap (#267 regression caught in live testing). Falling back
-  -- to the unpadded single line below still avoids a wrap in that case; only
-  -- the genuinely-too-long-on-its-own desc_str (`#wrapped > 1`) needs an
-  -- actual continuation line.
+  -- to the unpadded single line below avoids *that* overflow, but the count
+  -- is still appended afterwards -- see the width re-check below for why
+  -- that append needs its own guard too (#267 regression, found during
+  -- independent QA re-verification: a large digit count can push even the
+  -- row's own unpadded width past WIDTH, e.g. a forgotten command with a
+  -- very large historical count).
   local padded_w = math.max(vim.fn.strdisplaywidth(desc_str), desc_col_w)
   local count_w = count_str ~= '' and (2 + vim.fn.strdisplaywidth(count_str)) or 0
   local fits_padded = #wrapped == 1 and (indent + padded_w + count_w <= WIDTH)
@@ -227,9 +266,25 @@ local function format_row(cmd, desc, data, desc_col_w, str)
     end
     if count_str ~= '' then
       local last_idx = #lines
-      local cs = #lines[last_idx] + 2
-      lines[last_idx] = lines[last_idx] .. '  ' .. count_str
-      table.insert(hls, { lnum_offset = last_idx - 1, cs = cs, ce = cs + #count_str, group = 'TobiraGuideHint' })
+      local candidate = lines[last_idx] .. '  ' .. count_str
+      if vim.fn.strdisplaywidth(candidate) <= WIDTH then
+        local cs = #lines[last_idx] + 2
+        lines[last_idx] = candidate
+        table.insert(hls, { lnum_offset = last_idx - 1, cs = cs, ce = cs + #count_str, group = 'TobiraGuideHint' })
+      else
+        -- Appending the count to the last wrapped line would itself push
+        -- past WIDTH (e.g. a large digit count on an already near-full
+        -- line) -- give the count its own indented continuation line
+        -- instead of overflowing. Still a better outcome than the
+        -- pre-#267 dangling zero-indent count this whole helper exists to
+        -- fix.
+        local count_line = string.rep(' ', indent) .. count_str
+        table.insert(lines, count_line)
+        table.insert(
+          hls,
+          { lnum_offset = #lines - 1, cs = indent, ce = indent + #count_str, group = 'TobiraGuideHint' }
+        )
+      end
     end
   end
 
@@ -490,7 +545,7 @@ function M.open()
     -- scrolled with its own default j/k/<C-d>/<C-u>/gg/G -- no keymap of
     -- Guide's own is added. Opening still never steals focus (`enter =
     -- false` above stays unchanged). See #266 and
-    -- docs/adr/0102-guide-scrollable-focusable-window.md.
+    -- docs/adr/0103-guide-scrollable-focusable-window.md.
     focusable = true,
     zindex = 40,
   })
