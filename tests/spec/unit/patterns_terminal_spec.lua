@@ -1,4 +1,4 @@
--- Pure terminal-mode key-streak detection (#110). No vim.* calls —
+-- Pure terminal-mode key-streak detection. No vim.* calls —
 -- patterns_terminal.lua has zero Neovim dependencies.
 --
 -- A separate pure state machine from patterns.lua's normal-mode seq/feed and

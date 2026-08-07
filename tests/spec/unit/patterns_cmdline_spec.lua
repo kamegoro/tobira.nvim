@@ -84,7 +84,7 @@ describe('when classifying the text of a command-line buffer into a semantic com
   end)
 end)
 
--- patterns_cmdline.track_substitute(state, text, line) (#115): detects the
+-- patterns_cmdline.track_substitute(state, text, line): detects the
 -- SAME :s pattern+replacement manually re-run on 2+ distinct lines, firing
 -- '&' on the 2nd distinct line and 'g&' on the 3rd. state accumulates across
 -- the whole session (unlike tokenize()). See
@@ -244,8 +244,8 @@ describe('patterns_cmdline.track_substitute', function()
 end)
 
 -- patterns_cmdline.command_arg(text): argument-aware counterpart to
--- tokenize() above, shared by the tabnew streak (#113) and :e/:b ping-pong
--- (#114) detectors below. See
+-- tokenize() above, shared by the tabnew streak and :e/:b ping-pong
+-- detectors below. See
 -- docs/adr/0003-cmdline-command-arg-shared-argument-extraction.md.
 
 describe('patterns_cmdline.command_arg', function()
@@ -330,7 +330,7 @@ describe('patterns_cmdline.command_arg', function()
   end)
 end)
 
--- Ex-command ping-pong detection (#114): fires when the two most recently
+-- Ex-command ping-pong detection: fires when the two most recently
 -- distinct filenames touched via :e/:b alternate — :e A -> :e B -> :e A (or
 -- the equivalent with :b) — suggesting <C-^> as the direct shortcut between
 -- them. See docs/adr/0004-ex-file-pingpong-detection.md.
@@ -436,7 +436,7 @@ describe('patterns_cmdline ex_file_pingpong detection', function()
   end)
 end)
 
--- ── tabnew one-file-per-tab habit detection (#113) ──────────────────────────
+-- ── tabnew one-file-per-tab habit detection ───────────────────────────────────
 -- See docs/adr/0005-tabnew-one-file-per-tab-detection.md.
 --
 -- The feature's own name is "one-tab-per-FILE" — feed_tabnew() only counts an
@@ -532,7 +532,7 @@ describe('patterns_cmdline tabnew one-file-per-tab habit detection (#113)', func
   end)
 end)
 
--- ── Verbatim Ex-command retype detection (#241) ─────────────────────────────
+-- ── Verbatim Ex-command retype detection ──────────────────────────────────────
 -- Generalizes substitute_repeat/ex_file_pingpong/tabnew_run above: retyping
 -- the exact same full command-line string 2+ times is a signal for `:`+<Up>
 -- (or q:) history recall, for any command NOT already claimed by one of the
@@ -700,11 +700,10 @@ describe('patterns_cmdline.feed_history_recall', function()
     end)
   end)
 
-  -- #259: feed_history_recall() cannot tell "manually retyped" apart from
+  -- feed_history_recall() cannot tell "manually retyped" apart from
   -- "recalled via <Up>/<Down> and resubmitted unchanged" from text alone --
-  -- both look identical to vim.fn.getcmdline() at <CR> time. The caller
-  -- (logger.lua) now tracks whether a history-navigation keystroke happened
-  -- during the cmdline session and passes it as this 5th param.
+  -- both look identical to vim.fn.getcmdline() at <CR> time, so the caller
+  -- (logger.lua) tracks history-navigation separately and passes it here.
   describe('genuine history recall via <Up>/<Down> (#259) -- recalled_via_history param', function()
     it('does not fire when the identical command was recalled via history rather than retyped', function()
       local s = rseq()

@@ -34,7 +34,7 @@ local function find_hl(hls, lnum, group)
 end
 
 -- Reconstructs the full text of a row that may have wrapped onto
--- continuation lines (#267): a continuation line is identified by its large
+-- continuation lines: a continuation line is identified by its large
 -- (>= 15 char) alignment indent, distinct from every other kind of line this
 -- panel renders (rows themselves start with 3 spaces, headers with 2,
 -- overflow lines with 6). `start_idx` is the 1-based index into `lines` of
@@ -66,7 +66,7 @@ end
 -- Masters every non-compound command (count = 200, so nothing else can appear
 -- in the auto section), then applies overrides for the specific commands a
 -- test cares about. This isolates a test to exactly the commands it names,
--- immune to the per-category cap (#96) and to unrelated registry commands
+-- immune to the per-category cap and to unrelated registry commands
 -- tying on "never tried" and crowding out the one row a test is asserting on.
 local function usage_with_overrides(overrides)
   local commands = require('tobira.commands')
@@ -160,11 +160,11 @@ describe('when a command is pinned', function()
   end)
 end)
 
--- ── pinned row forgotten state (#123) ────────────────────────────────────────
+-- ── pinned row forgotten state ────────────────────────────────────────────────
 -- format_pinned_row() didn't take `data` at all before this fix, so a pinned
 -- command that decayed into graph.is_forgotten() never got the ⟳ glyph or
 -- (forgotten) suffix the same command would correctly get in the auto
--- section — it just kept showing the plain ● pin row forever. See #123.
+-- section — it just kept showing the plain ● pin row forever.
 
 describe('when a pinned command has decayed into a forgotten state', function()
   local forgotten_data = { count = 200, sessions = { 8, 9, 0, 0 }, shown = 0, suppressed = false, pinned = true }
@@ -190,7 +190,7 @@ describe('when a pinned command has decayed into a forgotten state', function()
 
   it('appends the forgotten_suffix to the description', function()
     -- The full description (with the forgotten_suffix appended) is long
-    -- enough to wrap onto a continuation line (#267), so the suffix is not
+    -- enough to wrap onto a continuation line, so the suffix is not
     -- necessarily on the same physical line as the key -- check the whole
     -- rendered row instead of only the line find_line(lines, ';') happens to
     -- match first.
@@ -211,7 +211,7 @@ describe('when a pinned command is not forgotten', function()
   end)
 end)
 
--- ── mastery-symbol column (#68) ──────────────────────────────────────────────
+-- ── mastery-symbol column ────────────────────────────────────────────────────
 
 describe('when a command has never been tried (mastery level 0)', function()
   it('renders the row with TobiraDim and no glyph', function()
@@ -245,7 +245,7 @@ end)
 -- guard for the exclusion itself lives in graph_spec.lua ("still excludes a
 -- command that is mastered and not forgotten").
 
--- ── forgotten state (#68) ────────────────────────────────────────────────────
+-- ── forgotten state ───────────────────────────────────────────────────────────
 
 describe('when a command was mastered but is now forgotten', function()
   local forgotten_data = { count = 200, sessions = { 8, 9, 0, 0 }, shown = 0, suppressed = false, pinned = false }
@@ -269,7 +269,7 @@ describe('when a command was mastered but is now forgotten', function()
   end)
 
   it('appends the forgotten_suffix to the description', function()
-    -- Same wrap caveat as the pinned-forgotten test above (#267): check the
+    -- Same wrap caveat as the pinned-forgotten test above: check the
     -- whole rendered row, not just the first physical line find_line finds.
     local loc = require('tobira.i18n').load()
     local lines = guide.build(usage_with_overrides({ [';'] = forgotten_data }))
@@ -282,7 +282,7 @@ describe('when a command was mastered but is now forgotten', function()
   end)
 end)
 
--- ── count column (#68) ───────────────────────────────────────────────────────
+-- ── count column ─────────────────────────────────────────────────────────────
 
 describe('when a command has a non-zero count', function()
   it('shows the count suffixed with ×', function()
@@ -320,9 +320,9 @@ describe('count column alignment', function()
   end)
 end)
 
--- ── per-category cap and never-tried-first ordering (#96) ───────────────────
--- Regression guard for #96 (auto section previously showed every unmastered
--- command with no limit). See
+-- ── per-category cap and never-tried-first ordering ──────────────────────────
+-- Regression guard (auto section previously showed every unmastered command
+-- with no limit). See
 -- docs/adr/0060-guide-auto-section-capped-never-tried-first.md for why it's
 -- capped and sorted this way.
 
@@ -389,16 +389,12 @@ describe('per-category description width (#96)', function()
   end)
 end)
 
--- ── footer (#92) ─────────────────────────────────────────────────────────────
--- At the time of #92, Guide was focusable = false (recognition-over-recall,
--- not an interactive panel — see ui/CLAUDE.md), so a footer advertising
--- <C-w>w / q / r used to list three keys that could never fire. #92 removed
--- the dead hint outright rather than making the panel interactive to match
--- it. #266 later made the window focusable so its own overflow can be
--- scrolled (see docs/adr/0103-guide-scrollable-focusable-window.md), but
--- that only enables Neovim's own default window/scroll keys -- Guide still
--- defines no keymaps or footer hint of its own, so #92's reasoning still
--- holds for this section.
+-- ── footer ───────────────────────────────────────────────────────────────────
+-- Guide is focusable = false (recognition-over-recall, not an interactive
+-- panel — see ui/CLAUDE.md), so it defines no keymaps or footer hint here.
+-- The window later became focusable so its own overflow can be scrolled
+-- (see docs/adr/0103-guide-scrollable-focusable-window.md), but that only
+-- enables Neovim's own default window/scroll keys.
 
 describe('the footer', function()
   it('does not render a separator line (no hint left to separate from content)', function()
@@ -419,7 +415,7 @@ describe('the footer', function()
   end)
 end)
 
--- ── scrollable window (#266) ─────────────────────────────────────────────────
+-- ── scrollable window ────────────────────────────────────────────────────────
 -- With realistic usage spanning many categories, the panel's raw content can
 -- run well past screen_h - 4 rows. Before this fix the window was
 -- `focusable = false`, so that overflow was permanently unreachable -- no
@@ -487,7 +483,7 @@ describe('M.refresh() respects the same height cap as M.open() (#266 regression)
   end)
 end)
 
--- ── wrapped annotation indent (#267) ─────────────────────────────────────────
+-- ── wrapped annotation indent ────────────────────────────────────────────────
 -- format_row()/format_pinned_row() previously relied on the window's own
 -- wrap/linebreak/breakindent with no reflow-aware alignment, so a long
 -- "mapped to X" / "remapped to X — no longer valid" annotation wrapped with
@@ -558,18 +554,11 @@ describe('wrapped continuation lines for long annotations are indented (#267)', 
   end)
 end)
 
--- ── per-category padding overflow (#267 regression, found in live testing) ──
+-- ── per-category padding overflow ────────────────────────────────────────────
 -- format_row() originally only checked whether `desc .. suffix` alone fit
--- within WIDTH before deciding not to wrap. But the count column pads every
--- row in a category out to that category's *widest* description
--- (desc_col_w) before appending the count -- so a short description in a
--- category that also has a much longer one could still overflow WIDTH once
--- padding + count were added, even though the short description alone fit
--- fine. Caught live (not by a unit test) because M.build()'s pure lines
--- array only reflects this once the fix makes format_row() itself stop
--- emitting an over-wide line -- before the fix, M.build() still returned one
--- (too-wide) string per row, and the resulting zero-indent wrap only showed
--- up once Neovim actually rendered it in a real window.
+-- within WIDTH before deciding not to wrap — but the count column pads every
+-- row out to that category's widest description first, so a short
+-- description could still overflow WIDTH once padding + count were added.
 
 describe('per-category padding never produces a line wider than WIDTH (#267 regression)', function()
   it('keeps a short row single-line, unpadded, instead of overflowing when a sibling row is much longer', function()
@@ -601,15 +590,11 @@ describe('per-category padding never produces a line wider than WIDTH (#267 regr
   end)
 end)
 
--- ── unbroken long token can't be wrapped by whitespace splitting alone
--- (#267 regression, found during independent re-verification) ──────────────
+-- ── unbroken long token can't be wrapped by whitespace splitting alone ───────
 -- wrap_indented() only splits on whitespace (`text:gmatch('%S+')`), so a
 -- single token with no internal spaces at all -- e.g. a <Plug>(...)-style
--- remap target, exactly what many real plugin-provided mappings look like --
--- can never be broken across lines no matter how long it is: it is placed on
--- its own line verbatim, unbounded by WIDTH. This is independent of the
--- per-category padding overflow above (that one is about the count column;
--- this one is about a single word having no spaces to break on at all).
+-- remap target -- can never be broken across lines: it is placed on its own
+-- line verbatim, unbounded by WIDTH.
 
 describe("a long <Plug>(...)-style remap target can't be wrapped by whitespace splitting (#267 regression)", function()
   local integrations = require('tobira.core.integrations')
@@ -639,16 +624,12 @@ describe("a long <Plug>(...)-style remap target can't be wrapped by whitespace s
   end)
 end)
 
--- ── a large count can overflow WIDTH even on an unpadded, unwrapped single
--- line (#267 regression, found during independent re-verification) ─────────
+-- ── a large count can overflow WIDTH even on an unpadded, unwrapped single line ─
 -- format_row()'s fallback for the padding-overflow case above emits the
--- row's own (unpadded) single wrapped line and then unconditionally appends
--- the count column, without re-checking whether the count itself pushes the
--- line past WIDTH. A forgotten command with a very large historical count is
--- entirely realistic for a long-time user's most-used commands (a command
--- must be forgotten, not merely unmastered, to still appear here at all once
--- its count is this high -- see graph.is_forgotten()) and can overflow this
--- way even with no sibling row's padding involved at all.
+-- row's own single wrapped line and then unconditionally appends the count
+-- column, without re-checking whether the count itself pushes the line past
+-- WIDTH. A forgotten command with a very large historical count can trigger
+-- this even with no sibling row's padding involved at all.
 
 describe('a large count appended to a single-line row must not overflow WIDTH (#267 regression)', function()
   it('keeps the row within WIDTH when a forgotten command has a very large historical count', function()
@@ -670,7 +651,7 @@ end)
 
 -- ── regression: existing behavior preserved ─────────────────────────────────
 
--- ── Ex command category (#57) ────────────────────────────────────────────────
+-- ── Ex command category ──────────────────────────────────────────────────────
 
 describe('an unmastered Ex command suggestion', function()
   it('appears under the Ex category header', function()
@@ -718,12 +699,9 @@ end)
 -- guide.lua keeps its own CATEGORY_ORDER list separate from skills.lua's
 -- (see the module dependency rules in lua/tobira/CLAUDE.md — guide.lua does
 -- not require skills.lua). A category present in commands.registry but
--- missing from CATEGORY_ORDER is silently dropped from the panel: by_cat
--- still has the entry (graph.guide_commands() has no category allowlist),
--- but the render loop below only ever walks CATEGORY_ORDER. #111 caught this
--- live (the `diff` category rendered fine in :TobiraProgress via skills.lua,
--- but never appeared in :TobiraGuide) — this test guards against the same
--- gap recurring for the next new category.
+-- missing from CATEGORY_ORDER is silently dropped from the panel (by_cat
+-- still has the entry, but the render loop below only walks CATEGORY_ORDER)
+-- — this test guards against that gap recurring for the next new category.
 describe('category coverage (regression, #111)', function()
   it('renders a section header for every category present in the registry', function()
     local commands = require('tobira.commands')
@@ -742,7 +720,7 @@ describe('category coverage (regression, #111)', function()
     -- gates categories by a *global* level ceiling that only opens
     -- intermediate/advanced once every beginner (then intermediate) command
     -- everywhere in the registry is mastered. A category whose commands are
-    -- all one level above that ceiling — e.g. `ex` (#57), which is entirely
+    -- all one level above that ceiling — e.g. `ex`, which is entirely
     -- level = 'advanced' by design, see commands.lua's ex_command comment —
     -- can never appear under empty usage: reaching ceiling = 3 to reveal it
     -- requires mastering every beginner/intermediate command everywhere,
@@ -835,7 +813,7 @@ describe('when the guide window is opened, closed, or toggled', function()
 
   it('opens a floating window', function()
     -- Focusable-so-it-can-be-scrolled is covered separately, see "the guide
-    -- window is enterable so overflow can be scrolled (#266)" below.
+    -- window is enterable so overflow can be scrolled" below.
     guide.open()
     assert.is_true(guide.is_open())
   end)
@@ -894,7 +872,7 @@ describe('when the guide window is opened, closed, or toggled', function()
   end)
 end)
 
--- ── keymap overrides (#63) ────────────────────────────────────────────────────
+-- ── keymap overrides ─────────────────────────────────────────────────────────
 -- Guide's auto section bypasses graph.find_best() entirely, so it is the one
 -- surface where the equivalent/different distinction from
 -- core/integrations.lua actually matters. See
@@ -929,8 +907,8 @@ describe('keymap overrides (#63)', function()
     end
     assert.is_not_nil(row_lnum, 'expected a row for Y')
     -- The annotated description is long enough to wrap onto a continuation
-    -- line (#267) -- reconstruct the full row text rather than checking only
-    -- the first physical line.
+    -- line -- reconstruct the full row text rather than checking only the
+    -- first physical line.
     assert.is_not_nil(row_text(lines, row_lnum):find(string.format(loc.guide.remapped_suffix, 'y$'), 1, true))
   end)
 
@@ -960,7 +938,7 @@ describe('keymap overrides (#63)', function()
       -- Neovim auto-loads runtime/plugin/matchit.vim by default, which does
       -- `nmap <silent> % <Plug>(MatchitNormalForward)`. Before this was added
       -- to EQUIVALENT_REMAPS, this row was hidden entirely on every stock
-      -- install with matchit loaded -- the same #63 bug class as Y.
+      -- install with matchit loaded -- the same bug class as Y.
       integrations.refresh(fake_keymap({ { lhs = '%', rhs = '<Plug>(MatchitNormalForward)', noremap = 0 } }))
       local loc = require('tobira.i18n').load()
       local lines = guide.build(usage_with_overrides({ ['%'] = entry({ count = 0 }) }))
@@ -972,7 +950,7 @@ describe('keymap overrides (#63)', function()
       end
       assert.is_not_nil(row_lnum, 'expected a row for %')
       -- matchit's target is long enough that the annotation wraps onto a
-      -- continuation line (#267) -- reconstruct the full row text.
+      -- continuation line -- reconstruct the full row text.
       assert.is_not_nil(
         row_text(lines, row_lnum):find(
           string.format(loc.guide.remapped_suffix, '<Plug>(MatchitNormalForward)'),
@@ -991,8 +969,8 @@ describe('keymap overrides (#63)', function()
   end)
 end)
 
--- ── Pinned section + keymap overrides (#164) ─────────────────────────────────
--- Regression guard for #164 (format_pinned_row() previously never consulted
+-- ── Pinned section + keymap overrides ─────────────────────────────────────────
+-- Regression guard (format_pinned_row() previously never consulted
 -- core/integrations.lua, so a pinned command's remap went unreflected). See
 -- docs/adr/0061-guide-auto-vs-pinned-remap-visibility.md for the current
 -- auto-vs-pinned remap behavior this guards.
@@ -1025,7 +1003,7 @@ describe('pinned row + keymap overrides (#164)', function()
     end
     assert.is_not_nil(row_lnum, 'expected a pinned row for Y')
     -- The annotated description is long enough to wrap onto a continuation
-    -- line (#267) -- reconstruct the full row text.
+    -- line -- reconstruct the full row text.
     assert.is_not_nil(row_text(lines, row_lnum):find(string.format(loc.guide.remapped_suffix, 'y$'), 1, true))
   end)
 
@@ -1047,8 +1025,8 @@ describe('pinned row + keymap overrides (#164)', function()
     assert.is_not_nil(full:find('●', 1, true), 'the row must keep its pinned marker')
     assert.is_nil(full:find('substitute character', 1, true), 'stock (now-wrong) description must not remain')
     -- The remapped-to target is long enough that this annotation wraps onto
-    -- a continuation line (#267) -- reconstruct the full row text rather
-    -- than checking only the first physical line.
+    -- a continuation line -- reconstruct the full row text rather than
+    -- checking only the first physical line.
     assert.is_not_nil(
       full:find(string.format(loc.guide.remapped_invalid, '<Plug>(some-plugin-thing)'), 1, true),
       'expected the remapped_invalid annotation in place of the stock description'
@@ -1064,7 +1042,7 @@ describe('pinned row + keymap overrides (#164)', function()
   end)
 end)
 
--- #105: 'i_<C-o>' is an internal composite registry key (see commands.lua's
+-- 'i_<C-o>' is an internal composite registry key (see commands.lua's
 -- registry comment) — the user only ever presses the real <C-o>, so the key
 -- column must show that, never the raw 'i_<C-o>' string.
 describe("the 'i_<C-o>' composite registry key (#105)", function()
@@ -1077,13 +1055,11 @@ describe("the 'i_<C-o>' composite registry key (#105)", function()
   end)
 end)
 
--- ── extmark rendering (nvim_buf_add_highlight migration, #151) ────────────────
+-- ── extmark rendering (nvim_buf_add_highlight migration) ───────────────────────
 -- M.build()'s hls table (cs/ce byte offsets) is already covered extensively
 -- above as pure data. These tests confirm the *actual* extmarks M.open()
--- applies from that data match it exactly -- both a partial byte range
--- (TobiraGuideKey's fixed-width field) and a full-line range (TobiraDim's
--- old col_end == -1) really land where M.build() says they should once
--- rendered through the real nvim_buf_set_extmark()-based call.
+-- applies from that data match it exactly, once rendered through the real
+-- nvim_buf_set_extmark()-based call.
 
 describe('extmark rendering after the nvim_buf_add_highlight migration (#151)', function()
   local logger = require('tobira.core.logger')

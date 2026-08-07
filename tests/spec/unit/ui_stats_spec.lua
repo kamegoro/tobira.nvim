@@ -149,9 +149,8 @@ describe('when many commands have been recorded', function()
     assert.is_not_nil(find_line(r, 'dd'), 'expected dd in Top list')
   end)
 
-  -- ── forgotten state (#123) ──────────────────────────────────────────────────
-  -- Regression test for #123 -- see
-  -- docs/adr/0076-stats-forgotten-overrides-mastery-star.md.
+  -- ── forgotten state ────────────────────────────────────────────────────────
+  -- Regression test -- see docs/adr/0076-stats-forgotten-overrides-mastery-star.md.
 
   it('renders the ⟳ glyph instead of a mastery star for a forgotten command', function()
     -- cw is also the trigger for '.' and 'yiw', so it additionally spawns
@@ -196,8 +195,7 @@ describe('when an efficiency gap involves a 6-character command key (#125)', fun
   it('aligns the count/arrow column with rows using a shorter key', function()
     -- f (1 char) triggers ;/F/t gaps; <C-w>w (6 chars, commands.lua:344-350)
     -- triggers <C-w>=/<C-w>h/... gaps. Rendering both together reproduces the
-    -- misalignment a fixed 5-wide column produced once a 6-char key overflowed
-    -- it (#125).
+    -- misalignment a fixed 5-wide column produced once a 6-char key overflowed it.
     local r = stats.render({ f = entry(200), ['<C-w>w'] = entry(100) })
     local rows = {}
     for _, line in ipairs(lines_of(r)) do
@@ -229,10 +227,10 @@ describe('when an efficiency gap involves a 6-character command key (#125)', fun
   end)
 end)
 
--- Hardening test: the column width must adapt beyond the specific case #125
--- first found -- see docs/adr/0074-stats-dynamic-key-column-width.md. Sharing
--- one parent ('i') isolates the child-column width difference without
--- depending on which candidates win the top-N ratio sort.
+-- Hardening test: the column width must adapt beyond the first specific case
+-- found -- see docs/adr/0074-stats-dynamic-key-column-width.md. Sharing one
+-- parent ('i') isolates the child-column width difference without depending
+-- on which candidates win the top-N ratio sort.
 describe('when a gap child key is longer than 6 characters (#125 hardening)', function()
   it('still aligns the child-count column against a shorter child key', function()
     local r = stats.render({ i = entry(100) })
@@ -270,9 +268,8 @@ describe('when there are no efficiency gaps', function()
   end)
 end)
 
--- ── keymap overrides (#164) ───────────────────────────────────────────────────
--- Regression test for #164 -- see
--- docs/adr/0030-keymap-override-exclusion-contract.md.
+-- ── keymap overrides ─────────────────────────────────────────────────────────
+-- Regression test -- see docs/adr/0030-keymap-override-exclusion-contract.md.
 
 describe('when a "Try these next" candidate has been remapped by the user', function()
   local integrations = require('tobira.core.integrations')
@@ -312,7 +309,7 @@ describe('when a "Try these next" candidate has been remapped by the user', func
   end)
 end)
 
--- ── section order (#74): actionable info first, vanity metric last ──────────
+-- ── section order: actionable info first, vanity metric last ────────────────
 
 describe('section order', function()
   it('renders "Try these next" before "Mastery" when a gap exists', function()
@@ -345,7 +342,7 @@ describe('section order', function()
   end)
 end)
 
--- ── TobiraH1 section headings (#74) ──────────────────────────────────────────
+-- ── TobiraH1 section headings ─────────────────────────────────────────────────
 
 describe('section heading highlights', function()
   it('applies TobiraH1 to the Mastery, Top commands, and Try these next headings', function()
@@ -371,7 +368,7 @@ describe('section heading highlights', function()
   end)
 end)
 
--- ── footer summary (#74) ──────────────────────────────────────────────────────
+-- ── footer summary ───────────────────────────────────────────────────────────
 
 describe('the footer summary line', function()
   it('is styled with TobiraDim', function()
@@ -400,7 +397,7 @@ describe('the footer summary line', function()
   end)
 end)
 
--- ── keybinding footer with g/p (#74) ─────────────────────────────────────────
+-- ── keybinding footer with g/p ───────────────────────────────────────────────
 
 describe('when the stats window is open', function()
   after_each(function()
@@ -463,7 +460,7 @@ describe('when the stats window is open', function()
   end)
 end)
 
--- ── <C-c> to close (#32) ──────────────────────────────────────────────────────
+-- ── <C-c> to close ────────────────────────────────────────────────────────────
 
 describe('when <C-c> is pressed in the stats window', function()
   after_each(function()
@@ -505,14 +502,11 @@ describe('when show() is called', function()
   end)
 end)
 
--- ── highlight placement in the open window (#214) ────────────────────────────
--- Regression test for #214: M.open() applied every highlight at hl.lnum + 1
--- instead of hl.lnum, one row below where M.render()'s own hls table says it
--- belongs. Confirmed impact: every TobiraH1 section header highlighted the
--- row *under* the header text (the first data row got the header's bold
--- styling while the header itself rendered unstyled), and the footer's
--- TobiraDim highlight landed past the buffer's last line and was silently
--- dropped.
+-- ── highlight placement in the open window ────────────────────────────────────
+-- Regression test: M.open() applied every highlight at hl.lnum + 1 instead of
+-- hl.lnum, one row below where M.render()'s own hls table says it belongs —
+-- header highlights landed on the row under the header, and the footer
+-- highlight could land past the buffer's last line and be silently dropped.
 describe('highlight placement in the open stats window (#214)', function()
   local logger = require('tobira.core.logger')
 
@@ -594,7 +588,7 @@ describe('highlight placement in the open stats window (#214)', function()
   end)
 end)
 
--- #105: 'i_<C-o>' is an internal composite registry key (see commands.lua's
+-- 'i_<C-o>' is an internal composite registry key (see commands.lua's
 -- registry comment) — the Top-commands leaderboard must show the real
 -- keystroke the user pressed (<C-o>), never the raw internal key.
 describe("the 'i_<C-o>' composite registry key in Top commands (#105)", function()
@@ -606,16 +600,12 @@ describe("the 'i_<C-o>' composite registry key in Top commands (#105)", function
   end)
 end)
 
--- ── extmark rendering (nvim_buf_add_highlight migration, #151) ────────────────
+-- ── extmark rendering (nvim_buf_add_highlight migration) ───────────────────────
 -- Every highlight this module applies is a full-line highlight (M.render()
--- never passes cs/ce, so every entry defaults to the old col_end == -1
--- case). Confirms the new nvim_buf_set_extmark()-based call still reaches
--- the real end of the line it's placed on.
---
--- Targets hl.lnum directly (post-#214 fix). Before #214, M.open() applied
--- each highlight at `hl.lnum + 1`, one row below where M.render()'s own hls
--- table said it belonged; that off-by-one is now covered by the "highlight
--- placement in the open stats window (#214)" describe block above.
+-- defaults every entry to the old col_end == -1 case); confirms the new
+-- nvim_buf_set_extmark()-based call still reaches the real end of the line.
+-- Targets hl.lnum directly -- see the "highlight placement in the open
+-- window" describe block above for the off-by-one row bug this guards against.
 describe('extmark rendering after the nvim_buf_add_highlight migration (#151)', function()
   local logger = require('tobira.core.logger')
 

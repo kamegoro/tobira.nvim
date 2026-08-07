@@ -109,7 +109,7 @@ describe('every non-compound entry in the registry', function()
   end)
 end)
 
--- ── ambient exclusion for reactive-only entries (#110 fix) ───────────────────
+-- ── ambient exclusion for reactive-only entries ──────────────────────────────
 -- `ambient = false` opts a registry entry out of graph.find_best()'s candidate
 -- pool. See docs/adr/0007-reactive-only-ambient-exclusion.md for the criteria;
 -- this list must only grow deliberately.
@@ -119,13 +119,11 @@ describe('reactive-only ambient exclusion', function()
     assert.is_false(commands.registry['<C-\\><C-n>'].ambient)
   end)
 
-  -- do/dp (#265): their requires triggers (]c/[c) never get op_completed=true
-  -- in patterns.lua's pending_bracket handler (it consumes-and-discards the
-  -- bracket pair without recording which one it was — same gap as [( / ])),
-  -- so usage[']c'].count/usage['[c'].count never leave 0 and do/dp can never
-  -- be found via find_best()/efficiency_gaps()'s ordinary scan. They are
-  -- reactive-only by design anyway (see docs/adr/0099-diff-obtain-put-after-hunk-jump.md),
-  -- so they belong in the same ambient = false carve-out as <C-\><C-n>.
+  -- do/dp's requires triggers (]c/[c) never get op_completed=true in
+  -- patterns.lua's pending_bracket handler, so usage[']c'/'[c'].count never
+  -- leaves 0 and they can never be found via the ordinary scan; they belong
+  -- in the same ambient = false carve-out as <C-\><C-n>. See
+  -- docs/adr/0099-diff-obtain-put-after-hunk-jump.md.
   it('marks do and dp as ambient = false (#265 fix)', function()
     assert.is_false(commands.registry['do'].ambient)
     assert.is_false(commands.registry['dp'].ambient)
@@ -239,7 +237,7 @@ local chain_cases = {
   -- number increment / decrement
   { '<C-a>', 'x', 'x → <C-a>: increment number under cursor' },
   { '<C-x>', '<C-a>', '<C-a> → <C-x>: decrement number under cursor' },
-  -- manual sequential increment → visual-block g<C-a> (#108)
+  -- manual sequential increment → visual-block g<C-a>
   { 'g<C-a>', '<C-a>', '<C-a> → g<C-a>: increment a sequence in visual-block mode' },
   -- visual mode chain
   { 'V', 'v', 'v → V: line-wise visual selection' },
@@ -287,7 +285,7 @@ local chain_cases = {
   { '>>', 'cc', 'cc → >>: indent current line' },
   { '<<', '>>', '>> → <<: unindent current line' },
   { '==', '>>', '>> → ==: auto-indent current line' },
-  -- whole-buffer reindent (#242)
+  -- whole-buffer reindent
   { '=G', 'G', 'G → =G: reindent to the end of the file' },
   -- case operators
   { 'gu', '~', '~ → gu: lowercase a region' },
@@ -306,7 +304,7 @@ local chain_cases = {
   { 'ciB', 'cib', 'cib → ciB: change inner braces block' },
   { 'cit', 'cib', 'cib → cit: change inner tag content' },
   { 'cip', 'ciw', 'ciw → cip: change inner paragraph' },
-  -- repeated ci"/ci' → yank around quotes (#53)
+  -- repeated ci"/ci' → yank around quotes
   { 'ya"', 'ci"', 'ci" → ya": yank around double-quoted string' },
   { "ya'", "ci'", "ci' → ya': yank around single-quoted string" },
   -- partial word search
@@ -367,42 +365,42 @@ local chain_cases = {
   { '|', '0', '0 → |: move to column N' },
   -- first non-blank (current line)
   { '_', '^', '^ → _: first non-blank (N-1 lines lower)' },
-  -- register underuse: system clipboard (#59)
+  -- register underuse: system clipboard
   { '"+y', 'y', 'y → "+y: yank to the system clipboard register' },
-  -- named register a-z stand-in (#233)
+  -- named register a-z stand-in
   { '"ay', 'y', 'y → "ay: yank into named register a' },
-  -- black-hole register (#234)
+  -- black-hole register
   { '"_d', 'dd', 'dd → "_d: delete without overwriting the unnamed register' },
-  -- insert-mode <C-o>: one-shot normal command without leaving insert (#105)
+  -- insert-mode <C-o>: one-shot normal command without leaving insert
   { 'i_<C-o>', 'i', 'i → i_<C-o>: run one normal command without leaving insert mode' },
-  -- insert-mode <C-t> / <C-d>: indent/dedent without leaving insert (#246)
+  -- insert-mode <C-t> / <C-d>: indent/dedent without leaving insert
   { '<C-t>', '>>', '>> → <C-t>: indent the current line without leaving insert mode' },
   { 'i_<C-d>', '<<', '<< → i_<C-d>: dedent the current line without leaving insert mode' },
-  -- diff-mode hunk navigation (#111)
+  -- diff-mode hunk navigation
   { ']c', 'j', 'j → ]c: jump to next diff hunk (while &diff is set)' },
   { '[c', 'k', 'k → [c: jump to previous diff hunk (while &diff is set)' },
-  -- Ex commands (#57)
+  -- Ex commands
   { 'ex:g', 'n', 'n → ex:g: global command over search matches' },
   { 'ex:norm', 'q', 'q → ex:norm: run a normal-mode command per line' },
-  -- terminal mode: ineffective <Esc> → exit terminal mode (#110)
+  -- terminal mode: ineffective <Esc> → exit terminal mode
   { '<C-\\><C-n>', 'i', 'i → <C-\\><C-n>: exit terminal mode (nominal anchor, see commands.lua comment)' },
-  -- repeated :substitute detection (#115)
+  -- repeated :substitute detection
   { '&', 'n', 'n → &: repeat the last substitute on this line' },
   { 'g&', '&', '& → g&: repeat the last substitute across the whole file' },
-  -- quickfix / location-list navigation (#228)
+  -- quickfix / location-list navigation
   { ']q', 'n', 'n → ]q: jump to next quickfix entry' },
   { '[q', 'N', 'N → [q: jump to previous quickfix entry' },
   { ']l', 'n', 'n → ]l: jump to next location-list entry' },
   { '[l', 'N', 'N → [l: jump to previous location-list entry' },
   { 'ex:copen', 'n', 'n → ex:copen: open the quickfix window' },
   { 'ex:cdo', 'q', 'q → ex:cdo: run a command over every quickfix entry' },
-  -- spell-check (#229)
+  -- spell-check
   { ']s', 'n', 'n → ]s: jump to next misspelled word' },
   { '[s', 'N', 'N → [s: jump to previous misspelled word' },
   { 'z=', 'i', 'i → z=: suggest spelling corrections' },
-  -- :sort (#239)
+  -- :sort
   { 'ex:sort', 'dd', 'dd → ex:sort: sort lines' },
-  -- ]p / [p indent-aware paste (#240)
+  -- ]p / [p indent-aware paste
   { ']p', 'p', 'p → ]p: paste and adjust indent to match current line' },
   { '[p', 'P', 'P → [p: paste before and adjust indent to match current line' },
 }
@@ -416,7 +414,7 @@ describe('teaching chains', function()
   end
 end)
 
--- ── Ex commands (#57) ────────────────────────────────────────────────────────
+-- ── Ex commands ──────────────────────────────────────────────────────────────
 
 describe('Ex command registry entries', function()
   for _, cmd in ipairs({ 'ex:g', 'ex:norm', 'ex:copen', 'ex:cdo', 'ex:sort' }) do
@@ -454,7 +452,7 @@ describe('tracking integrity', function()
   -- structurally stuck at 0 forever and graph.find_best() (which requires
   -- trigger_count > 0) can never surface the dependent entry as a suggestion.
   -- The narrower "single-char track=true" test above did not catch this —
-  -- see #120, where 31 multi-char entries went unnoticed this way.
+  -- 31 multi-char entries once went unnoticed this way.
   --
   -- A `requires` target is trackable when:
   --   1. it is a single character (guaranteed track=true by the test above,
@@ -488,7 +486,7 @@ describe('tracking integrity', function()
     ['g;'] = true,
     gp = true,
     gu = true,
-    -- pending_gq operator-pending state (#109) — a real operator, not a flat
+    -- pending_gq operator-pending state — a real operator, not a flat
     -- two-key target, but it still records last_op = 'gq' on completion via
     -- the same seq.last_op change-detection mechanism as the entries above.
     gq = true,
@@ -504,7 +502,7 @@ describe('tracking integrity', function()
     zM = true,
     zR = true,
     zd = true,
-    -- pending_ctrl_w dispatch table (#120)
+    -- pending_ctrl_w dispatch table
     ['<C-w>s'] = true,
     ['<C-w>v'] = true,
     ['<C-w>w'] = true,
@@ -514,7 +512,7 @@ describe('tracking integrity', function()
     ['<C-w>l'] = true,
     ['<C-w>q'] = true,
     ['<C-w>='] = true,
-    -- text-object variants (#254): pending_text_obj now additionally sets
+    -- text-object variants: pending_text_obj now additionally sets
     -- seq.last_op_variant to the exact variant key (ciw / ci" / cib / ...)
     -- alongside the shared cw/dw bucket in seq.last_op, and logger.lua
     -- increments both — see
@@ -527,11 +525,9 @@ describe('tracking integrity', function()
     cib = true,
   }
 
-  -- Entries left untrackable on purpose as of #120. Fixing this PR's minimum
-  -- scope (the window category) plus g;/gp/gu leaves these deferred to
-  -- follow-up issues — see the #120 PR description for the reasoning behind
-  -- each group. This list must only ever shrink: a fix must remove the
-  -- entry here, never add to it without also adding a detection path above.
+  -- Entries left untrackable on purpose (see each group's comment below for
+  -- why). This list must only ever shrink: a fix must remove the entry here,
+  -- never add to it without also adding a detection path above.
   local KNOWN_DEFERRED = {
     -- mark chain: '. / '^ / 'a are never recorded as such — the pending_mark
     -- prefix in patterns.lua consumes the mark-name key without recording
@@ -551,15 +547,15 @@ describe('tracking integrity', function()
     ['])'] = true,
     -- indent chain: >> itself is trackable, but it requires 'cc', and cc is
     -- never recorded due to a separate bug (last_op is hardcoded to 'dd' for
-    -- any doubled operator, not op .. op) — tracked separately as #118.
+    -- any doubled operator, not op .. op) — tracked separately as its own bug.
     ['>>'] = true,
-    -- do / dp (#237): requires ]c / [c respectively — same bracket-pair
+    -- do / dp: requires ]c / [c respectively — same bracket-pair
     -- consume-and-discard gap as [( / ]) above (pending_bracket never
     -- records which pair it was). Reactive-only anyway — see
     -- docs/adr/0099-diff-obtain-put-after-hunk-jump.md.
     ['do'] = true,
     ['dp'] = true,
-    -- g~iw / g~$ (#235): requires g~ / g~iw respectively — g~ has no
+    -- g~iw / g~$: requires g~ / g~iw respectively — g~ has no
     -- pending_g dispatch-table entry (only gu does), so it is never recorded
     -- via the PATTERN_TRACKED mechanism the same way gU also isn't. Both are
     -- reactive-only anyway — see
@@ -608,7 +604,7 @@ describe('tracking integrity', function()
   end)
 end)
 
--- ── i_<C-o>: insert-mode <C-o> composite key (#105) ──────────────────────────
+-- ── i_<C-o>: insert-mode <C-o> composite key ──────────────────────────────────
 -- See docs/adr/0008-composite-keys-for-dual-meaning-bytes.md for why this
 -- lives under a composite key instead of the literal '<C-o>' string.
 
@@ -644,7 +640,7 @@ describe('when converting a registry key into the form shown in the UI', functio
   end)
 end)
 
--- ── i_<C-d>: insert-mode <C-d> composite key (#246) ──────────────────────────
+-- ── i_<C-d>: insert-mode <C-d> composite key ──────────────────────────────────
 -- Same collision shape as i_<C-o> above: normal-mode '<C-d>' already owns that
 -- raw keystroke (scroll half page down), so the insert-mode dedent meaning
 -- needs its own composite key. See
@@ -670,7 +666,7 @@ describe("the 'i_<C-d>' registry entry (insert-mode dedent, #246)", function()
   end)
 end)
 
--- ── <C-t>: insert-mode indent, no collision with any normal-mode entry (#246) ─
+-- ── <C-t>: insert-mode indent, no collision with any normal-mode entry ───────
 
 describe("the '<C-t>' registry entry (insert-mode indent, #246)", function()
   it('is registered under its plain raw keystroke (no normal-mode <C-t> entry exists)', function()
@@ -686,7 +682,7 @@ describe("the '<C-t>' registry entry (insert-mode indent, #246)", function()
   end)
 end)
 
--- ── requires graph integrity: cycles and raw-byte collisions (#132) ──────────
+-- ── requires graph integrity: cycles and raw-byte collisions ─────────────────
 -- Neither of these has ever been caught by CI — both were only manually
 -- verified clean during a prior review. A cycle in `requires` would make any
 -- naive chain walk (e.g. a future "show the full prerequisite chain" UI

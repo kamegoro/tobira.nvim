@@ -1,7 +1,7 @@
 -- Structural sync guard between en.lua and every other locale file.
 -- Prevents adding a new key to en.lua without updating the other locales,
 -- and prevents a locale branch left open across a large refactor from
--- silently drifting out of sync (see #73's French-locale review).
+-- silently drifting out of sync (as happened during a past French-locale review).
 
 local en = require('tobira.locales.en')
 local ja = require('tobira.locales.ja')
@@ -158,7 +158,7 @@ describe('suggestion title format', function()
   -- separately from its explanation. Every suggestion title must follow this
   -- exact separator so that split never has to fall back.
   --
-  -- Generalized across every dynamically-discovered locale (#262) — this used
+  -- Generalized across every dynamically-discovered locale — this used
   -- to hardcode only en/ja, which meant a locale with a missing/wrong
   -- separator in a newly added suggestion could ship undetected.
   local locale_names = discover_locale_names()
@@ -280,9 +280,9 @@ describe('guide top-level locale', function()
   end)
 end)
 
--- ── UI redesign foundation (#66) ─────────────────────────────────────────────
--- These keys aren't wired to any UI module yet (that happens in #67/#68/#74),
--- but must exist and stay in sync in both locales from the start.
+-- ── UI redesign foundation ──────────────────────────────────────────────────
+-- These keys aren't wired to any UI module yet, but must exist and stay in
+-- sync in both locales from the start.
 
 describe('progress.mastered_total / section_count / preview / footer', function()
   it('are defined as non-empty strings in both locales', function()
@@ -338,7 +338,7 @@ describe('stats.footer_summary', function()
 end)
 
 describe('guide.more_suffix (#96)', function()
-  -- Generalized across every dynamically-discovered locale (#262) — this used
+  -- Generalized across every dynamically-discovered locale — this used
   -- to hardcode only en/ja.
   local locale_names = discover_locale_names()
 
@@ -357,7 +357,7 @@ describe('guide.more_suffix (#96)', function()
 end)
 
 describe('guide.remapped_suffix (#63)', function()
-  -- Generalized across every dynamically-discovered locale (#262) — this used
+  -- Generalized across every dynamically-discovered locale — this used
   -- to hardcode only en/ja.
   local locale_names = discover_locale_names()
 
@@ -376,7 +376,7 @@ describe('guide.remapped_suffix (#63)', function()
 end)
 
 describe('notifications.remap_detected (#63)', function()
-  -- Generalized across every dynamically-discovered locale (#262) — this used
+  -- Generalized across every dynamically-discovered locale — this used
   -- to hardcode only en/ja.
   local locale_names = discover_locale_names()
 
@@ -394,22 +394,13 @@ describe('notifications.remap_detected (#63)', function()
   end
 end)
 
--- ── format-string placeholder SEQUENCE guard, across every locale (#262) ────
--- Lua's string.format binds arguments positionally: the Nth %s/%d specifier
--- encountered while scanning the format string left-to-right consumes the
--- Nth vararg passed to :format(), regardless of where that specifier sits in
--- the surrounding sentence. This is exactly how ja.lua's
--- progress.preview.to_next shipped broken (#252): en.lua's
--- '%d more to reach %s' and ja.lua's '%s まであと %d' both have one %s and one
--- %d, so a placeholder-*count* check could not catch it — only the *order*
--- was wrong, and the call site (ui/progress.lua) always passes (number,
--- string). Checking placeholder count alone is therefore not enough; this
--- block checks the full ordered sequence of specifier types instead.
---
--- The set of keys to check is discovered automatically by walking en.lua for
--- any leaf string containing %s or %d, so a newly added format-string key is
--- covered the moment it's added to en.lua — no second registration step,
--- mirroring discover_locale_names()'s rationale (see locales/CLAUDE.md).
+-- ── format-string placeholder SEQUENCE guard, across every locale ───────────
+-- Lua's string.format binds arguments positionally, so matching placeholder
+-- *counts* isn't enough — order must match too (ja.lua's
+-- progress.preview.to_next once shipped with the right count but wrong
+-- order). Keys to check are discovered by walking en.lua for any leaf string
+-- containing %s or %d, mirroring discover_locale_names()'s rationale (see
+-- locales/CLAUDE.md).
 describe('format-string placeholder sequence matches en.lua, across every locale', function()
   local locale_names = discover_locale_names()
 

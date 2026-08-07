@@ -256,11 +256,11 @@ describe('session tracking', function()
   end)
 end)
 
--- ── zero-padding for untouched commands (#62 prerequisite) ─────────────────────
--- Regression coverage for #62: close_session() previously only appended a
--- sessions[] entry for commands actually used that session, so decay-based
--- scoring never saw a real "idle session" signal. See logger.lua's
--- close_session for the fix.
+-- ── zero-padding for untouched commands ───────────────────────────────────────
+-- Regression coverage: close_session() previously only appended a sessions[]
+-- entry for commands actually used that session, so decay-based scoring
+-- never saw a real "idle session" signal. See logger.lua's close_session
+-- for the fix.
 
 describe('when a known command goes untouched for a session', function()
   before_each(function()
@@ -451,8 +451,8 @@ describe('when the user types while in insert mode', function()
 
   it('routes to the insert-mode handler (not the normal seq) when current_mode is i', function()
     -- In headless mode vim.fn.mode() always reports 'n', so stub it to 'i'
-    -- (same technique as the operator-pending test below). Since #58, mode
-    -- 'i' is routed to handle_insert_key rather than the generic
+    -- (same technique as the operator-pending test below). Mode 'i' is
+    -- routed to handle_insert_key rather than the generic
     -- non-normal-mode reset branch — 'j' is an ordinary insert-mode key, so
     -- feed_insert() just breaks any streak and returns nil.
     local real_mode = vim.fn.mode
@@ -473,8 +473,8 @@ describe('when the user types while in insert mode', function()
 
   it('resets both seq and insert_seq when current_mode is neither n, i, nor a Visual mode', function()
     -- Replace mode ('R') exercises the generic fallback branch — distinct
-    -- from the normal path, the #58 insert-mode path, AND the #179
-    -- Visual-mode path (see the "when the user is in Visual mode" describe
+    -- from the normal path, the insert-mode path, AND the Visual-mode path
+    -- (see the "when the user is in Visual mode" describe
     -- block below, which covers 'v'/'V'/'\22' — those are deliberately
     -- routed through patterns.feed() instead of this generic reset).
     local real_mode = vim.fn.mode
@@ -494,7 +494,7 @@ describe('when the user types while in insert mode', function()
   end)
 end)
 
--- ── is_diff wiring for insert-entry keys (#237) ──────────────────────────────
+-- ── is_diff wiring for insert-entry keys ──────────────────────────────────────
 -- Regression: is_diff used to be computed only for j/k (the only keys the
 -- original j_many_diff/k_many_diff branches needed), which silently broke
 -- diff_jump_then_insert_next/_prev — live QA caught this before it shipped.
@@ -542,8 +542,7 @@ describe('when the user edits immediately after a diff-hunk jump while &diff is 
   end)
 end)
 
--- ── Visual mode: route keystrokes through pattern tracking instead of ───────
--- ── wiping state (#179) ───────────────────────────────────────────────────
+-- ── Visual mode: route keystrokes through pattern tracking instead of wiping state ──
 -- See docs/adr/0017-mode-cache-state-reset-boundaries.md for the routing bug
 -- this covers. Unlike Insert mode (vim.fn.mode() always reports 'n' in
 -- headless Neovim — see tests/CLAUDE.md), headless Neovim CAN genuinely enter
@@ -623,7 +622,7 @@ describe('when the user is in Visual mode', function()
   end)
 end)
 
--- ── terminal mode: ineffective <Esc> → suggest <C-\><C-n> (#110) ─────────────
+-- ── terminal mode: ineffective <Esc> → suggest <C-\><C-n> ────────────────────
 -- mode() == 't' is terminal-job mode: keys go straight to the job, not to
 -- Neovim's own key handling. Headless Neovim can never actually enter 't'
 -- mode (there is no real job to attach to), so these tests use the same
@@ -876,9 +875,9 @@ describe('when the user deletes a word then enters insert mode', function()
   end)
 end)
 
--- ── ci" × 3 (direct, non-visual) → ya" (#53) ─────────────────────────────────
+-- ── ci" × 3 (direct, non-visual) → ya" ────────────────────────────────────────
 -- Regression coverage for the exact class of bug this codebase has hit before
--- (see #179's Visual-mode fix): a pattern can fire correctly against
+-- (see the Visual-mode routing fix above): a pattern can fire correctly against
 -- patterns.feed() in isolation while never reaching the user in real usage,
 -- because a mode-routing gate in logger.lua silently swallows the keys. This
 -- drives the real vim.on_key -> handle_key dispatch path end-to-end, not just
@@ -913,7 +912,7 @@ describe('when the user changes inside double quotes with ci" 3 times in a row',
     vim.fn.cursor(1, 1)
     -- All 3 repetitions in one feedkeys call so the mode cache's ModeChanged
     -- autocmd has definitely fired between each ci" and the next (see the
-    -- #58 insert-mode tests above for the same precedent) — each ci" leaves
+    -- insert-mode tests above for the same precedent) — each ci" leaves
     -- the cursor back inside the same quote pair, ready for the next one.
     -- <Esc> then straight back into a new operator-pending c also happens to
     -- satisfy patterns_insert's unrelated insert_co_oneshot heuristic on the
@@ -1118,8 +1117,8 @@ describe('insert-mode completion detection (#112)', function()
   end)
 end)
 
--- #105: insert-mode <C-o> (run exactly one Normal-mode command, then return
--- to insert automatically). See commands.lua's 'i_<C-o>' registry comment for
+-- Insert-mode <C-o> (run exactly one Normal-mode command, then return to
+-- insert automatically). See commands.lua's 'i_<C-o>' registry comment for
 -- why this is a distinct composite key from the normal-mode '<C-o>' entry.
 describe('insert-mode <C-o> one-shot detection (#105)', function()
   local esc = vim.api.nvim_replace_termcodes('<Esc>', true, false, true)
@@ -1277,7 +1276,7 @@ describe('reconciling insert_co_oneshot with pre-existing specific patterns (pri
   end)
 end)
 
--- ── Ex command tracking (#57) ────────────────────────────────────────────────
+-- ── Ex command tracking ──────────────────────────────────────────────────────
 -- See docs/adr/0015-ex-command-verify-before-credit.md for the vim.on_key
 -- timing this relies on. Unlike insert mode, cmdline mode is genuinely
 -- enterable via feedkeys in headless Neovim, so these tests need no
@@ -1368,7 +1367,7 @@ describe('Ex command tracking (#57)', function()
   end)
 end)
 
--- ── Ex command tracking excludes tobira's own commands (QA bug on #57) ──────
+-- ── Ex command tracking excludes tobira's own commands ───────────────────────
 -- Regression coverage for a QA-found bug: running tobira's own UI commands
 -- got tracked as Ex-command usage themselves — e.g. :TobiraReset once made
 -- "ex:tobirastats" show up as a top command in :TobiraStats. See
@@ -1442,8 +1441,8 @@ describe("Ex command tracking excludes tobira's own commands", function()
   end)
 end)
 
--- ── Repeated substitute detection (#115) ────────────────────────────────────
--- Builds on #57's cmdline infrastructure: logger.lua's handle_cmdline_key
+-- ── Repeated substitute detection ─────────────────────────────────────────────
+-- Builds on the Ex-command cmdline infrastructure above: logger.lua's handle_cmdline_key
 -- feeds the same completed cmdline text to
 -- patterns_cmdline.track_substitute() alongside tokenize(). See that
 -- module's header comment for the full parsing scope and the &-vs-g&
@@ -1620,9 +1619,9 @@ describe('Repeated substitute detection (#115)', function()
   end)
 end)
 
--- ── :e/:b file ping-pong detection (#114) ────────────────────────────────────
+-- ── :e/:b file ping-pong detection ────────────────────────────────────────────
 -- Wires patterns_cmdline.command_arg()/feed_pingpong() into the same <CR>
--- handling handle_cmdline_key already does for tokenize() (#57). Real :e/:b
+-- handling handle_cmdline_key already does for tokenize(). Real :e/:b
 -- commands are run against buffer names that don't exist on disk yet, which
 -- is safe in headless Neovim: :e just opens a new in-memory buffer with that
 -- name, and :b only needs a same-named buffer to already exist (created by
@@ -1755,7 +1754,7 @@ describe(':e/:b file ping-pong detection (#114)', function()
     assert.equals(0, #fired, 'ping-pong history must not survive logger.reset()')
   end)
 
-  -- Regression test for a QA-found false positive (#114 follow-up): tokenize()/
+  -- Regression test for a false positive: tokenize()/
   -- command_arg() only see the TEXT of the submitted :e/:b command, read at
   -- <CR> time before Neovim has validated or executed it. Typing and
   -- submitting the command is not the same thing as the file switch actually
@@ -1802,12 +1801,12 @@ describe(':e/:b file ping-pong detection (#114)', function()
   end)
 end)
 
--- ── tabnew one-file-per-tab habit detection (#113) ───────────────────────────
+-- ── tabnew one-file-per-tab habit detection ───────────────────────────────────
 -- logger.lua threads vim.api.nvim_tabpage_list_wins into
 -- patterns_cmdline.feed_tabnew() the same way it threads vim.wo.diff into
--- patterns.feed() for #111 — see patterns_cmdline.lua's module comment for
--- the full design. Real :tabnew / :split here (not stubs) so the window
--- structure feed_tabnew() reads is genuine, not simulated.
+-- patterns.feed() — see patterns_cmdline.lua's module comment for the full
+-- design. Real :tabnew / :split here (not stubs) so the window structure
+-- feed_tabnew() reads is genuine, not simulated.
 
 describe('tabnew one-file-per-tab habit detection (#113)', function()
   local cr = vim.api.nvim_replace_termcodes('<CR>', true, true, true)
@@ -1906,7 +1905,7 @@ describe('tabnew one-file-per-tab habit detection (#113)', function()
   end)
 end)
 
--- ── Verbatim Ex-command retype detection (#241) ─────────────────────────────
+-- ── Verbatim Ex-command retype detection ──────────────────────────────────────
 -- Wires patterns_cmdline.feed_history_recall() into the same <CR> handling
 -- as the substitute/pingpong/tabnew detectors above, reusing the same `word`
 -- command_arg() already extracts. See
@@ -2062,9 +2061,9 @@ describe('Verbatim Ex-command retype detection (#241)', function()
     assert.is_false(fired)
   end)
 
-  -- #259: the shipped detector fired even when the user did exactly what the
-  -- q: suggestion teaches -- recall via <Up> instead of retyping. Repro from
-  -- the issue: :g/uniquepattern123/d<CR>, then : <Up> <CR>.
+  -- Regression: the shipped detector fired even when the user did exactly
+  -- what the q: suggestion teaches -- recall via <Up> instead of retyping.
+  -- Repro: :g/uniquepattern123/d<CR>, then : <Up> <CR>.
   describe('genuine history recall via <Up>/<Down> does not trigger the "you retyped" suggestion (#259)', function()
     local up = vim.api.nvim_replace_termcodes('<Up>', true, true, true)
     local down = vim.api.nvim_replace_termcodes('<Down>', true, true, true)
@@ -2183,7 +2182,7 @@ describe('when save is called explicitly', function()
   end)
 end)
 
--- ── clear_disk (:TobiraReset, #122) ─────────────────────────────────────────
+-- ── clear_disk (:TobiraReset) ─────────────────────────────────────────────────
 -- See docs/adr/0014-usage-json-concurrent-merge-and-migration.md for why
 -- clear_disk() bypasses save()'s merge-with-disk behavior.
 
@@ -2267,8 +2266,8 @@ describe('when a concurrent Neovim instance has written counts to disk', functio
   end)
 end)
 
--- ── concurrent-instance field protection (#122) ───────────────────────────────
--- Regression coverage for #122 — every save-triggering function and field
+-- ── concurrent-instance field protection ──────────────────────────────────────
+-- Regression coverage — every save-triggering function and field
 -- other than close_session()/.count. See
 -- docs/adr/0014-usage-json-concurrent-merge-and-migration.md for the merge
 -- strategy these exercise.
@@ -2365,7 +2364,7 @@ describe('when no usage file exists yet', function()
   end)
 end)
 
--- ── data_dir / data_file accessors (for :checkhealth, #42) ──────────────────
+-- ── data_dir / data_file accessors (for :checkhealth) ────────────────────────
 
 describe('when locating the on-disk usage data directory and file (for :checkhealth)', function()
   it('data_file is data_dir with /usage.json appended', function()
@@ -2458,7 +2457,7 @@ describe('when a compound operator completes', function()
     assert.is_true(logger.get('gj').count > 0)
   end)
 
-  -- #120: g; / gp / gu were added to patterns.lua's pending_g dispatch table
+  -- g; / gp / gu are in patterns.lua's pending_g dispatch table
   -- so the change-list / paste / case-operator teaching chains become
   -- trackable. pcall absorbs real Vim errors (e.g. g; with an empty change
   -- list, gp with an empty register) — on_key fires before the command
@@ -2484,7 +2483,7 @@ describe('when a compound operator completes', function()
     assert.is_true(logger.get('gu').count > 0)
   end)
 
-  -- #59: "+y system-clipboard yank, tracked via patterns.lua's
+  -- "+y system-clipboard yank, tracked via patterns.lua's
   -- pending_clipboard_yank compound (see patterns_spec.lua for the pure-logic
   -- coverage of the state machine itself).
   it('tracks "+y as a compound command', function()
@@ -2493,7 +2492,7 @@ describe('when a compound operator completes', function()
     assert.is_true(logger.get('"+y').count > 0)
   end)
 
-  -- #120: <C-w>X window-command compounds — patterns.lua's new pending_ctrl_w
+  -- <C-w>X window-command compounds — patterns.lua's pending_ctrl_w
   -- dispatch table. Some of these (s/v split, q close) have real window
   -- side effects; pcall absorbs any resulting error (E444 etc. — same
   -- rationale as the ctrl_keys loop below) and the trailing `:only` collapses
@@ -2524,10 +2523,10 @@ describe('when a compound operator completes', function()
     assert.equals(0, logger.get('<C-w>w').count)
   end)
 
-  -- pending_ctrl_w (#120) was added after op_completed (#119) already existed
-  -- elsewhere in patterns.lua, so its last_op assignment needed the same flag
-  -- added by hand during the merge — this is the integration-level guard
-  -- against that path silently regressing to the #119 undercount bug.
+  -- pending_ctrl_w was added after op_completed already existed elsewhere in
+  -- patterns.lua, so its last_op assignment needed the same flag added by
+  -- hand during the merge — this is the integration-level guard against
+  -- that path silently regressing to the undercount bug below.
   it('increments the usage count for <C-w>j by 2 when it is run twice in a row', function()
     pcall(vim.fn.feedkeys, ctrl_w .. 'j', 'xt')
     pcall(vim.api.nvim_feedkeys, '', 'x', false)
@@ -2536,7 +2535,7 @@ describe('when a compound operator completes', function()
     assert.equals(2, logger.get('<C-w>j').count)
   end)
 
-  -- #119: consecutive identical compounds (dd dd, dw dw, …) were undercounted
+  -- Consecutive identical compounds (dd dd, dw dw, …) were undercounted
   -- because the old detection compared seq.last_op's value before/after each
   -- keystroke — a second, identical compound re-assigns the same string, so
   -- no value change was observed and the second occurrence was silently
@@ -2642,7 +2641,7 @@ describe('when single-char track=true keys are pressed', function()
     '*',
     '#',
     '~',
-    '&', -- #115: repeat last :substitute on the current line
+    '&', -- repeat last :substitute on the current line
     'A',
     'b',
     'C',
@@ -2799,7 +2798,7 @@ describe('when the user records a macro', function()
   end)
 end)
 
--- ── macro opportunity detection (#60) ────────────────────────────────────────
+-- ── macro opportunity detection ────────────────────────────────────────────────
 -- End-to-end regression pass for the reactive detector added in patterns.lua
 -- (M.feed_macro) and wired into both the normal- and insert-mode branches of
 -- handle_key() here in logger.lua. patterns_spec.lua already covers the pure

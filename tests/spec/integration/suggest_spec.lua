@@ -5,10 +5,10 @@ local integrations = require('tobira.core.integrations')
 
 -- Test-local disk cleanup, mirroring logger_spec.lua's helper of the same
 -- name. logger.reset() deliberately does no I/O, so it only clears in-memory
--- state — but logger.save() now merges with whatever is currently on disk
--- (#122) instead of unconditionally overwriting it, so a stale on-disk entry
--- from an earlier test (e.g. a command a previous test adopted) would
--- otherwise leak into this file's tests the first time any of them saves.
+-- state — but logger.save() merges with whatever is currently on disk
+-- instead of unconditionally overwriting it, so a stale on-disk entry from
+-- an earlier test (e.g. a command a previous test adopted) would otherwise
+-- leak into this file's tests the first time any of them saves.
 local _data_file = vim.fn.stdpath('data') .. '/tobira/usage.json'
 local function wipe_disk()
   pcall(os.remove, _data_file)
@@ -401,7 +401,7 @@ describe('when :Tobira is invoked manually', function()
   end)
 end)
 
--- ── ambient exclusion for reactive-only entries (#110 fix) ───────────────────
+-- ── ambient exclusion for reactive-only entries ──────────────────────────────
 -- <C-\><C-n> is ambient = false (see docs/adr/0007-reactive-only-ambient-exclusion.md).
 -- These tests cover both ends: find_best-backed paths (manual and idle-ambient)
 -- must never surface it from bare 'i' usage; the direct reactive path (a real
@@ -470,7 +470,7 @@ describe('when a real terminal_esc_repeat pattern fires (#110 reactive path, mus
   end)
 end)
 
--- ── terminal category cooldown exemption (#166 follow-up) ───────────────────
+-- ── terminal category cooldown exemption ──────────────────────────────────────
 -- See docs/adr/0046-terminal-category-cooldown-bypass.md for the bug and fix.
 describe('when an unrelated suggestion has already started the cooldown clock, then terminal_esc_repeat fires', function()
   before_each(function()
@@ -864,7 +864,7 @@ describe('when the idle timer fires while not in normal mode', function()
   end)
 end)
 
--- ── Multi-char adoption detection (#25) ────────────────────────────────────
+-- ── Multi-char adoption detection ───────────────────────────────────────────
 
 local ESC = vim.api.nvim_replace_termcodes('<Esc>', true, false, true)
 
@@ -1261,7 +1261,7 @@ describe('when a suggestion is shown but never adopted', function()
   end)
 end)
 
--- ── equivalent-override suppression for reactive suggestions (#177 fix) ────
+-- ── equivalent-override suppression for reactive suggestions ────────────────
 -- See docs/adr/0045-equivalent-override-suppression-exemption.md for the bug
 -- and fix; these tests pin down should_suppress's reactive-path behavior.
 describe('when the only "override" present for Y is the default y$ mapping (#177 regression)', function()

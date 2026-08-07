@@ -153,7 +153,7 @@ describe('when the user presses q on the suggestion float', function()
   end)
 end)
 
--- <C-c>: dismiss without suppressing (focused float only, #32)
+-- <C-c>: dismiss without suppressing (focused float only)
 
 describe('when <C-c> is pressed on the suggestion float', function()
   before_each(setup)
@@ -230,7 +230,7 @@ describe('auto-close duration', function()
   end)
 end)
 
--- #166: terminal_esc_repeat's audience is still mid-struggle, not idle.
+-- terminal_esc_repeat's audience is still mid-struggle, not idle;
 -- see docs/adr/0081-terminal-category-auto-dismiss-duration.md for why
 describe('auto-close duration for the terminal category (#166)', function()
   before_each(setup)
@@ -328,7 +328,7 @@ describe('when neither a pattern nor a trigger is available', function()
   end)
 end)
 
--- extmark-based highlighting (nvim_buf_add_highlight migration, #151)
+-- extmark-based highlighting (nvim_buf_add_highlight migration)
 -- Every highlight this module applies is a full-line highlight (old
 -- col_end == -1). Confirms the new nvim_buf_set_extmark()-based call
 -- actually reaches the real end of each line's text, not just column 0.
@@ -461,7 +461,7 @@ describe('when the suggestion has no category', function()
   end)
 end)
 
--- border chars must stay single-cell (#89).
+-- border chars must stay single-cell;
 -- see docs/adr/0080-suggestion-float-border-ambiwidth-double-fallback.md for why
 
 describe('when ambiwidth is double', function()
@@ -548,11 +548,9 @@ describe('when a command is celebrated for the first time', function()
   end)
 end)
 
--- long suggestion bodies wrap instead of clipping (#261)
--- fr's 'g<C-a>' body is the widest across all 6 locales (180 display cells,
--- measured with the real float-building logic) -- comfortably wider than a
--- realistic 100-120 column terminal, so it's the sharpest repro for the
--- "silently cut off mid-sentence" bug.
+-- Long suggestion bodies wrap instead of clipping. fr's 'g<C-a>' body is the
+-- widest across all 6 locales (180 display cells) -- comfortably wider than
+-- a realistic 100-120 column terminal, the sharpest repro for silent clipping.
 
 describe('when a suggestion body renders wider than any realistic terminal (#261)', function()
   local orig_columns
@@ -619,12 +617,11 @@ describe('when a suggestion body renders wider than any realistic terminal (#261
   end)
 end)
 
--- :vsplit leaking a stray, unclosable real window (#268)
--- Splitting from inside the focused float duplicates the scratch buffer
--- into a second, non-floating window while the original floating window
--- is still open. The buffer-scoped WinLeave autocmd fires once, synchronously,
--- as part of :vsplit itself (leaving the original floating window) -- by the
--- time its deferred close() actually runs, both windows already exist.
+-- :vsplit leaking a stray, unclosable real window.
+-- Splitting from inside the focused float duplicates the scratch buffer into
+-- a second, non-floating window while the original floating window is still
+-- open, so the buffer-scoped WinLeave autocmd's deferred close() runs after
+-- both windows already exist.
 
 describe('when :vsplit duplicates the focused float into a second window (#268)', function()
   before_each(setup)
@@ -686,7 +683,7 @@ describe('when :vsplit duplicates the focused float into a second window (#268)'
   end)
 end)
 
--- non-regression: the ordinary single-window WinLeave close path (#268)
+-- non-regression: the ordinary single-window WinLeave close path
 
 describe('when the user switches to another window without pressing a close key', function()
   before_each(setup)
