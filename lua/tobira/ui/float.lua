@@ -25,10 +25,29 @@ local CATEGORY_HL = {
 }
 local DEFAULT_BORDER_HL = 'FloatBorder'
 
+-- Suggestion float body text wraps rather than clipping (#261); a sane
+-- reading-width ceiling stops a single long line from ballooning the float
+-- across an ultra-wide terminal even though wrapping could technically
+-- accommodate more.
+local MAX_SUGGEST_WIN_W = 100
+
+-- #268: :vsplit issued from inside the focused float duplicates the scratch
+-- buffer into a second, non-floating window while the tracked _win is still
+-- open -- Neovim's window-split code can't split a floating window in place,
+-- so it falls back to a normal split that shows the same buffer. A close()
+-- that only ever closes the one _win it remembers opening leaves that
+-- second window stuck (its buffer-local q/Esc/<C-c> keymaps call this same
+-- `close`, which is now a no-op once _win/_buf are nil'd out).
+-- Closing every window currently showing _buf, not just the originally
+-- tracked one, is correct in every case: normally there is exactly one.
 local function close()
   _close_token = _close_token + 1
-  if _win ~= nil and vim.api.nvim_win_is_valid(_win) then
-    vim.api.nvim_win_close(_win, true)
+  if _buf ~= nil then
+    for _, w in ipairs(vim.fn.win_findbuf(_buf)) do
+      if vim.api.nvim_win_is_valid(w) then
+        pcall(vim.api.nvim_win_close, w, true)
+      end
+    end
   end
   if _prev_win ~= nil and vim.api.nvim_win_is_valid(_prev_win) then
     pcall(vim.api.nvim_set_current_win, _prev_win)
@@ -36,6 +55,28 @@ local function close()
   _win = nil
   _buf = nil
   _prev_win = nil
+end
+
+-- Exact wrapped-row count for a line at a given window width, matching
+-- Neovim's own hard-wrap behavior (no 'linebreak'): a char that doesn't fit
+-- in the remaining columns starts a new row rather than being split, so
+-- double-width (CJK) characters at a wrap boundary are handled correctly.
+-- width is always >= 1 here: win_w is bounded below by callers (max_len+2
+-- is always positive, and the smallest of the three math.min() operands
+-- never reaches 0 for any window layout nvim_open_win itself would accept).
+local function wrapped_row_count(line, width)
+  local rows = 1
+  local col = 0
+  for _, ch in ipairs(vim.fn.split(line, '\\zs')) do
+    local cw = vim.fn.strdisplaywidth(ch)
+    if col + cw > width then
+      rows = rows + 1
+      col = cw
+    else
+      col = col + cw
+    end
+  end
+  return rows
 end
 
 -- Colored per-segment border; falls back to ASCII under ambiwidth='double'
@@ -156,8 +197,11 @@ function M.show(suggestion, focused, pattern)
 
   local uis = vim.api.nvim_list_uis()
   local screen_w = uis[1] and uis[1].width or 120
-  local win_w = math.min(max_len + 2, screen_w - 6)
-  local win_h = #lines
+  local win_w = math.min(max_len + 2, screen_w - 6, MAX_SUGGEST_WIN_W)
+  local win_h = 0
+  for _, line in ipairs(lines) do
+    win_h = win_h + wrapped_row_count(line, win_w)
+  end
 
   _buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_lines(_buf, 0, -1, false, lines)
@@ -192,7 +236,7 @@ function M.show(suggestion, focused, pattern)
   })
 
   vim.wo[_win].winhl = 'Normal:TobiraGuideNormal'
-  vim.wo[_win].wrap = false
+  vim.wo[_win].wrap = true
   vim.wo[_win].cursorline = false
 
   if not focused then

@@ -1,5 +1,6 @@
 local float = require('tobira.ui.float')
 local logger = require('tobira.core.logger')
+local config = require('tobira.core.config')
 
 local function suggestion(cmd, extra)
   local sug = { cmd = cmd }
@@ -544,5 +545,164 @@ describe('when a command is celebrated for the first time', function()
     float.show(suggestion(';'), true)
     float.celebrate('cw')
     assert.is_true(float.is_open())
+  end)
+end)
+
+-- long suggestion bodies wrap instead of clipping (#261)
+-- fr's 'g<C-a>' body is the widest across all 6 locales (180 display cells,
+-- measured with the real float-building logic) -- comfortably wider than a
+-- realistic 100-120 column terminal, so it's the sharpest repro for the
+-- "silently cut off mid-sentence" bug.
+
+describe('when a suggestion body renders wider than any realistic terminal (#261)', function()
+  local orig_columns
+
+  before_each(function()
+    setup()
+    -- Headless test Neovim defaults &columns to 80 with no UI attached, which
+    -- is narrower than float.lua's own screen_w fallback (120) used when
+    -- nvim_list_uis() is empty -- Neovim would silently clamp the float to
+    -- the real (narrower) screen, decoupling win_h's row math from what
+    -- actually renders. A real terminal session always has a UI attached
+    -- (uis[1].width matches &columns exactly), so this is a test-environment
+    -- adjustment, not a production behavior change.
+    orig_columns = vim.o.columns
+    vim.o.columns = 200
+  end)
+  after_each(function()
+    vim.o.columns = orig_columns
+    config.reset()
+    teardown()
+  end)
+
+  it('turns line wrap on instead of clipping the text', function()
+    config.setup({ lang = 'fr' })
+    float.show(suggestion('g<C-a>'), true)
+    local win = vim.fn.win_getid()
+    assert.is_true(vim.wo[win].wrap, 'expected the suggestion float to wrap long lines instead of clipping them')
+  end)
+
+  it('caps the window width at a sane reading width instead of growing to fit the longest line', function()
+    config.setup({ lang = 'fr' })
+    float.show(suggestion('g<C-a>'), true)
+    local win = vim.fn.win_getid()
+    local cfg = vim.api.nvim_win_get_config(win)
+    -- the widest unwrapped fr line is 180 cells; a capped width must stay
+    -- far below that, or the "cap" isn't doing anything
+    assert.is_true(cfg.width < 150, 'expected the float width to be capped well below the widest unwrapped line')
+  end)
+
+  it('grows the window height so every wrapped row is visible, not clipped off the bottom', function()
+    config.setup({ lang = 'fr' })
+    float.show(suggestion('g<C-a>'), true)
+    local win = vim.fn.win_getid()
+    local buf = vim.api.nvim_win_get_buf(win)
+    local line_count = #vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+    local rendered_rows = vim.api.nvim_win_text_height(win, {}).all
+    local cfg = vim.api.nvim_win_get_config(win)
+    assert.is_true(rendered_rows > line_count, 'expected the fr locale g<C-a> body to actually wrap onto extra rows')
+    assert.equals(
+      rendered_rows,
+      cfg.height,
+      'window height must match the wrapped row count exactly, or the bottom gets clipped'
+    )
+  end)
+
+  it('does not widen short, normal-length suggestions to fill the wrap cap', function()
+    float.show(suggestion(';'), true)
+    local win = vim.fn.win_getid()
+    local cfg = vim.api.nvim_win_get_config(win)
+    -- 100 is the documented wrap-width cap itself; a short suggestion should
+    -- stay sized to its own content well below it, not be force-widened up
+    -- to the cap.
+    assert.is_true(cfg.width < 100, 'expected a short suggestion to stay sized to its own content, not the wrap cap')
+  end)
+end)
+
+-- :vsplit leaking a stray, unclosable real window (#268)
+-- Splitting from inside the focused float duplicates the scratch buffer
+-- into a second, non-floating window while the original floating window
+-- is still open. The buffer-scoped WinLeave autocmd fires once, synchronously,
+-- as part of :vsplit itself (leaving the original floating window) -- by the
+-- time its deferred close() actually runs, both windows already exist.
+
+describe('when :vsplit duplicates the focused float into a second window (#268)', function()
+  before_each(setup)
+  after_each(teardown)
+
+  it('shows the scratch buffer in 2 windows immediately after :vsplit', function()
+    local captured = capture_defer(function()
+      float.show(suggestion(';'), true)
+      vim.cmd('vsplit')
+    end)
+
+    local buf = get_open_buf()
+    assert.is_not_nil(buf, 'expected the scratch buffer to still exist right after :vsplit')
+    assert.equals(2, #vim.fn.win_findbuf(buf), 'expected :vsplit to duplicate the scratch buffer into a 2nd window')
+
+    -- drain the deferred callbacks so nothing leaks into the next test
+    for _, c in ipairs(captured) do
+      pcall(c.fn)
+    end
+  end)
+
+  it('closes every window showing the scratch buffer once the deferred WinLeave-close runs', function()
+    local captured = capture_defer(function()
+      float.show(suggestion(';'), true)
+      vim.cmd('vsplit')
+    end)
+    assert.equals(2, #captured, 'expected exactly the auto-close timer and the WinLeave-triggered close to be deferred')
+
+    local buf = get_open_buf()
+
+    -- run the deferred close the WinLeave autocmd scheduled (captured[2])
+    captured[2].fn()
+
+    assert.equals(0, #vim.fn.win_findbuf(buf), 'expected no window to still show the scratch buffer')
+  end)
+
+  it('leaves exactly the windows that existed before :Tobira was invoked', function()
+    local before_wins = #vim.api.nvim_list_wins()
+
+    local captured = capture_defer(function()
+      float.show(suggestion(';'), true)
+      vim.cmd('vsplit')
+    end)
+    captured[2].fn()
+
+    assert.equals(before_wins, #vim.api.nvim_list_wins(), 'expected :vsplit + close to leave no stray real window behind')
+  end)
+
+  it('returns focus to the window the user was in before :Tobira was invoked', function()
+    local original_win = vim.api.nvim_get_current_win()
+
+    local captured = capture_defer(function()
+      float.show(suggestion(';'), true)
+      vim.cmd('vsplit')
+    end)
+    captured[2].fn()
+
+    assert.equals(original_win, vim.api.nvim_get_current_win())
+  end)
+end)
+
+-- non-regression: the ordinary single-window WinLeave close path (#268)
+
+describe('when the user switches to another window without pressing a close key', function()
+  before_each(setup)
+  after_each(teardown)
+
+  it('still auto-closes via the WinLeave autocmd', function()
+    local original_win = vim.api.nvim_get_current_win()
+
+    local captured = capture_defer(function()
+      float.show(suggestion(';'), true)
+      vim.api.nvim_set_current_win(original_win)
+    end)
+    assert.equals(2, #captured, 'expected the auto-close timer and the WinLeave-triggered close to be deferred')
+
+    captured[2].fn()
+
+    assert.is_false(float.is_open())
   end)
 end)
