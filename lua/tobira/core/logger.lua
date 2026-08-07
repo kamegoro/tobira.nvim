@@ -20,8 +20,9 @@ local substitute_state = patterns_cmdline.new_substitute_state()
 -- Persists across separate :tabnew submissions within a session (unlike
 -- seq/insert_seq) -- not reset alongside them in handle_cmdline_key below.
 local tabnew_seq = patterns_cmdline.new_tabnew_seq()
--- Persists across separate Ex-command submissions within a session (#241),
--- same lifetime as substitute_state/tabnew_seq above.
+-- Persists across separate Ex-command submissions within a session, same
+-- lifetime as substitute_state/tabnew_seq above. See
+-- docs/adr/0095-cmdline-history-recall-detection.md.
 local history_recall_state = patterns_cmdline.new_history_recall_state()
 local session_counts = {}
 -- Snapshot of {count, shown, suppressed, pinned, celebrated} as of the last
@@ -290,9 +291,9 @@ local TRACK = build_track_table()
 
 -- Keys that make is_diff worth reading vim.wo.diff for: j/k (j_many_diff/
 -- k_many_diff) plus the plain insert-entry keys (diff_jump_then_insert_next/
--- _prev, #237) — mirrors patterns.lua's own unexported INSERT_KEYS. See the
--- is_diff computation below for why this stays a separate local table
--- instead of exporting patterns.lua's internal one.
+-- _prev) — mirrors patterns.lua's own unexported INSERT_KEYS, kept as a
+-- separate local table rather than exporting it. See
+-- docs/adr/0099-diff-obtain-put-after-hunk-jump.md.
 local DIFF_GATE_KEYS = {
   j = true,
   k = true,
@@ -353,21 +354,20 @@ local CMDLINE_CR = vim.api.nvim_replace_termcodes('<CR>', true, true, true)
 local CMDLINE_ESC = vim.api.nvim_replace_termcodes('<Esc>', true, true, true)
 local CMDLINE_CTRL_C = vim.api.nvim_replace_termcodes('<C-c>', true, true, true)
 
--- <Up>/<Down> (command-line history recall) -- #259. Tracked separately from
+-- <Up>/<Down> (command-line history recall). Tracked separately from
 -- the terminating keys above: these don't end the cmdline session, they're a
 -- signal observed WHILE it's open, consumed at the terminating key.
 local CMDLINE_UP = vim.api.nvim_replace_termcodes('<Up>', true, true, true)
 local CMDLINE_DOWN = vim.api.nvim_replace_termcodes('<Down>', true, true, true)
 
 -- Whether <Up>/<Down> was pressed at least once during the CURRENTLY-OPEN ':'
--- cmdline session (#259). Scoped to one open-to-close cmdline session --
--- reset the moment that session ends (<CR>/<Esc>/<C-c> below) -- unlike
--- history_recall_state above, which persists across the whole plugin
--- session. This has to live here rather than inside patterns_cmdline.lua:
--- that module is intentionally vim.*-free and only ever sees one complete
--- string at <CR> time (see its file header) -- it has no per-keystroke entry
--- point to observe an <Up>/<Down> press itself, only the RESULT (the recalled
--- text already sitting in the buffer) once the terminating key arrives.
+-- cmdline session. Scoped to one open-to-close session -- reset the moment it
+-- ends (<CR>/<Esc>/<C-c> below) -- unlike history_recall_state above, which
+-- persists for the whole plugin session. Lives here rather than in
+-- patterns_cmdline.lua because that module is vim.*-free and only ever sees
+-- one complete string at <CR> time -- it has no per-keystroke entry point to
+-- observe <Up>/<Down> itself. See
+-- docs/adr/0095-cmdline-history-recall-detection.md.
 local cmdline_recalled_via_history = false
 
 -- Tobira's own UI commands (:Tobira, :TobiraStats, :TobiraGuide,
@@ -463,24 +463,14 @@ local function handle_cmdline_key(key)
       end
     end
 
-    -- Verbatim Ex-command retype detection (#241): reuses the same `word`
-    -- AND `arg` command_arg() already extracted above -- `arg` is also what
-    -- feed_history_recall() uses to decline bare commands with nothing
-    -- worth recalling (`:w`, `:q`, `:noh`, ...), see that function's header
-    -- comment. Unlike the substitute/pingpong/tabnew detectors above, no
-    -- vim.schedule()/verify-before-credit deferral is needed here -- the
-    -- signal is the retyping itself, not the command's effect. Tobira's own
-    -- UI commands are excluded the same way increment() above excludes them
-    -- (OWN_CMD_PREFIX has no meaning inside the vim.*-free
-    -- patterns_cmdline.lua, hence the check living here — see
-    -- docs/adr/0015-ex-command-verify-before-credit.md).
-    -- See docs/adr/0095-cmdline-history-recall-detection.md for the
-    -- exclusion-by-word design this relies on to never double-fire alongside
-    -- substitute_repeat/ex_file_pingpong/tabnew_run above.
-    --
-    -- recalled_via_history (#259): captured BEFORE the flag is reset below,
-    -- so this <CR> still sees whether <Up>/<Down> was pressed earlier in
-    -- THIS cmdline session.
+    -- Verbatim Ex-command retype detection: reuses the same `word`/`arg`
+    -- command_arg() already extracted above. No vim.schedule() deferral is
+    -- needed here -- the signal is the retyping itself, not the command's
+    -- effect. recalled_via_history is captured BEFORE it's reset below, so
+    -- this <CR> still sees whether <Up>/<Down> was pressed earlier in THIS
+    -- cmdline session. See docs/adr/0095-cmdline-history-recall-detection.md
+    -- for the exclusion-by-word design this relies on to never double-fire
+    -- alongside substitute_repeat/ex_file_pingpong/tabnew_run above.
     if name and name:sub(1, #OWN_CMD_PREFIX) ~= OWN_CMD_PREFIX then
       local recall_result = patterns_cmdline.feed_history_recall(
         history_recall_state,
@@ -579,7 +569,7 @@ local function handle_key(key)
     -- Routes through patterns.feed(), same as the Normal-mode branch below,
     -- instead of the generic non-Normal-mode reset further down. See
     -- docs/adr/0017-mode-cache-state-reset-boundaries.md for why this branch
-    -- exists and the #179 bug it fixes.
+    -- exists and the bug it fixes.
     -- insert_seq/terminal_seq are still reset here — Visual mode is neither
     -- Insert nor Terminal, so any half-finished state in those two would
     -- otherwise sit stale until the next real mode switch.
@@ -623,14 +613,10 @@ local function handle_key(key)
   local co_result = patterns_insert.feed_after_escape(insert_seq, key)
 
   -- Only reads vim.wo.diff for keys patterns.lua's is_diff branches actually
-  -- consult (j/k for j_many_diff/k_many_diff, plus the insert-entry keys for
-  -- diff_jump_then_insert_next/_prev, #237) to keep the vim.on_key hot path
-  -- cheap — see "vim.on_key() performance" in lua/tobira/CLAUDE.md.
-  -- patterns.lua stays vim.*-free; this is the one call site that reads the
-  -- option and threads it in as a parameter. DIFF_GATE_KEYS mirrors
-  -- patterns.lua's own (unexported) INSERT_KEYS plus j/k — kept as a
-  -- separate local table rather than exporting patterns.lua's internal one,
-  -- since Vim's insert-entry key set is fixed and effectively never changes.
+  -- consult (see DIFF_GATE_KEYS above) to keep the vim.on_key hot path cheap
+  -- — see "vim.on_key() performance" in lua/tobira/CLAUDE.md. patterns.lua
+  -- stays vim.*-free; this is the one call site that reads the option and
+  -- threads it in as a parameter.
   local is_diff = DIFF_GATE_KEYS[key] and vim.wo.diff or false
   -- Read once, reused for feed_macro() below too — patterns.lua stays
   -- vim.*-free and only ever sees this caller-supplied monotonic ms value.
@@ -648,9 +634,9 @@ local function handle_key(key)
     increment(seq.last_op)
   end
 
-  -- Text-object variants (ciw, ci", ci', cib, ciB, cit, cip, diw, #254) get
-  -- their own usage bucket too, in addition to (not instead of) the shared
-  -- op..'w' bucket incremented above — see
+  -- Text-object variants (ciw, ci", ci', cib, ciB, cit, cip, diw) get their
+  -- own usage bucket too, in addition to (not instead of) the shared op..'w'
+  -- bucket incremented above — see
   -- docs/adr/0102-text-object-variant-own-usage-tracking.md.
   if seq.last_op_variant then
     increment(seq.last_op_variant)

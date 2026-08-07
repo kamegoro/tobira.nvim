@@ -24,85 +24,34 @@ local _logged = {}
 
 local _initialized = false
 
--- Curated LHS -> accepted-equivalent RHS literal(s).
--- Y accepts exactly rhs == 'y$' (a common personal remap; Vim's real built-in
--- Y is a synonym for yy, not y$).
--- % accepts exactly rhs == '<Plug>(MatchitNormalForward)' -- Neovim auto-loads
--- runtime/plugin/matchit.vim by default (packadd matchit), which does
--- `nmap <silent> % <Plug>(MatchitNormalForward)`. That target is a strict,
--- compatible superset of the built-in % for the basic bracket-jump behavior
--- tobira teaches, so it must not suppress the % suggestion the way a
--- genuinely different remap would.
--- Any other rhs for either LHS is "not equivalent".
--- see docs/adr/0052-equivalent-remap-distinction.md for why this table exists
+-- Curated LHS -> accepted-equivalent RHS literal(s); any other rhs is "not
+-- equivalent". Y accepts 'y$' (Vim's built-in Y is really yy, not y$). %
+-- accepts '<Plug>(MatchitNormalForward)' -- Neovim auto-loads matchit.vim's
+-- own equivalent % remap by default, so it must not read as an override.
+-- see docs/adr/0052-equivalent-remap-distinction.md
 local EQUIVALENT_REMAPS = {
   Y = { 'y$' },
   ['%'] = { '<Plug>(MatchitNormalForward)' },
 }
 
--- Neovim's own internal keymap script-id sentinel (#255): every mapping
--- $VIMRUNTIME/lua/vim/_defaults.lua registers at boot -- gx, &, ]q/[q/]l/[l,
--- and on Neovim 0.10+ even Y=y$ -- goes through the Lua/C API with no
--- attached sourced script, which nvim_get_keymap() surfaces as sid == -8.
--- ANY mapping sourced from a real script (the user's own init.lua, a
--- lazy-loaded plugin, or a shipped-but-separately-sourced runtime plugin
--- like matchit.vim) gets a normal positive sid instead -- its own script's
--- id -- so this field distinguishes "still exactly what Neovim ships out of
--- the box" from "something has touched this key", independent of whether
--- the current rhs is a literal string or a Lua callback (both are
--- registered the same way, so rhs content alone can't tell them apart).
--- Empirically verified against a vanilla `nvim -u NONE` for every key this
--- module watches; see docs/adr/0102-builtin-default-mapping-sid-detection.md
--- for how and why this was chosen over :verbose-based script-source parsing
--- (fragile, version-dependent output format) or a spawned clean-baseline
--- subprocess (startup latency + failure modes in sandboxed/CI environments).
--- A mapping with no sid field at all (e.g. an older Neovim, or a test fixture
--- that doesn't set one) safely falls through to "not the sentinel" -- i.e.
--- the pre-fix, conservative "assume override" behavior -- never a regression.
+-- Neovim's own boot-time default mappings (gx, &, ]q/[q/]l/[l, Y=y$ on
+-- 0.10+) register via the Lua/C API with no sourced script, so
+-- nvim_get_keymap() reports sid == -8; a mapping from a real sourced script
+-- gets a normal positive sid instead. See
+-- docs/adr/0102-builtin-default-mapping-sid-detection.md -- sid alone is NOT
+-- sufficient on its own (see is_untouched_builtin_default below).
 local NVIM_BUILTIN_DEFAULT_SID = -8
 
--- QA follow-up (independent re-verification of this PR, live against real
--- Neovim 0.10.4/0.12.4/nightly): sid == -8 is NOT unique to Neovim's own
--- boot-time defaults. It is Neovim's generic sentinel for "this
--- nvim_set_keymap/vim.keymap.set call had no active :source-ing script
--- context at the moment it ran" -- and a GENUINE user/plugin override lands
--- on that exact same sentinel whenever it's set from inside a deferred
--- callback: vim.schedule(), vim.defer_fn(), or a VimEnter/User-autocmd
--- callback (all independently reproduced live, and end-to-end through this
--- module's own M.refresh()). This is exactly how lazy.nvim defers
--- `event = "..."`-based plugin config -- an extremely common pattern, not a
--- contrived edge case -- so sid alone previously let a real deferred remap
--- of e.g. gx vanish from find_best()/efficiency_gaps() silently.
---
--- Mitigation: Neovim's own default mappings additionally carry a
--- distinctive `desc` string ($VIMRUNTIME/lua/vim/_defaults.lua sets one on
--- every mapping it registers) that a real override will not reproduce
--- unless it explicitly passes the exact same desc text -- verified stable
--- across Neovim 0.10.4, 0.12.4, and nightly (0.13.0-dev). Both signals
--- (sid AND desc) must agree before a mapping is treated as "untouched";
--- either one alone is not trusted. Deliberately curated per key (like
--- EQUIVALENT_REMAPS) rather than a generic "desc is present" check, because
--- plenty of real users set an explicit desc on their OWN remaps too (e.g.
--- which-key.nvim conventionally wants one on every custom mapping) -- a
--- generic presence check would misclassify that extremely common case.
--- This sacrifices automatic coverage of any *future* key Neovim adds to
--- _defaults.lua (it would need a new entry here too, same as
--- EQUIVALENT_REMAPS already requires for new equivalence cases) in exchange
--- for actually being safe for the keys this fixes today. A key with no
--- entry in this table always falls through to "not verified as untouched",
--- i.e. the original conservative "assume override" behavior -- never a
--- regression relative to pre-#255-fix.
---
--- Coverage note: this table was built by auditing EVERY suggestible
--- commands.lua entry (both modes) against a live vanilla `nvim -u NONE`
--- for sid == -8, not just the 7 keys #255 named -- '<C-w>' (insert mode,
--- Neovim's own undo-breaking `i_CTRL-W-default`, rhs `<C-G>u<C-W>`) also
--- carries sid == -8 out of the box and would otherwise have silently
--- regressed to "always overridden" once the desc check was added (the
--- original sid-only check happened to cover it for free, being generic
--- across all registry keys; this curated table is not generic, so it must
--- be kept in sync with reality the same way EQUIVALENT_REMAPS already is).
--- see docs/adr/0102-builtin-default-mapping-sid-detection.md's QA addendum
+-- sid == -8 also occurs for a genuine remap set from a deferred callback
+-- (vim.schedule/vim.defer_fn/VimEnter -- how lazy.nvim's event-based config
+-- commonly runs), so sid alone would misclassify it as an untouched
+-- default. Mitigated by also requiring an exact match against the curated
+-- `desc` text Neovim's own _defaults.lua sets on each mapping, which a real
+-- remap won't reproduce unless explicitly copied. Both signals must agree;
+-- a key with no entry here falls through to the conservative "assume
+-- override" behavior. See
+-- docs/adr/0102-builtin-default-mapping-sid-detection.md's QA addendum for
+-- the full investigation and why this isn't a generic "has any desc" check.
 local BUILTIN_DEFAULT_DESC = {
   ['gx'] = 'Opens filepath or URI under cursor with the system handler (file explorer, web browser, …)',
   ['&'] = ':help &-default',
@@ -169,20 +118,12 @@ local function rhs_of(map)
   return ''
 end
 
--- canonical (keytrans-normalized) form -> original commands.lua registry key,
--- split into a normal-mode set and an insert-mode set (#256) so M.refresh can
--- check each registry entry against the keymap for the mode it actually
--- represents, instead of always checking normal-mode keymaps regardless of
--- what the entry means. Mirrors suggest.lua's normalize_cmd: only
--- <...>-notation keys need normalizing (nvim_get_keymap's lhs already
--- matches plain literal keys like 'Y'/'s'/'ciw' byte-for-byte).
---
--- commands.display_key(cmd) strips the 'i_' composite-key disambiguation
--- prefix (see the 'i_<C-o>' / 'i_<C-d>' entries in commands.lua) *before* the
--- <...>-notation check, so e.g. 'i_<C-o>' canonicalizes the same way the
--- literal '<C-o>' would -- previously it never matched '^<.->$' at all (it
--- doesn't start with '<'), so it could never be recognized against real
--- keytrans() output. Ordinary keys (no 'i_' prefix) pass through unchanged.
+-- canonical (keytrans-normalized) form -> registry key, split into a
+-- normal-mode set and an insert-mode set so M.refresh checks each entry
+-- against the keymap for the mode it actually represents. Strips the 'i_'
+-- composite-key prefix (commands.display_key) before the <...>-notation
+-- check so composite entries canonicalize the same as their bare form.
+-- see docs/adr/0008-composite-keys-for-dual-meaning-bytes.md's addendum
 local function suggestible_keys()
   local watched_n = {}
   local watched_i = {}
@@ -244,18 +185,13 @@ function M.refresh(keymap_fn)
   local watched_n, watched_i = suggestible_keys()
 
   local new_overrides = {}
-  -- collect(maps, watched): maps is the raw list nvim_get_keymap(mode)
-  -- returns; watched is the canon -> registry-key set for that same mode
-  -- (#256 -- checking a normal-mode registry entry against insert-mode
-  -- keymaps, or vice versa, is exactly the bug this split fixes).
+  -- maps: nvim_get_keymap(mode)'s raw list; watched: canon -> registry-key
+  -- set for that same mode -- see the mode-split comment on suggestible_keys.
   local function collect(maps, watched)
     for _, map in ipairs(maps) do
       local registry_key = watched[canonical_lhs(map.lhs)] or watched[map.lhs]
-      -- #255: skip Neovim's own untouched factory-default mapping entirely
-      -- -- it was never touched by the user, so it isn't an "override" in
-      -- any sense find_best()/efficiency_gaps()/ui/guide.lua care about.
-      -- sid alone is not sufficient to identify it -- see
-      -- is_untouched_builtin_default's header comment (QA follow-up).
+      -- Skip Neovim's own untouched factory-default mapping -- not a real
+      -- override. sid alone is insufficient; see is_untouched_builtin_default.
       if registry_key and not is_untouched_builtin_default(registry_key, map) then
         local rhs = rhs_of(map)
         new_overrides[registry_key] = { rhs = rhs, equivalent = is_equivalent(registry_key, rhs) }
