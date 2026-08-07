@@ -119,8 +119,20 @@ describe('reactive-only ambient exclusion', function()
     assert.is_false(commands.registry['<C-\\><C-n>'].ambient)
   end)
 
+  -- do/dp (#265): their requires triggers (]c/[c) never get op_completed=true
+  -- in patterns.lua's pending_bracket handler (it consumes-and-discards the
+  -- bracket pair without recording which one it was — same gap as [( / ])),
+  -- so usage[']c'].count/usage['[c'].count never leave 0 and do/dp can never
+  -- be found via find_best()/efficiency_gaps()'s ordinary scan. They are
+  -- reactive-only by design anyway (see docs/adr/0099-diff-obtain-put-after-hunk-jump.md),
+  -- so they belong in the same ambient = false carve-out as <C-\><C-n>.
+  it('marks do and dp as ambient = false (#265 fix)', function()
+    assert.is_false(commands.registry['do'].ambient)
+    assert.is_false(commands.registry['dp'].ambient)
+  end)
+
   it(
-    'is the only registry entry marked ambient = false — see commands.lua for why <C-w> (insert), which shares the same nominal requires="i" anchor comment, is deliberately NOT included',
+    'is exactly the set of registry entries marked ambient = false — this list must only grow deliberately',
     function()
       local reactive_only = {}
       for cmd, entry in pairs(commands.registry) do
@@ -129,7 +141,7 @@ describe('reactive-only ambient exclusion', function()
         end
       end
       table.sort(reactive_only)
-      assert.are.same({ '<C-\\><C-n>' }, reactive_only)
+      assert.are.same({ '<C-\\><C-n>', 'do', 'dp' }, reactive_only)
     end
   )
 end)
@@ -502,6 +514,17 @@ describe('tracking integrity', function()
     ['<C-w>l'] = true,
     ['<C-w>q'] = true,
     ['<C-w>='] = true,
+    -- text-object variants (#254): pending_text_obj now additionally sets
+    -- seq.last_op_variant to the exact variant key (ciw / ci" / cib / ...)
+    -- alongside the shared cw/dw bucket in seq.last_op, and logger.lua
+    -- increments both — see
+    -- docs/adr/0102-text-object-variant-own-usage-tracking.md. Only the
+    -- variants that are themselves a `requires` target of another entry need
+    -- to be listed here (ciw ← ci"/cip/diw, ci" ← ci'/cib, cib ← ciB/cit).
+    ciw = true,
+    ['ci"'] = true,
+    ["ci'"] = true,
+    cib = true,
   }
 
   -- Entries left untrackable on purpose as of #120. Fixing this PR's minimum
@@ -516,17 +539,6 @@ describe('tracking integrity', function()
     ["'."] = true,
     ["'^"] = true,
     ["'a"] = true,
-    -- text-object chain: ciw / ci" / cib all collapse into the generic 'cw'
-    -- bucket (pending_text_obj always sets last_op = op .. 'w', discarding
-    -- which specific text object was used), so none of the specific
-    -- variants are ever individually counted.
-    ['ci"'] = true,
-    ["ci'"] = true,
-    ['cib'] = true,
-    ['ciB'] = true,
-    ['cit'] = true,
-    ['cip'] = true,
-    ['diw'] = true,
     -- macro chain: @@ / ZZ are never recorded — patterns.lua has no pending
     -- handler for @ (pending_register just consumes-and-discards the
     -- register/macro name) or for the doubled Z Z sequence.
@@ -541,10 +553,6 @@ describe('tracking integrity', function()
     -- never recorded due to a separate bug (last_op is hardcoded to 'dd' for
     -- any doubled operator, not op .. op) — tracked separately as #118.
     ['>>'] = true,
-    -- ya" / ya' (#53): reactive-only (docs/adr/0012-reactive-only-direct-fire-entries.md);
-    -- deferred one hop removed since their nominal requires is itself above.
-    ['ya"'] = true,
-    ["ya'"] = true,
     -- do / dp (#237): requires ]c / [c respectively — same bracket-pair
     -- consume-and-discard gap as [( / ]) above (pending_bracket never
     -- records which pair it was). Reactive-only anyway — see

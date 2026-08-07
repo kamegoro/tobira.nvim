@@ -83,7 +83,11 @@ connection between pattern detection and the suggestion engine.
 
 In `inner_feed`, the `pending_g` / `pending_z` handlers must appear **before** the `f/F/t/T`
 handlers. If they come after, `gf` and `zt` are incorrectly captured as f/t searches.
-Apply the same rule to any new two-character command prefix.
+The same rule applies to `pending_register` / `pending_mark` / `pending_bracket` (#257)
+and `pending_text_obj` (#254 follow-up, for `cit`/`dit`'s `t`). Apply the same rule to
+any new two-or-more-key command prefix. Write a test that types the colliding
+character mid-prefix (e.g. `"tyy` or `cit`) and asserts the prefix's own state won,
+not the f/t handler's.
 
 ## Testing non-normal mode in headless Neovim
 

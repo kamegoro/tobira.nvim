@@ -615,6 +615,14 @@ local function handle_key(key)
     increment(seq.last_op)
   end
 
+  -- Text-object variants (ciw, ci", ci', cib, ciB, cit, cip, diw, #254) get
+  -- their own usage bucket too, in addition to (not instead of) the shared
+  -- op..'w' bucket incremented above — see
+  -- docs/adr/0102-text-object-variant-own-usage-tracking.md.
+  if seq.last_op_variant then
+    increment(seq.last_op_variant)
+  end
+
   -- Priority: macro_result > result > co_result — all three can fire for the
   -- same keystroke. See
   -- docs/adr/0016-pattern-dispatch-priority-and-key-collisions.md for the

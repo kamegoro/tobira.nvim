@@ -160,8 +160,12 @@ While pending_op is set:
 
 **Handler ordering in `inner_feed`:**
 `pending_g` / `pending_z` handlers must appear **before** the `f/F/t/T` handlers, otherwise
-`gf` and `zt` are incorrectly captured as f/t searches. Apply the same rule to any new
-two-character command prefix.
+`gf` and `zt` are incorrectly captured as f/t searches. The same rule applies to
+`pending_register` / `pending_mark` / `pending_bracket` (#257 — a register or mark
+named `f`/`F`/`t`/`T`, e.g. `"tyy`/`mt`, must be consumed as that prefix's expected
+next character, not reinterpreted as a fresh f/t-search) and to `pending_text_obj`
+(#254 follow-up — the tag text object `cit`/`dit` uses `t` as its text-object
+character). Apply the same rule to any new two-or-more-key command prefix.
 
 ## How to add a command
 
