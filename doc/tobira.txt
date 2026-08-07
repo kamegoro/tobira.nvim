@@ -89,8 +89,14 @@ Call `setup()` explicitly if not using lazy.nvim opts shorthand: >lua
     `⟳`          Forgotten — was practiced, has gone quiet
 
   The guide panel is passive and read-only, unlike |:TobiraProgress| and
-  |:TobiraStats| — it has no keybindings of its own. Run |:TobiraGuide| again
-  to close it, the same way you opened it.
+  |:TobiraStats| — it has no keybindings of its own, and opening it never
+  steals focus. If its content is taller than fits on screen, switch into
+  the window (e.g. with `<C-w>w` or a mouse click) and scroll it with
+  Neovim's own `j` / `k` / `<C-d>` / `<C-u>` / `gg` / `G` — no keymap of
+  Guide's own is involved, the window is simply a normal focusable window
+  once entered. Run |:TobiraGuide| again to close it, the same way you
+  opened it — this works from any window, including the guide window
+  itself.
 
                                                               *:TobiraProgress*
 :TobiraProgress

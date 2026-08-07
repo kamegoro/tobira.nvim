@@ -58,12 +58,85 @@ local function mastery_glyph(data)
   return nil, nil
 end
 
+-- Breaks a single token whose own display width exceeds `avail` into
+-- avail-sized chunks, by character (never mid-byte, via strcharpart/
+-- strdisplaywidth) rather than by word, since it has no whitespace of its
+-- own to split on. Needed because a real remap target can be one long
+-- unbroken token with no internal spaces at all -- e.g. a plugin-provided
+-- `<Plug>(...)` mapping name -- which whitespace-only splitting can never
+-- bound no matter how long it is (#267 regression, found during independent
+-- QA re-verification). Always returns at least one chunk.
+local function hard_break(word, avail)
+  local chunks = {}
+  local buf = {}
+  local buf_w = 0
+  for i = 0, vim.fn.strchars(word) - 1 do
+    local ch = vim.fn.strcharpart(word, i, 1)
+    local ch_w = vim.fn.strdisplaywidth(ch)
+    if buf_w > 0 and buf_w + ch_w > avail then
+      table.insert(chunks, table.concat(buf))
+      buf, buf_w = {}, 0
+    end
+    table.insert(buf, ch)
+    buf_w = buf_w + ch_w
+  end
+  table.insert(chunks, table.concat(buf))
+  return chunks
+end
+
+-- Splits `text` into physical lines that fit within `width` display columns
+-- once `indent` display columns are already spoken for on the first line.
+-- Every line after the first carries its own `indent` leading spaces, so a
+-- wrapped annotation (e.g. "mapped to ...", "remapped to ... — no longer
+-- valid") lines up under the description column instead of the zero-indent
+-- word-wrap Neovim applies on its own with only `wrap`/`linebreak` set (#267).
+-- Splits on whitespace, mirroring what `linebreak` does for lines short
+-- enough not to need this -- except for a single token wider than `avail` on
+-- its own (see hard_break above), which whitespace splitting alone can never
+-- bound. `indent` must be a *display*-column count, not a byte count --
+-- callers track it separately from the byte-offset `pos` used for extmark
+-- ranges, since a mastery glyph is multiple bytes but a single display
+-- column. `text` is assumed non-empty -- both call sites build it from
+-- short_desc(), which always falls back to a non-empty command key.
+local function wrap_indented(text, indent, width)
+  local avail = math.max(1, width - indent)
+  local words = {}
+  for w in text:gmatch('%S+') do
+    table.insert(words, w)
+  end
+
+  local lines = {}
+  local cur_w = 0
+  for _, w in ipairs(words) do
+    local w_w = vim.fn.strdisplaywidth(w)
+    if w_w > avail then
+      for _, chunk in ipairs(hard_break(w, avail)) do
+        table.insert(lines, chunk)
+        cur_w = vim.fn.strdisplaywidth(chunk)
+      end
+    elseif #lines > 0 and cur_w + 1 + w_w <= avail then
+      lines[#lines] = lines[#lines] .. ' ' .. w
+      cur_w = cur_w + 1 + w_w
+    else
+      -- Either the very first word (lines is still empty), or the current
+      -- line is full -- either way, w starts a new line.
+      table.insert(lines, w)
+      cur_w = w_w
+    end
+  end
+
+  return lines
+end
+
 -- Builds one pinned-section row. Position-tracking emit() avoids
 -- hand-computed byte offsets for highlight ranges (glyph and key are both
 -- variable-width once combined with multi-byte glyphs). Applies the same
 -- forgotten-state check as format_row, and never omits a row for a remap
 -- (unlike the auto section) — see
 -- docs/adr/0061-guide-auto-vs-pinned-remap-visibility.md for why.
+-- Returns an array of physical lines (usually 1; more if `desc` wraps, #267)
+-- plus a flat hls list whose entries carry `lnum_offset` (0 = first line)
+-- for callers that append multiple lines per row.
 local function format_pinned_row(cmd, data, desc, str)
   local graph = require('tobira.core.graph')
   local integrations = require('tobira.core.integrations')
@@ -83,6 +156,7 @@ local function format_pinned_row(cmd, data, desc, str)
   end
 
   local pos = 0
+  local disp = 0
   local parts = {}
   local hls = {}
 
@@ -92,6 +166,7 @@ local function format_pinned_row(cmd, data, desc, str)
       table.insert(hls, { cs = pos, ce = pos + #text, group = group })
     end
     pos = pos + #text
+    disp = disp + vim.fn.strdisplaywidth(text)
   end
 
   emit('   ')
@@ -102,15 +177,30 @@ local function format_pinned_row(cmd, data, desc, str)
   if forgotten then
     emit('⟳ ', 'TobiraGuideForgotten')
   end
-  emit(desc)
 
-  return table.concat(parts), hls
+  local indent = disp
+  local wrapped = wrap_indented(desc, indent, WIDTH)
+  emit(wrapped[1])
+
+  local lines = { table.concat(parts) }
+  for i = 2, #wrapped do
+    table.insert(lines, string.rep(' ', indent) .. wrapped[i])
+  end
+
+  return lines, hls
 end
 
 -- Builds one auto-section row: mastery glyph, key, description (+ forgotten
 -- suffix), and a right-aligned count. `desc_col_w` is the max description
 -- width for the current build pass, not a fixed constant — see M.build's
 -- per-category pass below.
+-- Returns an array of physical lines (usually 1; more if `desc .. suffix`
+-- wraps, #267) plus a flat hls list whose entries carry `lnum_offset` (0 =
+-- first line) for callers that append multiple lines per row. When the row
+-- wraps, the single-line description/count alignment no longer applies (it
+-- was sized for the unwrapped string); the count is instead attached to the
+-- end of the last wrapped line so it stays readable instead of dangling
+-- alone at column 0.
 local function format_row(cmd, desc, data, desc_col_w, str)
   local commands = require('tobira.commands')
   local glyph, glyph_hl = mastery_glyph(data)
@@ -120,6 +210,7 @@ local function format_row(cmd, desc, data, desc_col_w, str)
   local count_str = count > 0 and (tostring(count) .. '×') or ''
 
   local pos = 0
+  local disp = 0
   local parts = {}
   local hls = {}
 
@@ -129,6 +220,7 @@ local function format_row(cmd, desc, data, desc_col_w, str)
       table.insert(hls, { cs = pos, ce = pos + #text, group = group })
     end
     pos = pos + #text
+    disp = disp + vim.fn.strdisplaywidth(text)
   end
 
   emit('   ')
@@ -136,19 +228,74 @@ local function format_row(cmd, desc, data, desc_col_w, str)
   emit('  ')
   emit(string.format('%-12s', commands.display_key(cmd)), 'TobiraGuideKey')
   emit('  ')
+
+  local indent = disp
   local desc_str = desc .. suffix
-  emit(desc_str)
-  emit(string.rep(' ', math.max(0, desc_col_w - vim.fn.strdisplaywidth(desc_str))))
-  if count_str ~= '' then
-    emit('  ')
-    emit(count_str, 'TobiraGuideHint')
+  local wrapped = wrap_indented(desc_str, indent, WIDTH)
+
+  -- Padding to desc_col_w (cross-row count-column alignment within the
+  -- category) can itself push a *short* description past WIDTH once the
+  -- count is appended, even when desc_str alone fits fine -- e.g. a short
+  -- description in a category whose widest row is long. Checking only
+  -- `#wrapped == 1` misses that case and left it to Neovim's own
+  -- zero-indent wrap (#267 regression caught in live testing). Falling back
+  -- to the unpadded single line below avoids *that* overflow, but the count
+  -- is still appended afterwards -- see the width re-check below for why
+  -- that append needs its own guard too (#267 regression, found during
+  -- independent QA re-verification: a large digit count can push even the
+  -- row's own unpadded width past WIDTH, e.g. a forgotten command with a
+  -- very large historical count).
+  local padded_w = math.max(vim.fn.strdisplaywidth(desc_str), desc_col_w)
+  local count_w = count_str ~= '' and (2 + vim.fn.strdisplaywidth(count_str)) or 0
+  local fits_padded = #wrapped == 1 and (indent + padded_w + count_w <= WIDTH)
+
+  local lines
+  if fits_padded then
+    emit(wrapped[1])
+    emit(string.rep(' ', math.max(0, desc_col_w - vim.fn.strdisplaywidth(desc_str))))
+    if count_str ~= '' then
+      emit('  ')
+      emit(count_str, 'TobiraGuideHint')
+    end
+    lines = { table.concat(parts) }
+  else
+    emit(wrapped[1])
+    lines = { table.concat(parts) }
+    for i = 2, #wrapped do
+      table.insert(lines, string.rep(' ', indent) .. wrapped[i])
+    end
+    if count_str ~= '' then
+      local last_idx = #lines
+      local candidate = lines[last_idx] .. '  ' .. count_str
+      if vim.fn.strdisplaywidth(candidate) <= WIDTH then
+        local cs = #lines[last_idx] + 2
+        lines[last_idx] = candidate
+        table.insert(hls, { lnum_offset = last_idx - 1, cs = cs, ce = cs + #count_str, group = 'TobiraGuideHint' })
+      else
+        -- Appending the count to the last wrapped line would itself push
+        -- past WIDTH (e.g. a large digit count on an already near-full
+        -- line) -- give the count its own indented continuation line
+        -- instead of overflowing. Still a better outcome than the
+        -- pre-#267 dangling zero-indent count this whole helper exists to
+        -- fix.
+        local count_line = string.rep(' ', indent) .. count_str
+        table.insert(lines, count_line)
+        table.insert(
+          hls,
+          { lnum_offset = #lines - 1, cs = indent, ce = indent + #count_str, group = 'TobiraGuideHint' }
+        )
+      end
+    end
   end
 
-  local line = table.concat(parts)
   if dim then
-    hls = { { cs = 0, ce = -1, group = 'TobiraDim' } }
+    hls = {}
+    for i = 1, #lines do
+      table.insert(hls, { lnum_offset = i - 1, cs = 0, ce = -1, group = 'TobiraDim' })
+    end
   end
-  return line, hls
+
+  return lines, hls
 end
 
 -- Pure: takes usage explicitly, so layout can be tested without a real
@@ -253,11 +400,13 @@ function M.build(usage)
       local sug = suggestions[cmd]
       local desc = short_desc((sug and sug.title) or cmd)
       local data = usage[cmd] or { count = 0 }
-      local line, row_hls = format_pinned_row(cmd, data, desc, strings)
-      local lnum = #lines
-      table.insert(lines, line)
+      local row_lines, row_hls = format_pinned_row(cmd, data, desc, strings)
+      local base_lnum = #lines
+      for _, l in ipairs(row_lines) do
+        table.insert(lines, l)
+      end
       for _, h in ipairs(row_hls) do
-        table.insert(hls, { lnum = lnum, cs = h.cs, ce = h.ce, group = h.group })
+        table.insert(hls, { lnum = base_lnum + (h.lnum_offset or 0), cs = h.cs, ce = h.ce, group = h.group })
       end
     end
   end
@@ -281,11 +430,13 @@ function M.build(usage)
       local label = cat_labels[row.cat] or row.cat
       push('  ' .. label, 'TobiraGuideSection', 2, 2 + #label)
     end
-    local line, row_hls = format_row(row.cmd, row.desc, row.data, desc_col_w_by_cat[row.cat], strings)
-    local lnum = #lines
-    table.insert(lines, line)
+    local row_lines, row_hls = format_row(row.cmd, row.desc, row.data, desc_col_w_by_cat[row.cat], strings)
+    local base_lnum = #lines
+    for _, l in ipairs(row_lines) do
+      table.insert(lines, l)
+    end
     for _, h in ipairs(row_hls) do
-      table.insert(hls, { lnum = lnum, cs = h.cs, ce = h.ce, group = h.group })
+      table.insert(hls, { lnum = base_lnum + (h.lnum_offset or 0), cs = h.cs, ce = h.ce, group = h.group })
     end
   end
   if current_cat then
@@ -311,6 +462,18 @@ local function wrapped_height(lines)
   return h
 end
 
+-- Shared by M.open() and M.refresh() so both cap the window at the same
+-- screen_h - 4 ceiling (#266) -- refresh() previously set the window to the
+-- full uncapped wrapped_height(lines) with no cap at all, which was only
+-- masked by refresh() never firing until a WinEnter/BufEnter on some other
+-- window. The window is now focusable (see M.open()), so overflow past this
+-- cap is reachable by entering it and scrolling, rather than silently lost.
+local function target_height(lines)
+  local uis = vim.api.nvim_list_uis()
+  local screen_h = (uis[1] and uis[1].height) or 40
+  return math.min(wrapped_height(lines), screen_h - 4)
+end
+
 local function apply_content(lines, hls)
   vim.bo[_buf].modifiable = true
   vim.api.nvim_buf_set_lines(_buf, 0, -1, false, lines)
@@ -331,7 +494,7 @@ function M.refresh()
   end
   local lines, hls = M.build(require('tobira.core.logger').get_all())
   apply_content(lines, hls)
-  vim.api.nvim_win_set_height(_win, wrapped_height(lines))
+  vim.api.nvim_win_set_height(_win, target_height(lines))
 end
 
 function M.close()
@@ -365,7 +528,7 @@ function M.open()
   local uis = vim.api.nvim_list_uis()
   local screen_w = (uis[1] and uis[1].width) or 120
   local screen_h = (uis[1] and uis[1].height) or 40
-  local height = math.min(wrapped_height(lines), screen_h - 4)
+  local height = target_height(lines)
 
   _win = vim.api.nvim_open_win(_buf, false, {
     relative = 'editor',
@@ -377,7 +540,13 @@ function M.open()
     border = 'rounded',
     title = ' ' .. ICON .. ' ' .. strings.title .. ' ',
     title_pos = 'left',
-    focusable = false,
+    -- focusable (not enter=true) so overflowing content is reachable via
+    -- Neovim's own window navigation (<C-w>w, mouse click) and then
+    -- scrolled with its own default j/k/<C-d>/<C-u>/gg/G -- no keymap of
+    -- Guide's own is added. Opening still never steals focus (`enter =
+    -- false` above stays unchanged). See #266 and
+    -- docs/adr/0103-guide-scrollable-focusable-window.md.
+    focusable = true,
     zindex = 40,
   })
 

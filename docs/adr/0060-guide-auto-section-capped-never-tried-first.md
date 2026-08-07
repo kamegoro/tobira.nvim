@@ -2,11 +2,13 @@
 
 ## Context
 
-`:TobiraGuide` is a passive "glance while you code" sidebar (`focusable = false`,
-recognition-rather-than-recall per #68 — see `lua/tobira/ui/CLAUDE.md`). Its whole point is
-showing more than the user strictly needs, quickly, so they recognize what they already
-half-know. If every category's full unmastered-command list rendered, the panel would grow
-without bound as a user's command set grows, defeating that "glance" design outright.
+`:TobiraGuide` is a passive "glance while you code" sidebar (recognition-rather-than-recall
+per #68 — see `lua/tobira/ui/CLAUDE.md`; it defines no keymaps of its own, though #266 later
+made the window focusable so overflow can be scrolled with Neovim's own defaults — see
+`docs/adr/0103-guide-scrollable-focusable-window.md`). Its whole point is showing more than the
+user strictly needs, quickly, so they recognize what they already half-know. If every category's
+full unmastered-command list rendered, the panel would grow without bound as a user's command set
+grows, defeating that "glance" design outright.
 
 A cap alone isn't enough — it also raises the question of *which* commands in a category get
 shown when there are more unmastered ones than fit. `:TobiraProgress` already exists to show
