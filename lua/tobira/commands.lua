@@ -48,7 +48,7 @@ M.registry = {
   -- normal-mode <C-w> window-command prefix. track = false; counted explicitly
   -- from handle_insert_key() instead (logger.lua's INSERT_SPECIAL) — see
   -- docs/adr/0008-composite-keys-for-dual-meaning-bytes.md for why.
-  -- mode = 'i': tells core/integrations.lua's override detection (#256) to
+  -- mode = 'i': tells core/integrations.lua's override detection to
   -- check this key's insert-mode keymap (nvim_get_keymap('i')), not the
   -- normal-mode one the bare key would otherwise be assumed to mean. Absent
   -- (nil) means normal-mode, the default for every other entry.
@@ -191,7 +191,7 @@ M.registry = {
   ['gf'] = { requires = 'gd', track = false, category = 'motion', level = 'intermediate' },
 
   -- ── gv reselect last visual ───────────────────────────────────────────────
-  -- Also reactive-only (v_repeat fires this directly, #55) — see
+  -- Also reactive-only (v_repeat fires this directly) — see
   -- docs/adr/0012-reactive-only-direct-fire-entries.md.
   ['gv'] = { requires = 'V', track = false, category = 'motion', level = 'intermediate' },
 
@@ -220,7 +220,7 @@ M.registry = {
   ['<<'] = { requires = '>>', track = false, category = 'edit', level = 'intermediate' },
   ['=='] = { requires = '>>', track = false, category = 'edit', level = 'intermediate' },
 
-  -- ── G → =G whole-buffer reindent (#242) ──────────────────────────────────
+  -- ── G → =G whole-buffer reindent ──────────────────────────────────────────
   -- track = false: no reactive detection, ambient-only registration, same
   -- shape as == above. requires = 'G' (single char, base-tracked) rather than
   -- '==' — '==' itself has no keystroke tracking path ('=' is not one of the
@@ -263,7 +263,7 @@ M.registry = {
   ['cit'] = { requires = 'cib', track = false, category = 'edit', level = 'advanced' },
   ['cip'] = { requires = 'ciw', track = false, category = 'edit', level = 'intermediate' },
 
-  -- ── ci" / ci' × 3 (direct, non-visual) → ya" / ya' (#53) ─────────────────
+  -- ── ci" / ci' × 3 (direct, non-visual) → ya" / ya' ───────────────────────
   -- Reactive-only (ci_dquote_repeat / ci_squote_repeat fire this directly) —
   -- see docs/adr/0012-reactive-only-direct-fire-entries.md.
   ['ya"'] = { requires = 'ci"', track = false, category = 'edit', level = 'intermediate' },
@@ -340,17 +340,17 @@ M.registry = {
   -- from handle_insert_key() (logger.lua's INSERT_SPECIAL), track = false —
   -- see docs/adr/0008-composite-keys-for-dual-meaning-bytes.md for why.
   -- mode = 'i': see the '<C-w>' entry above for what this signals to
-  -- core/integrations.lua's override detection (#256).
+  -- core/integrations.lua's override detection.
   ['i_<C-o>'] = { requires = 'i', track = false, category = 'edit', level = 'intermediate', mode = 'i' },
 
-  -- ── insert-mode <C-t> / <C-d>: indent/dedent without leaving insert (#246) ──
+  -- ── insert-mode <C-t> / <C-d>: indent/dedent without leaving insert ──────
   -- <C-t> has no existing normal-mode registry entry, so it is registered
   -- under its plain raw keystroke — same precedent as insert-mode '<C-w>' /
   -- '<C-n>' above (no collision, no composite prefix needed). '<C-d>' DOES
   -- already have a normal-mode meaning (scroll half page down, see above), so
   -- it must use the 'i_' composite-key prefix — same reasoning and same
   -- docs/adr/0008-composite-keys-for-dual-meaning-bytes.md as 'i_<C-o>'.
-  -- track = false, ambient-only registration (no reactive detection, #246) —
+  -- track = false, ambient-only registration (no reactive detection) —
   -- no handle_insert_key() wiring is added for either key; a bespoke reactive
   -- pattern mirroring insert_co_oneshot is called out in the issue as a
   -- possible separate follow-up, not this issue's scope.
@@ -417,14 +417,14 @@ M.registry = {
   -- see docs/adr/0009-register-underuse-bypasses-trigger-count.md.
   ['"+y'] = { requires = 'y', track = false, category = 'mark', level = 'advanced' },
 
-  -- ── y → "ay named register (a-z stand-in, #233) ──────────────────────────
+  -- ── y → "ay named register (a-z stand-in) ─────────────────────────────────
   -- track = false: no reactive detection, pure ambient registration — unlike
   -- "+y above, there is no per-register keystroke tracking here. Registration
   -- alone is enough for efficiency_gaps()/find_best() to surface it once 'y'
   -- usage is heavy and this command's own count stays at its default of 0.
   ['"ay'] = { requires = 'y', track = false, category = 'mark', level = 'advanced' },
 
-  -- ── dd → "_d black-hole register (delete without clobbering unnamed, #234) ─
+  -- ── dd → "_d black-hole register (delete without clobbering unnamed) ─────
   -- track = false: same ambient-only shape as "ay above. requires = 'dd' (the
   -- tracked compound), not bare 'd' — bare 'd' is never counted anywhere, so
   -- using it here would leave efficiency_gaps() with a permanently-0 trigger.
@@ -440,7 +440,7 @@ M.registry = {
   -- Reactive-only: fires when insert-mode editing immediately follows a
   -- ]c/[c jump while &diff is set — see
   -- docs/adr/0099-diff-obtain-put-after-hunk-jump.md.
-  -- ambient = false (#265): their requires triggers (]c/[c) never get
+  -- ambient = false: their requires triggers (]c/[c) never get
   -- op_completed=true in patterns.lua's pending_bracket handler (it
   -- consumes-and-discards the bracket pair without recording which one it
   -- was — same gap as [( / ]) below), so usage[']c'].count/usage['[c'].count
@@ -472,7 +472,7 @@ M.registry = {
   ['&'] = { requires = 'n', track = true, category = 'edit', level = 'intermediate' },
   ['g&'] = { requires = '&', track = false, category = 'edit', level = 'advanced' },
 
-  -- ── quickfix / location-list navigation (#228) ────────────────────────────
+  -- ── quickfix / location-list navigation ───────────────────────────────────
   -- ]q/[q/]l/[l are default-mapped bracket commands (see :help ]q, :help ]l —
   -- Neovim's built-in default-mappings, not a plugin convention), so they get
   -- the same pending_bracket generic consume-and-forget handling in
@@ -484,14 +484,14 @@ M.registry = {
   ['[q'] = { requires = 'N', track = false, category = 'search', level = 'intermediate' },
   [']l'] = { requires = 'n', track = false, category = 'search', level = 'advanced' },
   ['[l'] = { requires = 'N', track = false, category = 'search', level = 'advanced' },
-  -- Ex commands (#57-style): tracked generically by logger.lua's cmdline
+  -- Ex commands: tracked generically by logger.lua's cmdline
   -- handler via patterns_cmdline.tokenize(), not a keystroke — track = false.
   -- ex_command = true applies the stricter "never tried" gate — see
   -- docs/adr/0010-ex-command-never-tried-gate.md.
   ['ex:copen'] = { requires = 'n', track = false, category = 'ex', level = 'intermediate', ex_command = true },
   ['ex:cdo'] = { requires = 'q', track = false, category = 'ex', level = 'advanced', ex_command = true },
 
-  -- ── spell-check (#229) ────────────────────────────────────────────────────
+  -- ── spell-check ────────────────────────────────────────────────────────────
   -- ]s/[s are built-in bracket motions (:help ]s), handled by the same
   -- generic pending_bracket consume-and-forget path as ]q/[q above.
   [']s'] = { requires = 'n', track = false, category = 'motion', level = 'intermediate' },
@@ -503,7 +503,7 @@ M.registry = {
   -- retyping a misspelled word is the "doing this the slow way" signal.
   ['z='] = { requires = 'i', track = false, category = 'edit', level = 'advanced' },
 
-  -- ── :sort (#239) ───────────────────────────────────────────────────────────
+  -- ── :sort ──────────────────────────────────────────────────────────────────
   -- requires = 'dd' (compound = true, so trackable per the requires-graph
   -- integrity test): manually cutting and re-pasting lines into order is the
   -- manual workaround a single :sort fully replaces — see
@@ -511,7 +511,7 @@ M.registry = {
   -- the habit" criterion for defaulting ex_command = true.
   ['ex:sort'] = { requires = 'dd', track = false, category = 'ex', level = 'advanced', ex_command = true },
 
-  -- ── ]p / [p indent-aware paste (#240) ─────────────────────────────────────
+  -- ── ]p / [p indent-aware paste ────────────────────────────────────────────
   -- Built-in bracket paste variants (:help ]p, :help [p), same generic
   -- pending_bracket handling as ]q/[q/]s/[s above. requires mirrors the
   -- existing p→P / gp→gP asymmetry: forward variant intermediate, backward

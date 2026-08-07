@@ -25,21 +25,17 @@ local CATEGORY_HL = {
 }
 local DEFAULT_BORDER_HL = 'FloatBorder'
 
--- Suggestion float body text wraps rather than clipping (#261); a sane
+-- Suggestion float body text wraps rather than clipping; a sane
 -- reading-width ceiling stops a single long line from ballooning the float
 -- across an ultra-wide terminal even though wrapping could technically
 -- accommodate more.
 local MAX_SUGGEST_WIN_W = 100
 
--- #268: :vsplit issued from inside the focused float duplicates the scratch
--- buffer into a second, non-floating window while the tracked _win is still
--- open -- Neovim's window-split code can't split a floating window in place,
--- so it falls back to a normal split that shows the same buffer. A close()
--- that only ever closes the one _win it remembers opening leaves that
--- second window stuck (its buffer-local q/Esc/<C-c> keymaps call this same
--- `close`, which is now a no-op once _win/_buf are nil'd out).
--- Closing every window currently showing _buf, not just the originally
--- tracked one, is correct in every case: normally there is exactly one.
+-- :vsplit issued from inside the focused float can't split a floating
+-- window in place, so Neovim falls back to a normal split showing the same
+-- buffer -- leaving a second window whose q/Esc/<C-c> keymaps call this same
+-- `close`. Close every window currently showing _buf, not just the
+-- originally tracked _win, so that stray split isn't left stuck open.
 local function close()
   _close_token = _close_token + 1
   if _buf ~= nil then

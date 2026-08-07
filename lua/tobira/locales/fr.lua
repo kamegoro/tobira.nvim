@@ -1123,7 +1123,7 @@ return {
       example = "ya' → copie 'le texte cité' avec ses guillemets",
     },
 
-    -- ── quickfix / location-list navigation (#228) ────────────────────────────
+    -- ── quickfix / location-list navigation ───────────────────────────────────
     [']q'] = {
       title = "]q — aller à l'entrée quickfix suivante",
       body = "Saute à l'entrée suivante de la liste quickfix (remplie par :vimgrep, :grep ou les diagnostics LSP)\nRemplace la recherche ou le défilement manuel des résultats un par un",
@@ -1155,7 +1155,7 @@ return {
       example = ':cdo s/foo/bar/g → remplace foo par bar à chaque occurrence quickfix',
     },
 
-    -- ── spell-check (#229) ─────────────────────────────────────────────────────
+    -- ── spell-check ────────────────────────────────────────────────────────────
     [']s'] = {
       title = ']s — aller au mot mal orthographié suivant',
       body = 'Saute en avant vers le prochain mot que le correcteur orthographique de Vim signale comme mal orthographié (nécessite :set spell)\nRemplace la relecture visuelle du texte à la recherche de fautes',
@@ -1172,14 +1172,14 @@ return {
       example = 'z= puis 2<CR> → remplace le mot par la 2e suggestion',
     },
 
-    -- ── :sort (#239) ─────────────────────────────────────────────────────────
+    -- ── :sort ────────────────────────────────────────────────────────────────
     ['ex:sort'] = {
       title = ':sort — trier les lignes',
       body = 'Trie les lignes sélectionnées (ou tout le fichier) par ordre alphabétique en une seule commande\nRemplace le découpage et le collage manuels des lignes pour les ordonner',
       example = ':sort → trie toutes les lignes du fichier par ordre alphabétique',
     },
 
-    -- ── ]p / [p indent-aware paste (#240) ──────────────────────────────────────
+    -- ── ]p / [p indent-aware paste ─────────────────────────────────────────────
     [']p'] = {
       title = "]p — coller en ajustant l'indentation",
       body = "Comme p mais réindente le texte collé pour correspondre à la ligne actuelle\nRemplace le collage suivi d'une correction manuelle de l'indentation",

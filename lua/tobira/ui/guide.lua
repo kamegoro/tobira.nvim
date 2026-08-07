@@ -58,14 +58,10 @@ local function mastery_glyph(data)
   return nil, nil
 end
 
--- Breaks a single token whose own display width exceeds `avail` into
--- avail-sized chunks, by character (never mid-byte, via strcharpart/
--- strdisplaywidth) rather than by word, since it has no whitespace of its
--- own to split on. Needed because a real remap target can be one long
--- unbroken token with no internal spaces at all -- e.g. a plugin-provided
--- `<Plug>(...)` mapping name -- which whitespace-only splitting can never
--- bound no matter how long it is (#267 regression, found during independent
--- QA re-verification). Always returns at least one chunk.
+-- Breaks a single token wider than `avail` into avail-sized chunks by
+-- character (never mid-byte), for tokens with no whitespace to split on
+-- (e.g. a `<Plug>(...)` remap target). Always returns at least one chunk.
+-- See docs/adr/0104-guide-row-indent-aware-wrapping.md for why.
 local function hard_break(word, avail)
   local chunks = {}
   local buf = {}
@@ -84,20 +80,14 @@ local function hard_break(word, avail)
   return chunks
 end
 
--- Splits `text` into physical lines that fit within `width` display columns
--- once `indent` display columns are already spoken for on the first line.
--- Every line after the first carries its own `indent` leading spaces, so a
--- wrapped annotation (e.g. "mapped to ...", "remapped to ... — no longer
--- valid") lines up under the description column instead of the zero-indent
--- word-wrap Neovim applies on its own with only `wrap`/`linebreak` set (#267).
--- Splits on whitespace, mirroring what `linebreak` does for lines short
--- enough not to need this -- except for a single token wider than `avail` on
--- its own (see hard_break above), which whitespace splitting alone can never
--- bound. `indent` must be a *display*-column count, not a byte count --
--- callers track it separately from the byte-offset `pos` used for extmark
--- ranges, since a mastery glyph is multiple bytes but a single display
--- column. `text` is assumed non-empty -- both call sites build it from
--- short_desc(), which always falls back to a non-empty command key.
+-- Splits `text` into physical lines fitting `width` display columns, with
+-- `indent` columns already spoken for on the first line and repeated as
+-- leading spaces on every wrapped continuation line, so long descriptions
+-- align under the description column instead of Neovim's own zero-indent
+-- wrap. `indent` is a display-column count, not a byte count. `text` is
+-- assumed non-empty -- both call sites build it from short_desc(), which
+-- always falls back to a non-empty command key. See
+-- docs/adr/0104-guide-row-indent-aware-wrapping.md for why.
 local function wrap_indented(text, indent, width)
   local avail = math.max(1, width - indent)
   local words = {}
@@ -134,9 +124,9 @@ end
 -- forgotten-state check as format_row, and never omits a row for a remap
 -- (unlike the auto section) — see
 -- docs/adr/0061-guide-auto-vs-pinned-remap-visibility.md for why.
--- Returns an array of physical lines (usually 1; more if `desc` wraps, #267)
--- plus a flat hls list whose entries carry `lnum_offset` (0 = first line)
--- for callers that append multiple lines per row.
+-- Returns an array of physical lines (usually 1; more if `desc` wraps) plus
+-- a flat hls list whose entries carry `lnum_offset` (0 = first line) for
+-- callers that append multiple lines per row.
 local function format_pinned_row(cmd, data, desc, str)
   local graph = require('tobira.core.graph')
   local integrations = require('tobira.core.integrations')
@@ -194,13 +184,10 @@ end
 -- suffix), and a right-aligned count. `desc_col_w` is the max description
 -- width for the current build pass, not a fixed constant — see M.build's
 -- per-category pass below.
--- Returns an array of physical lines (usually 1; more if `desc .. suffix`
--- wraps, #267) plus a flat hls list whose entries carry `lnum_offset` (0 =
--- first line) for callers that append multiple lines per row. When the row
--- wraps, the single-line description/count alignment no longer applies (it
--- was sized for the unwrapped string); the count is instead attached to the
--- end of the last wrapped line so it stays readable instead of dangling
--- alone at column 0.
+-- Returns an array of physical lines (usually 1; more if the row wraps) plus
+-- a flat hls list whose entries carry `lnum_offset` (0 = first line). See
+-- docs/adr/0104-guide-row-indent-aware-wrapping.md for the wrap/overflow
+-- handling this and the two width re-checks below implement.
 local function format_row(cmd, desc, data, desc_col_w, str)
   local commands = require('tobira.commands')
   local glyph, glyph_hl = mastery_glyph(data)
@@ -233,18 +220,10 @@ local function format_row(cmd, desc, data, desc_col_w, str)
   local desc_str = desc .. suffix
   local wrapped = wrap_indented(desc_str, indent, WIDTH)
 
-  -- Padding to desc_col_w (cross-row count-column alignment within the
-  -- category) can itself push a *short* description past WIDTH once the
-  -- count is appended, even when desc_str alone fits fine -- e.g. a short
-  -- description in a category whose widest row is long. Checking only
-  -- `#wrapped == 1` misses that case and left it to Neovim's own
-  -- zero-indent wrap (#267 regression caught in live testing). Falling back
-  -- to the unpadded single line below avoids *that* overflow, but the count
-  -- is still appended afterwards -- see the width re-check below for why
-  -- that append needs its own guard too (#267 regression, found during
-  -- independent QA re-verification: a large digit count can push even the
-  -- row's own unpadded width past WIDTH, e.g. a forgotten command with a
-  -- very large historical count).
+  -- desc_col_w padding for count-column alignment can itself push a short
+  -- description past WIDTH even when desc_str alone fits; `#wrapped == 1`
+  -- alone misses that. Falling back to the unpadded single line avoids it --
+  -- see docs/adr/0104-guide-row-indent-aware-wrapping.md.
   local padded_w = math.max(vim.fn.strdisplaywidth(desc_str), desc_col_w)
   local count_w = count_str ~= '' and (2 + vim.fn.strdisplaywidth(count_str)) or 0
   local fits_padded = #wrapped == 1 and (indent + padded_w + count_w <= WIDTH)
@@ -274,10 +253,7 @@ local function format_row(cmd, desc, data, desc_col_w, str)
       else
         -- Appending the count to the last wrapped line would itself push
         -- past WIDTH (e.g. a large digit count on an already near-full
-        -- line) -- give the count its own indented continuation line
-        -- instead of overflowing. Still a better outcome than the
-        -- pre-#267 dangling zero-indent count this whole helper exists to
-        -- fix.
+        -- line) -- give it its own indented continuation line instead.
         local count_line = string.rep(' ', indent) .. count_str
         table.insert(lines, count_line)
         table.insert(
@@ -462,12 +438,9 @@ local function wrapped_height(lines)
   return h
 end
 
--- Shared by M.open() and M.refresh() so both cap the window at the same
--- screen_h - 4 ceiling (#266) -- refresh() previously set the window to the
--- full uncapped wrapped_height(lines) with no cap at all, which was only
--- masked by refresh() never firing until a WinEnter/BufEnter on some other
--- window. The window is now focusable (see M.open()), so overflow past this
--- cap is reachable by entering it and scrolling, rather than silently lost.
+-- Shared by M.open() and M.refresh() so both cap the window height at the
+-- same screen_h - 4 ceiling; see
+-- docs/adr/0103-guide-scrollable-focusable-window.md for why.
 local function target_height(lines)
   local uis = vim.api.nvim_list_uis()
   local screen_h = (uis[1] and uis[1].height) or 40
@@ -540,11 +513,9 @@ function M.open()
     border = 'rounded',
     title = ' ' .. ICON .. ' ' .. strings.title .. ' ',
     title_pos = 'left',
-    -- focusable (not enter=true) so overflowing content is reachable via
-    -- Neovim's own window navigation (<C-w>w, mouse click) and then
-    -- scrolled with its own default j/k/<C-d>/<C-u>/gg/G -- no keymap of
-    -- Guide's own is added. Opening still never steals focus (`enter =
-    -- false` above stays unchanged). See #266 and
+    -- focusable (not enter=true) so overflow is reachable via Neovim's own
+    -- window navigation and default scroll keys, with no keymap of Guide's
+    -- own added; opening still never steals focus. See
     -- docs/adr/0103-guide-scrollable-focusable-window.md.
     focusable = true,
     zindex = 40,

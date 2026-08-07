@@ -251,10 +251,8 @@ function M.open()
   vim.bo[_buf].bufhidden = 'wipe'
 
   -- hl.lnum is already 0-indexed and lines up 1:1 with rendered.body's lines
-  -- (see this file's header comment and M.render()'s `push()` helper) --
-  -- apply it as-is, same as guide.lua and progress.lua do for their own hls
-  -- tables. (#214: this used to add a stray + 1, landing every highlight one
-  -- row below where it belonged.)
+  -- (see this file's header comment and M.render()'s `push()` helper) -- apply
+  -- it as-is, same as guide.lua and progress.lua do for their own hls tables.
   for _, hl in ipairs(rendered.hls) do
     hls_mod.set_range(_buf, _ns, hl.group, hl.lnum, hl.cs, hl.ce)
   end

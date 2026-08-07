@@ -1,16 +1,12 @@
 local M = {}
 
--- Re-runs every nvim_set_hl() call below on every invocation -- never cache/early-return.
--- setup_hls() (a cached local alias for this function) is called once per panel open
--- (float/guide/progress/stats), so has_notify_hl must be freely re-evaluated each time
--- too: in a lazy-loaded setup, nvim-notify may not be loaded yet when tobira's first
--- panel opens, and skipping re-evaluation on later calls would permanently lock the
--- Guide highlight groups onto the FloatBorder/NormalFloat/Title fallback even after
--- nvim-notify becomes available (#126). This is cheap -- just nvim_set_hl() calls, no
--- I/O or timers -- so re-running it on every panel open is an acceptable tradeoff for
--- always picking up the current nvim-notify state. The accepted cost: a user's own
--- manual customization of any of these groups is overwritten the next time any panel
--- reopens and setup() re-runs.
+-- Re-runs every nvim_set_hl() call on every invocation -- never cache/early-return.
+-- In a lazy-loaded setup, nvim-notify may not be loaded yet when tobira's first panel
+-- opens; skipping re-evaluation on later calls would permanently lock the Guide
+-- highlight groups onto the FloatBorder/NormalFloat/Title fallback even after
+-- nvim-notify becomes available. Cheap (just nvim_set_hl() calls), so re-running on
+-- every panel open is worth it to always pick up the current nvim-notify state, at
+-- the cost of overwriting any manual user customization of these groups on reopen.
 function M.setup()
   local has_notify_hl = pcall(require, 'notify') and vim.fn.hlexists('NotifyINFOBorder') == 1
   if has_notify_hl then
@@ -66,26 +62,11 @@ function M.setup()
   vim.api.nvim_set_hl(0, 'TobiraH1', { link = 'Title' })
 end
 
--- Applies `group` to a byte range on one buffer line, replicating the
--- semantics every panel (float/guide/progress/stats) relied on from the
--- now-deprecated nvim_buf_add_highlight(): col_end == -1 meant "through
--- the real end of the line", and any out-of-range col_end was silently
--- tolerated rather than raising an error.
---
--- nvim_buf_set_extmark() has neither behavior with its default
--- `strict = true` (both a -1 and an out-of-range end_col raise "Invalid
--- 'end_col': out of range"). With `strict = false`, though, it resolves
--- end_col == -1 to the line's actual length and clamps any other
--- out-of-range end_col instead of erroring -- see :help
--- nvim_buf_set_extmark(). Passing strict = false unconditionally here
--- reproduces the legacy call's behavior exactly for every caller (#151).
---
--- Deliberately not vim.hl.range(): it targets visual-selection-shaped
--- ranges (a pair of (line, col) endpoints run through getregionpos(),
--- with -1 meaning v:maxcol rather than a plain byte offset) and always
--- creates its own extmark bookkeeping for an optional auto-clear timeout
--- neither of these call sites need. nvim_buf_set_extmark() is the more
--- direct match for the old API's plain (line, col_start, col_end) shape.
+-- Applies `group` to a byte range on one buffer line, reproducing
+-- nvim_buf_add_highlight()'s legacy col_end == -1 / out-of-range-tolerant
+-- semantics via nvim_buf_set_extmark(strict = false) rather than
+-- vim.hl.range(). See
+-- docs/adr/0105-hls-set-range-legacy-highlight-semantics.md for why.
 function M.set_range(buf, ns, group, lnum, col_start, col_end)
   vim.api.nvim_buf_set_extmark(buf, ns, lnum, col_start, {
     end_col = col_end,

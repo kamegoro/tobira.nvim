@@ -167,10 +167,9 @@ end
 -- The header/separator must span the same width M.open() will ultimately
 -- size the window to, not the fixed PANEL_W grid-row constant -- in locales
 -- whose title/footer text is wider than one grid row (e.g. de), staying at
--- PANEL_W left a dead gap on the right border (#269). Mirrors the same
--- title/footer width calc M.open() already performs when sizing the window,
--- and ui/stats.lua's M.open() sizing from actual content rather than a
--- fixed constant.
+-- PANEL_W left a dead gap on the right border. Mirrors the same title/footer
+-- width calc M.open() already performs, and ui/stats.lua's M.open() sizing
+-- from actual content rather than a fixed constant.
 local function panel_width(str)
   local title_text = ' ' .. ICON .. ' ' .. str.title .. ' '
   local _, footer_w = footer_chunks(str)
@@ -263,7 +262,7 @@ function M.build(usage)
           -- Not gated on data.count > 0: mastery_sym()'s suppressed branch
           -- returns a group regardless of count, so a never-tried (count=0)
           -- suppressed command must still get its glyph highlighted here
-          -- instead of falling through to the level-0 TobiraDim branch (#260).
+          -- instead of falling through to the level-0 TobiraDim branch.
           table.insert(row_hls, { cs = byte_pos, ce = byte_pos + sym_bytes, group = group })
         elseif data.count == 0 then
           -- Level 0: no glyph, whole cell dimmed instead (no ○ marker, no NEW badge).
