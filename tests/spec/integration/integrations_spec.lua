@@ -142,12 +142,31 @@ describe('M.refresh — Neovim built-in default mappings are not user overrides 
     config.reset()
   end)
 
+  -- Real desc text, empirically verified against a vanilla `nvim -u NONE` on
+  -- Neovim 0.10.4 / 0.12.4 / nightly (0.13.0-dev) -- see the QA note above
+  -- BUILTIN_DEFAULT_DESC in integrations.lua for why the fixture needs this
+  -- field at all now (sid alone is not sufficient -- see below).
+  local BUILTIN_DESC = {
+    gx = 'Opens filepath or URI under cursor with the system handler (file explorer, web browser, …)',
+    ['&'] = ':help &-default',
+    [']q'] = ':cnext',
+    ['[q'] = ':cprevious',
+    [']l'] = ':lnext',
+    ['[l'] = ':lprevious',
+    Y = ':help Y-default',
+  }
+
   it('does not treat an untouched Neovim built-in default mapping as an override', function()
     -- gx / & / ]q / [q / ]l / [l are all real Neovim 0.10+ default mappings
-    -- (:help gx, :help ]q, etc.) registered with the internal sid sentinel.
+    -- (:help gx, :help ]q, etc.) registered with the internal sid sentinel
+    -- AND Neovim's own descriptive `desc` text -- both must be present for
+    -- the exemption (see "does not treat a deferred user override that
+    -- happens to land on sid==-8" below for why sid alone is not enough).
     for _, lhs in ipairs({ 'gx', '&', ']q', '[q', ']l', '[l' }) do
       integrations.reset()
-      integrations.refresh(fake_keymap({ { lhs = lhs, rhs = '', callback = function() end, sid = -8, noremap = 1 } }))
+      integrations.refresh(
+        fake_keymap({ { lhs = lhs, rhs = '', callback = function() end, sid = -8, desc = BUILTIN_DESC[lhs], noremap = 1 } })
+      )
       assert.is_false(integrations.is_overridden(lhs), lhs .. ' should not be overridden (untouched built-in default)')
     end
   end)
@@ -158,7 +177,7 @@ describe('M.refresh — Neovim built-in default mappings are not user overrides 
     -- this one has sid=-8 (simulating Neovim's own untouched 0.10+ default).
     -- Before this fix both cases were indistinguishable and Y could never be
     -- proactively suggested on any modern Neovim, for any user.
-    integrations.refresh(fake_keymap({ { lhs = 'Y', rhs = 'y$', sid = -8, noremap = 1 } }))
+    integrations.refresh(fake_keymap({ { lhs = 'Y', rhs = 'y$', sid = -8, desc = BUILTIN_DESC.Y, noremap = 1 } }))
     assert.is_false(integrations.is_overridden('Y'))
   end)
 
@@ -168,6 +187,34 @@ describe('M.refresh — Neovim built-in default mappings are not user overrides 
     integrations.refresh(fake_keymap({ { lhs = 'gx', rhs = ':MyCustomGx<CR>', sid = 5, noremap = 1 } }))
     assert.is_true(integrations.is_overridden('gx'))
   end)
+
+  it(
+    'still treats a deferred user/plugin override that happens to land on sid==-8 as overridden (regression, QA-found)',
+    function()
+      -- CRITICAL: sid==-8 is NOT unique to Neovim's own boot-time defaults.
+      -- It is Neovim's generic sentinel for "this nvim_set_keymap/
+      -- vim.keymap.set call had no active :source-ing script context at
+      -- call time" -- and that is exactly what happens for any keymap set
+      -- from inside a deferred callback: vim.schedule(), vim.defer_fn(), or
+      -- a VimEnter/User-autocmd callback (independently reproduced live
+      -- against real Neovim 0.12.4 stable and 0.13.0-dev nightly, and
+      -- end-to-end through this module's own M.refresh()). This is exactly
+      -- how lazy.nvim defers `event = "VeryLazy"`/event-based plugin
+      -- config -- an extremely common pattern, not a contrived edge case --
+      -- so a real plugin remapping e.g. gx this way previously vanished
+      -- from find_best()/efficiency_gaps() entirely: is_overridden('gx')
+      -- returned false for a key that WAS genuinely remapped. sid alone
+      -- cannot tell these two cases apart; Neovim's own default additionally
+      -- carries a distinctive `desc` string (verified stable across 0.10.4/
+      -- 0.12.4/nightly) that a real override emphatically does not
+      -- reproduce unless the rhs/opts explicitly set the exact same desc.
+      integrations.refresh(fake_keymap({ { lhs = 'gx', rhs = '', callback = function() end, sid = -8, noremap = 1 } }))
+      assert.is_true(
+        integrations.is_overridden('gx'),
+        'a deferred override landing on sid==-8 with no matching desc must still count as an override'
+      )
+    end
+  )
 
   it("still treats Neovim's bundled matchit.vim remap of % (a real sourced script, not the internal sentinel) as overridden-but-equivalent", function()
     -- matchit.vim is auto-loaded via packadd and is a real sourced runtime
@@ -220,6 +267,30 @@ describe('M.refresh — insert-mode registry entries are checked against insert-
 
   it('DOES flag <C-w> as overridden when a genuine INSERT-mode remap exists', function()
     integrations.refresh(fake_keymap_by_mode({ i = { { lhs = '<C-w>', rhs = '<Nop>', noremap = 1 } } }))
+    assert.is_true(integrations.is_overridden('<C-w>'))
+  end)
+
+  -- QA follow-up: <C-w>'s insert-mode meaning (delete word before cursor) is
+  -- ALSO a genuine Neovim 0.10+ default (`:help i_CTRL-W-default`, rhs
+  -- `<C-G>u<C-W>`, undo-breaking) that ships with sid == -8 out of the box --
+  -- same #255 collision as gx/&/]q/[q/]l/[l/Y, just discovered for a #256
+  -- key during independent audit rather than named in the original issue.
+  -- Without this exemption, <C-w>'s own insert-mode suggestion would be
+  -- permanently unsuggestable on any untouched Neovim install.
+  it("does not treat the untouched insert-mode <C-w> default (Neovim's own i_CTRL-W-default) as an override", function()
+    integrations.refresh(fake_keymap_by_mode({
+      i = { { lhs = '<C-w>', rhs = '<C-G>u<C-W>', sid = -8, desc = ':help i_CTRL-W-default', noremap = 1 } },
+    }))
+    assert.is_false(integrations.is_overridden('<C-w>'))
+  end)
+
+  it('still treats a deferred INSERT-mode override of <C-w> that happens to land on sid==-8 as overridden', function()
+    -- Same collision as the gx regression test above, for an insert-mode
+    -- key: a real vim.schedule()/vim.defer_fn()-deferred remap gets
+    -- sid == -8 too but does not reproduce Neovim's exact desc text.
+    integrations.refresh(fake_keymap_by_mode({
+      i = { { lhs = '<C-w>', rhs = '', callback = function() end, sid = -8, noremap = 1 } },
+    }))
     assert.is_true(integrations.is_overridden('<C-w>'))
   end)
 

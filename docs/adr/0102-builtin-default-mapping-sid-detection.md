@@ -107,3 +107,49 @@ that's actually been remapped.
   just adds more sources), the fallback behavior described above means this degrades to
   today's pre-fix state, not to a false "not overridden" for a real user remap — i.e. it
   cannot make override detection *less* safe, only less helpful in the worst case.
+
+### QA addendum: sid alone is not sufficient — the "cannot be less safe" claim above was wrong
+
+Independent re-verification of this PR found the second-to-last Consequences bullet above
+to be factually incorrect, not just optimistic. `sid == -8` is **not** unique to Neovim's
+own boot-time defaults — it is Neovim's generic sentinel for "this `nvim_set_keymap`/
+`vim.keymap.set` call had no active `:source`-ing script context at the moment it ran".
+A **genuine** user/plugin override lands on that exact same sentinel whenever it is set
+from inside a deferred callback — `vim.schedule()`, `vim.defer_fn()`, or a
+`VimEnter`/`User`-autocmd callback all reproduce it, independently confirmed live against
+real Neovim 0.10.4, 0.12.4 stable, and 0.13.0-dev nightly, and end-to-end through this
+module's own `M.refresh()` (a `vim.schedule()`-deferred `vim.keymap.set('n', 'gx', ...)`
+made `is_overridden('gx')` return `false` for a key that WAS genuinely remapped). This is
+exactly how lazy.nvim defers `event = "..."`-based plugin config, including `tobira.nvim`'s
+own recommended `event = "VeryLazy"` self-configuration in this repo's README — an
+extremely common real-world pattern, not a contrived edge case. Pre-fix (conservative
+"assume override"), this scenario correctly suppressed the suggestion. Post-fix (sid-only),
+it silently un-suppressed a suggestion for a key that no longer does what tobira teaches —
+strictly *less* safe than the pre-fix baseline, contradicting the claim above.
+
+**Mitigation implemented**: Neovim's own default mappings additionally carry a distinctive
+`desc` string (`$VIMRUNTIME/lua/vim/_defaults.lua` sets one on every mapping it registers,
+e.g. `gx` → `"Opens filepath or URI under cursor with the system handler (file explorer,
+web browser, …)"`, `]q` → `":cnext"`) that a real override does not reproduce unless it
+explicitly passes the exact same `desc` text — verified stable across Neovim 0.10.4, 0.12.4,
+and nightly. `core/integrations.lua`'s `is_untouched_builtin_default()` now requires **both**
+`sid == -8` **and** an exact `desc` match (curated per key in `BUILTIN_DEFAULT_DESC`,
+alongside `NVIM_BUILTIN_DEFAULT_SID`) before exempting a mapping — either signal alone is no
+longer trusted. This table was built by auditing every suggestible `commands.lua` entry
+(both normal- and insert-mode) against a live vanilla `nvim -u NONE` for `sid == -8`, not
+just the 7 keys #255 named: `<C-w>` (insert mode, Neovim's own undo-breaking
+`i_CTRL-W-default`) also ships with `sid == -8` and needed an entry too, since the original
+sid-only check happened to cover it for free (being generic across all registry keys) and
+that coverage would otherwise have silently regressed once the desc check was added.
+
+This deliberately abandons the "generalizes to any future key automatically" advantage
+claimed above in exchange for actually being safe for the keys it fixes today — the same
+curated, must-be-kept-in-sync-with-reality trade-off `docs/adr/0052-equivalent-remap-distinction.md`
+already accepts for `EQUIVALENT_REMAPS`. A registry key with no entry in
+`BUILTIN_DEFAULT_DESC` always falls through to "not verified as untouched", i.e. the
+original conservative "assume override" behavior — never a regression relative to
+pre-#255-fix, and the same fail-safe direction the corrected Consequences claim above should
+have described. A generic "does this mapping carry any `desc` at all" check was considered
+and rejected: plenty of real users set an explicit `desc` on their own remaps too (e.g.
+which-key.nvim conventionally wants one on every custom mapping), so a presence-only check
+would misclassify that common case as "still default".
