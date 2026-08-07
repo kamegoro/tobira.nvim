@@ -266,8 +266,15 @@ KEYMAP OVERRIDES AND PLUGIN INTEGRATIONS ~
 tobira never intercepts or changes your keymaps — it only observes them
 (see |tobira-introduction|). At startup, and again whenever Neovim finishes
 starting up (`VimEnter`) or a plugin script finishes loading (`SourcePost`),
-tobira reads your current normal-mode `:map`/`:nmap`/`:nnoremap` state to
-find out which of its own teachable commands you have personally remapped.
+tobira reads your current `:map`/`:nmap`/`:nnoremap` state to find out which
+of its own teachable commands you have personally remapped. A handful of
+teachable commands are themselves insert-mode behavior — insert-mode
+`<C-w>` (delete word), `<C-n>` (completion), `<C-t>` (indent), and
+insert-mode `<C-o>`/`<C-d>` (run one normal command / dedent without
+leaving insert) — tobira checks the matching `:imap`/`:inoremap` state for
+these instead of the normal-mode one, so an unrelated normal-mode remap of
+the same physical key (e.g. `nnoremap <C-n> :bnext<CR>`) never suppresses
+them, and a genuine insert-mode remap always does.
 
 If you have remapped a command tobira would otherwise suggest (for example
 a plugin binding like `nmap s <Plug>(some-plugin-thing)`), tobira never
@@ -278,30 +285,41 @@ next" efficiency-gap list in |:TobiraStats| — a command whose key you have
 remapped never appears there either, even if its trigger's usage count would
 otherwise qualify it.
 
-Two narrow, curated exceptions: `nnoremap Y y$` is Neovim's own factory
-default (see `:help Y-default`) and is recognized as functionally equivalent
-to what tobira already documents for `Y`, not a genuine personal override.
-It is still excluded from the proactive paths above like any other override,
-but the reactive `y$` → `Y` suggestion (see DETECTED PATTERNS below) still
-fires despite it — since it would otherwise never fire on any default
-install. A `Y` remapped to anything other than `y$` (e.g. restored to
-legacy linewise `yy`, or bound to something else entirely) is treated as a
-genuine override and suppresses that suggestion as usual.
+tobira also tells apart a genuine remap from Neovim's own factory-default
+mappings. Recent Neovim ships several teachable keys as built-in defaults
+out of the box: `gx`, `&`, `]q`/`[q`/`]l`/`[l`, and (0.10+) even `Y` = `y$`
+(see `:help Y-default`) instead of the Vi-compatible `yy`. None of these
+count as a remap on a stock install — nothing was actually touched, so
+they're suggested completely normally, exactly like any other
+never-customized command.
+
+Two narrow, curated exceptions cover a mapping that genuinely *was* set by
+something (your own config, or a Neovim-shipped runtime plugin) but does
+exactly what tobira already teaches. `Y`: if you personally add
+`nnoremap Y y$` yourself (redundant with the modern default above, but a
+real personal binding — e.g. on an older Neovim, or just out of habit), it
+is recognized as functionally equivalent rather than a genuine override, so
+it is still excluded from the proactive paths above like any other
+override, but the reactive `y$` → `Y` suggestion (see DETECTED PATTERNS
+below) still fires despite it. A `Y` remapped to anything other than `y$`
+(e.g. restored to legacy linewise `yy`, or bound to something else
+entirely) is treated as a genuine override and suppresses that suggestion
+as usual.
 
 The second exception is `%`: Neovim auto-loads `runtime/plugin/matchit.vim`
 by default (`packadd matchit`), which does `nmap <silent> %
 <Plug>(MatchitNormalForward)`. That target is a strict, compatible superset
 of the built-in `%` for the basic bracket-jump behavior tobira teaches, so
 it is recognized as functionally equivalent rather than a genuine personal
-override. Like `Y`, it is still excluded from the proactive paths above
-(|graph.find_best()| and the "Try these next" efficiency-gap list in
-|:TobiraStats|) like any other override — unlike `Y`, `%` has no reactive
-detected-pattern suggestion of its own, so the practical effect of this
-exception is entirely in |:TobiraGuide| below: the `%` row is shown with a
-"mapped to ..." note instead of being hidden outright, on a stock install
-with matchit loaded. A `%` remapped to anything other than matchit's target
-(e.g. a different jump plugin) is treated as a genuine override and hides
-that row as usual.
+override. Like `Y`'s personal-remap case, it is still excluded from the
+proactive paths above (|graph.find_best()| and the "Try these next"
+efficiency-gap list in |:TobiraStats|) like any other override — unlike
+`Y`, `%` has no reactive detected-pattern suggestion of its own, so the
+practical effect of this exception is entirely in |:TobiraGuide| below: the
+`%` row is shown with a "mapped to ..." note instead of being hidden
+outright, on a stock install with matchit loaded. A `%` remapped to
+anything other than matchit's target (e.g. a different jump plugin) is
+treated as a genuine override and hides that row as usual.
 
 |:TobiraGuide|'s auto-generated cheat-sheet still lists a remapped command if
 the remap is functionally equivalent to what tobira documents (shown with a

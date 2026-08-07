@@ -48,7 +48,11 @@ M.registry = {
   -- normal-mode <C-w> window-command prefix. track = false; counted explicitly
   -- from handle_insert_key() instead (logger.lua's INSERT_SPECIAL) — see
   -- docs/adr/0008-composite-keys-for-dual-meaning-bytes.md for why.
-  ['<C-w>'] = { requires = 'i', track = false, category = 'edit', level = 'beginner' },
+  -- mode = 'i': tells core/integrations.lua's override detection (#256) to
+  -- check this key's insert-mode keymap (nvim_get_keymap('i')), not the
+  -- normal-mode one the bare key would otherwise be assumed to mean. Absent
+  -- (nil) means normal-mode, the default for every other entry.
+  ['<C-w>'] = { requires = 'i', track = false, category = 'edit', level = 'beginner', mode = 'i' },
 
   -- ── x → D → C deletion chain ──────────────────────────────────────────────
   ['D'] = { requires = 'x', track = true, category = 'edit', level = 'beginner' },
@@ -335,7 +339,9 @@ M.registry = {
   -- must render it via commands.display_key(cmd) below. Counted explicitly
   -- from handle_insert_key() (logger.lua's INSERT_SPECIAL), track = false —
   -- see docs/adr/0008-composite-keys-for-dual-meaning-bytes.md for why.
-  ['i_<C-o>'] = { requires = 'i', track = false, category = 'edit', level = 'intermediate' },
+  -- mode = 'i': see the '<C-w>' entry above for what this signals to
+  -- core/integrations.lua's override detection (#256).
+  ['i_<C-o>'] = { requires = 'i', track = false, category = 'edit', level = 'intermediate', mode = 'i' },
 
   -- ── insert-mode <C-t> / <C-d>: indent/dedent without leaving insert (#246) ──
   -- <C-t> has no existing normal-mode registry entry, so it is registered
@@ -348,8 +354,9 @@ M.registry = {
   -- no handle_insert_key() wiring is added for either key; a bespoke reactive
   -- pattern mirroring insert_co_oneshot is called out in the issue as a
   -- possible separate follow-up, not this issue's scope.
-  ['<C-t>'] = { requires = '>>', track = false, category = 'edit', level = 'intermediate' },
-  ['i_<C-d>'] = { requires = '<<', track = false, category = 'edit', level = 'intermediate' },
+  -- mode = 'i': see the '<C-w>' entry above.
+  ['<C-t>'] = { requires = '>>', track = false, category = 'edit', level = 'intermediate', mode = 'i' },
+  ['i_<C-d>'] = { requires = '<<', track = false, category = 'edit', level = 'intermediate', mode = 'i' },
 
   -- ── window management ─────────────────────────────────────────────────────
   ['<C-w>s'] = { requires = '<C-o>', track = false, category = 'window', level = 'intermediate' },
@@ -400,7 +407,8 @@ M.registry = {
   -- shares its raw byte with the normal-mode down-motion; track = false,
   -- counted explicitly from handle_insert_key() (logger.lua's
   -- INSERT_SPECIAL) — see docs/adr/0008-composite-keys-for-dual-meaning-bytes.md.
-  ['<C-n>'] = { requires = 'i', track = false, category = 'edit', level = 'beginner' },
+  -- mode = 'i': see the '<C-w>' entry's comment above.
+  ['<C-n>'] = { requires = 'i', track = false, category = 'edit', level = 'beginner', mode = 'i' },
 
   -- ── y → "+y system clipboard register ────────────────────────────────────
   -- track = false: tracked as its own 3-key compound by patterns.lua's
