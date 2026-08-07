@@ -83,7 +83,20 @@ connection between pattern detection and the suggestion engine.
 
 In `inner_feed`, the `pending_g` / `pending_z` handlers must appear **before** the `f/F/t/T`
 handlers. If they come after, `gf` and `zt` are incorrectly captured as f/t searches.
-Apply the same rule to any new two-character command prefix.
+The same rule applies to `pending_register` / `pending_mark` / `pending_bracket` (#257),
+`pending_text_obj` (#254 follow-up, for `cit`/`dit`'s `t`), `pending_r` (independent QA
+finding on PR #277, for `rt`/`rf`'s replacement character), and the visual text-object
+tracking block (`pending_visual`/`visual_inner`/`visual_obj` — independent QA finding on
+PR #277, for `vit`/`vat`'s `t`). Apply the same rule to any new two-or-more-key command
+prefix. Write a test that types the colliding character mid-prefix (e.g. `"tyy`, `cit`,
+`rt`, or `vit`) and asserts the prefix's own state won, not the f/t handler's.
+
+Every such consumer must also set `seq.key_consumed = true` on the call that resolves it
+(independent QA finding on PR #277) — `pending_text_obj` was missing this even after
+#253/#254 shipped, so its completing key kept double-counting as a bare keystroke on top
+of the correct compound/variant increment (`usage['w'].count` still inflating on every
+`ciw`/`diw`/`yiw`, the exact defect #253 reports). Write a test asserting `s.key_consumed`
+is true after the prefix resolves, not just that the right pattern/state fired.
 
 ## Testing non-normal mode in headless Neovim
 

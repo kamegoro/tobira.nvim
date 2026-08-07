@@ -2,14 +2,15 @@
 -- feed() mutates seq in place and returns a fired pattern or nil.
 --
 -- Design rationale for individual features lives in docs/adr/, linked from
--- each section below: 0009 (macro opportunity), 0010 (jumplist/changelist
--- underuse), 0011 (ci-quote streak), 0012 (v/gv streak), 0013 (gq operator),
--- 0014 (register/mark/bracket prefixes), 0015 (<C-w> window compound),
--- 0016 (paste motion streak), 0017 (state-machine bookkeeping invariants),
--- 0018 (r/ctrl-a tolerated streaks), 0019 (dd/cc/indent/dedent streaks),
--- 0095 (<C-w> resize streak), 0096 (cursor-centering streak), 0097
--- (visual-block edit streak), 0098 (diff obtain/put after hunk jump), 0099
--- (named-mark repeated line return), 0100 (tilde text-object refinement).
+-- each section below: 0018 (macro opportunity), 0019 (jumplist/changelist
+-- underuse), 0020 (ci-quote streak), 0021 (v/gv streak), 0022 (gq operator),
+-- 0023 (register/mark/bracket prefixes), 0024 (<C-w> window compound),
+-- 0025 (paste motion streak), 0026 (state-machine bookkeeping invariants),
+-- 0027 (r/ctrl-a tolerated streaks), 0028 (dd/cc/indent/dedent streaks),
+-- 0096 (<C-w> resize streak), 0097 (cursor-centering streak), 0098
+-- (visual-block edit streak), 0099 (diff obtain/put after hunk jump), 0100
+-- (named-mark repeated line return), 0101 (tilde text-object refinement),
+-- 0102 (text-object variant own-usage tracking).
 
 local M = {}
 
@@ -21,6 +22,13 @@ function M.new_seq()
     last_op = nil,
     run = { key = nil, count = 0 },
     pending_text_obj = nil,
+    -- Set alongside last_op on the exact call that resolves pending_text_obj,
+    -- to the text-object variant's OWN registry key (e.g. 'ci"', 'diw') when
+    -- the text-object character is one commands.lua's registry actually
+    -- tracks on its own — in addition to (not instead of) the shared op..'w'
+    -- bucket set in last_op. Reset every M.feed() call, same discipline as
+    -- op_completed — see docs/adr/0102-text-object-variant-own-usage-tracking.md.
+    last_op_variant = nil,
     dd_streak = 0,
     cc_streak = 0,
     indent_streak = 0,
@@ -156,6 +164,25 @@ local CI_QUOTE_NAV_KEYS = {
   ['0'] = true,
   ['^'] = true,
   ['$'] = true,
+}
+
+-- Text-object characters that get their own tracked usage bucket (#254), in
+-- addition to the shared op..'w' bucket pending_text_obj always sets. Keyed
+-- by the exact character pressed after i/a; the variant key itself is built
+-- as op .. (inner and 'i' or 'a') .. key, e.g. op='c', inner=true, key='"'
+-- → 'ci"'. Restricted to the text objects commands.lua's registry actually
+-- chains off (ciw/ci"/ci'/cib/ciB/cit/cip/diw) rather than every character
+-- reaching this state, so an accidental keystroke can't create throwaway
+-- usage.json entries no `requires` chain will ever read. See
+-- docs/adr/0102-text-object-variant-own-usage-tracking.md.
+local TRACKED_TEXT_OBJ_CHARS = {
+  w = true,
+  ['"'] = true,
+  ["'"] = true,
+  b = true,
+  B = true,
+  t = true,
+  p = true,
 }
 
 -- ── jumplist / changelist underuse detection ────────────────────────────────
@@ -661,6 +688,11 @@ local function inner_feed(seq, key, line, is_diff, now)
       M = 'zM',
       R = 'zR',
       d = 'zd',
+      -- zf (#265): omitted before the fix, unlike sibling zd — zf's own raw
+      -- keystroke was never counted, so it could never be marked mastered
+      -- regardless of actual usage (display-accuracy only; nothing else uses
+      -- zf as a `requires` target).
+      f = 'zf',
     }
     if z_targets[key] then
       seq.last_op = z_targets[key]
@@ -743,39 +775,116 @@ local function inner_feed(seq, key, line, is_diff, now)
     end
   end
 
-  -- ── f / F / t / T ────────────────────────────────────────────────────────
-  if key == 'f' or key == 'F' or key == 't' or key == 'T' then
-    seq.pending_f = key
-    seq.pending_op = nil
-    seq.run = { key = nil, count = 0 }
-    seq.r_streak = 0
-    seq.indent_streak = 0
-    seq.dedent_streak = 0
-    seq.visual_obj = nil
-    seq.visual_inner = nil
-    seq.pending_visual = false
+  -- ── single-char prefix consumers ─────────────────────────────────────────
+  -- Must precede f/F/t/T below (#257): a register or mark name that happens
+  -- to BE f/F/t/T (e.g. "tyy, mt, `t) must be consumed here as that prefix's
+  -- expected next character, not reinterpreted as the start of a fresh
+  -- f/t-search. Before the fix this ran after the f/F/t/T handler, so that
+  -- handler intercepted the character first, corrupting seq.pending_f/last_f
+  -- and silently swallowing the next real keystroke — the same "two-key
+  -- prefix handler must precede f/F/t/T" rule already applied to pending_g /
+  -- pending_z above. See docs/adr/0026-state-machine-bookkeeping-invariants.md
+  -- (track_run() must run unconditionally) for the invariant this violated.
+  if seq.pending_register then
     seq.pending_register = false
-    seq.pending_mark = false
-    seq.pending_bracket = false
+    seq.key_consumed = true
+    -- "+ specifically arms pending_clipboard_yank; every other register name
+    -- (including "*) keeps the existing consume-and-forget behavior below.
+    if key == '+' then
+      seq.pending_clipboard_yank = true
+    end
     return nil
   end
 
-  if seq.pending_f then
-    local op = seq.pending_f
-    seq.pending_f = nil
-    local fired = nil
-    if seq.last_f and seq.last_f.line == line and seq.last_f.char == key and seq.last_f.op == op then
-      fired = { pattern = 'f_repeat', cmd = ';' }
+  if seq.pending_mark then
+    seq.pending_mark = false
+    local was_gq_backtick = seq.pending_gq_backtick
+    seq.pending_gq_backtick = false
+    -- `` right after a completed gq — see
+    -- docs/adr/0022-gq-operator-pending-and-post-format-jumpback.md
+    if was_gq_backtick and key == '`' then
+      seq.last_op = nil
+      seq.key_consumed = true
+      return { pattern = 'gq_then_jumpback', cmd = 'gw' }
     end
-    seq.last_f = { char = key, line = line, op = op }
-    return fired
+    seq.key_consumed = true
+    return nil
   end
 
-  if seq.last_f and seq.last_f.line ~= line then
-    seq.last_f = nil
+  if seq.pending_bracket then
+    local bracket = seq.pending_bracket
+    seq.pending_bracket = false
+    seq.key_consumed = true
+    -- ]c / [c diff-hunk jump: arm diff_jump_dir for one following key only —
+    -- see docs/adr/0099-diff-obtain-put-after-hunk-jump.md
+    seq.diff_jump_dir = (key == 'c') and bracket or nil
+    return nil
+  end
+
+  -- ── pending_text_obj ──────────────────────────────────────────────────────
+  -- Must also precede f/F/t/T below (#254 follow-up), for the same reason
+  -- pending_register/pending_mark/pending_bracket above do (#257): the tag
+  -- text object (cit/dit/yit) uses 't' as its text-object character, which
+  -- would otherwise be reinterpreted as the start of a fresh f/t-search
+  -- instead of completing the pending text object.
+  if seq.pending_text_obj then
+    local op = seq.pending_text_obj
+    local inner = seq.pending_text_obj_inner
+    seq.pending_text_obj = nil
+    seq.pending_text_obj_inner = false
+    seq.last_op = op .. 'w'
+    seq.op_completed = true
+    -- Independent QA finding (see docs/adr/0026-state-machine-bookkeeping-
+    -- invariants.md): this key is the completing character of a d/c/y + i/a
+    -- + {char} compound, exactly like pending_register/pending_mark/
+    -- pending_bracket's consumed key above — without this, logger.lua's
+    -- "skip standalone TRACK counting for a compound's already-consumed key"
+    -- gate never engages, so e.g. the w of ciw/diw/yiw ALSO silently
+    -- increments bare usage['w'].count on top of the correct cw/dw/yw and
+    -- own-variant increments. This is #253's own stated impact
+    -- (usage['w'].count "as if the user pressed a bare w") — live-verified
+    -- against the real logger.lua to still reproduce for diw/ciw/yiw alike
+    -- even after #253/#254's fix, since neither touched key_consumed here.
+    seq.key_consumed = true
+
+    -- Own tracked variant (#254), alongside the shared op..'w' bucket set
+    -- above — see docs/adr/0102-text-object-variant-own-usage-tracking.md.
+    if TRACKED_TEXT_OBJ_CHARS[key] then
+      seq.last_op_variant = op .. (inner and 'i' or 'a') .. key
+    end
+
+    -- ci"/ci' direct-path streak (#53) — see docs/adr/0020-ci-quote-streak-and-tolerance.md
+    if op == 'c' and inner and key == '"' then
+      seq.ci_squote_streak = 0
+      seq.ci_dquote_streak = seq.ci_dquote_streak + 1
+      if seq.ci_dquote_streak >= 3 then
+        seq.ci_dquote_streak = 0
+        return { pattern = 'ci_dquote_repeat', cmd = 'ya"' }
+      end
+    elseif op == 'c' and inner and key == "'" then
+      seq.ci_dquote_streak = 0
+      seq.ci_squote_streak = seq.ci_squote_streak + 1
+      if seq.ci_squote_streak >= 3 then
+        seq.ci_squote_streak = 0
+        return { pattern = 'ci_squote_repeat', cmd = "ya'" }
+      end
+    else
+      seq.ci_dquote_streak = 0
+      seq.ci_squote_streak = 0
+    end
+
+    return nil
   end
 
   -- ── pending_r: consume replacement character ──────────────────────────────
+  -- Must also precede f/F/t/T below (independent QA finding, same class as
+  -- #257/#254 follow-up): r is a single-char prefix that consumes exactly one
+  -- following character, same shape as pending_register/pending_mark above.
+  -- Before this fix it ran after the f/F/t/T handler, so r{f,F,t,T} (replacing
+  -- a character with literally f/F/t/T) hijacked pending_f AND left pending_r
+  -- dangling — worse than #257's original bug, since the NEXT real keystroke
+  -- after that was then wrongly consumed as completing the stale r-replacement
+  -- too, silently swallowing two real keystrokes instead of one.
   if seq.pending_r then
     seq.pending_r = false
     seq.r_streak = seq.r_streak + 1
@@ -788,6 +897,12 @@ local function inner_feed(seq, key, line, is_diff, now)
 
   -- ── visual text-object tracking ───────────────────────────────────────────
   -- State: pending_visual → visual_inner → visual_obj → operator
+  -- Must also precede f/F/t/T below (independent QA finding, same class as
+  -- #254 follow-up): the tag text object (vit/vat) uses 't' as its
+  -- text-object character, same collision #254's fix already addressed for
+  -- pending_text_obj's operator-pending path — the visual-mode path
+  -- (visual_inner's consumer below) was left out of that fix, so vit/vat
+  -- never fired visual_textobj at all before this.
   if seq.visual_obj then
     if key == 'c' or key == 'd' or key == 'y' then
       local cmd = key .. seq.visual_inner .. seq.visual_obj
@@ -827,73 +942,36 @@ local function inner_feed(seq, key, line, is_diff, now)
     return nil
   end
 
-  -- ── single-char prefix consumers ─────────────────────────────────────────
-  if seq.pending_register then
+  -- ── f / F / t / T ────────────────────────────────────────────────────────
+  if key == 'f' or key == 'F' or key == 't' or key == 'T' then
+    seq.pending_f = key
+    seq.pending_op = nil
+    seq.run = { key = nil, count = 0 }
+    seq.r_streak = 0
+    seq.indent_streak = 0
+    seq.dedent_streak = 0
+    seq.visual_obj = nil
+    seq.visual_inner = nil
+    seq.pending_visual = false
     seq.pending_register = false
-    seq.key_consumed = true
-    -- "+ specifically arms pending_clipboard_yank; every other register name
-    -- (including "*) keeps the existing consume-and-forget behavior below.
-    if key == '+' then
-      seq.pending_clipboard_yank = true
-    end
-    return nil
-  end
-
-  if seq.pending_mark then
     seq.pending_mark = false
-    local was_gq_backtick = seq.pending_gq_backtick
-    seq.pending_gq_backtick = false
-    -- `` right after a completed gq — see
-    -- docs/adr/0022-gq-operator-pending-and-post-format-jumpback.md
-    if was_gq_backtick and key == '`' then
-      seq.last_op = nil
-      seq.key_consumed = true
-      return { pattern = 'gq_then_jumpback', cmd = 'gw' }
-    end
-    seq.key_consumed = true
-    return nil
-  end
-
-  if seq.pending_bracket then
-    local bracket = seq.pending_bracket
     seq.pending_bracket = false
-    seq.key_consumed = true
-    -- ]c / [c diff-hunk jump: arm diff_jump_dir for one following key only —
-    -- see docs/adr/0099-diff-obtain-put-after-hunk-jump.md
-    seq.diff_jump_dir = (key == 'c') and bracket or nil
     return nil
   end
 
-  -- ── pending_text_obj ──────────────────────────────────────────────────────
-  if seq.pending_text_obj then
-    local op = seq.pending_text_obj
-    local inner = seq.pending_text_obj_inner
-    seq.pending_text_obj = nil
-    seq.pending_text_obj_inner = false
-    seq.last_op = op .. 'w'
-    seq.op_completed = true
-
-    -- ci"/ci' direct-path streak (#53) — see docs/adr/0020-ci-quote-streak-and-tolerance.md
-    if op == 'c' and inner and key == '"' then
-      seq.ci_squote_streak = 0
-      seq.ci_dquote_streak = seq.ci_dquote_streak + 1
-      if seq.ci_dquote_streak >= 3 then
-        seq.ci_dquote_streak = 0
-        return { pattern = 'ci_dquote_repeat', cmd = 'ya"' }
-      end
-    elseif op == 'c' and inner and key == "'" then
-      seq.ci_dquote_streak = 0
-      seq.ci_squote_streak = seq.ci_squote_streak + 1
-      if seq.ci_squote_streak >= 3 then
-        seq.ci_squote_streak = 0
-        return { pattern = 'ci_squote_repeat', cmd = "ya'" }
-      end
-    else
-      seq.ci_dquote_streak = 0
-      seq.ci_squote_streak = 0
+  if seq.pending_f then
+    local op = seq.pending_f
+    seq.pending_f = nil
+    local fired = nil
+    if seq.last_f and seq.last_f.line == line and seq.last_f.char == key and seq.last_f.op == op then
+      fired = { pattern = 'f_repeat', cmd = ';' }
     end
+    seq.last_f = { char = key, line = line, op = op }
+    return fired
+  end
 
-    return nil
+  if seq.last_f and seq.last_f.line ~= line then
+    seq.last_f = nil
   end
 
   -- ── pending_op ────────────────────────────────────────────────────────────
@@ -932,13 +1010,22 @@ local function inner_feed(seq, key, line, is_diff, now)
       return nil
     end
 
-    -- ── y: track yy for yy_then_p, y$ for y_dollar ───────────────────────
+    -- ── y: track yy for yy_then_p, y$ for y_dollar, i/a text objects ──────
+    -- i/a routes into pending_text_obj the same way d/c do below (#253) — a
+    -- y-operator branch that only special-cased yy/y$ used to clear
+    -- pending_op and return without setting pending_text_obj, so the
+    -- following text-object key (e.g. the w of yiw) fell through as an
+    -- ordinary standalone keystroke instead, corrupting seq.run's bare-
+    -- motion streak. See docs/adr/0102-text-object-variant-own-usage-tracking.md.
     if op == 'y' then
       if key == 'y' then
         seq.last_op = 'yy'
         seq.op_completed = true
       elseif key == '$' then
         return { pattern = 'y_dollar', cmd = 'Y' }
+      elseif key == 'i' or key == 'a' then
+        seq.pending_text_obj = op
+        seq.pending_text_obj_inner = key == 'i'
       end
       return nil
     end
@@ -977,8 +1064,14 @@ local function inner_feed(seq, key, line, is_diff, now)
     return nil
   end
 
-  -- ── d / c / y / > / < operator start ─────────────────────────────────────
-  if key == 'd' or key == 'c' or key == 'y' or key == '>' or key == '<' then
+  -- ── d / c / y / > / < / = operator start ─────────────────────────────────
+  -- '=' (#265): was never one of pending_op's trigger characters before the
+  -- fix, so the raw == keystroke was never counted and it could never be
+  -- marked mastered regardless of actual usage. Falls through the same
+  -- generic pending_op machinery as >/< above — key==op sets last_op='=='
+  -- via the shared "same operator" branch, with no streak tracking needed
+  -- (nothing else uses == as a `requires` target; display-accuracy only).
+  if key == 'd' or key == 'c' or key == 'y' or key == '>' or key == '<' or key == '=' then
     seq.pending_op = key
     seq.run = { key = nil, count = 0 }
     return nil
@@ -1077,15 +1170,24 @@ local function inner_feed(seq, key, line, is_diff, now)
   end
 
   -- ── yy → p (duplicate line) ──────────────────────────────────────────────
+  -- Also arms pending_paste (#258): this branch used to return immediately,
+  -- so the generic "p / P: arm cursor-skip-past-paste tracking" code further
+  -- below was never reached for this same p — permanently forfeiting the
+  -- gp suggestion for any yyp/ddp paste. See docs/adr/0025-paste-motion-streak.md.
   if key == 'p' and seq.last_op == 'yy' then
     seq.last_op = nil
+    seq.pending_paste = 'p'
+    seq.paste_motion_streak = 0
     return { pattern = 'yy_then_p', cmd = 'yyp' }
   end
 
   -- ── dd → p (swap lines) ──────────────────────────────────────────────────
+  -- Also arms pending_paste (#258) — see the yy_then_p comment above.
   if key == 'p' and seq.last_op == 'dd' then
     seq.last_op = nil
     seq.dd_streak = 0
+    seq.pending_paste = 'p'
+    seq.paste_motion_streak = 0
     return { pattern = 'dd_then_p', cmd = 'ddp' }
   end
 
@@ -1399,6 +1501,7 @@ end
 function M.feed(seq, key, line, is_diff, now)
   seq.key_consumed = false -- reset before each call; handlers set true when consuming
   seq.op_completed = false -- reset before each call; handlers set true when last_op is freshly set
+  seq.last_op_variant = nil -- reset before each call; set only by the call that resolves pending_text_obj
   local result = inner_feed(seq, key, line, is_diff, now or 0)
   return result
 end

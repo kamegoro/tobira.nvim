@@ -628,6 +628,67 @@ describe('when the user deletes a word then enters insert mode to retype it', fu
   end)
 end)
 
+-- ── yiw (yank + text-object) routes into pending_text_obj like d/c (#253) ────
+-- Before the fix, the y-operator branch in pending_op only special-cased
+-- yy/y$; any other following key (including the i/a text-object prefixes)
+-- fell through as an ordinary standalone keystroke instead of routing into
+-- pending_text_obj the way d/c already do. See
+-- docs/adr/0102-text-object-variant-own-usage-tracking.md.
+
+describe('when the user yanks with a text object (yiw) inside a pending y operator', function()
+  it('routes i/w into pending_text_obj the same way d/c do', function()
+    local s = seq()
+    patterns.feed(s, 'y', 1)
+    patterns.feed(s, 'i', 1)
+    local result = patterns.feed(s, 'w', 1)
+    assert.is_nil(result)
+    assert.equals('yw', s.last_op)
+    assert.is_true(s.op_completed)
+  end)
+
+  it('also routes ya( (outer paren text object) the same way', function()
+    local s = seq()
+    patterns.feed(s, 'y', 1)
+    patterns.feed(s, 'a', 1)
+    local result = patterns.feed(s, '(', 1)
+    assert.is_nil(result)
+    assert.equals('yw', s.last_op)
+    assert.is_true(s.op_completed)
+  end)
+
+  it('does not leak the w of yiw into the bare-motion run streak used by w_repeat (regression #253)', function()
+    -- Before the fix, since pending_op/pending_text_obj were both cleared
+    -- without being routed, the final w of yiw fell all the way through to
+    -- the bottom of inner_feed and got counted by track_run() exactly like
+    -- a genuine bare w press — corrupting seq.run. d/c-based diw/ciw never
+    -- reach that code path (pending_text_obj returns before track_run), so
+    -- this must match their behavior: run must stay untouched.
+    local s = seq()
+    patterns.feed(s, 'y', 1)
+    patterns.feed(s, 'i', 1)
+    patterns.feed(s, 'w', 1)
+    assert.is_nil(s.run.key)
+    assert.equals(0, s.run.count)
+  end)
+
+  it('still fires yy for a genuine yy (unaffected by the i/a routing change)', function()
+    local s = seq()
+    patterns.feed(s, 'y', 1)
+    patterns.feed(s, 'y', 1)
+    assert.equals('yy', s.last_op)
+    assert.is_true(s.op_completed)
+  end)
+
+  it('still fires y_dollar suggesting Y for y$ (unaffected by the i/a routing change)', function()
+    local s = seq()
+    patterns.feed(s, 'y', 1)
+    local result = patterns.feed(s, '$', 1)
+    assert.is_not_nil(result)
+    assert.equals('y_dollar', result.pattern)
+    assert.equals('Y', result.cmd)
+  end)
+end)
+
 -- ── l / h repeat (move by character instead of word) ─────────────────────────
 
 local lh_cases = {
@@ -754,6 +815,47 @@ describe('when the user pastes before the cursor then moves the cursor right sev
     patterns.feed(s, 'l', 1)
     local result = patterns.feed(s, 'l', 1)
     assert.is_nil(result)
+  end)
+end)
+
+-- ── gp/gP still arms after yy_then_p / dd_then_p fires on the same p (#258) ──
+-- Before the fix, yy_then_p/dd_then_p both returned immediately on p, so the
+-- pending_paste arming code that p_then_rightward depends on was never
+-- reached for that same paste.
+
+describe('when the user duplicates a line (yyp) then moves the cursor right several times', function()
+  it('fires yy_then_p on the p, and still arms pending_paste for a later p_then_rightward', function()
+    local s = seq()
+    patterns.feed(s, 'y', 1)
+    patterns.feed(s, 'y', 1)
+    local first = patterns.feed(s, 'p', 1)
+    assert.is_not_nil(first)
+    assert.equals('yy_then_p', first.pattern)
+
+    patterns.feed(s, 'l', 1)
+    patterns.feed(s, 'l', 1)
+    local result = patterns.feed(s, 'l', 1)
+    assert.is_not_nil(result)
+    assert.equals('p_then_rightward', result.pattern)
+    assert.equals('gp', result.cmd)
+  end)
+end)
+
+describe('when the user swaps lines (ddp) then moves the cursor right several times', function()
+  it('fires dd_then_p on the p, and still arms pending_paste for a later p_then_rightward', function()
+    local s = seq()
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'd', 1)
+    local first = patterns.feed(s, 'p', 1)
+    assert.is_not_nil(first)
+    assert.equals('dd_then_p', first.pattern)
+
+    patterns.feed(s, 'l', 1)
+    patterns.feed(s, 'l', 1)
+    local result = patterns.feed(s, 'l', 1)
+    assert.is_not_nil(result)
+    assert.equals('p_then_rightward', result.pattern)
+    assert.equals('gp', result.cmd)
   end)
 end)
 
@@ -1400,6 +1502,135 @@ describe('when a visual-mode ci" (v i " c) happens alongside direct ci" presses'
   end)
 end)
 
+-- ── text-object variants get their own tracked usage, not just the shared ───
+-- ── op..'w' bucket (#254) ─────────────────────────────────────────────────────
+-- Before the fix, pending_text_obj always set last_op = op .. 'w', collapsing
+-- every ciw/ci"/ci'/cib/ciB/cit/cip/diw press into the shared cw/dw counter —
+-- each variant's OWN usage bucket never incremented, so commands.lua's
+-- requires-gated chain for these entries could never become eligible. The fix
+-- additionally sets seq.last_op_variant to the exact variant key (e.g. 'ci"')
+-- so logger.lua can increment it alongside the shared bucket, without
+-- replacing it. See docs/adr/0102-text-object-variant-own-usage-tracking.md.
+
+describe('when the user completes a text-object variant directly (ciw, ci", cib, ...)', function()
+  local variant_cases = {
+    { op = 'c', inner = 'i', char = 'w', last_op = 'cw', variant = 'ciw' },
+    { op = 'c', inner = 'i', char = '"', last_op = 'cw', variant = 'ci"' },
+    { op = 'c', inner = 'i', char = "'", last_op = 'cw', variant = "ci'" },
+    { op = 'c', inner = 'i', char = 'b', last_op = 'cw', variant = 'cib' },
+    { op = 'c', inner = 'i', char = 'B', last_op = 'cw', variant = 'ciB' },
+    { op = 'c', inner = 'i', char = 't', last_op = 'cw', variant = 'cit' },
+    { op = 'c', inner = 'i', char = 'p', last_op = 'cw', variant = 'cip' },
+    { op = 'd', inner = 'i', char = 'w', last_op = 'dw', variant = 'diw' },
+  }
+
+  for _, tc in ipairs(variant_cases) do
+    it(
+      'tracks ' .. tc.variant .. ' under its own last_op_variant, alongside the shared ' .. tc.last_op .. ' bucket',
+      function()
+        local s = seq()
+        patterns.feed(s, tc.op, 1)
+        patterns.feed(s, tc.inner, 1)
+        patterns.feed(s, tc.char, 1)
+        assert.equals(tc.last_op, s.last_op)
+        assert.is_true(s.op_completed)
+        assert.equals(tc.variant, s.last_op_variant)
+      end
+    )
+  end
+
+  it('does not set last_op_variant for a text-object char with no dedicated variant (e.g. iW)', function()
+    local s = seq()
+    patterns.feed(s, 'c', 1)
+    patterns.feed(s, 'i', 1)
+    patterns.feed(s, 'W', 1)
+    assert.equals('cw', s.last_op) -- shared bucket still tracked as before
+    assert.is_nil(s.last_op_variant)
+  end)
+
+  it('resets last_op_variant on the very next call so it is never double-counted later', function()
+    local s = seq()
+    patterns.feed(s, 'c', 1)
+    patterns.feed(s, 'i', 1)
+    patterns.feed(s, 'w', 1)
+    assert.equals('ciw', s.last_op_variant)
+    patterns.feed(s, 'j', 1) -- an unrelated later keystroke
+    assert.is_nil(s.last_op_variant)
+  end)
+
+  it('does not confuse ciw with diw — each variant is keyed by its own operator', function()
+    local s_c = seq()
+    patterns.feed(s_c, 'c', 1)
+    patterns.feed(s_c, 'i', 1)
+    patterns.feed(s_c, 'w', 1)
+    assert.equals('ciw', s_c.last_op_variant)
+
+    local s_d = seq()
+    patterns.feed(s_d, 'd', 1)
+    patterns.feed(s_d, 'i', 1)
+    patterns.feed(s_d, 'w', 1)
+    assert.equals('diw', s_d.last_op_variant)
+  end)
+end)
+
+-- ── pending_text_obj's completing key must not double-count as a bare ────────
+-- ── keystroke too (independent QA finding, live-verified against logger.lua) ─
+-- #253's own stated impact is that usage['w'].count gets silently inflated by
+-- yiw, "as if the user pressed a bare w to move the cursor". Routing y's i/a
+-- into pending_text_obj (#253) and adding last_op_variant (#254) both left
+-- key_consumed unset on the call that resolves pending_text_obj — unlike
+-- pending_register/pending_mark/pending_bracket, which all set key_consumed =
+-- true (see docs/adr/0026-state-machine-bookkeeping-invariants.md: "so a
+-- compound's second character isn't ALSO counted as a bare keystroke").
+-- Live end-to-end testing against the real logger.lua confirmed this is not
+-- just a yiw-specific gap: usage['w'].count still incremented on every single
+-- diw/ciw/yiw completion even after this PR's fix, exactly the corruption
+-- #253 reports, just now happening alongside (not instead of) the correct
+-- dw/cw + own-variant increments.
+describe('when a text object completes (independent QA: key_consumed must be set)', function()
+  it('sets key_consumed on the completing key of ciw, matching pending_register/mark/bracket', function()
+    local s = seq()
+    patterns.feed(s, 'c', 1)
+    patterns.feed(s, 'i', 1)
+    local result = patterns.feed(s, 'w', 1)
+    assert.is_nil(result)
+    assert.is_true(s.key_consumed)
+  end)
+
+  it('sets key_consumed on the completing key of diw', function()
+    local s = seq()
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'i', 1)
+    local result = patterns.feed(s, 'w', 1)
+    assert.is_nil(result)
+    assert.is_true(s.key_consumed)
+  end)
+
+  it('sets key_consumed on the completing key of yiw (#253 regression)', function()
+    local s = seq()
+    patterns.feed(s, 'y', 1)
+    patterns.feed(s, 'i', 1)
+    local result = patterns.feed(s, 'w', 1)
+    assert.is_nil(result)
+    assert.is_true(s.key_consumed)
+  end)
+
+  it('still sets key_consumed on the ci-dquote direct-path streak-firing call too', function()
+    local s = seq()
+    patterns.feed(s, 'c', 1)
+    patterns.feed(s, 'i', 1)
+    patterns.feed(s, '"', 1)
+    patterns.feed(s, 'c', 1)
+    patterns.feed(s, 'i', 1)
+    patterns.feed(s, '"', 1)
+    patterns.feed(s, 'c', 1)
+    patterns.feed(s, 'i', 1)
+    local result = patterns.feed(s, '"', 1) -- 3rd direct completion — fires ci_dquote_repeat
+    assert.equals('ci_dquote_repeat', result.pattern)
+    assert.is_true(s.key_consumed)
+  end)
+end)
+
 -- ── c$ → C (change to end of line) ──────────────────────────────────────────
 
 describe('when the user changes to end of line with c$', function()
@@ -1577,6 +1808,33 @@ describe('when the user dedents the current line 3 or more times in a row', func
   end)
 end)
 
+-- ── = auto-indent operator tracking (#265) ────────────────────────────────────
+-- Before the fix, '=' was never one of pending_op's trigger characters, so
+-- the raw == keystroke was never counted and it could never be marked
+-- mastered regardless of actual usage. Nothing else uses '==' as a `requires`
+-- target, so this is display-accuracy only — no cascading suggestion chain
+-- depends on it.
+
+describe('when the user auto-indents the current line with ==', function()
+  it('records last_op = == as a completed compound', function()
+    local s = seq()
+    patterns.feed(s, '=', 1)
+    local result = patterns.feed(s, '=', 1)
+    assert.is_nil(result)
+    assert.equals('==', s.last_op)
+    assert.is_true(s.op_completed)
+  end)
+
+  it('does not set last_op for = followed by an unrelated key', function()
+    local s = seq()
+    patterns.feed(s, '=', 1)
+    local result = patterns.feed(s, 'G', 1)
+    assert.is_nil(result)
+    assert.equals('=w', s.last_op)
+    assert.is_true(s.op_completed)
+  end)
+end)
+
 -- ── operator cancel ───────────────────────────────────────────────────────────
 
 describe('when the user cancels a pending operator with Escape', function()
@@ -1735,6 +1993,160 @@ describe('when the user jumps to a mark with `', function()
     patterns.feed(s, '`', 1)
     local result = patterns.feed(s, 'a', 1)
     assert.is_nil(result)
+  end)
+end)
+
+-- ── register/mark names that collide with f/F/t/T (#257) ─────────────────────
+-- Before the fix, the f/F/t/T search-start handler ran BEFORE
+-- pending_register/pending_mark consumed their expected next character, so
+-- "tyy / mt / `t (register or mark named f/F/t/T) corrupted seq.pending_f
+-- instead of being consumed as the register/mark name — silently eating the
+-- next real keystroke. See docs/adr/0026-state-machine-bookkeeping-invariants.md
+-- (track_run() must run unconditionally) for the invariant this violated.
+
+describe('when a register name happens to be f, F, t, or T', function()
+  for _, name in ipairs({ 'f', 'F', 't', 'T' }) do
+    it('consumes "' .. name .. ' as the register name instead of starting an f/t search', function()
+      local s = seq()
+      patterns.feed(s, '"', 1)
+      local result = patterns.feed(s, name, 1)
+      assert.is_nil(result)
+      assert.is_nil(s.pending_f)
+      assert.is_true(s.key_consumed)
+    end)
+  end
+
+  it('does not undercount a j-streak when preceded by "tyy (regression #257)', function()
+    local s = seq()
+    patterns.feed(s, '"', 1)
+    patterns.feed(s, 't', 1)
+    patterns.feed(s, 'y', 1)
+    patterns.feed(s, 'y', 1)
+    for _ = 1, 4 do
+      local mid = patterns.feed(s, 'j', 1)
+      assert.is_nil(mid)
+    end
+    local result = patterns.feed(s, 'j', 1)
+    assert.is_not_nil(result)
+    assert.equals('j_repeat', result.pattern)
+    assert.equals('{n}j', result.cmd)
+  end)
+end)
+
+describe('when a mark name happens to be f, F, t, or T', function()
+  for _, name in ipairs({ 'f', 'F', 't', 'T' }) do
+    it('consumes m' .. name .. ' as the mark name instead of starting an f/t search', function()
+      local s = seq()
+      patterns.feed(s, 'm', 1)
+      local result = patterns.feed(s, name, 1)
+      assert.is_nil(result)
+      assert.is_nil(s.pending_f)
+      assert.is_true(s.key_consumed)
+    end)
+
+    it('consumes `' .. name .. ' as the mark target instead of starting an f/t search', function()
+      local s = seq()
+      patterns.feed(s, '`', 1)
+      local result = patterns.feed(s, name, 1)
+      assert.is_nil(result)
+      assert.is_nil(s.pending_f)
+      assert.is_true(s.key_consumed)
+    end)
+  end
+
+  it('does not undercount a j-streak when preceded by mt (regression #257)', function()
+    local s = seq()
+    patterns.feed(s, 'm', 1)
+    patterns.feed(s, 't', 1)
+    for _ = 1, 4 do
+      local mid = patterns.feed(s, 'j', 1)
+      assert.is_nil(mid)
+    end
+    local result = patterns.feed(s, 'j', 1)
+    assert.is_not_nil(result)
+    assert.equals('j_repeat', result.pattern)
+  end)
+end)
+
+-- ── r-replacement character that happens to be f/F/t/T (independent QA of #257) ──
+-- pending_r is the same shape of "single-char prefix that consumes exactly one
+-- following character" as pending_register/pending_mark, but was left out of the
+-- #257 fix. Before this fix, r/f/t/T's f/F/t/T search-start handler ran before
+-- pending_r consumed its expected replacement character, so r{f,F,t,T} hijacked
+-- pending_f AND left pending_r dangling (worse than #257: the NEXT real keystroke
+-- after that gets wrongly consumed as the r-replacement completion too, so two
+-- real keystrokes are silently swallowed instead of one). See
+-- docs/adr/0026-state-machine-bookkeeping-invariants.md (track_run() must run
+-- unconditionally) for the invariant this violated.
+
+describe('when the replacement character for r happens to be f, F, t, or T', function()
+  for _, char in ipairs({ 'f', 'F', 't', 'T' }) do
+    it('consumes r' .. char .. ' as the replacement instead of starting an f/t search', function()
+      local s = seq()
+      patterns.feed(s, 'r', 1)
+      local result = patterns.feed(s, char, 1)
+      assert.is_nil(result)
+      assert.is_nil(s.pending_f)
+      assert.is_false(s.pending_r)
+    end)
+  end
+
+  it('does not undercount a j-streak when preceded by rf (regression)', function()
+    local s = seq()
+    patterns.feed(s, 'r', 1)
+    patterns.feed(s, 'f', 1)
+    for _ = 1, 4 do
+      local mid = patterns.feed(s, 'j', 1)
+      assert.is_nil(mid)
+    end
+    local result = patterns.feed(s, 'j', 1)
+    assert.is_not_nil(result)
+    assert.equals('j_repeat', result.pattern)
+    assert.equals('{n}j', result.cmd)
+  end)
+end)
+
+-- ── visual inner/around tag text object collides with f/F/t/T (independent QA ──
+-- ── of #254) ─────────────────────────────────────────────────────────────────
+-- v/visual_inner's text-object-character consumer is the same shape of
+-- prefix-continuation state as pending_text_obj (#254's own fix), but the visual
+-- (v i {obj}) path was left out of that fix. Before this fix, 'vit'/'vat' (tag
+-- text object) had their 't' hijacked by the f/F/t/T search-start handler
+-- instead of completing visual_obj, so visual_textobj never fired for the tag
+-- variant at all — the same "stuck at 0 / never suggested" class of bug as
+-- #254's original symptom, just reached via visual mode instead of operator-
+-- pending mode.
+
+describe('when the visual text-object character happens to be t (tag object)', function()
+  it('fires visual_textobj cit for v i t c', function()
+    local s = seq()
+    patterns.feed(s, 'v', 1)
+    patterns.feed(s, 'i', 1)
+    patterns.feed(s, 't', 1)
+    local result = patterns.feed(s, 'c', 1)
+    assert.is_not_nil(result)
+    assert.equals('visual_textobj', result.pattern)
+    assert.equals('cit', result.cmd)
+  end)
+
+  it('fires visual_textobj dit for v i t d', function()
+    local s = seq()
+    patterns.feed(s, 'v', 1)
+    patterns.feed(s, 'i', 1)
+    patterns.feed(s, 't', 1)
+    local result = patterns.feed(s, 'd', 1)
+    assert.is_not_nil(result)
+    assert.equals('dit', result.cmd)
+  end)
+
+  it('fires visual_textobj yat for v a t y', function()
+    local s = seq()
+    patterns.feed(s, 'v', 1)
+    patterns.feed(s, 'a', 1)
+    patterns.feed(s, 't', 1)
+    local result = patterns.feed(s, 'y', 1)
+    assert.is_not_nil(result)
+    assert.equals('yat', result.cmd)
   end)
 end)
 
@@ -1902,6 +2314,10 @@ describe('when the user presses z followed by a view command key', function()
     { key = 'M', last_op = 'zM' },
     { key = 'R', last_op = 'zR' },
     { key = 'd', last_op = 'zd' },
+    -- zf (#265): z_targets omitted 'f' (unlike sibling zd), so zf's own
+    -- raw keystroke was never counted and it could never be marked mastered
+    -- regardless of actual usage.
+    { key = 'f', last_op = 'zf' },
   }
 
   for _, tc in ipairs(cases) do
@@ -3246,16 +3662,19 @@ describe('when the user repeats the same single-line edit on consecutive lines',
     assert.equals('macro_opportunity', result.pattern)
   end)
 
-  it('still fires macro_opportunity, not visual_block_opportunity, for operator+motion edits like cwFooBar<Esc> (regression)', function()
-    local s = seq()
-    feed_macro_seq(s, CW_FOOBAR_ESC)
-    feed_macro_seq(s, { 'j' })
-    feed_macro_seq(s, CW_FOOBAR_ESC)
-    feed_macro_seq(s, { 'j' })
-    local result = feed_macro_seq(s, CW_FOOBAR_ESC)
-    assert.is_not_nil(result)
-    assert.equals('macro_opportunity', result.pattern)
-  end)
+  it(
+    'still fires macro_opportunity, not visual_block_opportunity, for operator+motion edits like cwFooBar<Esc> (regression)',
+    function()
+      local s = seq()
+      feed_macro_seq(s, CW_FOOBAR_ESC)
+      feed_macro_seq(s, { 'j' })
+      feed_macro_seq(s, CW_FOOBAR_ESC)
+      feed_macro_seq(s, { 'j' })
+      local result = feed_macro_seq(s, CW_FOOBAR_ESC)
+      assert.is_not_nil(result)
+      assert.equals('macro_opportunity', result.pattern)
+    end
+  )
 
   it('does not fire when the repeated content contains a register/macro key', function()
     local s = seq()

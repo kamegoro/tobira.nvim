@@ -440,8 +440,15 @@ M.registry = {
   -- Reactive-only: fires when insert-mode editing immediately follows a
   -- ]c/[c jump while &diff is set — see
   -- docs/adr/0099-diff-obtain-put-after-hunk-jump.md.
-  ['do'] = { requires = ']c', track = false, category = 'diff', level = 'intermediate' },
-  ['dp'] = { requires = '[c', track = false, category = 'diff', level = 'intermediate' },
+  -- ambient = false (#265): their requires triggers (]c/[c) never get
+  -- op_completed=true in patterns.lua's pending_bracket handler (it
+  -- consumes-and-discards the bracket pair without recording which one it
+  -- was — same gap as [( / ]) below), so usage[']c'].count/usage['[c'].count
+  -- never leave 0 and these can never be found via find_best()'s ordinary
+  -- scan anyway — same reactive-only carve-out as the '<C-\><C-n>' entry
+  -- elsewhere in this file, see docs/adr/0007-reactive-only-ambient-exclusion.md.
+  ['do'] = { requires = ']c', track = false, category = 'diff', level = 'intermediate', ambient = false },
+  ['dp'] = { requires = '[c', track = false, category = 'diff', level = 'intermediate', ambient = false },
 
   -- ── Ex commands ───────────────────────────────────────────────────────────
   -- Tracked via logger.lua's cmdline handler (patterns_cmdline.lua), not a

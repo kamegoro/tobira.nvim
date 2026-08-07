@@ -61,3 +61,32 @@ and more than one of them can produce a suggestion for it:
   meanings will silently conflate two different actions' counts.
 - Lowering the compound-tracking check back to a value-comparison on `last_op`
   reintroduces the #119 undercount for repeated identical compounds.
+
+### Known limitation (investigated, not fixed — #265)
+
+`macro_result` winning over `result` can silently discard a `named_mark_opportunity`
+that had already fired-and-reset internally. Repro: 3 "leave anchor → edit → return"
+cycles using a byte-identical short edit each time (e.g. `x` every time) — the
+identical-window match satisfies `macro_opportunity` (`patterns.feed_macro`) on the
+exact same keystroke that `named_mark_opportunity`'s `mark_ready` branch
+(`patterns.feed`) also fires on. Per this ADR's priority, `logger.lua` reports only
+`macro_opportunity`; the caller never sees `named_mark_opportunity`. But
+`patterns.feed`'s `mark_ready` branch has already unconditionally reset
+`seq.mark_return_count`/`seq.mark_anchor_line` as a side effect of computing that
+now-discarded return value — `logger.lua` cannot suppress this after the fact, since
+`patterns.feed()` and `patterns.feed_macro()` are separate calls (`feed_macro` runs
+second, so by the time its result is known, `feed`'s state mutation has already
+happened). The user loses that specific `ma` suggestion and has to complete 3 more
+full return cycles before it can fire again.
+
+Confirmed reproducible; deliberately left unfixed. A correct fix needs one of:
+reordering `feed_macro()` before `feed()` and threading its result into `feed()` so
+`mark_ready`'s reset can be made conditional (couples two entry points ADR 0018
+explicitly keeps separate — `feed_macro`'s cross-mode buffer has nothing to do with
+`inner_feed`'s normal-mode operator grammar), or a deferred-commit/rollback API on
+`patterns.lua`'s mark-tracking state that only commits once the caller confirms it
+actually used the result (new public surface, threaded through both the
+normal-mode and insert-mode call sites of `feed_macro`). Both are more invasive than
+this narrow, low-frequency collision (requires literally identical short edits on
+every cycle) justifies. Revisit only if `named_mark_opportunity` reports of
+suggestions "never showing up" recur.
