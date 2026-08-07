@@ -1123,7 +1123,7 @@ return {
       example = "ya' → kopiert 'den zitierten Text' samt Anführungszeichen",
     },
 
-    -- ── quickfix / location-list navigation (#228) ────────────────────────────
+    -- ── quickfix / location-list navigation ───────────────────────────────────
     [']q'] = {
       title = ']q — zum nächsten Quickfix-Eintrag springen',
       body = 'Springt zum nächsten Eintrag der Quickfix-Liste (gefüllt durch :vimgrep, :grep oder LSP-Diagnosen)\nErsetzt manuelles Suchen oder Durchscrollen der Ergebnisse',
@@ -1155,7 +1155,7 @@ return {
       example = ':cdo s/foo/bar/g → ersetzt foo durch bar bei jedem Quickfix-Treffer',
     },
 
-    -- ── spell-check (#229) ─────────────────────────────────────────────────────
+    -- ── spell-check ────────────────────────────────────────────────────────────
     [']s'] = {
       title = ']s — zum nächsten falsch geschriebenen Wort springen',
       body = 'Springt vorwärts zum nächsten Wort, das Vims Rechtschreibprüfung als falsch markiert (braucht :set spell)\nErsetzt das visuelle Absuchen des Texts nach Tippfehlern',
@@ -1172,14 +1172,14 @@ return {
       example = 'z= dann 2<CR> → ersetzt das Wort durch den 2. Vorschlag',
     },
 
-    -- ── :sort (#239) ─────────────────────────────────────────────────────────
+    -- ── :sort ────────────────────────────────────────────────────────────────
     ['ex:sort'] = {
       title = ':sort — Zeilen sortieren',
       body = 'Sortiert die ausgewählten Zeilen (oder die ganze Datei) alphabetisch in einem Befehl\nErsetzt manuelles Ausschneiden und Einfügen von Zeilen in die richtige Reihenfolge',
       example = ':sort → sortiert alle Zeilen der Datei alphabetisch',
     },
 
-    -- ── ]p / [p indent-aware paste (#240) ──────────────────────────────────────
+    -- ── ]p / [p indent-aware paste ─────────────────────────────────────────────
     [']p'] = {
       title = ']p — einfügen und Einrückung anpassen',
       body = 'Wie p, passt aber die Einrückung des eingefügten Texts an die aktuelle Zeile an\nErsetzt das Einfügen und anschließende manuelle Korrigieren der Einrückung',

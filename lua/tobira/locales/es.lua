@@ -1123,7 +1123,7 @@ return {
       example = "ya' → copia 'el texto citado' junto con sus comillas",
     },
 
-    -- ── quickfix / location-list navigation (#228) ────────────────────────────
+    -- ── quickfix / location-list navigation ───────────────────────────────────
     [']q'] = {
       title = ']q — saltar a la siguiente entrada de quickfix',
       body = 'Salta a la siguiente entrada de la lista quickfix (llenada por :vimgrep, :grep o diagnósticos LSP)\nReemplaza buscar o desplazarse manualmente por los resultados uno a uno',
@@ -1155,7 +1155,7 @@ return {
       example = ':cdo s/foo/bar/g → reemplaza foo por bar en cada coincidencia de quickfix',
     },
 
-    -- ── spell-check (#229) ─────────────────────────────────────────────────────
+    -- ── spell-check ────────────────────────────────────────────────────────────
     [']s'] = {
       title = ']s — saltar a la siguiente palabra mal escrita',
       body = 'Salta hacia adelante a la siguiente palabra que el corrector ortográfico de Vim marca como mal escrita (requiere :set spell)\nReemplaza revisar el texto a simple vista buscando errores',
@@ -1172,14 +1172,14 @@ return {
       example = 'z= y luego 2<CR> → reemplaza la palabra con la 2.ª sugerencia',
     },
 
-    -- ── :sort (#239) ─────────────────────────────────────────────────────────
+    -- ── :sort ────────────────────────────────────────────────────────────────
     ['ex:sort'] = {
       title = ':sort — ordenar líneas',
       body = 'Ordena las líneas seleccionadas (o todo el archivo) alfabéticamente en un solo comando\nReemplaza cortar y pegar líneas manualmente para ordenarlas',
       example = ':sort → ordena todas las líneas del archivo alfabéticamente',
     },
 
-    -- ── ]p / [p indent-aware paste (#240) ──────────────────────────────────────
+    -- ── ]p / [p indent-aware paste ─────────────────────────────────────────────
     [']p'] = {
       title = ']p — pegar y ajustar la sangría',
       body = 'Como p pero reindenta el texto pegado para que coincida con la línea actual\nReemplaza pegar y luego corregir la sangría a mano',

@@ -1124,7 +1124,7 @@ return {
       example = "ya' → yanks 'the quoted text' with its quotes",
     },
 
-    -- ── quickfix / location-list navigation (#228) ────────────────────────────
+    -- ── quickfix / location-list navigation ───────────────────────────────────
     [']q'] = {
       title = ']q — jump to next quickfix entry',
       body = 'Jumps to the next entry in the quickfix list (filled by :vimgrep, :grep, or LSP diagnostics)\nReplaces manually searching or scrolling through results one by one',
@@ -1156,7 +1156,7 @@ return {
       example = ':cdo s/foo/bar/g → replace foo with bar at every quickfix match',
     },
 
-    -- ── spell-check (#229) ─────────────────────────────────────────────────────
+    -- ── spell-check ────────────────────────────────────────────────────────────
     [']s'] = {
       title = ']s — jump to next misspelled word',
       body = "Jumps forward to the next word Vim's spell checker flags as misspelled (needs :set spell)\nReplaces scanning the text by eye for typos",
@@ -1173,14 +1173,14 @@ return {
       example = 'z= then 2<CR> → replace the word with the 2nd suggested correction',
     },
 
-    -- ── :sort (#239) ─────────────────────────────────────────────────────────
+    -- ── :sort ────────────────────────────────────────────────────────────────
     ['ex:sort'] = {
       title = ':sort — sort lines',
       body = 'Sorts the selected lines (or the whole file) alphabetically in one command\nReplaces manually cutting and pasting lines into order',
       example = ':sort → sort every line in the file alphabetically',
     },
 
-    -- ── ]p / [p indent-aware paste (#240) ──────────────────────────────────────
+    -- ── ]p / [p indent-aware paste ─────────────────────────────────────────────
     [']p'] = {
       title = ']p — paste and adjust indent',
       body = 'Like p but re-indents the pasted text to match the current line\nReplaces pasting, then manually fixing the indentation by hand',
