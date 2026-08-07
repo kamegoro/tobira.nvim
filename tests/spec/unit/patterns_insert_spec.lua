@@ -1,4 +1,4 @@
--- Pure unit tests for insert-mode pattern detection (#58 / split out in #99).
+-- Pure unit tests for insert-mode pattern detection (split out from patterns.lua).
 -- No vim.* calls — patterns_insert.lua has zero Neovim dependencies.
 --
 -- A separate pure state machine from patterns.lua's normal-mode seq/feed:
@@ -143,8 +143,8 @@ describe('insert-mode streaks vs. the bounce counter', function()
   end)
 end)
 
--- #105: <Esc> → exactly one normal-mode command → i/a/A/I is the manual round
--- trip that insert-mode <C-o> replaces. See
+-- <Esc> → exactly one normal-mode command → i/a/A/I is the manual round trip
+-- that insert-mode <C-o> replaces; see
 -- docs/adr/0037-insert-co-oneshot-crosses-mode-boundary.md for why detection
 -- crosses into the normal-mode keystroke stream.
 describe('when the user does <Esc> then exactly one normal-mode command then returns to insert', function()
@@ -234,7 +234,7 @@ describe('feed_after_escape after the watch has already fired or disarmed once',
   end)
 end)
 
--- ── insert-mode completion detection (#112) ──────────────────────────────────
+-- ── insert-mode completion detection ──────────────────────────────────────────
 -- Reconstructs tokens from raw keystrokes and remembers recently completed
 -- ones in a ring buffer, firing insert_completion_repeat on an exact repeat.
 -- See docs/adr/0039-insert-completion-repeat-token-reconstruction.md for the

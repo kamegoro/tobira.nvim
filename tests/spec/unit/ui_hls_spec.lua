@@ -38,7 +38,7 @@ describe('category highlight groups', function()
     TobiraSuggestFold = 'Constant',
     TobiraSuggestMark = 'Identifier',
     TobiraSuggestMacro = 'PreProc',
-    -- #57: Ex commands (:g, :norm, ...) are statement-like — the nearest
+    -- Ex commands (:g, :norm, ...) are statement-like — the nearest
     -- syntax-group analog to a colon command, matching the "what kind of
     -- thing is this" intuition the other 7 categories already follow.
     TobiraSuggestEx = 'Statement',
@@ -88,12 +88,9 @@ describe('TobiraGuideForgotten highlight group', function()
   end)
 end)
 
--- #126: setup() used to return early whenever TobiraGuideBorder already existed, so
--- has_notify_hl was only ever computed on the very first call across the whole session.
--- In a lazy-loaded setup where nvim-notify hasn't loaded yet when tobira's first panel
--- opens, this permanently locked TobiraGuideBorder/Normal/Section onto the
--- FloatBorder/NormalFloat/Title fallback -- even after nvim-notify loaded moments later
--- and a different panel opened. setup() must re-evaluate has_notify_hl on every call.
+-- Regression guard: setup() used to compute has_notify_hl only on its first call, so a
+-- lazy-loaded nvim-notify that finished loading later never upgraded the border/section
+-- highlights away from the fallback. setup() must re-evaluate has_notify_hl every call.
 describe('re-evaluating nvim-notify availability on every hls.setup() call (#126)', function()
   -- hlexists() never reports a group as "gone" again once it has been set for real in
   -- this Neovim instance, so the only way to simulate "this is the very first hls.setup()
@@ -148,10 +145,9 @@ describe('re-evaluating nvim-notify availability on every hls.setup() call (#126
   end)
 
   it('upgrades TobiraGuideBorder to NotifyINFOBorder once nvim-notify becomes available mid-session', function()
-    -- This is the exact staleness scenario from #126: nvim-notify was not yet
-    -- lazy-loaded on the call above, so TobiraGuideBorder locked onto FloatBorder.
-    -- It has now finished loading and a later panel opens, calling setup() again --
-    -- this must pick up NotifyINFOBorder rather than staying stuck.
+    -- nvim-notify was not yet lazy-loaded on the call above, so TobiraGuideBorder
+    -- locked onto FloatBorder. It has now finished loading and a later panel opens,
+    -- calling setup() again -- this must pick up NotifyINFOBorder, not stay stuck.
     notify_available(function()
       hls.setup()
     end)

@@ -1,4 +1,4 @@
--- core/integrations.lua (#63): detects the user's actual keymap overrides
+-- core/integrations.lua detects the user's actual keymap overrides
 -- (phase 1) and installed helper plugins (phase 2), so graph.find_best() and
 -- ui/guide.lua never present a remapped key as if it still did what
 -- commands.lua says, and so config.integrations-gated promotions can boost a
@@ -17,9 +17,8 @@ end
 -- Like fake_keymap, but mode-sensitive: entries differ between normal and
 -- insert mode, the way a real nvim_get_keymap('n') vs nvim_get_keymap('i')
 -- query would. by_mode = { n = {...}, i = {...} }; either key may be omitted
--- (defaults to no mappings for that mode). Needed for #256 tests, which must
--- distinguish "this mapping exists in normal mode" from "this mapping exists
--- in insert mode" -- exactly the distinction the bug collapsed.
+-- (defaults to no mappings for that mode). Needed to distinguish "this
+-- mapping exists in normal mode" from "this mapping exists in insert mode".
 local function fake_keymap_by_mode(by_mode)
   return function(mode)
     return by_mode[mode] or {}
@@ -124,18 +123,9 @@ describe('M.refresh — keymap override detection (phase 1)', function()
   end)
 end)
 
--- #255: nvim_get_keymap('n') returns Neovim's own factory-shipped default
--- mappings (gx, &, ]q/[q/]l/[l, and -- on Neovim 0.10+ -- Y=y$ too) the same
--- way it returns a real user nnoremap. Neovim registers every one of these
--- directly via the Lua/C API with no attached sourced script, which the
--- keymap dict surfaces as sid == -8 (empirically verified against a vanilla
--- `nvim -u NONE`; see docs/adr/0102-builtin-default-mapping-sid-detection.md).
--- ANY mapping sourced from a real script -- the user's own init.lua, a
--- lazy-loaded plugin, or even a shipped runtime plugin like matchit.vim --
--- gets a normal positive sid instead, so this field reliably tells "still
--- exactly what Neovim ships out of the box" apart from "something has
--- touched this key", independent of whether the current rhs is a literal
--- string or a Lua callback.
+-- Neovim's own boot-time default mappings (gx, &, ]q/[q/]l/[l, and Y=y$ on
+-- 0.10+) surface with sid == -8, the same signal this module uses to tell a
+-- real user override apart; see docs/adr/0102-builtin-default-mapping-sid-detection.md.
 describe('M.refresh — Neovim built-in default mappings are not user overrides (#255)', function()
   before_each(function()
     integrations.reset()
@@ -232,15 +222,10 @@ describe('M.refresh — Neovim built-in default mappings are not user overrides 
   end)
 end)
 
--- #256: M.refresh() only ever queried keymap_fn('n'), never keymap_fn('i'),
--- so registry entries representing insert-mode behavior (<C-w>, <C-n>,
--- <C-t>, i_<C-o>, i_<C-d>) were checked against the wrong mode's keymaps --
--- both a false-positive (an unrelated normal-mode remap of the same raw key
--- wrongly suppressed the insert-mode suggestion) and a false-negative (a
--- real insert-mode override never suppressed anything) failure mode.
--- Separately, i_<C-o> / i_<C-d> could never be detected as overridden at
--- all: suggestible_keys()'s canonicalization only handled keys matching
--- '^<.->$', and 'i_<C-o>' doesn't start with '<'.
+-- M.refresh() used to only ever query keymap_fn('n'), so registry entries
+-- representing insert-mode behavior (<C-w>, <C-n>, <C-t>, i_<C-o>, i_<C-d>)
+-- were checked against the wrong mode's keymaps -- both false positives and
+-- false negatives.
 describe('M.refresh — insert-mode registry entries are checked against insert-mode keymaps (#256)', function()
   before_each(function()
     integrations.reset()
@@ -270,13 +255,10 @@ describe('M.refresh — insert-mode registry entries are checked against insert-
     assert.is_true(integrations.is_overridden('<C-w>'))
   end)
 
-  -- QA follow-up: <C-w>'s insert-mode meaning (delete word before cursor) is
-  -- ALSO a genuine Neovim 0.10+ default (`:help i_CTRL-W-default`, rhs
-  -- `<C-G>u<C-W>`, undo-breaking) that ships with sid == -8 out of the box --
-  -- same #255 collision as gx/&/]q/[q/]l/[l/Y, just discovered for a #256
-  -- key during independent audit rather than named in the original issue.
-  -- Without this exemption, <C-w>'s own insert-mode suggestion would be
-  -- permanently unsuggestable on any untouched Neovim install.
+  -- <C-w>'s insert-mode meaning (delete word before cursor) is also a
+  -- genuine Neovim 0.10+ default (`:help i_CTRL-W-default`) shipping with
+  -- sid == -8, so it needs the same untouched-default exemption as
+  -- gx/&/]q/[q/]l/[l/Y or it would be permanently unsuggestable.
   it("does not treat the untouched insert-mode <C-w> default (Neovim's own i_CTRL-W-default) as an override", function()
     integrations.refresh(fake_keymap_by_mode({
       i = { { lhs = '<C-w>', rhs = '<C-G>u<C-W>', sid = -8, desc = ':help i_CTRL-W-default', noremap = 1 } },

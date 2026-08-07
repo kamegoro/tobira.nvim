@@ -239,12 +239,11 @@ describe('when an adopted motion skill is suppressed', function()
   end)
 end)
 
--- ── suppressed + never-tried highlighting (#260) ─────────────────────────────
--- Regression for #260: mastery_sym()'s suppressed branch returns a non-nil
--- group regardless of data.count, but M.build()'s `if group and data.count > 0`
--- gate used to require count > 0 too, so a suppressed command that had never
--- been used (count = 0) fell through to the `elseif data.count == 0` branch
--- instead and got TobiraDim -- no visual confirmation the suppression worked.
+-- ── suppressed + never-tried highlighting ─────────────────────────────────────
+-- Regression: mastery_sym()'s suppressed branch returns a non-nil group
+-- regardless of data.count, but M.build()'s `if group and data.count > 0` gate
+-- used to require count > 0 too, so a suppressed-but-never-used command fell
+-- through to TobiraDim instead -- no visual confirmation the suppression worked.
 
 describe('when an adopted motion skill is suppressed but has never been tried (count = 0)', function()
   before_each(setup)
@@ -283,8 +282,8 @@ describe('when an adopted motion skill is suppressed but has never been tried (c
   end)
 end)
 
--- ── forgotten state (#123) ────────────────────────────────────────────────────
--- Regression for #123. See docs/adr/0068-progress-forgotten-overrides-mastery-glyph.md
+-- ── forgotten state ────────────────────────────────────────────────────────────
+-- Regression -- see docs/adr/0068-progress-forgotten-overrides-mastery-glyph.md
 -- and docs/adr/0069-progress-mastered-ratio-uses-is-mastered.md.
 
 describe('when an adopted motion skill has decayed into a forgotten state', function()
@@ -366,7 +365,7 @@ describe('a category section heading when the only touched command in it is forg
   end)
 end)
 
--- ── pin marker upgrade (#67: * -> ●) ─────────────────────────────────────────
+-- ── pin marker upgrade: * -> ● ───────────────────────────────────────────────
 
 describe('when an adopted motion skill is pinned', function()
   before_each(setup)
@@ -442,7 +441,7 @@ describe('when p is pressed on an adopted skill row at a valid column', function
   end)
 end)
 
--- ── cursor-to-command mapping under byte/display-width drift (#124) ─────────
+-- ── cursor-to-command mapping under byte/display-width drift ────────────────
 
 describe('when p is pressed over a cell preceded by multiple mastered+pinned cells in the same row', function()
   before_each(setup)
@@ -473,7 +472,7 @@ describe('when p is pressed over a cell preceded by multiple mastered+pinned cel
   end)
 end)
 
--- ── H1 status line (#67) ──────────────────────────────────────────────────────
+-- ── H1 status line ───────────────────────────────────────────────────────────
 
 describe('the H1 line', function()
   before_each(setup)
@@ -509,16 +508,12 @@ describe('the H1 line', function()
   end)
 end)
 
--- ── header/separator width matches actual content width (#269) ──────────────
--- Regression for #269: the H1 ratio line and separator used to be built at a
--- fixed PANEL_W (58) constant regardless of how wide the window actually
--- ends up once title/footer text is taken into account -- in locales whose
--- footer text is wider than one grid row (e.g. de), the window itself sized
--- correctly to fit that text, but the header/separator stayed stuck at 58,
--- leaving a dead gap on the right border. Both must now scale with the
--- widest real content, mirroring how ui/stats.lua's M.open() has always
--- computed its window width from actual title/footer/body content instead
--- of a fixed constant.
+-- ── header/separator width matches actual content width ──────────────────────
+-- Regression: the H1 ratio line and separator used to be built at a fixed
+-- PANEL_W (58) constant regardless of how wide the window actually ends up
+-- once title/footer text is taken into account, leaving a dead gap on the
+-- right border for locales with wider footer text (e.g. de). Both must now
+-- scale with the widest real content, mirroring ui/stats.lua's M.open().
 
 describe('the H1 line and separator width in the default locale (non-regression)', function()
   before_each(setup)
@@ -567,7 +562,7 @@ describe('the H1 line and separator width in a locale whose footer text is wider
   end)
 end)
 
--- ── section heading done/total (#67) ─────────────────────────────────────────
+-- ── section heading done/total ───────────────────────────────────────────────
 
 describe('a category section heading', function()
   before_each(setup)
@@ -593,7 +588,7 @@ describe('a category section heading', function()
   end)
 end)
 
--- ── level-0 dim styling (#67) ─────────────────────────────────────────────────
+-- ── level-0 dim styling ──────────────────────────────────────────────────────
 
 describe('when a skill has never been tried (mastery level 0)', function()
   before_each(setup)
@@ -613,7 +608,7 @@ describe('when a skill has never been tried (mastery level 0)', function()
   end)
 end)
 
--- ── preview strip: M.preview_lines (#67) ─────────────────────────────────────
+-- ── preview strip: M.preview_lines ───────────────────────────────────────────
 
 describe('when no item is under the cursor', function()
   it('returns two blank lines', function()
@@ -697,8 +692,8 @@ describe('when previewing an item that has a title defined in the locale', funct
   end)
 end)
 
--- ── preview strip: key/description gap (#154, regression for the bug the #110 ─
--- Terminal entry exposed) ─────────────────────────────────────────────────────
+-- ── preview strip: key/description gap ───────────────────────────────────────
+-- Regression for the bug the terminal-mode <C-\><C-n> entry exposed.
 
 describe('when previewing an item whose key is shorter than the padding width', function()
   it('pads the key out to the aligned column before the description', function()
@@ -719,7 +714,7 @@ describe('when previewing an item whose key is at or beyond the padding width', 
       local item = { id = key, keys = key, adopted = key }
       local l1 = progress.preview_lines(item, {})
       local desc = loc.suggestions[key].title:match(' — (.+)$')
-      -- Must never glue key directly onto description (#154). See
+      -- Must never glue key directly onto description; see
       -- docs/adr/0071-progress-preview-key-padding-minimum-gap.md.
       local gap_start = 3 + #key
       assert.equals(' ', l1:sub(gap_start, gap_start), 'expected a gap right after ' .. key .. ' in: ' .. l1)
@@ -728,7 +723,7 @@ describe('when previewing an item whose key is at or beyond the padding width', 
   end)
 end)
 
--- ── preview strip: live update on cursor move (#67) ──────────────────────────
+-- ── preview strip: live update on cursor move ────────────────────────────────
 
 describe('when the cursor moves onto a skill cell in the open window', function()
   before_each(setup)
@@ -765,7 +760,7 @@ describe('when the cursor moves onto a skill cell in the open window', function(
   end)
 end)
 
--- ── footer nav hint (#67) ─────────────────────────────────────────────────────
+-- ── footer nav hint ──────────────────────────────────────────────────────────
 
 local function win_footer_str(win)
   local cfg = vim.api.nvim_win_get_config(win)
@@ -823,7 +818,7 @@ describe('the footer', function()
   end)
 end)
 
--- ── g / s navigation keymaps (#67) ────────────────────────────────────────────
+-- ── g / s navigation keymaps ─────────────────────────────────────────────────
 
 describe('when g is pressed in the progress window', function()
   before_each(setup)
@@ -871,7 +866,7 @@ describe('when s is pressed in the progress window', function()
   end)
 end)
 
--- #105: 'i_<C-o>' is an internal composite registry key (see commands.lua);
+-- 'i_<C-o>' is an internal composite registry key (see commands.lua);
 -- the grid must show the real keystroke (<C-o>), never the raw internal key.
 -- The fix lives in core/skills.lua's tree, verified end-to-end here.
 describe("the 'i_<C-o>' composite registry key on the Progress grid (#105)", function()
@@ -890,7 +885,7 @@ describe("the 'i_<C-o>' composite registry key on the Progress grid (#105)", fun
   end)
 end)
 
--- ── extmark rendering (nvim_buf_add_highlight migration, #151) ────────────────
+-- ── extmark rendering (nvim_buf_add_highlight migration) ───────────────────────
 -- M.build()'s hls table is already covered as pure data elsewhere in this
 -- file. These tests confirm the *actual* extmarks M.open() applies from
 -- that data match it exactly, both for a partial byte range (a level-0

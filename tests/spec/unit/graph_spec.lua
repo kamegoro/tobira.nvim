@@ -87,11 +87,11 @@ describe('when multiple triggers are active', function()
   end)
 end)
 
--- ── nil best_cmd guard at the -1 score sentinel (#121) ───────────────────────
+-- ── nil best_cmd guard at the -1 score sentinel ─────────────────────────────
 
 describe('when the only offered candidate has trigger_count - cmd_count == -1', function()
   it('is selected instead of erroring on a nil best_cmd comparison', function()
-    -- #121, see docs/adr/0032-find-best-sentinel-negative-infinity.md for why.
+    -- see docs/adr/0032-find-best-sentinel-negative-infinity.md for why.
     -- A single-entry suggestions table makes pairs() order a non-issue here.
     local original_suggestions = graph.suggestions
     graph.suggestions = {
@@ -128,7 +128,7 @@ describe('when two offered candidates tie at score -1', function()
   end)
 end)
 
--- ── ambient exclusion for reactive-only, nominal-anchor entries (#110 fix) ───
+-- ── ambient exclusion for reactive-only, nominal-anchor entries ─────────────
 -- see docs/adr/0007-reactive-only-ambient-exclusion.md for why
 
 describe('when a suggestion entry is marked ambient = false', function()
@@ -212,7 +212,7 @@ describe('when a command was adopted but recently fell out of use', function()
   it(
     'is considered forgotten when recent usage has decayed well below its historical average, even without hitting exactly zero',
     function()
-      -- #62 regression, see docs/adr/0029-graded-forgotten-command-detection.md
+      -- see docs/adr/0029-graded-forgotten-command-detection.md
       -- recent avg 0.5 vs 30% of historical avg 7.5 (=2.25) -> forgotten, despite no exact 0
       local data = usage_entry(50, { 7, 8, 0, 1 })
       assert.is_true(graph.is_forgotten(data))
@@ -264,7 +264,7 @@ describe('when a command is explicitly suppressed', function()
   end)
 end)
 
--- ── Ex command suggestions (#57): stricter never-tried gate ──────────────────
+-- ── Ex command suggestions: stricter never-tried gate ────────────────────────
 -- see docs/adr/0010-ex-command-never-tried-gate.md for why
 
 describe('an ex_command-flagged suggestion', function()
@@ -333,7 +333,7 @@ describe('every suggestion in the graph', function()
   end)
 end)
 
--- ── compound-op trigger (bug #15 regression) ─────────────────────────────────
+-- ── compound-op trigger regression guard ─────────────────────────────────────
 
 describe('when dw has been used (compound-tracked)', function()
   it('suggests cw as the next step', function()
@@ -676,7 +676,7 @@ describe('when a command is used heavily but a more efficient follow-up command 
   end)
 end)
 
--- ── efficiency_gaps keymap overrides (#164) ──────────────────────────────────
+-- ── efficiency_gaps keymap overrides ────────────────────────────────────────
 -- see docs/adr/0030-keymap-override-exclusion-contract.md for why
 
 describe('when a gap candidate has been remapped by the user', function()
@@ -719,12 +719,12 @@ describe('when a gap candidate has been remapped by the user', function()
   end)
 end)
 
--- ── keymap overrides (#63) ────────────────────────────────────────────────────
+-- ── keymap overrides ─────────────────────────────────────────────────────────
 -- see docs/adr/0030-keymap-override-exclusion-contract.md for why
 
 describe('when a candidate command has been remapped by the user', function()
   it('is never returned by find_best, even though it would otherwise win outright', function()
-    -- nnoremap Y y$ (#63 AC1): equivalent = true still gets excluded (ADR 0030)
+    -- nnoremap Y y$: equivalent = true still gets excluded (ADR 0030)
     local original_suggestions = graph.suggestions
     graph.suggestions = {
       Y = { cmd = 'Y', trigger = 'p', level = 'beginner', category = 'edit' },
@@ -778,7 +778,7 @@ describe('when a candidate command has been remapped by the user', function()
   end)
 end)
 
--- ── phase 2: integration promotions (#63) ────────────────────────────────────
+-- ── phase 2: integration promotions ─────────────────────────────────────────
 -- see docs/adr/0031-priority-pool-for-gate-bypassing-candidates.md for why
 
 describe('when a suggestion is promoted by the integrations layer', function()
@@ -816,7 +816,7 @@ describe('when a suggestion is promoted by the integrations layer', function()
   end)
 end)
 
--- ── register underuse: "+y system-clipboard promotion (#59) ─────────────────
+-- ── register underuse: "+y system-clipboard promotion ───────────────────────
 -- see docs/adr/0031-priority-pool-for-gate-bypassing-candidates.md for why
 
 describe('when checking whether y is used heavily but "+y (system clipboard) is not', function()
@@ -879,7 +879,7 @@ describe('when y is yanked heavily but "+y has never been used', function()
   end)
 
   it('respects suppression like any other suggestion', function()
-    -- '"ay' also requires 'y' (#233) — suppress it too, otherwise it would
+    -- '"ay' also requires 'y' — suppress it too, otherwise it would
     -- surface as an ordinary (non-priority-pool) candidate once '"+y' itself
     -- is gated out, masking what this test actually checks.
     local usage = {

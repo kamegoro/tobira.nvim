@@ -161,7 +161,7 @@ for _, tc in ipairs(run_cases) do
   end)
 end
 
--- ── ~ higher thresholds: text-object-scoped case toggle (#235) ───────────────
+-- ── ~ higher thresholds: text-object-scoped case toggle ──────────────────────
 -- see docs/adr/0101-tilde-repeat-text-object-refinement.md
 
 describe('when ~ is repeated across consecutive character positions', function()
@@ -278,7 +278,7 @@ describe('when k is pressed 10 times in a row', function()
   end)
 end)
 
--- ── j / k in diff mode: prefer ]c / [c hunk navigation over }/{ (#111) ────────
+-- ── j / k in diff mode: prefer ]c / [c hunk navigation over }/{ ──────────────
 -- feed()'s 4th argument is the caller-supplied "is &diff set on this window?"
 -- flag (patterns.lua stays vim.*-free, so it never reads vim.wo.diff itself —
 -- logger.lua does and passes the boolean in). These tests inject it directly.
@@ -322,7 +322,7 @@ describe('when j is pressed 10 times in a row outside diff mode', function()
   end)
 end)
 
--- ── diff hunk jump → insert: suggest do / dp (#237) ───────────────────────────
+-- ── diff hunk jump → insert: suggest do / dp ──────────────────────────────────
 -- see docs/adr/0099-diff-obtain-put-after-hunk-jump.md
 
 describe('when the user edits immediately after jumping to a diff hunk', function()
@@ -466,9 +466,9 @@ describe('when the user presses dd 3 or more times in a row', function()
 end)
 
 -- ── cc (change line) → last_op tracking ──────────────────────────────────────
--- Regression tests for #118: patterns.lua's operator-pending branch used to
--- hardcode seq.last_op = 'dd' regardless of the actual operator, so cc was
--- silently recorded (and streak-tracked) as dd.
+-- Regression tests: patterns.lua's operator-pending branch used to hardcode
+-- seq.last_op = 'dd' regardless of the actual operator, so cc was silently
+-- recorded (and streak-tracked) as dd.
 
 describe('when the user presses cc (change line)', function()
   it('records last_op = cc, not the hardcoded dd', function()
@@ -628,7 +628,7 @@ describe('when the user deletes a word then enters insert mode to retype it', fu
   end)
 end)
 
--- ── yiw (yank + text-object) routes into pending_text_obj like d/c (#253) ────
+-- ── yiw (yank + text-object) routes into pending_text_obj like d/c ───────────
 -- Before the fix, the y-operator branch in pending_op only special-cased
 -- yy/y$; any other following key (including the i/a text-object prefixes)
 -- fell through as an ordinary standalone keystroke instead of routing into
@@ -741,7 +741,7 @@ describe('when p is pressed 3 or more times in a row without a preceding dd', fu
   end)
 end)
 
--- ── p / P → rightward motion (cursor skips past paste) → gp / gP (#106) ──────
+-- ── p / P → rightward motion (cursor skips past paste) → gp / gP ─────────────
 -- Same "remember the last operation, decide on the next key" design as
 -- yy_then_p / dd_then_p, but the decision spans several following keys
 -- instead of just one — closer in shape to dd_run / r_run's streak tracking.
@@ -818,7 +818,7 @@ describe('when the user pastes before the cursor then moves the cursor right sev
   end)
 end)
 
--- ── gp/gP still arms after yy_then_p / dd_then_p fires on the same p (#258) ──
+-- ── gp/gP still arms after yy_then_p / dd_then_p fires on the same p ─────────
 -- Before the fix, yy_then_p/dd_then_p both returned immediately on p, so the
 -- pending_paste arming code that p_then_rightward depends on was never
 -- reached for that same paste.
@@ -1094,7 +1094,7 @@ describe('when the user replaces individual characters 3 or more times', functio
   end)
 end)
 
--- ── <C-a> → j/k → <C-a> × 3: suggest g<C-a> (#108) ───────────────────────────
+-- ── <C-a> → j/k → <C-a> × 3: suggest g<C-a> ───────────────────────────────────
 -- Raw byte for Ctrl-A (ASCII 1 / 0x01), same convention as ctrl_w below.
 
 describe('when the user increments a number, moves down, and repeats 3 or more times', function()
@@ -1208,7 +1208,7 @@ describe('when the user selects an inner text object visually then operates', fu
   end)
 end)
 
--- ── v <Esc> v <Esc> v → gv (reselect last visual selection, #55) ────────────
+-- ── v <Esc> v <Esc> v → gv (reselect last visual selection) ──────────────────
 
 describe('when the user enters and immediately leaves visual mode 3 times in a row', function()
   it('fires v_repeat suggesting gv on the 3rd clean <Esc>, not the 3rd v', function()
@@ -1218,7 +1218,7 @@ describe('when the user enters and immediately leaves visual mode 3 times in a r
     patterns.feed(s, 'v', 1)
     patterns.feed(s, '\27', 1) -- <Esc>, 2nd clean tap
     local third_v = patterns.feed(s, 'v', 1)
-    -- The 3rd v must NOT fire yet (#55 follow-up) — see
+    -- The 3rd v must NOT fire yet — see
     -- docs/adr/0021-visual-repeat-gv-detection.md
     assert.is_nil(third_v)
     local result = patterns.feed(s, '\27', 1) -- <Esc> confirms the 3rd tap was also clean
@@ -1292,7 +1292,7 @@ describe('when the user enters and immediately leaves visual mode 3 times in a r
   end)
 end)
 
--- ── ci" / ci' × 3 (direct, non-visual) → suggest ya" / ya' (#53) ────────────
+-- ── ci" / ci' × 3 (direct, non-visual) → suggest ya" / ya' ───────────────────
 -- see docs/adr/0020-ci-quote-streak-and-tolerance.md
 
 describe('when the user changes inside double quotes (ci") 3 times in a row', function()
@@ -1369,7 +1369,7 @@ describe("when the user changes inside single quotes (ci') 3 times in a row", fu
 end)
 
 -- ── ci_dquote_streak / ci_squote_streak tolerate plain navigation between ──
--- completions (#53 live-QA follow-up) — see docs/adr/0020-ci-quote-streak-and-tolerance.md
+-- completions — see docs/adr/0020-ci-quote-streak-and-tolerance.md
 
 describe('when plain single-key navigation connects ci" completions on different strings', function()
   it('fires ci_dquote_repeat suggesting ya" for the realistic ci"..<Esc> w w ci"..<Esc> w w ci" flow', function()
@@ -1503,7 +1503,7 @@ describe('when a visual-mode ci" (v i " c) happens alongside direct ci" presses'
 end)
 
 -- ── text-object variants get their own tracked usage, not just the shared ───
--- ── op..'w' bucket (#254) ─────────────────────────────────────────────────────
+-- ── op..'w' bucket ───────────────────────────────────────────────────────────
 -- Before the fix, pending_text_obj always set last_op = op .. 'w', collapsing
 -- every ciw/ci"/ci'/cib/ciB/cit/cip/diw press into the shared cw/dw counter —
 -- each variant's OWN usage bucket never incremented, so commands.lua's
@@ -1574,19 +1574,11 @@ describe('when the user completes a text-object variant directly (ciw, ci", cib,
 end)
 
 -- ── pending_text_obj's completing key must not double-count as a bare ────────
--- ── keystroke too (independent QA finding, live-verified against logger.lua) ─
--- #253's own stated impact is that usage['w'].count gets silently inflated by
--- yiw, "as if the user pressed a bare w to move the cursor". Routing y's i/a
--- into pending_text_obj (#253) and adding last_op_variant (#254) both left
--- key_consumed unset on the call that resolves pending_text_obj — unlike
--- pending_register/pending_mark/pending_bracket, which all set key_consumed =
--- true (see docs/adr/0026-state-machine-bookkeeping-invariants.md: "so a
--- compound's second character isn't ALSO counted as a bare keystroke").
--- Live end-to-end testing against the real logger.lua confirmed this is not
--- just a yiw-specific gap: usage['w'].count still incremented on every single
--- diw/ciw/yiw completion even after this PR's fix, exactly the corruption
--- #253 reports, just now happening alongside (not instead of) the correct
--- dw/cw + own-variant increments.
+-- ── keystroke too ─────────────────────────────────────────────────────────────
+-- yiw's completing key left key_consumed unset, unlike
+-- pending_register/pending_mark/pending_bracket, so usage['w'].count kept
+-- inflating on every diw/ciw/yiw completion; see
+-- docs/adr/0026-state-machine-bookkeeping-invariants.md.
 describe('when a text object completes (independent QA: key_consumed must be set)', function()
   it('sets key_consumed on the completing key of ciw, matching pending_register/mark/bracket', function()
     local s = seq()
@@ -1808,7 +1800,7 @@ describe('when the user dedents the current line 3 or more times in a row', func
   end)
 end)
 
--- ── = auto-indent operator tracking (#265) ────────────────────────────────────
+-- ── = auto-indent operator tracking ────────────────────────────────────────────
 -- Before the fix, '=' was never one of pending_op's trigger characters, so
 -- the raw == keystroke was never counted and it could never be marked
 -- mastered regardless of actual usage. Nothing else uses '==' as a `requires`
@@ -1876,7 +1868,7 @@ describe('when the user specifies a register with "', function()
   end)
 end)
 
--- ── "+y system-clipboard yank compound (#59) ──────────────────────────────────
+-- ── "+y system-clipboard yank compound ─────────────────────────────────────────
 -- see docs/adr/0023-register-mark-bracket-prefix-consumers.md
 
 describe('when the user yanks to the system clipboard with "+y', function()
@@ -1996,7 +1988,7 @@ describe('when the user jumps to a mark with `', function()
   end)
 end)
 
--- ── register/mark names that collide with f/F/t/T (#257) ─────────────────────
+-- ── register/mark names that collide with f/F/t/T ─────────────────────────────
 -- Before the fix, the f/F/t/T search-start handler ran BEFORE
 -- pending_register/pending_mark consumed their expected next character, so
 -- "tyy / mt / `t (register or mark named f/F/t/T) corrupted seq.pending_f
@@ -2068,16 +2060,12 @@ describe('when a mark name happens to be f, F, t, or T', function()
   end)
 end)
 
--- ── r-replacement character that happens to be f/F/t/T (independent QA of #257) ──
--- pending_r is the same shape of "single-char prefix that consumes exactly one
--- following character" as pending_register/pending_mark, but was left out of the
--- #257 fix. Before this fix, r/f/t/T's f/F/t/T search-start handler ran before
--- pending_r consumed its expected replacement character, so r{f,F,t,T} hijacked
--- pending_f AND left pending_r dangling (worse than #257: the NEXT real keystroke
--- after that gets wrongly consumed as the r-replacement completion too, so two
--- real keystrokes are silently swallowed instead of one). See
--- docs/adr/0026-state-machine-bookkeeping-invariants.md (track_run() must run
--- unconditionally) for the invariant this violated.
+-- ── r-replacement character that happens to be f/F/t/T ────────────────────────
+-- pending_r is the same shape of "single-char prefix that consumes exactly
+-- one following character" as pending_register/pending_mark. Before this fix,
+-- r/f/t/T's f/F/t/T search-start handler ran before pending_r consumed its
+-- replacement character, silently swallowing two real keystrokes instead of
+-- one. See docs/adr/0026-state-machine-bookkeeping-invariants.md.
 
 describe('when the replacement character for r happens to be f, F, t, or T', function()
   for _, char in ipairs({ 'f', 'F', 't', 'T' }) do
@@ -2106,16 +2094,11 @@ describe('when the replacement character for r happens to be f, F, t, or T', fun
   end)
 end)
 
--- ── visual inner/around tag text object collides with f/F/t/T (independent QA ──
--- ── of #254) ─────────────────────────────────────────────────────────────────
+-- ── visual inner/around tag text object collides with f/F/t/T ────────────────
 -- v/visual_inner's text-object-character consumer is the same shape of
--- prefix-continuation state as pending_text_obj (#254's own fix), but the visual
--- (v i {obj}) path was left out of that fix. Before this fix, 'vit'/'vat' (tag
--- text object) had their 't' hijacked by the f/F/t/T search-start handler
--- instead of completing visual_obj, so visual_textobj never fired for the tag
--- variant at all — the same "stuck at 0 / never suggested" class of bug as
--- #254's original symptom, just reached via visual mode instead of operator-
--- pending mode.
+-- prefix-continuation state as pending_text_obj, but the visual (v i {obj})
+-- path was left out of that fix: 'vit'/'vat' had their 't' hijacked by the
+-- f/F/t/T search-start handler instead of completing visual_obj.
 
 describe('when the visual text-object character happens to be t (tag object)', function()
   it('fires visual_textobj cit for v i t c', function()
@@ -2183,7 +2166,7 @@ describe('when the user presses g followed by a motion key', function()
     { key = 'n', last_op = 'gn' },
     { key = 'x', last_op = 'gx' },
     { key = '0', last_op = 'g0' },
-    -- #120: change-list nav / paste-without-jump / case-operator chains
+    -- change-list nav / paste-without-jump / case-operator chains
     { key = ';', last_op = 'g;' },
     { key = 'p', last_op = 'gp' },
     { key = 'u', last_op = 'gu' },
@@ -2229,7 +2212,7 @@ describe('when the user presses g followed by a motion key', function()
   end)
 end)
 
--- ── g-compounds must reset consecutive-run tracking for their 2nd key (#30 QA) ─
+-- ── g-compounds must reset consecutive-run tracking for their 2nd key ────────
 -- Bug: adopting e_repeat's own suggestion (typing ge) did not reset the
 -- e-streak, re-firing e_repeat immediately — see
 -- docs/adr/0019-jumplist-changelist-underuse-detection.md
@@ -2314,7 +2297,7 @@ describe('when the user presses z followed by a view command key', function()
     { key = 'M', last_op = 'zM' },
     { key = 'R', last_op = 'zR' },
     { key = 'd', last_op = 'zd' },
-    -- zf (#265): z_targets omitted 'f' (unlike sibling zd), so zf's own
+    -- zf: z_targets omitted 'f' (unlike sibling zd), so zf's own
     -- raw keystroke was never counted and it could never be marked mastered
     -- regardless of actual usage.
     { key = 'f', last_op = 'zf' },
@@ -2351,7 +2334,7 @@ describe('when the user presses z followed by a view command key', function()
   end)
 end)
 
--- ── <C-w> / pending_ctrl_w two-key compound tracking (#120) ───────────────────
+-- ── <C-w> / pending_ctrl_w two-key compound tracking ───────────────────────────
 -- Raw byte for Ctrl-W is ASCII 23 ('\23'), matching the byte vim.on_key
 -- delivers and the literal used in patterns.lua — see logger_spec.lua's
 -- integration-level coverage for the vim.api.nvim_replace_termcodes version.
@@ -2552,7 +2535,7 @@ describe('when a jump-back is not preceded by a completed gq', function()
   end)
 end)
 
--- ── <C-w>q / <C-w>c repeated → <C-w>o (#107) ──────────────────────────────────
+-- ── <C-w>q / <C-w>c repeated → <C-w>o ───────────────────────────────────────────
 -- see docs/adr/0024-ctrl-w-window-compound-and-close-streak.md
 
 describe('when the user closes windows one at a time', function()
@@ -2654,7 +2637,7 @@ describe('when the user closes windows one at a time', function()
   end)
 end)
 
--- ── <C-w>+ / <C-w>- / <C-w>< / <C-w>> repeated → <C-w>= (#231) ────────────────
+-- ── <C-w>+ / <C-w>- / <C-w>< / <C-w>> repeated → <C-w>= ────────────────────────
 -- see docs/adr/0096-ctrl-w-resize-streak.md
 
 describe('when the user resizes windows one keystroke at a time', function()
@@ -2827,7 +2810,7 @@ describe('when a key is consumed as part of a preceding register, mark, or [ / ]
   end)
 end)
 
--- ── op_completed flag (#119) ────────────────────────────────────────────────
+-- ── op_completed flag ────────────────────────────────────────────────────────
 -- see docs/adr/0026-state-machine-bookkeeping-invariants.md
 
 describe('when an operator command freshly completes, as opposed to merely repeating the same one', function()
@@ -2873,10 +2856,10 @@ describe('when an operator command freshly completes, as opposed to merely repea
     assert.is_true(s.op_completed)
   end)
 
-  -- #120's pending_ctrl_w dispatch table was added after op_completed (#119)
-  -- already existed elsewhere in this file (pending_g / pending_z), so its
-  -- last_op assignment needed the same flag added by hand during the merge —
-  -- this guards against that path silently regressing to the #119 bug.
+  -- pending_ctrl_w's dispatch table was added after op_completed already
+  -- existed elsewhere in this file (pending_g / pending_z), so its last_op
+  -- assignment needed the same flag added by hand during the merge — this
+  -- guards against that path silently regressing to the undercounting bug.
   it('is true again when a second, identical <C-w>j completes right after the first', function()
     local ctrl_w = '\23'
     local s = seq()
@@ -2889,9 +2872,8 @@ describe('when an operator command freshly completes, as opposed to merely repea
     assert.is_true(s.op_completed)
   end)
 
-  -- #107 adds <C-w>c to the pending_ctrl_w dispatch table (it was not tracked
-  -- at all before). Guard against the same #119 undercounting bug reappearing
-  -- on this newly-added entry.
+  -- <C-w>c is in the pending_ctrl_w dispatch table; guard against the same
+  -- undercounting bug reappearing on this entry.
   it('is true again when a second, identical <C-w>c completes right after the first', function()
     local ctrl_w = '\23'
     local s = seq()
@@ -2930,7 +2912,7 @@ describe('when an operator command freshly completes, as opposed to merely repea
   end)
 end)
 
--- ── jumplist underuse: G / gg / search → manual scroll back → <C-o> (#61) ────
+-- ── jumplist underuse: G / gg / search → manual scroll back → <C-o> ──────────
 -- patterns.feed's 4th argument is a caller-supplied clock reading (ms); real
 -- callers pass vim.loop.now(), these tests pass fixed numbers so the
 -- tolerance-window boundary is deterministic instead of depending on how
@@ -3081,7 +3063,7 @@ describe('when the user jumps to end of file then scrolls back manually', functi
   end
 end)
 
--- ── zz cursor-centering streak: <C-e>/<C-y> repeated → zz (#243) ─────────────
+-- ── zz cursor-centering streak: <C-e>/<C-y> repeated → zz ────────────────────
 -- see docs/adr/0097-cursor-centering-streak.md
 
 describe('when the user repeatedly scrolls with <C-e>/<C-y> to reposition the cursor line', function()
@@ -3175,7 +3157,7 @@ describe('when the user repeatedly scrolls with <C-e>/<C-y> to reposition the cu
   end)
 end)
 
--- ── changelist underuse: edit A, move, edit B, scroll back → g; (#61) ────────
+-- ── changelist underuse: edit A, move, edit B, scroll back → g; ──────────────
 
 describe('when the user edits two different places then scrolls back', function()
   local function two_edits(s, at)
@@ -3289,7 +3271,7 @@ describe('when the user edits two different places then scrolls back', function(
   end)
 end)
 
--- ── arbitration when both preconditions are true at once (#61 regression) ───
+-- ── arbitration when both preconditions are true at once ─────────────────────
 -- Reported by live QA: 10G → x (edit) → 40G → x (edit) → k×5 back always
 -- suggested <C-o>, never g; — see docs/adr/0019-jumplist-changelist-underuse-detection.md
 
@@ -3325,7 +3307,7 @@ describe('when both the jumplist and changelist preconditions are true on the sa
   end)
 end)
 
--- ── named-mark opportunity: repeated returns to the same line → ma (#238) ────
+-- ── named-mark opportunity: repeated returns to the same line → ma ───────────
 -- see docs/adr/0100-named-mark-repeated-line-return.md
 -- 'l' is used as the connecting/leaving motion below (not j/k/G/<C-e>/<C-y>)
 -- so these tests never touch jump_return_streak/change_return_streak/
@@ -3440,7 +3422,7 @@ describe('when the cursor returns to the same line 3 times with real edits elsew
   end)
 end)
 
--- ── macro opportunity detection: repeated edit sequence → qq...q / @q (#60) ──
+-- ── macro opportunity detection: repeated edit sequence → qq...q / @q ────────
 -- M.feed_macro(seq, token, now) is a separate entry point from M.feed() — see
 -- docs/adr/0018-macro-opportunity-detection.md
 
@@ -3456,7 +3438,7 @@ local function feed_macro_seq(s, keys, now_start)
   return result
 end
 
--- The literal issue-#60 example (see docs/adr/0018-macro-opportunity-detection.md):
+-- A literal example from the docs (see docs/adr/0018-macro-opportunity-detection.md):
 -- cwFooBar<Esc> contains a lowercase 'w' and an uppercase 'B', both
 -- classified as motion keys — the pitfall regression test below.
 local CW_FOOBAR_ESC = { 'c', 'w', 'F', 'o', 'o', 'B', 'a', 'r', '<Esc>' }
@@ -3616,7 +3598,7 @@ describe("seq.macro_buf's bounded growth", function()
 end)
 
 -- ── visual-block edit streak: same single-line edit on 3+ consecutive ────────
--- ── lines → suggest <C-v> (#230) ──────────────────────────────────────────────
+-- ── lines → suggest <C-v> ────────────────────────────────────────────────────
 -- see docs/adr/0098-visual-block-edit-streak.md
 
 describe('when the user repeats the same single-line edit on consecutive lines', function()
@@ -3709,7 +3691,7 @@ describe('when the user repeats the same single-line edit on consecutive lines',
   end)
 end)
 
--- ── gg ↔ G double-jump: suggest '' (jump back to previous position) (#52) ────
+-- ── gg ↔ G double-jump: suggest '' (jump back to previous position) ──────────
 -- see docs/adr/0019-jumplist-changelist-underuse-detection.md
 
 describe('when the user jumps to the end of the file then back to the start', function()
@@ -3811,7 +3793,7 @@ describe('when the user jumps to the start of the file then back to the end', fu
 end)
 
 -- ── regression: jump_back firing must not skip jumplist bookkeeping ─────────
--- jump_back and manual_return (#61) share seq.jump_last_at — see
+-- jump_back and manual_return share seq.jump_last_at — see
 -- docs/adr/0019-jumplist-changelist-underuse-detection.md
 
 describe('when a bare G fires jump_back via the gg -> G check (last_op already "gg")', function()
@@ -3891,9 +3873,9 @@ end)
 
 -- ── design decision: jump_back's own last_op reuse stays keystroke-only ─────
 -- Deliberately NOT given a JUMP_TOLERANCE_MS-style time bound, unlike
--- jump_last_at/manual_return above (#52's acceptance criteria only ever
--- describes back-to-back keystrokes, never elapsed time). Pins this down so
--- a future change doesn't silently alter it.
+-- jump_last_at/manual_return above (this behavior only ever describes
+-- back-to-back keystrokes, never elapsed time). Pins this down so a future
+-- change doesn't silently alter it.
 describe("jump_back's last_op sentinel has no time bound (intentional, see above)", function()
   it('still fires after a long idle gap with no intervening key', function()
     local s = seq()

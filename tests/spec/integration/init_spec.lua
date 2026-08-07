@@ -65,7 +65,7 @@ describe('tobira.setup', function()
     assert.is_true(ok2, err2)
     assert.is_true(celebrate_called)
 
-    -- integrations.setup() (#63): populates the override cache and registers
+    -- integrations.setup() populates the override cache and registers
     -- its own VimEnter/SourcePost augroup.
     local integrations = require('tobira.core.integrations')
     assert.is_table(integrations.get_overrides())

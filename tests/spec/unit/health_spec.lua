@@ -1,4 +1,4 @@
--- :checkhealth tobira (#42).
+-- :checkhealth tobira.
 -- vim.health (Neovim >= 0.10) is mocked per-test so we can assert exactly
 -- which of start/ok/warn/error fired, without a real :checkhealth buffer.
 
