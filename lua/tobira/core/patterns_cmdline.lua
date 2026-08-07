@@ -125,7 +125,7 @@ function M.command_arg(text)
   return word:lower(), arg
 end
 
--- Ex-command ping-pong detection (#114): a user repeatedly bouncing between
+-- Ex-command ping-pong detection: a user repeatedly bouncing between
 -- the same two files via :e/:b (:e A -> :e B -> :e A, or the :b equivalent)
 -- is a direct signal for <C-^>, which jumps straight to the alternate file.
 --
@@ -175,7 +175,7 @@ function M.feed_pingpong(seq, word, arg)
 end
 
 -- ── tabnew one-file-per-tab habit detection ─────────────────────────────────
--- Detects "tabs as a VSCode-style file browser" (#113): opening a new file
+-- Detects "tabs as a VSCode-style file browser": opening a new file
 -- with :tabnew, one tab per file, 3+ times in a row with no window splits in
 -- between, and suggests buffer commands (:b / <C-^>) instead — reuses
 -- commands.lua's existing '<C-^>' entry rather than duplicating it.
@@ -239,7 +239,7 @@ end
 -- `:s/{pattern}/{replacement}/{flags}` BODY (tokenize() only extracts the
 -- command name and discards the rest) so identical manual substitutions
 -- across different lines can be detected and answered with `&` (repeat on
--- this line) or `g&` (repeat file-wide) (#115). Stateful across calls
+-- this line) or `g&` (repeat file-wide). Stateful across calls
 -- (unlike tokenize()) — state lives via M.new_substitute_state() for the
 -- whole session, same lifetime as logger.lua's `seq`.
 --
@@ -252,7 +252,7 @@ local function is_valid_delimiter(c)
 end
 
 -- Shared by track_substitute() below and feed_history_recall() further down
--- (#241) -- both need to know whether a lowercased command word belongs to
+-- -- both need to know whether a lowercased command word belongs to
 -- the ":substitute" family, so this is factored out once rather than
 -- duplicated across two functions in the same file (unlike the cross-file
 -- duplication in logger.lua's looks_like_substitute(), which exists to keep
@@ -366,66 +366,22 @@ end
 --
 -- M.feed_history_recall(state, text, word, arg) generalizes the "retyping
 -- instead of recalling" insight behind the three detectors above to any
--- OTHER Ex command (#241): the exact same full command-line string submitted
--- 2+ times is a signal for `:` + <Up> (or q:) history recall, regardless of
--- what the command actually does.
+-- other Ex command: the same full command-line string submitted 2+ times is
+-- a signal for `:` + <Up> (or q:) history recall.
 --
--- word (command_arg()'s first return, already lowercased; nil for symbolic
--- commands like :!) gates out anything the three more specific detectors
--- above already claim, so this generic one never double-fires alongside them
--- and can never race to fire first:
---   - any abbreviation of :substitute (is_substitute_word) -- even scope
---     track_substitute() itself declines (e.g. a ranged :%s/../../) is
---     excluded here too, by word-family rather than by exact-scope match, so
---     the same edit habit never earns two different suggestions.
---   - :e / :b (PINGPONG_COMMANDS) -- regardless of whether an argument was
---     given, matching feed_pingpong()'s own literal-word-only scope (no
---     abbreviations recognized, so :edit/:buffer fall through to this
---     generic detector instead).
---   - :tabnew, exact word only -- same literal-word-only scope as
---     feed_tabnew()'s own ":tabnew" name check in logger.lua.
---
--- arg (command_arg()'s second return for this same text, or nil) gates out
--- bare commands with no argument at all -- a QA-found false positive fixed
--- after this PR first landed: `word ~= nil and arg == nil` means the entire
--- submitted line was nothing but a (possibly bang-forced) command word, e.g.
--- `:w`, `:q`, `:x`, `:wq`, `:qa`, `:noh`, `:qa!`. There is nothing substantial
--- in a bare command word to mistype or lose by retyping it -- the "avoid
--- retyping this" pitch that `q:` sells only makes sense once there's an
--- argument (a pattern, a range, a filename, flags) actually worth not
--- retyping. This reuses command_arg()'s own bang-stripping/argument
--- extraction rather than inventing a separate length threshold, so it stays
--- an argument/complexity check, not a word blacklist: `:w somefile.txt`
--- retyped verbatim still fires, exactly like `:g/foo/d` does. Symbolic
--- commands (word == nil, e.g. `:!somecommand --flags`) are unaffected by
--- this guard -- command_arg() cannot separate their "word" from their
--- "argument", so the full text is still tracked as before.
---
--- Unlike substitute/pingpong/tabnew (see
--- docs/adr/0015-ex-command-verify-before-credit.md), no defer-and-verify
--- credit is needed here -- the signal is the retyping ITSELF, not any effect
--- the command has. A command that fails identically both times still means
--- the user typed the same doomed text twice instead of recalling and fixing
--- it from history.
---
--- recalled_via_history (#259): true when the caller observed an <Up>/<Down>
--- history-navigation keystroke during THIS cmdline session, before the
--- terminating key. Text equality alone cannot distinguish "manually retyped
--- the exact same command" from "recalled it via <Up> and resubmitted
--- unchanged" -- both look identical to vim.fn.getcmdline() at <CR> time, but
--- only the former is the habit q: is meant to fix; the latter is the user
--- already doing exactly what q: teaches, so flagging it is self-contradictory
--- (the shipped bug, see the QA repro in docs/adr/0095). When true, this
--- submission is skipped ENTIRELY -- state.entries is left untouched, not just
--- "not fired" -- so a genuine recall never consumes the 2-submission slot a
--- later manual retype of the same text would need to fire on its own merits.
--- This module stays vim.*-free (see the file header), so it cannot observe
--- the <Up>/<Down> keystroke itself; logger.lua tracks it and passes the
--- result in, the same way it already threads win_count/word/arg through from
--- vim.* calls this module cannot make.
+-- word/arg gate out anything the three specific detectors above already
+-- claim (the :substitute family, :e/:b, :tabnew) and bare commands with no
+-- argument, so this generic detector never double-fires alongside them.
+-- recalled_via_history distinguishes a genuine <Up>/<Down> recall from a
+-- manual retype -- both look identical to vim.fn.getcmdline() at <CR> time,
+-- but only the retype is the habit q: is meant to fix; when true, this
+-- submission is skipped entirely (not just "not fired") so it never consumes
+-- a slot a later manual retype of the same text would need. This module
+-- stays vim.*-free (see the file header), so it cannot observe <Up>/<Down>
+-- itself -- logger.lua tracks it and passes the result in.
 --
 -- see docs/adr/0095-cmdline-history-recall-detection.md for the full
--- rationale and the fires-once-per-distinct-text latch.
+-- rationale, the exclusion design, and the fires-once-per-distinct-text latch.
 function M.new_history_recall_state()
   return { entries = {} }
 end
@@ -445,7 +401,7 @@ function M.feed_history_recall(state, text, word, arg, recalled_via_history)
     return nil
   end
   if recalled_via_history then
-    return nil -- genuine recall, not retyping -- see header comment above (#259)
+    return nil -- genuine recall, not retyping -- see header comment above
   end
   if word and (is_substitute_word(word) or PINGPONG_COMMANDS[word] or word == 'tabnew') then
     return nil
