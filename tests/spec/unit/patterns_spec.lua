@@ -1573,6 +1573,64 @@ describe('when the user completes a text-object variant directly (ciw, ci", cib,
   end)
 end)
 
+-- ── pending_text_obj's completing key must not double-count as a bare ────────
+-- ── keystroke too (independent QA finding, live-verified against logger.lua) ─
+-- #253's own stated impact is that usage['w'].count gets silently inflated by
+-- yiw, "as if the user pressed a bare w to move the cursor". Routing y's i/a
+-- into pending_text_obj (#253) and adding last_op_variant (#254) both left
+-- key_consumed unset on the call that resolves pending_text_obj — unlike
+-- pending_register/pending_mark/pending_bracket, which all set key_consumed =
+-- true (see docs/adr/0026-state-machine-bookkeeping-invariants.md: "so a
+-- compound's second character isn't ALSO counted as a bare keystroke").
+-- Live end-to-end testing against the real logger.lua confirmed this is not
+-- just a yiw-specific gap: usage['w'].count still incremented on every single
+-- diw/ciw/yiw completion even after this PR's fix, exactly the corruption
+-- #253 reports, just now happening alongside (not instead of) the correct
+-- dw/cw + own-variant increments.
+describe('when a text object completes (independent QA: key_consumed must be set)', function()
+  it('sets key_consumed on the completing key of ciw, matching pending_register/mark/bracket', function()
+    local s = seq()
+    patterns.feed(s, 'c', 1)
+    patterns.feed(s, 'i', 1)
+    local result = patterns.feed(s, 'w', 1)
+    assert.is_nil(result)
+    assert.is_true(s.key_consumed)
+  end)
+
+  it('sets key_consumed on the completing key of diw', function()
+    local s = seq()
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'i', 1)
+    local result = patterns.feed(s, 'w', 1)
+    assert.is_nil(result)
+    assert.is_true(s.key_consumed)
+  end)
+
+  it('sets key_consumed on the completing key of yiw (#253 regression)', function()
+    local s = seq()
+    patterns.feed(s, 'y', 1)
+    patterns.feed(s, 'i', 1)
+    local result = patterns.feed(s, 'w', 1)
+    assert.is_nil(result)
+    assert.is_true(s.key_consumed)
+  end)
+
+  it('still sets key_consumed on the ci-dquote direct-path streak-firing call too', function()
+    local s = seq()
+    patterns.feed(s, 'c', 1)
+    patterns.feed(s, 'i', 1)
+    patterns.feed(s, '"', 1)
+    patterns.feed(s, 'c', 1)
+    patterns.feed(s, 'i', 1)
+    patterns.feed(s, '"', 1)
+    patterns.feed(s, 'c', 1)
+    patterns.feed(s, 'i', 1)
+    local result = patterns.feed(s, '"', 1) -- 3rd direct completion — fires ci_dquote_repeat
+    assert.equals('ci_dquote_repeat', result.pattern)
+    assert.is_true(s.key_consumed)
+  end)
+end)
+
 -- ── c$ → C (change to end of line) ──────────────────────────────────────────
 
 describe('when the user changes to end of line with c$', function()
@@ -2007,6 +2065,88 @@ describe('when a mark name happens to be f, F, t, or T', function()
     local result = patterns.feed(s, 'j', 1)
     assert.is_not_nil(result)
     assert.equals('j_repeat', result.pattern)
+  end)
+end)
+
+-- ── r-replacement character that happens to be f/F/t/T (independent QA of #257) ──
+-- pending_r is the same shape of "single-char prefix that consumes exactly one
+-- following character" as pending_register/pending_mark, but was left out of the
+-- #257 fix. Before this fix, r/f/t/T's f/F/t/T search-start handler ran before
+-- pending_r consumed its expected replacement character, so r{f,F,t,T} hijacked
+-- pending_f AND left pending_r dangling (worse than #257: the NEXT real keystroke
+-- after that gets wrongly consumed as the r-replacement completion too, so two
+-- real keystrokes are silently swallowed instead of one). See
+-- docs/adr/0026-state-machine-bookkeeping-invariants.md (track_run() must run
+-- unconditionally) for the invariant this violated.
+
+describe('when the replacement character for r happens to be f, F, t, or T', function()
+  for _, char in ipairs({ 'f', 'F', 't', 'T' }) do
+    it('consumes r' .. char .. ' as the replacement instead of starting an f/t search', function()
+      local s = seq()
+      patterns.feed(s, 'r', 1)
+      local result = patterns.feed(s, char, 1)
+      assert.is_nil(result)
+      assert.is_nil(s.pending_f)
+      assert.is_false(s.pending_r)
+    end)
+  end
+
+  it('does not undercount a j-streak when preceded by rf (regression)', function()
+    local s = seq()
+    patterns.feed(s, 'r', 1)
+    patterns.feed(s, 'f', 1)
+    for _ = 1, 4 do
+      local mid = patterns.feed(s, 'j', 1)
+      assert.is_nil(mid)
+    end
+    local result = patterns.feed(s, 'j', 1)
+    assert.is_not_nil(result)
+    assert.equals('j_repeat', result.pattern)
+    assert.equals('{n}j', result.cmd)
+  end)
+end)
+
+-- ── visual inner/around tag text object collides with f/F/t/T (independent QA ──
+-- ── of #254) ─────────────────────────────────────────────────────────────────
+-- v/visual_inner's text-object-character consumer is the same shape of
+-- prefix-continuation state as pending_text_obj (#254's own fix), but the visual
+-- (v i {obj}) path was left out of that fix. Before this fix, 'vit'/'vat' (tag
+-- text object) had their 't' hijacked by the f/F/t/T search-start handler
+-- instead of completing visual_obj, so visual_textobj never fired for the tag
+-- variant at all — the same "stuck at 0 / never suggested" class of bug as
+-- #254's original symptom, just reached via visual mode instead of operator-
+-- pending mode.
+
+describe('when the visual text-object character happens to be t (tag object)', function()
+  it('fires visual_textobj cit for v i t c', function()
+    local s = seq()
+    patterns.feed(s, 'v', 1)
+    patterns.feed(s, 'i', 1)
+    patterns.feed(s, 't', 1)
+    local result = patterns.feed(s, 'c', 1)
+    assert.is_not_nil(result)
+    assert.equals('visual_textobj', result.pattern)
+    assert.equals('cit', result.cmd)
+  end)
+
+  it('fires visual_textobj dit for v i t d', function()
+    local s = seq()
+    patterns.feed(s, 'v', 1)
+    patterns.feed(s, 'i', 1)
+    patterns.feed(s, 't', 1)
+    local result = patterns.feed(s, 'd', 1)
+    assert.is_not_nil(result)
+    assert.equals('dit', result.cmd)
+  end)
+
+  it('fires visual_textobj yat for v a t y', function()
+    local s = seq()
+    patterns.feed(s, 'v', 1)
+    patterns.feed(s, 'a', 1)
+    patterns.feed(s, 't', 1)
+    local result = patterns.feed(s, 'y', 1)
+    assert.is_not_nil(result)
+    assert.equals('yat', result.cmd)
   end)
 end)
 

@@ -163,9 +163,28 @@ While pending_op is set:
 `gf` and `zt` are incorrectly captured as f/t searches. The same rule applies to
 `pending_register` / `pending_mark` / `pending_bracket` (#257 — a register or mark
 named `f`/`F`/`t`/`T`, e.g. `"tyy`/`mt`, must be consumed as that prefix's expected
-next character, not reinterpreted as a fresh f/t-search) and to `pending_text_obj`
+next character, not reinterpreted as a fresh f/t-search), to `pending_text_obj`
 (#254 follow-up — the tag text object `cit`/`dit` uses `t` as its text-object
-character). Apply the same rule to any new two-or-more-key command prefix.
+character), to `pending_r` (independent QA finding on PR #277 — `r{char}`'s
+replacement character consumer is the same shape of single-char prefix; `rf`/`rt`
+etc. were hijacked the same way, and worse: the dangling `pending_r` then also
+swallowed the NEXT real keystroke as a phantom replacement), and to the visual
+text-object tracking block (`pending_visual`/`visual_inner`/`visual_obj` —
+independent QA finding on PR #277: `vit`/`vat`'s object character is also `t`,
+so `visual_textobj` never fired for the tag variant before this). Apply the same
+rule to any new two-or-more-key command prefix.
+
+**`key_consumed` on prefix/compound completion (independent QA finding, PR #277):**
+Every handler above that consumes a prefix's expected next character must set
+`seq.key_consumed = true` on that call, not just return early — `logger.lua` reads
+this flag to skip standalone `TRACK` counting for that key (see
+`docs/adr/0026-state-machine-bookkeeping-invariants.md`). `pending_text_obj`'s
+completing key (e.g. the `w` of `ciw`/`diw`/`yiw`) was missing this even after
+#253/#254 shipped, so `usage['w'].count` kept silently inflating on every
+text-object completion — the exact defect #253 reports as its impact, still
+reproducing live against the real `logger.lua` pipeline. Any new pending-state
+consumer must set this flag too, or its completing key double-counts as a bare
+keystroke on top of whatever compound/variant bucket it correctly increments.
 
 ## How to add a command
 

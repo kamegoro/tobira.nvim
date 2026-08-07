@@ -834,6 +834,18 @@ local function inner_feed(seq, key, line, is_diff, now)
     seq.pending_text_obj_inner = false
     seq.last_op = op .. 'w'
     seq.op_completed = true
+    -- Independent QA finding (see docs/adr/0026-state-machine-bookkeeping-
+    -- invariants.md): this key is the completing character of a d/c/y + i/a
+    -- + {char} compound, exactly like pending_register/pending_mark/
+    -- pending_bracket's consumed key above — without this, logger.lua's
+    -- "skip standalone TRACK counting for a compound's already-consumed key"
+    -- gate never engages, so e.g. the w of ciw/diw/yiw ALSO silently
+    -- increments bare usage['w'].count on top of the correct cw/dw/yw and
+    -- own-variant increments. This is #253's own stated impact
+    -- (usage['w'].count "as if the user pressed a bare w") — live-verified
+    -- against the real logger.lua to still reproduce for diw/ciw/yiw alike
+    -- even after #253/#254's fix, since neither touched key_consumed here.
+    seq.key_consumed = true
 
     -- Own tracked variant (#254), alongside the shared op..'w' bucket set
     -- above — see docs/adr/0102-text-object-variant-own-usage-tracking.md.
@@ -864,39 +876,15 @@ local function inner_feed(seq, key, line, is_diff, now)
     return nil
   end
 
-  -- ── f / F / t / T ────────────────────────────────────────────────────────
-  if key == 'f' or key == 'F' or key == 't' or key == 'T' then
-    seq.pending_f = key
-    seq.pending_op = nil
-    seq.run = { key = nil, count = 0 }
-    seq.r_streak = 0
-    seq.indent_streak = 0
-    seq.dedent_streak = 0
-    seq.visual_obj = nil
-    seq.visual_inner = nil
-    seq.pending_visual = false
-    seq.pending_register = false
-    seq.pending_mark = false
-    seq.pending_bracket = false
-    return nil
-  end
-
-  if seq.pending_f then
-    local op = seq.pending_f
-    seq.pending_f = nil
-    local fired = nil
-    if seq.last_f and seq.last_f.line == line and seq.last_f.char == key and seq.last_f.op == op then
-      fired = { pattern = 'f_repeat', cmd = ';' }
-    end
-    seq.last_f = { char = key, line = line, op = op }
-    return fired
-  end
-
-  if seq.last_f and seq.last_f.line ~= line then
-    seq.last_f = nil
-  end
-
   -- ── pending_r: consume replacement character ──────────────────────────────
+  -- Must also precede f/F/t/T below (independent QA finding, same class as
+  -- #257/#254 follow-up): r is a single-char prefix that consumes exactly one
+  -- following character, same shape as pending_register/pending_mark above.
+  -- Before this fix it ran after the f/F/t/T handler, so r{f,F,t,T} (replacing
+  -- a character with literally f/F/t/T) hijacked pending_f AND left pending_r
+  -- dangling — worse than #257's original bug, since the NEXT real keystroke
+  -- after that was then wrongly consumed as completing the stale r-replacement
+  -- too, silently swallowing two real keystrokes instead of one.
   if seq.pending_r then
     seq.pending_r = false
     seq.r_streak = seq.r_streak + 1
@@ -909,6 +897,12 @@ local function inner_feed(seq, key, line, is_diff, now)
 
   -- ── visual text-object tracking ───────────────────────────────────────────
   -- State: pending_visual → visual_inner → visual_obj → operator
+  -- Must also precede f/F/t/T below (independent QA finding, same class as
+  -- #254 follow-up): the tag text object (vit/vat) uses 't' as its
+  -- text-object character, same collision #254's fix already addressed for
+  -- pending_text_obj's operator-pending path — the visual-mode path
+  -- (visual_inner's consumer below) was left out of that fix, so vit/vat
+  -- never fired visual_textobj at all before this.
   if seq.visual_obj then
     if key == 'c' or key == 'd' or key == 'y' then
       local cmd = key .. seq.visual_inner .. seq.visual_obj
@@ -946,6 +940,38 @@ local function inner_feed(seq, key, line, is_diff, now)
     end
     -- Whether accepted or cancelled, consume and return
     return nil
+  end
+
+  -- ── f / F / t / T ────────────────────────────────────────────────────────
+  if key == 'f' or key == 'F' or key == 't' or key == 'T' then
+    seq.pending_f = key
+    seq.pending_op = nil
+    seq.run = { key = nil, count = 0 }
+    seq.r_streak = 0
+    seq.indent_streak = 0
+    seq.dedent_streak = 0
+    seq.visual_obj = nil
+    seq.visual_inner = nil
+    seq.pending_visual = false
+    seq.pending_register = false
+    seq.pending_mark = false
+    seq.pending_bracket = false
+    return nil
+  end
+
+  if seq.pending_f then
+    local op = seq.pending_f
+    seq.pending_f = nil
+    local fired = nil
+    if seq.last_f and seq.last_f.line == line and seq.last_f.char == key and seq.last_f.op == op then
+      fired = { pattern = 'f_repeat', cmd = ';' }
+    end
+    seq.last_f = { char = key, line = line, op = op }
+    return fired
+  end
+
+  if seq.last_f and seq.last_f.line ~= line then
+    seq.last_f = nil
   end
 
   -- ── pending_op ────────────────────────────────────────────────────────────
