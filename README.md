@@ -129,16 +129,22 @@ require("tobira").setup({
 tobira always respects your own `:nmap`/`:nnoremap` overrides — it never suggests a
 command you've remapped away, and `integrations` above only gates the optional
 plugin-detection boost, not that baseline behavior (see `:help tobira-integrations`).
-Two narrow exceptions: Neovim's own factory-default `nnoremap Y y$` is recognized as
-equivalent to what tobira already teaches, so the reactive `y$` → `Y` suggestion still
-fires even on a stock install — a `Y` remapped to anything else still suppresses it.
-Likewise, Neovim auto-loads `matchit.vim` by default, which remaps `%` to
-`<Plug>(MatchitNormalForward)` — a strict, compatible superset of the built-in `%`
-tobira teaches, so `:TobiraGuide`'s cheat sheet still lists `%` (with a "mapped to ..."
-note) on a stock install instead of hiding it outright; a `%` remapped to anything else
-still hides it like any other override. Both exceptions are still excluded from the
-proactive idle/`:Tobira` picks and `:TobiraStats`'s "Try these next" list either way —
-see `:help tobira-integrations` for why those two surfaces don't read this distinction.
+tobira also tells apart a genuine remap from Neovim's own factory-default mappings —
+`gx`, `&`, `]q`/`[q`/`]l`/`[l`, and (Neovim 0.10+) even `Y` = `y$` ship as built-in
+defaults out of the box, so none of them count as "remapped" on a stock install; they're
+suggested completely normally.
+Two narrow exceptions cover a mapping that genuinely *was* set by something but still
+does what tobira teaches: if you personally add `nnoremap Y y$` yourself (redundant with
+the modern default above, but a real personal binding), it's recognized as equivalent,
+so the reactive `y$` → `Y` suggestion still fires instead of being suppressed outright —
+a `Y` remapped to anything else still suppresses it. Likewise, Neovim auto-loads
+`matchit.vim` by default, which remaps `%` to `<Plug>(MatchitNormalForward)` — a strict,
+compatible superset of the built-in `%` tobira teaches, so `:TobiraGuide`'s cheat sheet
+still lists `%` (with a "mapped to ..." note) on a stock install instead of hiding it
+outright; a `%` remapped to anything else still hides it like any other override. Both
+exceptions are still excluded from the proactive idle/`:Tobira` picks and
+`:TobiraStats`'s "Try these next" list either way — see `:help tobira-integrations` for
+why those two surfaces don't read this distinction.
 
 ## 🎯 Detected patterns (examples)
 

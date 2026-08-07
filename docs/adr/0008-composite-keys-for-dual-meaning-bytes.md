@@ -55,3 +55,25 @@ disambiguation artifact.
   is otherwise free, share it with `track = false` + explicit counting instead.
 - Forgetting `commands.display_key()` in a new UI surface would leak the internal
   `i_` prefix to the user.
+
+### Addendum (#256): an explicit `mode` field records what this ADR only implied
+
+Neither disambiguation shape above originally left any *machine-readable* signal that
+the resulting registry entry (`<C-w>`, `<C-n>`, `<C-t>`, `i_<C-o>`, `i_<C-d>`) means
+"insert mode" — that fact only lived in prose comments. `core/integrations.lua`'s
+keymap-override detection (#63) had no way to read it, so it always checked
+`nvim_get_keymap('n')` for every registry entry regardless of which mode it actually
+represented — both false-positive (an unrelated normal-mode remap of the same raw byte
+wrongly suppressed the insert-mode suggestion) and false-negative (a real insert-mode
+override was never detected) failure modes, plus a separate canonicalization gap where
+`i_<C-o>` / `i_<C-d>` could never match real `keytrans()` output at all.
+
+Fix: every entry produced by either disambiguation shape above now also carries
+`mode = 'i'`. Absent (`nil`) means normal-mode, the default for every other entry —
+this is additive, not a new third shape; it just makes the mode this ADR's two
+mechanisms already exist to handle explicit and queryable, instead of leaving callers
+to infer it from the key string or a comment. `suggestible_keys()`
+(`core/integrations.lua`) partitions the registry into a normal-mode set and an
+insert-mode set using this field, and runs `commands.display_key(cmd)` (stripping any
+`i_` prefix) *before* the `^<.->$` canonicalization check so the composite-key entries
+canonicalize the same way their bare `<...>` form would.
