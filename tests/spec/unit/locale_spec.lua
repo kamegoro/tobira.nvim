@@ -157,17 +157,26 @@ describe('suggestion title format', function()
   -- ui/float.lua splits "cmd — description" to highlight the answer key
   -- separately from its explanation. Every suggestion title must follow this
   -- exact separator so that split never has to fall back.
+  --
+  -- Generalized across every dynamically-discovered locale (#262) — this used
+  -- to hardcode only en/ja, which meant a locale with a missing/wrong
+  -- separator in a newly added suggestion could ship undetected.
+  local locale_names = discover_locale_names()
+
   it('every en.lua suggestion title contains the " — " separator', function()
     for cmd, entry in pairs(en.suggestions) do
       assert.is_not_nil(entry.title:find(' — ', 1, true), cmd .. ': title missing " — " separator')
     end
   end)
 
-  it('every ja.lua suggestion title contains the " — " separator', function()
-    for cmd, entry in pairs(ja.suggestions) do
-      assert.is_not_nil(entry.title:find(' — ', 1, true), cmd .. ': title missing " — " separator')
-    end
-  end)
+  for _, name in ipairs(locale_names) do
+    it('every ' .. name .. '.lua suggestion title contains the " — " separator', function()
+      local loc = require('tobira.locales.' .. name)
+      for cmd, entry in pairs(loc.suggestions) do
+        assert.is_not_nil(entry.title:find(' — ', 1, true), cmd .. ': title missing " — " separator in ' .. name .. '.lua')
+      end
+    end)
+  end
 end)
 
 describe('float.celebrate template', function()
@@ -191,13 +200,18 @@ describe('float.reasons locale', function()
     'changelist_return',
     'ci_dquote_repeat',
     'ci_squote_repeat',
+    'cmdline_history_recall',
     'ctrl_w_close_repeat',
+    'ctrl_w_resize_repeat',
+    'cursor_center_repeat',
     'd_dollar',
     'D_then_insert',
     'dd_run',
     'dd_then_insert',
     'dd_then_p',
     'dedent_run',
+    'diff_jump_then_insert_next',
+    'diff_jump_then_insert_prev',
     'dollar_then_append',
     'dot_repeat',
     'dw_then_insert',
@@ -222,14 +236,18 @@ describe('float.reasons locale', function()
     'macro_opportunity',
     'manual_return',
     'n_repeat',
+    'named_mark_opportunity',
     'p_repeat',
     'P_repeat',
     'p_then_rightward',
     'P_then_rightward',
     'r_run',
+    'tilde_line_repeat',
     'tilde_repeat',
+    'tilde_word_repeat',
     'u_repeat',
     'v_repeat',
+    'visual_block_opportunity',
     'visual_textobj',
     'w_repeat',
     'x_repeat',
@@ -320,28 +338,143 @@ describe('stats.footer_summary', function()
 end)
 
 describe('guide.more_suffix (#96)', function()
-  it('is a non-empty string containing a %d placeholder in both locales', function()
+  -- Generalized across every dynamically-discovered locale (#262) — this used
+  -- to hardcode only en/ja.
+  local locale_names = discover_locale_names()
+
+  it('is a non-empty string containing a %d placeholder in en.lua', function()
     assert.is_string(en.guide.more_suffix)
     assert.is_not_nil(en.guide.more_suffix:find('%d', 1, true))
-    assert.is_string(ja.guide.more_suffix)
-    assert.is_not_nil(ja.guide.more_suffix:find('%d', 1, true))
   end)
+
+  for _, name in ipairs(locale_names) do
+    it('is a non-empty string containing a %d placeholder in ' .. name .. '.lua', function()
+      local loc = require('tobira.locales.' .. name)
+      assert.is_string(loc.guide.more_suffix)
+      assert.is_not_nil(loc.guide.more_suffix:find('%d', 1, true))
+    end)
+  end
 end)
 
 describe('guide.remapped_suffix (#63)', function()
-  it('is a non-empty string containing a %s placeholder in both locales', function()
+  -- Generalized across every dynamically-discovered locale (#262) — this used
+  -- to hardcode only en/ja.
+  local locale_names = discover_locale_names()
+
+  it('is a non-empty string containing a %s placeholder in en.lua', function()
     assert.is_string(en.guide.remapped_suffix)
     assert.is_not_nil(en.guide.remapped_suffix:find('%s', 1, true))
-    assert.is_string(ja.guide.remapped_suffix)
-    assert.is_not_nil(ja.guide.remapped_suffix:find('%s', 1, true))
   end)
+
+  for _, name in ipairs(locale_names) do
+    it('is a non-empty string containing a %s placeholder in ' .. name .. '.lua', function()
+      local loc = require('tobira.locales.' .. name)
+      assert.is_string(loc.guide.remapped_suffix)
+      assert.is_not_nil(loc.guide.remapped_suffix:find('%s', 1, true))
+    end)
+  end
 end)
 
 describe('notifications.remap_detected (#63)', function()
-  it('is a non-empty string containing two %s placeholders in both locales', function()
+  -- Generalized across every dynamically-discovered locale (#262) — this used
+  -- to hardcode only en/ja.
+  local locale_names = discover_locale_names()
+
+  it('is a non-empty string containing two %s placeholders in en.lua', function()
     assert.is_string(en.notifications.remap_detected)
     assert.equals(2, select(2, en.notifications.remap_detected:gsub('%%s', '')))
-    assert.is_string(ja.notifications.remap_detected)
-    assert.equals(2, select(2, ja.notifications.remap_detected:gsub('%%s', '')))
   end)
+
+  for _, name in ipairs(locale_names) do
+    it('is a non-empty string containing two %s placeholders in ' .. name .. '.lua', function()
+      local loc = require('tobira.locales.' .. name)
+      assert.is_string(loc.notifications.remap_detected)
+      assert.equals(2, select(2, loc.notifications.remap_detected:gsub('%%s', '')))
+    end)
+  end
+end)
+
+-- ── format-string placeholder SEQUENCE guard, across every locale (#262) ────
+-- Lua's string.format binds arguments positionally: the Nth %s/%d specifier
+-- encountered while scanning the format string left-to-right consumes the
+-- Nth vararg passed to :format(), regardless of where that specifier sits in
+-- the surrounding sentence. This is exactly how ja.lua's
+-- progress.preview.to_next shipped broken (#252): en.lua's
+-- '%d more to reach %s' and ja.lua's '%s まであと %d' both have one %s and one
+-- %d, so a placeholder-*count* check could not catch it — only the *order*
+-- was wrong, and the call site (ui/progress.lua) always passes (number,
+-- string). Checking placeholder count alone is therefore not enough; this
+-- block checks the full ordered sequence of specifier types instead.
+--
+-- The set of keys to check is discovered automatically by walking en.lua for
+-- any leaf string containing %s or %d, so a newly added format-string key is
+-- covered the moment it's added to en.lua — no second registration step,
+-- mirroring discover_locale_names()'s rationale (see locales/CLAUDE.md).
+describe('format-string placeholder sequence matches en.lua, across every locale', function()
+  local locale_names = discover_locale_names()
+
+  -- '%d more to reach %s' -> {'d', 's'}
+  local function specifier_sequence(str)
+    local seq = {}
+    for spec in str:gmatch('%%([sd])') do
+      table.insert(seq, spec)
+    end
+    return seq
+  end
+
+  local function collect_format_keys(tbl, path, out)
+    for k, v in pairs(tbl) do
+      if type(k) == 'string' then
+        local full = path == '' and k or (path .. '.' .. k)
+        if type(v) == 'string' then
+          if v:find('%%[sd]') then
+            out[full] = specifier_sequence(v)
+          end
+        elseif type(v) == 'table' then
+          collect_format_keys(v, full, out)
+        end
+      end
+    end
+  end
+
+  local function get_by_path(tbl, path)
+    local cur = tbl
+    for part in path:gmatch('[^.]+') do
+      if type(cur) ~= 'table' then
+        return nil
+      end
+      cur = cur[part]
+    end
+    return cur
+  end
+
+  local en_format_keys = {}
+  collect_format_keys(en, '', en_format_keys)
+
+  it('discovers at least progress.preview.to_next (sanity check that discovery itself works)', function()
+    assert.is_not_nil(en_format_keys['progress.preview.to_next'], 'expected to discover progress.preview.to_next in en.lua')
+  end)
+
+  for path, expected_seq in pairs(en_format_keys) do
+    for _, name in ipairs(locale_names) do
+      it(path .. ' has the same %s/%d placeholder sequence in ' .. name .. '.lua as en.lua', function()
+        local loc = require('tobira.locales.' .. name)
+        local val = get_by_path(loc, path)
+        assert.is_string(val, path .. ': missing or not a string in ' .. name .. '.lua')
+        local actual_seq = specifier_sequence(val)
+        assert.same(
+          expected_seq,
+          actual_seq,
+          path
+            .. ': placeholder sequence mismatch in '
+            .. name
+            .. '.lua (expected %'
+            .. table.concat(expected_seq, ', %')
+            .. ' got %'
+            .. table.concat(actual_seq, ', %')
+            .. ')'
+        )
+      end)
+    end
+  end
 end)

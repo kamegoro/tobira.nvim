@@ -167,7 +167,7 @@ return {
     ['ciw'] = {
       title = 'ciw — inneres Wort ändern',
       body = 'Funktioniert auch, wenn der Cursor mitten im Wort steht\ncw löscht nur ab dem Cursor vorwärts; ciw ersetzt das ganze Wort',
-      example = 'hel|lo → ciw → world',
+      example = 'hel|lo → ciw → world (das ganze Wort wird ersetzt)',
     },
     ['<C-r>'] = {
       title = '<C-r> — Wiederholen',
@@ -192,7 +192,7 @@ return {
     ['cgn'] = {
       title = 'cgn — nächsten Suchtreffer ändern',
       body = 'Benutze nach / cgn, um den nächsten Treffer zu ändern\nDrücke danach ., um bei jedem weiteren Treffer zu wiederholen',
-      example = '/word → cgn → new → Esc → . . .',
+      example = '/word → cgn → neuer Text → Esc → . . .',
     },
     ['.'] = {
       title = '. — letzte Änderung wiederholen',
@@ -202,7 +202,7 @@ return {
     ['<C-w>'] = {
       title = '<C-w> — Wort vor dem Cursor löschen',
       body = 'Funktioniert im Einfügemodus, ohne ihn zu verlassen — ein Tastendruck statt mehrerer <BS>\nStoppt am Wortanfang, löscht also nie mehr als gemeint',
-      example = 'foo bar<C-w> → foo ',
+      example = 'foo bar<C-w> → foo (das vorherige Wort wird gelöscht)',
     },
     ['A'] = {
       title = 'A — am Zeilenende anfügen',

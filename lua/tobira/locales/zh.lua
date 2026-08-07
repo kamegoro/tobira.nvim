@@ -167,7 +167,7 @@ return {
     ['ciw'] = {
       title = 'ciw — 修改内部单词',
       body = '即使光标在单词中间也能生效\ncw 只从光标处向前删除；ciw 会替换整个单词',
-      example = 'hel|lo → ciw → world',
+      example = 'hel|lo → ciw → world（整个单词被替换）',
     },
     ['<C-r>'] = {
       title = '<C-r> — 重做',
@@ -192,7 +192,7 @@ return {
     ['cgn'] = {
       title = 'cgn — 修改下一个搜索匹配',
       body = '在 / 之后，用 cgn 修改下一个匹配项\n然后按 . 在后续每个匹配上重复',
-      example = '/word → cgn → new → Esc → . . .',
+      example = '/word → cgn → 新文本 → Esc → . . .',
     },
     ['.'] = {
       title = '. — 重复上一次修改',
@@ -202,7 +202,7 @@ return {
     ['<C-w>'] = {
       title = '<C-w> — 删除光标前的单词',
       body = '无需退出插入模式即可删除 — 一次按键顶替多次 <BS>\n会在单词开头停止，不会删多',
-      example = 'foo bar<C-w> → foo ',
+      example = 'foo bar<C-w> → foo （删除前一个单词）',
     },
     ['A'] = {
       title = 'A — 在行尾追加',
