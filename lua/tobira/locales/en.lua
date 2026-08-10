@@ -144,6 +144,7 @@ return {
       named_mark_opportunity = 'You returned to the same line 3 times, editing elsewhere in between',
       tilde_word_repeat = 'You toggled case 6 times in a row — enough to span a whole word',
       tilde_line_repeat = 'You toggled case 12 times in a row — enough to span most of a line',
+      n_then_change = 'You searched to a match with n, then changed it by hand instead of using cgn',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -193,6 +194,11 @@ return {
       title = 'cgn — change next search match',
       body = 'After /, use cgn to change the next match\nThen press . to repeat on every subsequent match',
       example = '/word → cgn → new → Esc → . . .',
+    },
+    ['{n}n'] = {
+      title = '{n}n — jump multiple search matches at once',
+      body = 'Prefix n with a count to jump ahead several matches in one go\nAlso works with j, k, and other motions',
+      example = '4n → jumps to the 4th next match',
     },
     ['.'] = {
       title = '. — repeat the last change',

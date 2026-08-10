@@ -167,7 +167,7 @@ why those two surfaces don't read this distinction.
 | Cursor returns to the same line 3× with real edits in between | `ma` — set a named mark to jump back to |
 | `~` × 6 (spans a word) / × 12 (spans a line) | `g~iw` / `g~$` — toggle case in one motion |
 
-71 patterns total — see `:help tobira-patterns` for the full list.
+72 patterns total — see `:help tobira-patterns` for the full list.
 
 ## 🆚 Similar plugins
 

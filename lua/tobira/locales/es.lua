@@ -144,6 +144,7 @@ return {
       named_mark_opportunity = 'Volviste a la misma línea 3 veces, editando en otro lugar entre medias',
       tilde_word_repeat = 'Alternaste mayúsculas/minúsculas 6 veces seguidas — suficiente para toda una palabra',
       tilde_line_repeat = 'Alternaste mayúsculas/minúsculas 12 veces seguidas — suficiente para la mayor parte de una línea',
+      n_then_change = 'Saltaste a una coincidencia con n y luego la cambiaste a mano en lugar de usar cgn',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -193,6 +194,11 @@ return {
       title = 'cgn — cambiar la siguiente coincidencia de búsqueda',
       body = 'Después de /, usa cgn para cambiar la siguiente coincidencia\nLuego pulsa . para repetir en cada coincidencia siguiente',
       example = '/word → cgn → texto nuevo → Esc → . . .',
+    },
+    ['{n}n'] = {
+      title = '{n}n — saltar varias coincidencias de búsqueda a la vez',
+      body = 'Antepone un número a n para saltar varias coincidencias de una vez\nTambién funciona con j, k y otros movimientos',
+      example = '4n → salta a la 4ª coincidencia siguiente',
     },
     ['.'] = {
       title = '. — repetir el último cambio',

@@ -33,8 +33,32 @@ M.registry = {
   -- ── 0 then w → ^ ──────────────────────────────────────────────────────────
   ['^'] = { requires = '0', track = true, category = 'motion', level = 'beginner' },
 
-  -- ── n repeat after search → cgn ───────────────────────────────────────────
-  ['cgn'] = { requires = 'n', track = false, category = 'search', level = 'advanced' },
+  -- ── n repeat → count prefix ───────────────────────────────────────────────
+  -- Intent-neutral, like {n}j/{n}k above: n_repeat now suggests this instead
+  -- of cgn — see docs/adr/0107-n-repeat-intent-neutral-reactive-cgn.md.
+  ['{n}n'] = { requires = 'n', track = false, category = 'search', level = 'intermediate' },
+
+  -- ── n-streak → confirmed change → cgn ─────────────────────────────────────
+  -- Reactive-only: fires when n_then_change detects a 'c'-family change
+  -- completing shortly after an n-streak — see
+  -- docs/adr/0107-n-repeat-intent-neutral-reactive-cgn.md.
+  -- ambient = false excludes it from find_best's idle picker / :Tobira
+  -- manual, same as usual (docs/adr/0007). try_next = false ALSO excludes it
+  -- from efficiency_gaps' "Try these next" (a narrower, separate flag — see
+  -- graph.lua's efficiency_gaps doc comment): 'n' is a real, heavily-tracked
+  -- count (unlike do/dp's structurally-stuck-at-0 trigger), so without this
+  -- second flag a heavy n user would still see "you use n a lot, try cgn" in
+  -- the stats panel — the exact browsing-vs-editing false positive this fix
+  -- removes from n_repeat. cgn is only ever offered once n_then_change has
+  -- confirmed real edit intent.
+  ['cgn'] = {
+    requires = 'n',
+    track = false,
+    category = 'search',
+    level = 'advanced',
+    ambient = false,
+    try_next = false,
+  },
 
   -- ── cw → . (dot repeat) ───────────────────────────────────────────────────
   ['.'] = { requires = 'cw', track = true, category = 'edit', level = 'intermediate' },

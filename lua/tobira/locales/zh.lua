@@ -144,6 +144,7 @@ return {
       named_mark_opportunity = '你返回同一行 3 次，期间在别处进行了编辑',
       tilde_word_repeat = '你连续切换了 6 次大小写——足以覆盖一整个单词',
       tilde_line_repeat = '你连续切换了 12 次大小写——足以覆盖一行的大部分',
+      n_then_change = '你用 n 跳到匹配处，然后手动修改了它，而不是使用 cgn',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -193,6 +194,11 @@ return {
       title = 'cgn — 修改下一个搜索匹配',
       body = '在 / 之后，用 cgn 修改下一个匹配项\n然后按 . 在后续每个匹配上重复',
       example = '/word → cgn → 新文本 → Esc → . . .',
+    },
+    ['{n}n'] = {
+      title = '{n}n — 一次跳过多个搜索匹配',
+      body = '在 n 前加计数即可一次跳过多个匹配\n同样适用于 j、k 等其他动作',
+      example = '4n → 跳到第 4 个匹配',
     },
     ['.'] = {
       title = '. — 重复上一次修改',

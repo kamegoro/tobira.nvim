@@ -719,6 +719,24 @@ describe('when a gap candidate has been remapped by the user', function()
   end)
 end)
 
+-- ── efficiency_gaps try_next exclusion ──────────────────────────────────────
+-- see docs/adr/0107-n-repeat-intent-neutral-reactive-cgn.md — cgn is marked
+-- try_next = false (narrower than, and separate from, ambient = false — see
+-- graph.lua's efficiency_gaps doc comment) so it stays out of "Try these
+-- next" too, not just the idle picker, or heavy n usage alone would
+-- reintroduce the exact browsing-vs-editing false positive the fix removes
+-- from n_repeat.
+
+describe('when a gap candidate is marked try_next = false', function()
+  it('is excluded from efficiency_gaps even though its trigger count would otherwise qualify it', function()
+    local usage = { n = { count = 200, sessions = {} } }
+    local gaps = graph.efficiency_gaps(usage)
+    for _, g in ipairs(gaps) do
+      assert.not_equals('cgn', g.child, 'cgn is try_next = false and must stay out of Try These Next')
+    end
+  end)
+end)
+
 -- ── keymap overrides ─────────────────────────────────────────────────────────
 -- see docs/adr/0030-keymap-override-exclusion-contract.md for why
 
