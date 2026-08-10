@@ -27,7 +27,7 @@ function M.new_seq()
     -- the text-object character is one commands.lua's registry actually
     -- tracks on its own — in addition to (not instead of) the shared op..'w'
     -- bucket set in last_op. Reset every M.feed() call, same discipline as
-    -- op_completed — see docs/adr/0102-text-object-variant-own-usage-tracking.md.
+    -- op_completed — see docs/adr/0106-text-object-variant-own-usage-tracking.md.
     last_op_variant = nil,
     dd_streak = 0,
     cc_streak = 0,
@@ -174,7 +174,7 @@ local CI_QUOTE_NAV_KEYS = {
 -- chains off (ciw/ci"/ci'/cib/ciB/cit/cip/diw) rather than every character
 -- reaching this state, so an accidental keystroke can't create throwaway
 -- usage.json entries no `requires` chain will ever read. See
--- docs/adr/0102-text-object-variant-own-usage-tracking.md.
+-- docs/adr/0106-text-object-variant-own-usage-tracking.md.
 local TRACKED_TEXT_OBJ_CHARS = {
   w = true,
   ['"'] = true,
@@ -837,7 +837,7 @@ local function inner_feed(seq, key, line, is_diff, now)
     seq.key_consumed = true
 
     -- Own tracked variant, alongside the shared op..'w' bucket set above —
-    -- see docs/adr/0102-text-object-variant-own-usage-tracking.md.
+    -- see docs/adr/0106-text-object-variant-own-usage-tracking.md.
     if TRACKED_TEXT_OBJ_CHARS[key] then
       seq.last_op_variant = op .. (inner and 'i' or 'a') .. key
     end
@@ -996,7 +996,7 @@ local function inner_feed(seq, key, line, is_diff, now)
     -- i/a routes into pending_text_obj the same way d/c do below, so a
     -- following text-object key (e.g. the w of yiw) doesn't fall through as
     -- an ordinary standalone keystroke and corrupt seq.run's bare-motion
-    -- streak. See docs/adr/0102-text-object-variant-own-usage-tracking.md.
+    -- streak. See docs/adr/0106-text-object-variant-own-usage-tracking.md.
     if op == 'y' then
       if key == 'y' then
         seq.last_op = 'yy'

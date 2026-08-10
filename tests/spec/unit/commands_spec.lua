@@ -516,7 +516,7 @@ describe('tracking integrity', function()
     -- seq.last_op_variant to the exact variant key (ciw / ci" / cib / ...)
     -- alongside the shared cw/dw bucket in seq.last_op, and logger.lua
     -- increments both — see
-    -- docs/adr/0102-text-object-variant-own-usage-tracking.md. Only the
+    -- docs/adr/0106-text-object-variant-own-usage-tracking.md. Only the
     -- variants that are themselves a `requires` target of another entry need
     -- to be listed here (ciw ← ci"/cip/diw, ci" ← ci'/cib, cib ← ciB/cit).
     ciw = true,
