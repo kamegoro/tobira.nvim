@@ -56,10 +56,21 @@ def check(filenames: Iterable[str]) -> bool:
         for name in missing_number:
             print(f'  - {name}')
 
+    # Group again by *numeric value* (not the raw digit string) so that two
+    # different zero-padding widths for the same number — e.g. '0009' from an
+    # existing file and an unpadded '9' from a filename that skipped padding
+    # (the "compute the next number" snippet in docs/adr/README.md prints an
+    # unpadded value) — still collide instead of silently coexisting.
+    numeric_groups: Dict[int, List[str]] = defaultdict(list)
+    for number, names in groups.items():
+        if number == '':
+            continue
+        numeric_groups[int(number)].extend(names)
+
     collisions = {
         number: sorted(names)
-        for number, names in groups.items()
-        if number != '' and len(names) > 1
+        for number, names in numeric_groups.items()
+        if len(names) > 1
     }
     if collisions:
         passed = False

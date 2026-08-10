@@ -73,6 +73,21 @@ class TestCheck(unittest.TestCase):
             check(['0001-a.md', '0001-b.md', '0002-c.md', '0002-d.md'])
         )
 
+    def test_returns_false_for_same_number_with_mismatched_zero_padding(self):
+        # '0009' and '9' are the same ADR number, just padded differently — the
+        # "compute the next number" README snippet outputs an unpadded value,
+        # so a filename typo'd without the leading zeros must still collide
+        # with the padded original rather than silently coexisting.
+        self.assertFalse(check(['0009-a.md', '9-b.md']))
+
+    def test_prints_both_filenames_for_a_zero_padding_mismatch_collision(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            check(['0009-a.md', '9-b.md'])
+        output = buf.getvalue()
+        self.assertIn('0009-a.md', output)
+        self.assertIn('9-b.md', output)
+
     def test_three_way_collision_lists_all_three(self):
         buf = io.StringIO()
         with redirect_stdout(buf):
