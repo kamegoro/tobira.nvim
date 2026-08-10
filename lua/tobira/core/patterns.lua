@@ -10,7 +10,7 @@
 -- 0096 (<C-w> resize streak), 0097 (cursor-centering streak), 0098
 -- (visual-block edit streak), 0099 (diff obtain/put after hunk jump), 0100
 -- (named-mark repeated line return), 0101 (tilde text-object refinement),
--- 0102 (text-object variant own-usage tracking).
+-- 0106 (text-object variant own-usage tracking).
 
 local M = {}
 
