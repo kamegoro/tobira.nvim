@@ -633,7 +633,7 @@ end)
 -- yy/y$; any other following key (including the i/a text-object prefixes)
 -- fell through as an ordinary standalone keystroke instead of routing into
 -- pending_text_obj the way d/c already do. See
--- docs/adr/0102-text-object-variant-own-usage-tracking.md.
+-- docs/adr/0106-text-object-variant-own-usage-tracking.md.
 
 describe('when the user yanks with a text object (yiw) inside a pending y operator', function()
   it('routes i/w into pending_text_obj the same way d/c do', function()
@@ -1510,7 +1510,7 @@ end)
 -- requires-gated chain for these entries could never become eligible. The fix
 -- additionally sets seq.last_op_variant to the exact variant key (e.g. 'ci"')
 -- so logger.lua can increment it alongside the shared bucket, without
--- replacing it. See docs/adr/0102-text-object-variant-own-usage-tracking.md.
+-- replacing it. See docs/adr/0106-text-object-variant-own-usage-tracking.md.
 
 describe('when the user completes a text-object variant directly (ciw, ci", cib, ...)', function()
   local variant_cases = {

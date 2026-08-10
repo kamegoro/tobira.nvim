@@ -637,7 +637,7 @@ local function handle_key(key)
   -- Text-object variants (ciw, ci", ci', cib, ciB, cit, cip, diw) get their
   -- own usage bucket too, in addition to (not instead of) the shared op..'w'
   -- bucket incremented above — see
-  -- docs/adr/0102-text-object-variant-own-usage-tracking.md.
+  -- docs/adr/0106-text-object-variant-own-usage-tracking.md.
   if seq.last_op_variant then
     increment(seq.last_op_variant)
   end

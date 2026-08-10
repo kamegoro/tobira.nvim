@@ -28,7 +28,9 @@ jobs:
               args: --display-style=quiet lua/ plugin/
 
           - name: Scripts (Python unit tests)
-            run: python3 -m unittest discover -s .github/scripts -p "test_*.py" -v
+            run: |
+              python3 -m unittest discover -s .github/scripts -p "test_*.py" -v
+              python3 .github/scripts/check_adr_numbering.py
 
   test:
     name: Test (Neovim nightly)
