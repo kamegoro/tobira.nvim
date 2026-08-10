@@ -2954,3 +2954,84 @@ describe('macro opportunity detection (#60)', function()
     end
   end)
 end)
+
+-- ── named_mark_opportunity vs macro_opportunity collision (#280) ───────────────
+-- Repro for the "Known limitation" documented in
+-- docs/adr/0016-pattern-dispatch-priority-and-key-collisions.md: 3 "leave
+-- anchor -> edit -> return" cycles that all use a byte-identical single-key
+-- edit AND return via a single-key motion make named_mark_opportunity's
+-- mark_ready branch (patterns.feed) and macro_opportunity's window match
+-- (patterns.feed_macro) both go ready on the exact same keystroke.
+-- named_mark_opportunity must win this one specific collision, without
+-- disturbing macro_result's normal priority over every other pattern.
+describe('named_mark_opportunity vs macro_opportunity collision (#280)', function()
+  before_each(function()
+    logger.reset()
+    logger.on_pattern = nil
+    logger.setup()
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+  end)
+
+  local function feed_and_collect(keys)
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+    vim.fn.feedkeys(keys, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    return fired
+  end
+
+  it(
+    'fires named_mark_opportunity suggesting ma, not macro_opportunity, when 3 identical '
+      .. 'leave/edit/return cycles also complete a macro window on the same keystroke',
+    function()
+      vim.cmd('enew')
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'aaaaaa', 'aaaaaa' })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+      -- Each of the 3 cycles below is 'j' (leave to line 2), 'x' (the same
+      -- single-key edit every time), 'k' (return to line 1 via a single-key
+      -- motion), 'l' (harmless same-line nudge). The trailing 'l' is needed
+      -- because vim.on_key reports vim.fn.line('.') as of BEFORE the current
+      -- key is applied -- the arrival back at line 1 caused by 'k' is only
+      -- observable on the NEXT keystroke's call, once 'k' has actually taken
+      -- effect. Token-for-token this is a 3x-repeated 'jxkl' window, which
+      -- also satisfies macro_opportunity's own detector on that final 'l' --
+      -- the exact same keystroke where named_mark_opportunity's 3rd genuine
+      -- return also completes.
+      local fired = feed_and_collect(string.rep('jxkl', 3))
+      local last = fired[#fired]
+      assert.is_not_nil(last, 'expected at least one pattern to fire')
+      assert.equals('named_mark_opportunity', last.pattern)
+      assert.equals('ma', last.cmd)
+    end
+  )
+
+  it(
+    'still lets macro_opportunity win over a pattern other than named_mark_opportunity '
+      .. '(ADR 0016 general priority, non-regression)',
+    function()
+      vim.cmd('enew')
+      local lines = {}
+      for i = 1, 20 do
+        lines[i] = tostring(i)
+      end
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+      -- 3x identical 'ddp' (delete line, paste back), separated by a single
+      -- 'j' nav gap. dd_then_p (result) fires on every 'p' that follows a
+      -- 'dd'; the same 'ddp' window repeated 3x with a nav-only gap also
+      -- satisfies macro_opportunity (macro_result) on that same final 'p' --
+      -- unlike the named-mark collision above, macro_result must still win
+      -- here, per ADR 0016's unchanged general rule.
+      local fired = feed_and_collect(string.rep('ddpj', 2) .. 'ddp')
+      local last = fired[#fired]
+      assert.is_not_nil(last, 'expected at least one pattern to fire')
+      assert.equals('macro_opportunity', last.pattern)
+      assert.equals('@q', last.cmd)
+    end
+  )
+end)

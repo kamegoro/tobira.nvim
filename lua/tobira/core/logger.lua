@@ -645,13 +645,14 @@ local function handle_key(key)
   -- Priority: macro_result > result > co_result — all three can fire for the
   -- same keystroke. See
   -- docs/adr/0016-pattern-dispatch-priority-and-key-collisions.md for the
-  -- full reasoning.
-  if macro_result and M.on_pattern then
-    M.on_pattern(macro_result.pattern, macro_result.cmd)
-  elseif result and M.on_pattern then
-    M.on_pattern(result.pattern, result.cmd)
-  elseif co_result and M.on_pattern then
-    M.on_pattern(co_result.pattern, co_result.cmd)
+  -- full reasoning, including the narrow named_mark_opportunity exception
+  -- below (#280): named_mark_opportunity wins over macro_result specifically,
+  -- rather than macro_result winning outright. Every other pattern pair keeps
+  -- the unqualified macro_result > result > co_result order.
+  local named_mark_collision = macro_result and result and result.pattern == 'named_mark_opportunity'
+  local fired = (named_mark_collision and result) or macro_result or result or co_result
+  if fired and M.on_pattern then
+    M.on_pattern(fired.pattern, fired.cmd)
   end
 
   -- Skip counting a key already consumed as the 2nd character of a multi-key

@@ -82,10 +82,10 @@ one actually applies:
   just with more nuance): **amend the existing ADR in place** instead of forking a new
   file. Add to its `Consequences` section, or add a short `### Known limitation` /
   `### Addendum` subsection. `0016-pattern-dispatch-priority-and-key-collisions.md`
-  does this correctly — its "Known limitation (investigated, not fixed — #265)"
-  subsection was added by a later PR to record a follow-up finding about the same
-  dispatch-priority decision, without forking a new ADR number for it. Use it as the
-  reference example.
+  does this correctly — its "Known limitation (investigated in #265, resolved in
+  #280)" subsection was added by a later PR to record a follow-up finding about the
+  same dispatch-priority decision, then amended again in place (not forked into a new
+  ADR) once that finding was actually resolved. Use it as the reference example.
 
   A new ADR number is *not* required just because a later PR is doing the editing —
   only because the decision itself changed.
