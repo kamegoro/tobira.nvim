@@ -378,7 +378,9 @@ MOTION ~
   `0` → `i`                     Suggest `gI`   — insert at true column 1
   `^` → `i`                     Suggest `I`    — insert at first non-blank
   `$` → `a`                     Suggest `A`    — append at end of line
-  `n` × 4                       Suggest `cgn`  — change next search match
+  `n` × 4                       Suggest `{n}n` — use a count prefix instead
+  `n` × 2+ → `cw`/`ciw`/`ce`/... (shortly after, no unrelated key between)
+                               Suggest `cgn`   — change the match you just searched for
   `G`/`gg`/`n`/`N`/`<C-d/u/f/b>` → `j`/`k`/`<C-e>`/`<C-y>` × 5 (within 15s)
                                Suggest `<C-o>` — jump back with the jumplist
   edit → move → edit elsewhere → `j`/`k` × 5 back (within 15s)

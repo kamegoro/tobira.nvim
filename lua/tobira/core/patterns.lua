@@ -10,7 +10,8 @@
 -- 0096 (<C-w> resize streak), 0097 (cursor-centering streak), 0098
 -- (visual-block edit streak), 0099 (diff obtain/put after hunk jump), 0100
 -- (named-mark repeated line return), 0101 (tilde text-object refinement),
--- 0106 (text-object variant own-usage tracking).
+-- 0106 (text-object variant own-usage tracking), 0107 (n_repeat intent-neutral
+-- + reactive n_then_change → cgn).
 
 local M = {}
 
@@ -79,6 +80,11 @@ function M.new_seq()
     -- hunk jump (]c / [c), armed for one following key only — see
     -- docs/adr/0099-diff-obtain-put-after-hunk-jump.md
     diff_jump_dir = nil,
+    -- armed once an n-streak reaches N_CHANGE_WATCH_THRESHOLD; consumed by a
+    -- 'c'-family change completing (last_op becomes 'cw') shortly after, or
+    -- expired by any unrelated key in between — see
+    -- docs/adr/0107-n-repeat-intent-neutral-reactive-cgn.md.
+    n_change_watch = false,
     -- "+ immediately followed by y → "+y system-clipboard yank. Set by
     -- pending_register below only when the register was '+'.
     pending_clipboard_yank = false,
@@ -527,6 +533,20 @@ local function inner_feed(seq, key, line, is_diff, now)
     seq.ctrl_o_seen = true
   end
 
+  -- ── n-streak → change watch expiry ────────────────────────────────────────
+  -- Observes every key unconditionally, before any dispatch. n_change_watch
+  -- survives any key that is itself 'n' (streak continuing) or that is
+  -- building toward a 'c'-family change already in progress (pending_op or
+  -- pending_text_obj currently 'c', from a 'c' pressed on an earlier call —
+  -- covers c, c<count>, ciw, ci", cit, ...; pending_op/pending_text_obj set
+  -- to 'd' or 'y' do NOT count, so a delete/yank text object correctly
+  -- expires the watch too). Any other key is treated as an unrelated
+  -- intervening motion and expires the watch. See
+  -- docs/adr/0107-n-repeat-intent-neutral-reactive-cgn.md.
+  if key ~= 'n' and key ~= 'c' and seq.pending_op ~= 'c' and seq.pending_text_obj ~= 'c' then
+    seq.n_change_watch = false
+  end
+
   -- ── named-mark opportunity bookkeeping ────────────────────────────────────
   -- Observes every key unconditionally, like the changelist-underuse block
   -- above, and never consumes/returns — only increments mark_return_count.
@@ -862,6 +882,15 @@ local function inner_feed(seq, key, line, is_diff, now)
       seq.ci_squote_streak = 0
     end
 
+    -- n-streak → change the match: suggest cgn (text-object path, e.g. ciw,
+    -- ci", cit). Checked after the ci-quote streaks above so an
+    -- already-qualifying ci_dquote_repeat/ci_squote_repeat keeps priority —
+    -- see docs/adr/0107-n-repeat-intent-neutral-reactive-cgn.md.
+    if op == 'c' and seq.n_change_watch then
+      seq.n_change_watch = false
+      return { pattern = 'n_then_change', cmd = 'cgn' }
+    end
+
     return nil
   end
 
@@ -1040,6 +1069,14 @@ local function inner_feed(seq, key, line, is_diff, now)
     else
       seq.last_op = op .. 'w'
       seq.op_completed = true
+      -- n-streak → change the match: suggest cgn (charwise-motion path, e.g.
+      -- cw, ce, c3w). Text-object path (ciw, ci", ...) is handled in the
+      -- pending_text_obj block above. See
+      -- docs/adr/0107-n-repeat-intent-neutral-reactive-cgn.md.
+      if op == 'c' and seq.n_change_watch then
+        seq.n_change_watch = false
+        return { pattern = 'n_then_change', cmd = 'cgn' }
+      end
     end
     return nil
   end
@@ -1433,8 +1470,21 @@ local function inner_feed(seq, key, line, is_diff, now)
       return { pattern = 'k_many_diff', cmd = '[c' }
     end
     return { pattern = 'k_many', cmd = '{' }
+  elseif key == 'n' and count == 2 then
+    -- Arms n_change_watch (consumed by a 'c'-family change completing, or
+    -- expired by an unrelated key — see the guard near the top of this
+    -- function). Silent: an n-streak alone is not evidence of edit intent,
+    -- only a lower, secondary threshold worth watching from — see
+    -- docs/adr/0107-n-repeat-intent-neutral-reactive-cgn.md.
+    seq.n_change_watch = true
+    return nil
   elseif key == 'n' and count == 4 then
-    return { pattern = 'n_repeat', cmd = 'cgn' }
+    -- Intent-neutral, like j_repeat/k_repeat: a bare n-streak is equally
+    -- likely to be browsing as editing, so this suggests the count-prefix
+    -- jump, not cgn. cgn is now only suggested reactively by n_then_change,
+    -- once a change action actually confirms edit intent — see
+    -- docs/adr/0107-n-repeat-intent-neutral-reactive-cgn.md.
+    return { pattern = 'n_repeat', cmd = '{n}n' }
   elseif key == 'l' and count == 5 then
     return { pattern = 'l_repeat', cmd = 'w' }
   elseif key == 'h' and count == 5 then

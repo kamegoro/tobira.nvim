@@ -127,7 +127,10 @@ local run_cases = {
   { key = 'u', threshold = 3, pattern = 'u_repeat', cmd = '<C-r>' },
   { key = 'j', threshold = 5, pattern = 'j_repeat', cmd = '{n}j' },
   { key = 'k', threshold = 5, pattern = 'k_repeat', cmd = '{n}k' },
-  { key = 'n', threshold = 4, pattern = 'n_repeat', cmd = 'cgn' },
+  -- n_repeat is intent-neutral (like j_repeat/k_repeat): a bare n-streak is
+  -- equally likely to be browsing as editing, so it suggests the count-prefix
+  -- jump {n}n, not cgn — see docs/adr/0107-n-repeat-intent-neutral-reactive-cgn.md.
+  { key = 'n', threshold = 4, pattern = 'n_repeat', cmd = '{n}n' },
   { key = 'w', threshold = 5, pattern = 'w_repeat', cmd = 'W' },
   { key = 'b', threshold = 5, pattern = 'b_repeat', cmd = 'B' },
   { key = 'e', threshold = 5, pattern = 'e_repeat', cmd = 'ge' },
@@ -376,6 +379,104 @@ describe('when the user edits immediately after jumping to a diff hunk', functio
     patterns.feed(s, ']', 1, true)
     patterns.feed(s, 'c', 1, true)
     assert.is_true(s.key_consumed)
+  end)
+end)
+
+-- ── n-streak → change the match: suggest cgn ──────────────────────────────────
+-- see docs/adr/0107-n-repeat-intent-neutral-reactive-cgn.md
+
+describe('when the user changes the word under the cursor shortly after an n-streak', function()
+  it('does not fire (or show any suggestion) merely from arming the watch at 2 n presses', function()
+    local s = seq()
+    patterns.feed(s, 'n', 1)
+    local result = patterns.feed(s, 'n', 1)
+    assert.is_nil(result)
+  end)
+
+  it('fires n_then_change suggesting cgn for cw after n n', function()
+    local s = seq()
+    patterns.feed(s, 'n', 1)
+    patterns.feed(s, 'n', 1)
+    patterns.feed(s, 'c', 1)
+    local result = patterns.feed(s, 'w', 1)
+    assert.is_not_nil(result)
+    assert.equals('n_then_change', result.pattern)
+    assert.equals('cgn', result.cmd)
+  end)
+
+  it('fires n_then_change for a text-object change (ciw) too', function()
+    local s = seq()
+    patterns.feed(s, 'n', 1)
+    patterns.feed(s, 'n', 1)
+    patterns.feed(s, 'c', 1)
+    patterns.feed(s, 'i', 1)
+    local result = patterns.feed(s, 'w', 1)
+    assert.is_not_nil(result)
+    assert.equals('n_then_change', result.pattern)
+    assert.equals('cgn', result.cmd)
+  end)
+
+  it('fires n_then_change for a count-prefixed change (c3w) too', function()
+    local s = seq()
+    patterns.feed(s, 'n', 1)
+    patterns.feed(s, 'n', 1)
+    patterns.feed(s, 'c', 1)
+    patterns.feed(s, '3', 1)
+    local result = patterns.feed(s, 'w', 1)
+    assert.is_not_nil(result)
+    assert.equals('n_then_change', result.pattern)
+    assert.equals('cgn', result.cmd)
+  end)
+
+  it('does not arm the watch after only a single n press', function()
+    local s = seq()
+    patterns.feed(s, 'n', 1)
+    patterns.feed(s, 'c', 1)
+    local result = patterns.feed(s, 'w', 1)
+    assert.is_nil(result)
+  end)
+
+  it('does not fire for a delete (dw) — only a change operator counts as evidence', function()
+    local s = seq()
+    patterns.feed(s, 'n', 1)
+    patterns.feed(s, 'n', 1)
+    patterns.feed(s, 'd', 1)
+    local result = patterns.feed(s, 'w', 1)
+    assert.is_nil(result)
+  end)
+
+  it('does not fire when an unrelated motion breaks the streak before the change', function()
+    local s = seq()
+    patterns.feed(s, 'n', 1)
+    patterns.feed(s, 'n', 1)
+    patterns.feed(s, 'j', 1) -- unrelated motion: expires the watch
+    patterns.feed(s, 'c', 1)
+    local result = patterns.feed(s, 'w', 1)
+    assert.is_nil(result)
+  end)
+
+  it('does not fire a second time without a fresh n-streak', function()
+    local s = seq()
+    patterns.feed(s, 'n', 1)
+    patterns.feed(s, 'n', 1)
+    patterns.feed(s, 'c', 1)
+    local first = patterns.feed(s, 'w', 1)
+    assert.equals('n_then_change', first.pattern)
+
+    patterns.feed(s, 'c', 1)
+    local second = patterns.feed(s, 'w', 1)
+    assert.is_nil(second)
+  end)
+
+  it('n_repeat at 4 presses still fires independently, suggesting the count-prefix, not cgn', function()
+    local s = seq()
+    patterns.feed(s, 'n', 1)
+    patterns.feed(s, 'n', 1)
+    patterns.feed(s, 'n', 1)
+    local result = patterns.feed(s, 'n', 1)
+    assert.is_not_nil(result)
+    assert.equals('n_repeat', result.pattern)
+    assert.equals('{n}n', result.cmd)
   end)
 end)
 
@@ -2235,7 +2336,7 @@ describe('when a bare key streak is interrupted by a deliberate g-compound using
     { key = 'e', threshold = 5, pattern = 'e_repeat', cmd = 'ge' },
     { key = 'j', threshold = 5, pattern = 'j_repeat', cmd = '{n}j' },
     { key = 'k', threshold = 5, pattern = 'k_repeat', cmd = '{n}k' },
-    { key = 'n', threshold = 4, pattern = 'n_repeat', cmd = 'cgn' },
+    { key = 'n', threshold = 4, pattern = 'n_repeat', cmd = '{n}n' },
     { key = 'x', threshold = 3, pattern = 'x_repeat', cmd = '{n}x' },
     { key = 'p', threshold = 3, pattern = 'p_repeat', cmd = '{n}p' },
     { key = 'u', threshold = 3, pattern = 'u_repeat', cmd = '<C-r>' },

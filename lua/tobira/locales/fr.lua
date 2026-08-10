@@ -144,6 +144,7 @@ return {
       named_mark_opportunity = 'Vous êtes revenu à la même ligne 3 fois, en éditant ailleurs entre chaque retour',
       tilde_word_repeat = 'Vous avez basculé la casse 6 fois de suite — assez pour couvrir tout un mot',
       tilde_line_repeat = "Vous avez basculé la casse 12 fois de suite — assez pour couvrir la majeure partie d'une ligne",
+      n_then_change = "Vous avez sauté à une correspondance avec n, puis l'avez modifiée à la main au lieu d'utiliser cgn",
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -193,6 +194,11 @@ return {
       title = 'cgn — modifier la prochaine correspondance de recherche',
       body = 'Après /, utilisez cgn pour modifier la prochaine correspondance\nAppuyez ensuite sur . pour répéter sur chaque correspondance suivante',
       example = '/word → cgn → nouveau texte → Esc → . . .',
+    },
+    ['{n}n'] = {
+      title = "{n}n — sauter plusieurs correspondances de recherche d'un coup",
+      body = "Ajoutez un nombre devant n pour sauter plusieurs correspondances d'un coup\nFonctionne aussi avec j, k et d'autres mouvements",
+      example = '4n → saute à la 4e correspondance suivante',
     },
     ['.'] = {
       title = '. — répéter la dernière modification',

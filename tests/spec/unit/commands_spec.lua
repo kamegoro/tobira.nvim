@@ -129,6 +129,16 @@ describe('reactive-only ambient exclusion', function()
     assert.is_false(commands.registry['dp'].ambient)
   end)
 
+  -- cgn's trigger ('n') is a real, heavily-tracked count unlike ]c/[c above,
+  -- so this is a different flavor of the same carve-out: cgn is now only
+  -- ever fired reactively by n_then_change (confirmed change evidence), and
+  -- ambient promotion off bare n usage would reintroduce the exact
+  -- browsing-vs-editing false positive this fix removes from n_repeat. See
+  -- docs/adr/0107-n-repeat-intent-neutral-reactive-cgn.md.
+  it('marks cgn as ambient = false (#245 fix)', function()
+    assert.is_false(commands.registry['cgn'].ambient)
+  end)
+
   it(
     'is exactly the set of registry entries marked ambient = false — this list must only grow deliberately',
     function()
@@ -139,7 +149,7 @@ describe('reactive-only ambient exclusion', function()
         end
       end
       table.sort(reactive_only)
-      assert.are.same({ '<C-\\><C-n>', 'do', 'dp' }, reactive_only)
+      assert.are.same({ '<C-\\><C-n>', 'cgn', 'do', 'dp' }, reactive_only)
     end
   )
 end)

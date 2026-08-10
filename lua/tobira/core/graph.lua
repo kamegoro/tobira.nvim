@@ -178,12 +178,16 @@ end
 -- limit: optional cap on returned results.
 -- overrides: same shape and exclusion rule as find_best's `overrides` param —
 -- see docs/adr/0030-keymap-override-exclusion-contract.md for why
+-- try_next = false entries are excluded here — a narrower, separate flag
+-- from ambient = false (which only gates find_best; <C-\><C-n> is
+-- ambient = false yet deliberately still appears here). See
+-- docs/adr/0107-n-repeat-intent-neutral-reactive-cgn.md.
 function M.efficiency_gaps(usage, limit, overrides)
   local cmds = require('tobira.commands')
   local gaps = {}
   for cmd, entry in pairs(cmds.registry) do
     local overridden = overrides and overrides[cmd] ~= nil
-    if not entry.compound and entry.requires and not overridden then
+    if not entry.compound and entry.requires and entry.try_next ~= false and not overridden then
       local parent = entry.requires
       local parent_data = usage[parent] or { count = 0 }
       local child_data = usage[cmd] or { count = 0 }

@@ -144,6 +144,7 @@ return {
       named_mark_opportunity = 'Du bist 3-mal zur selben Zeile zurückgekehrt und hast dazwischen an anderer Stelle editiert',
       tilde_word_repeat = 'Du hast 6-mal hintereinander die Groß-/Kleinschreibung umgeschaltet — genug für ein ganzes Wort',
       tilde_line_repeat = 'Du hast 12-mal hintereinander die Groß-/Kleinschreibung umgeschaltet — genug für den Großteil einer Zeile',
+      n_then_change = 'Du bist mit n zu einem Treffer gesprungen und hast ihn dann von Hand geändert statt cgn zu benutzen',
     },
   },
   -- Suggestion display strings shown via float popup and :TobiraProgress.
@@ -193,6 +194,11 @@ return {
       title = 'cgn — nächsten Suchtreffer ändern',
       body = 'Benutze nach / cgn, um den nächsten Treffer zu ändern\nDrücke danach ., um bei jedem weiteren Treffer zu wiederholen',
       example = '/word → cgn → neuer Text → Esc → . . .',
+    },
+    ['{n}n'] = {
+      title = '{n}n — mehrere Suchtreffer auf einmal überspringen',
+      body = 'Setze eine Zahl vor n, um mehrere Treffer auf einmal zu überspringen\nFunktioniert auch mit j, k und anderen Bewegungen',
+      example = '4n → springt zum 4. nächsten Treffer',
     },
     ['.'] = {
       title = '. — letzte Änderung wiederholen',
