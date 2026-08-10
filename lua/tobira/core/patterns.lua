@@ -993,6 +993,13 @@ local function inner_feed(seq, key, line, is_diff, now)
     end
     seq.pending_op = nil
     if key == '\27' then
+      -- An aborted change is a resolved, non-qualifying action -- it must
+      -- expire n_change_watch itself, the same as cc/cj/ck and c$ below, or
+      -- the watch survives to fire on a later, wholly unrelated cw/ciw. See
+      -- docs/adr/0107-n-repeat-intent-neutral-reactive-cgn.md.
+      if op == 'c' then
+        seq.n_change_watch = false
+      end
       return nil
     end
 
@@ -1042,6 +1049,11 @@ local function inner_feed(seq, key, line, is_diff, now)
     -- ── d / c operators ──────────────────────────────────────────────────
     if key == '$' then
       if op == 'c' then
+        -- C is a resolved, non-qualifying 'c'-family completion (never
+        -- becomes last_op == 'cw') -- must expire the watch itself, same
+        -- reasoning as the <Esc>-abort case above. See
+        -- docs/adr/0107-n-repeat-intent-neutral-reactive-cgn.md.
+        seq.n_change_watch = false
         return { pattern = 'c_dollar', cmd = 'C' }
       elseif op == 'd' then
         return { pattern = 'd_dollar', cmd = 'D' }
@@ -1049,6 +1061,15 @@ local function inner_feed(seq, key, line, is_diff, now)
     elseif key == op or key == 'j' or key == 'k' then
       seq.last_op = op .. op -- 'dd' or 'cc' (also dj/dk, cj/ck: linewise, tracked the same)
       seq.op_completed = true
+      if op == 'c' then
+        -- cc/cj/ck (linewise) never become last_op == 'cw' either -- same
+        -- non-qualifying-completion reasoning as c$/C and <Esc>-abort above.
+        -- This is also what actually implements "cc is deliberately
+        -- excluded": clearing here, not just declining to fire, is what
+        -- stops a later unrelated cw from firing off this stale watch. See
+        -- docs/adr/0107-n-repeat-intent-neutral-reactive-cgn.md.
+        seq.n_change_watch = false
+      end
       if key == op then
         if op == 'd' then
           seq.dd_streak = seq.dd_streak + 1

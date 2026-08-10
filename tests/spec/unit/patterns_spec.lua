@@ -478,6 +478,60 @@ describe('when the user changes the word under the cursor shortly after an n-str
     assert.equals('n_repeat', result.pattern)
     assert.equals('{n}n', result.cmd)
   end)
+
+  -- Independent QA finding: cc/cj/ck (linewise), c$ (C), and an aborted c<Esc>
+  -- all resolve seq.pending_op == 'c' WITHOUT ever setting last_op == 'cw',
+  -- so none of them pass through either branch that consumes/clears
+  -- n_change_watch. Left unconsumed, the watch survives past that resolved,
+  -- non-qualifying action and can fire on a LATER, wholly unrelated cw/ciw
+  -- with no fresh n-streak of its own -- because the very next key of that
+  -- later command is again 'c', which the top-of-inner_feed guard always
+  -- protects (it cannot tell "first c of a brand new command" apart from
+  -- "stale leftover watch"). Each of these completions must explicitly clear
+  -- the watch itself, the same way the cw/ciw branches already do.
+  it('does not leak the watch through cc (whole-line change) into a later unrelated cw', function()
+    local s = seq()
+    patterns.feed(s, 'n', 1)
+    patterns.feed(s, 'n', 1)
+    patterns.feed(s, 'c', 1)
+    patterns.feed(s, 'c', 1) -- completes cc -- deliberately excluded, must not leak
+    patterns.feed(s, 'c', 1) -- a fresh, unrelated cw with no new n-streak
+    local result = patterns.feed(s, 'w', 1)
+    assert.is_nil(result)
+  end)
+
+  it('does not leak the watch through cj (linewise) into a later unrelated cw', function()
+    local s = seq()
+    patterns.feed(s, 'n', 1)
+    patterns.feed(s, 'n', 1)
+    patterns.feed(s, 'c', 1)
+    patterns.feed(s, 'j', 1) -- completes cj -- linewise, same bucket as cc
+    patterns.feed(s, 'c', 1)
+    local result = patterns.feed(s, 'w', 1)
+    assert.is_nil(result)
+  end)
+
+  it('does not leak the watch through c$ (C) into a later unrelated cw', function()
+    local s = seq()
+    patterns.feed(s, 'n', 1)
+    patterns.feed(s, 'n', 1)
+    patterns.feed(s, 'c', 1)
+    patterns.feed(s, '$', 1) -- completes C -- change to end of line
+    patterns.feed(s, 'c', 1)
+    local result = patterns.feed(s, 'w', 1)
+    assert.is_nil(result)
+  end)
+
+  it('does not leak the watch through an aborted c<Esc> into a later unrelated cw', function()
+    local s = seq()
+    patterns.feed(s, 'n', 1)
+    patterns.feed(s, 'n', 1)
+    patterns.feed(s, 'c', 1)
+    patterns.feed(s, '\27', 1) -- <Esc> cancels the pending change
+    patterns.feed(s, 'c', 1)
+    local result = patterns.feed(s, 'w', 1)
+    assert.is_nil(result)
+  end)
 end)
 
 -- ── D → insert (delete to EOL then re-enter insert) ──────────────────────────
