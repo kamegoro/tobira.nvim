@@ -62,7 +62,7 @@ and more than one of them can produce a suggestion for it:
 - Lowering the compound-tracking check back to a value-comparison on `last_op`
   reintroduces the #119 undercount for repeated identical compounds.
 
-### Known limitation (investigated, not fixed — #265)
+### Known limitation (investigated in #265, resolved in #280)
 
 `macro_result` winning over `result` can silently discard a `named_mark_opportunity`
 that had already fired-and-reset internally. Repro: 3 "leave anchor → edit → return"
@@ -79,14 +79,31 @@ second, so by the time its result is known, `feed`'s state mutation has already
 happened). The user loses that specific `ma` suggestion and has to complete 3 more
 full return cycles before it can fire again.
 
-Confirmed reproducible; deliberately left unfixed. A correct fix needs one of:
-reordering `feed_macro()` before `feed()` and threading its result into `feed()` so
+Confirmed reproducible; at the time deliberately left unfixed. A correct fix needs one
+of: reordering `feed_macro()` before `feed()` and threading its result into `feed()` so
 `mark_ready`'s reset can be made conditional (couples two entry points ADR 0018
 explicitly keeps separate — `feed_macro`'s cross-mode buffer has nothing to do with
 `inner_feed`'s normal-mode operator grammar), or a deferred-commit/rollback API on
 `patterns.lua`'s mark-tracking state that only commits once the caller confirms it
 actually used the result (new public surface, threaded through both the
-normal-mode and insert-mode call sites of `feed_macro`). Both are more invasive than
-this narrow, low-frequency collision (requires literally identical short edits on
-every cycle) justifies. Revisit only if `named_mark_opportunity` reports of
-suggestions "never showing up" recur.
+normal-mode and insert-mode call sites of `feed_macro`). Both were judged more
+invasive than this narrow, low-frequency collision (requires literally identical
+short edits on every cycle) justified at the time.
+
+**Resolution (#280):** rather than either `patterns.lua`-level option above, the fix
+lives entirely in `logger.lua`'s existing arbitration, since `logger.lua` already
+receives both `result` (`patterns.feed()`) and `macro_result` (`patterns.feed_macro()`)
+independently for the Normal-mode branch of `handle_key`. The collision only ever
+happens when every edit in the repeated window lands on the same returned-to line —
+exactly `named_mark_opportunity`'s own specific, already-confirmed hypothesis ("you
+keep returning to this exact spot"). `macro_opportunity`'s real value is the same edit
+applied across *different* locations; once the location is confirmed identical on
+every repetition (the only way this collision can occur at all), it is actually a
+weak, atypical fit for macro's normal use case. So when `macro_result` and `result`
+are both ready on the same keystroke *and* `result.pattern == 'named_mark_opportunity'`,
+`named_mark_opportunity` now wins instead of `macro_result`. This is a narrow,
+one-pair-only exception: `macro_result` still wins over `result` for every other
+pattern, exactly as the unqualified priority above states. `patterns.feed()`'s
+`mark_ready` reset is unaffected (and still unconditional) — the fix only changes
+which already-computed result `logger.lua` reports, not `patterns.lua`'s internal
+state machine, so neither invasive option above was needed after all.
