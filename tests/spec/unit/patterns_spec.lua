@@ -2489,6 +2489,163 @@ describe('when the user presses z followed by a view command key', function()
   end)
 end)
 
+-- ── zo repeated → zR ─────────────────────────────────────────────────────────
+-- see docs/adr/0108-fold-open-close-streak.md
+
+describe('when the user opens folds one at a time', function()
+  local function press(s, key)
+    patterns.feed(s, 'z', 1)
+    return patterns.feed(s, key, 1)
+  end
+
+  it('fires fold_open_repeat suggesting zR after two zo in a row', function()
+    local s = seq()
+    press(s, 'o')
+    local result = press(s, 'o')
+    assert.is_not_nil(result)
+    assert.equals('fold_open_repeat', result.pattern)
+    assert.equals('zR', result.cmd)
+  end)
+
+  it('does not fire after only a single zo', function()
+    local s = seq()
+    local result = press(s, 'o')
+    assert.is_nil(result)
+  end)
+
+  it('resets the streak after firing, so a 3rd open does not immediately refire', function()
+    local s = seq()
+    press(s, 'o')
+    press(s, 'o') -- fires here
+    local result = press(s, 'o')
+    assert.is_nil(result)
+  end)
+
+  it('fires again once 2 more opens accumulate after a previous fire', function()
+    local s = seq()
+    press(s, 'o')
+    press(s, 'o') -- fires here
+    press(s, 'o')
+    local result = press(s, 'o')
+    assert.is_not_nil(result)
+    assert.equals('fold_open_repeat', result.pattern)
+  end)
+
+  it('resets the streak when interrupted by za (ambiguous open-or-close)', function()
+    local s = seq()
+    press(s, 'o')
+    press(s, 'a') -- interrupt: za resets both streaks
+    local result = press(s, 'o')
+    assert.is_nil(result)
+  end)
+
+  it('resets the streak when interrupted by an unrelated z-target (zt)', function()
+    local s = seq()
+    press(s, 'o')
+    press(s, 't') -- interrupt: not a fold open/close action
+    local result = press(s, 'o')
+    assert.is_nil(result)
+  end)
+
+  it('resets the streak when interrupted by an unrelated normal-mode key', function()
+    local s = seq()
+    press(s, 'o')
+    patterns.feed(s, 'j', 1) -- interrupt: unrelated key, no z prefix
+    local result = press(s, 'o')
+    assert.is_nil(result)
+  end)
+
+  it('resets the streak when interrupted by an unrecognised z-target', function()
+    local s = seq()
+    press(s, 'o')
+    press(s, 'q') -- interrupt: not in z_targets at all
+    local result = press(s, 'o')
+    assert.is_nil(result)
+  end)
+end)
+
+-- ── zc repeated → zM ─────────────────────────────────────────────────────────
+-- see docs/adr/0108-fold-open-close-streak.md
+
+describe('when the user closes folds one at a time', function()
+  local function press(s, key)
+    patterns.feed(s, 'z', 1)
+    return patterns.feed(s, key, 1)
+  end
+
+  it('fires fold_close_repeat suggesting zM after two zc in a row', function()
+    local s = seq()
+    press(s, 'c')
+    local result = press(s, 'c')
+    assert.is_not_nil(result)
+    assert.equals('fold_close_repeat', result.pattern)
+    assert.equals('zM', result.cmd)
+  end)
+
+  it('does not fire after only a single zc', function()
+    local s = seq()
+    local result = press(s, 'c')
+    assert.is_nil(result)
+  end)
+
+  it('resets the streak after firing, so a 3rd close does not immediately refire', function()
+    local s = seq()
+    press(s, 'c')
+    press(s, 'c') -- fires here
+    local result = press(s, 'c')
+    assert.is_nil(result)
+  end)
+
+  it('resets the streak when interrupted by za (ambiguous open-or-close)', function()
+    local s = seq()
+    press(s, 'c')
+    press(s, 'a') -- interrupt: za resets both streaks
+    local result = press(s, 'c')
+    assert.is_nil(result)
+  end)
+
+  it('resets the streak when interrupted by an unrelated normal-mode key', function()
+    local s = seq()
+    press(s, 'c')
+    patterns.feed(s, 'j', 1) -- interrupt: unrelated key, no z prefix
+    local result = press(s, 'c')
+    assert.is_nil(result)
+  end)
+end)
+
+-- ── fold_open_streak / fold_close_streak independence ──────────────────────────
+-- see docs/adr/0108-fold-open-close-streak.md
+
+describe('fold open/close streaks do not share state', function()
+  local function press(s, key)
+    patterns.feed(s, 'z', 1)
+    return patterns.feed(s, key, 1)
+  end
+
+  it('does not merge zo and zc into a single streak (alternating never fires)', function()
+    local s = seq()
+    press(s, 'o')
+    local result = press(s, 'c')
+    assert.is_nil(result)
+  end)
+
+  it('a close in between resets the open count', function()
+    local s = seq()
+    press(s, 'o') -- open streak = 1
+    press(s, 'c') -- close streak = 1, resets open streak
+    local result = press(s, 'o') -- open streak = 1 again, not 2
+    assert.is_nil(result)
+  end)
+
+  it('an open in between resets the close count', function()
+    local s = seq()
+    press(s, 'c') -- close streak = 1
+    press(s, 'o') -- open streak = 1, resets close streak
+    local result = press(s, 'c') -- close streak = 1 again, not 2
+    assert.is_nil(result)
+  end)
+end)
+
 -- ── <C-w> / pending_ctrl_w two-key compound tracking ───────────────────────────
 -- Raw byte for Ctrl-W is ASCII 23 ('\23'), matching the byte vim.on_key
 -- delivers and the literal used in patterns.lua — see logger_spec.lua's
