@@ -43,6 +43,11 @@ family resets the count.
 - Every other z-target (`zt`/`zb`/`zz`/`zj`/`zk`/`zd`/`zf`) and any unrecognised key after
   `z` also resets both streaks, mirroring the `pending_ctrl_w` block's outer `else`
   branch.
+- Ordinary local navigation (`CI_QUOTE_NAV_KEYS`: `w`/`b`/`e`/`h`/`l`/`j`/`k`/`0`/`^`/`$`) is
+  tolerated between `zo`/`zc` presses without resetting either streak — see the
+  navigation-tolerance fix documented in Consequences below. A big jump (`gg`/`G`,
+  outside that set) still resets both streaks, same scope as `ci_dquote_streak`'s own
+  tolerance (ADR 0020).
 - Threshold is 2, matching `ctrl_w_close_streak`/`ctrl_w_resize_streak` (ADR 0024, ADR
   0096) rather than the 3 most other streaks in this file use — chosen for consistency
   with the closest existing precedent, and because folding is a pure view toggle with no
@@ -64,3 +69,34 @@ family resets the count.
   pre-existing `ctrl_w_close_streak`/`ctrl_w_resize_streak` pair) — a future fold-family
   streak should follow the same own-counter, explicit-cross-reset shape rather than
   reusing either existing counter.
+- Independent QA on this change (PR #288) found that the "any unrelated key resets
+  state" block (the `key ~= 'p'` check, which this change adds both new counters to) is
+  never actually reached by a key that starts a `d`/`c`/`y`/`>`/`<`/`=` operator sequence
+  — `pending_op` resolves those entirely on its own and returns before that block runs.
+  Concretely, `zo`, `dd`, `zo` wrongly fired `fold_open_repeat` on the second `zo`, and
+  the identical gap already existed for `ctrl_w_close_streak`/`ctrl_w_resize_streak`
+  (`<C-w>q`, `dd`, `<C-w>q` also wrongly fired) — this was not a regression introduced by
+  this change, just inherited unnoticed from ADR 0024/0096. Fixed by resetting all four
+  streak counters at the single shared point where `pending_op` starts (see the comment
+  there), rather than duplicating the reset across every individual prefix-starter key —
+  other prefix-starters (`r`, `<C-a>`, `v`, `"`, `m`, `[`, bare `g`, non-close/resize
+  `<C-w>` targets) were confirmed to have the same latent gap but were deliberately left
+  unfixed here as a separate, broader concern beyond this change's scope.
+- The same independent QA also found a second, more consequential issue with the "modeled
+  on `ctrl_w_close_streak`" choice above: `<C-w>q` naturally re-focuses the next window
+  with no intervening key required, so a hard reset on any unrelated key never gets
+  exercised in `ctrl_w_close_streak`'s own realistic usage. `zo`/`zc` have no equivalent
+  auto-advance — reaching a DIFFERENT fold to `zo` it again always requires a real motion
+  in between. Live QA confirmed the original hard-reset made the feature almost never fire
+  for its actual stated purpose ("2+ separate folds"): `zo`, then any navigation at all
+  (even a single `j`) to reach the next fold, then `zo` never fired `fold_open_repeat`.
+  This is exactly the situation `ci_dquote_streak`/`ci_squote_streak` already solved with
+  their own `CI_QUOTE_NAV_KEYS` tolerance table (ADR 0020), whose Consequences section
+  explicitly says: "Any future streak that needs to 'survive across a necessary motion'
+  ... should follow this same own-tolerance-table-plus-own-reset-check shape." Fixed by
+  reusing `CI_QUOTE_NAV_KEYS` and giving `fold_open_streak`/`fold_close_streak` their own
+  dedicated reset check (removed from the generic `key ~= 'p'` block), mirroring
+  `ci_dquote_streak`'s exact structure instead of `ctrl_w_close_streak`'s. `ctrl_w_close_streak`/
+  `ctrl_w_resize_streak` were deliberately left as hard-resets — they don't need this,
+  since window-focus auto-advance means the scenario this tolerance fixes doesn't arise
+  for them.

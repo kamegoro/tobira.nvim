@@ -2547,10 +2547,33 @@ describe('when the user opens folds one at a time', function()
     assert.is_nil(result)
   end)
 
-  it('resets the streak when interrupted by an unrelated normal-mode key', function()
+  it('tolerates ordinary local navigation (j) needed to reach the next fold, and still fires', function()
+    -- Reaching a DIFFERENT fold to zo it again necessarily requires a motion
+    -- in between (unlike ctrl_w_close_streak, where <C-w>q auto-refocuses
+    -- the next window with no key needed) -- a hard reset on any key made
+    -- this streak nearly impossible to observe in realistic usage.
+    -- CI_QUOTE_NAV_KEYS tolerance (ADR 0020's own documented shape for this
+    -- exact situation) applies here too. See docs/adr/0108-fold-open-close-streak.md.
     local s = seq()
     press(s, 'o')
-    patterns.feed(s, 'j', 1) -- interrupt: unrelated key, no z prefix
+    patterns.feed(s, 'j', 1) -- tolerated: ordinary navigation to the next fold
+    local result = press(s, 'o')
+    assert.is_not_nil(result)
+    assert.equals('fold_open_repeat', result.pattern)
+  end)
+
+  it('still resets the streak when interrupted by an unrelated edit key (x)', function()
+    local s = seq()
+    press(s, 'o')
+    patterns.feed(s, 'x', 1) -- interrupt: an edit, not tolerated navigation
+    local result = press(s, 'o')
+    assert.is_nil(result)
+  end)
+
+  it('still resets the streak on a big jump (G), outside the tolerated navigation set', function()
+    local s = seq()
+    press(s, 'o')
+    patterns.feed(s, 'G', 1) -- interrupt: big jump, not in CI_QUOTE_NAV_KEYS
     local result = press(s, 'o')
     assert.is_nil(result)
   end)
@@ -2559,6 +2582,15 @@ describe('when the user opens folds one at a time', function()
     local s = seq()
     press(s, 'o')
     press(s, 'q') -- interrupt: not in z_targets at all
+    local result = press(s, 'o')
+    assert.is_nil(result)
+  end)
+
+  it('resets the streak when interrupted by an unrelated edit operator (dd)', function()
+    local s = seq()
+    press(s, 'o')
+    patterns.feed(s, 'd', 1) -- interrupt: starting an unrelated dd
+    patterns.feed(s, 'd', 1)
     local result = press(s, 'o')
     assert.is_nil(result)
   end)
@@ -2604,10 +2636,28 @@ describe('when the user closes folds one at a time', function()
     assert.is_nil(result)
   end)
 
-  it('resets the streak when interrupted by an unrelated normal-mode key', function()
+  it('tolerates ordinary local navigation (j) needed to reach the next fold, and still fires', function()
     local s = seq()
     press(s, 'c')
-    patterns.feed(s, 'j', 1) -- interrupt: unrelated key, no z prefix
+    patterns.feed(s, 'j', 1) -- tolerated: ordinary navigation to the next fold
+    local result = press(s, 'c')
+    assert.is_not_nil(result)
+    assert.equals('fold_close_repeat', result.pattern)
+  end)
+
+  it('still resets the streak when interrupted by an unrelated edit key (x)', function()
+    local s = seq()
+    press(s, 'c')
+    patterns.feed(s, 'x', 1) -- interrupt: an edit, not tolerated navigation
+    local result = press(s, 'c')
+    assert.is_nil(result)
+  end)
+
+  it('resets the streak when interrupted by an unrelated edit operator (dd)', function()
+    local s = seq()
+    press(s, 'c')
+    patterns.feed(s, 'd', 1) -- interrupt: starting an unrelated dd
+    patterns.feed(s, 'd', 1)
     local result = press(s, 'c')
     assert.is_nil(result)
   end)
@@ -2947,6 +2997,15 @@ describe('when the user closes windows one at a time', function()
     local result = press(s, 'q')
     assert.is_nil(result)
   end)
+
+  it('resets the streak when interrupted by an unrelated edit operator (dd)', function()
+    local s = seq()
+    press(s, 'q')
+    patterns.feed(s, 'd', 1) -- interrupt: starting an unrelated dd
+    patterns.feed(s, 'd', 1)
+    local result = press(s, 'q')
+    assert.is_nil(result)
+  end)
 end)
 
 -- ── <C-w>+ / <C-w>- / <C-w>< / <C-w>> repeated → <C-w>= ────────────────────────
@@ -3020,6 +3079,15 @@ describe('when the user resizes windows one keystroke at a time', function()
     local s = seq()
     press(s, '+')
     patterns.feed(s, 'j', 1) -- interrupt: unrelated key, no <C-w> prefix
+    local result = press(s, '+')
+    assert.is_nil(result)
+  end)
+
+  it('resets the streak when interrupted by an unrelated edit operator (dd)', function()
+    local s = seq()
+    press(s, '+')
+    patterns.feed(s, 'd', 1) -- interrupt: starting an unrelated dd
+    patterns.feed(s, 'd', 1)
     local result = press(s, '+')
     assert.is_nil(result)
   end)
