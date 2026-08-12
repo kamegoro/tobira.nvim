@@ -443,6 +443,15 @@ WINDOW ~
   `<C-w>+` / `<C-w>-` / `<C-w><` / `<C-w>>` × 2 (any mix)
                                 Suggest `<C-w>=` — equalize all window sizes
 
+FOLD ~
+
+  `zo` × 2 (one fold at a time) Suggest `zR`     — open all folds at once
+  `zc` × 2 (one fold at a time) Suggest `zM`     — close all folds at once
+                                 (`za` and any other z-target reset both
+                                 streaks — `za` is ambiguous open-or-close
+                                 without reading buffer fold state, which
+                                 this pattern deliberately does not do)
+
 MARK ~
 
   Cursor returns to the same line × 3, with a real edit elsewhere

@@ -137,6 +137,8 @@ return {
       ci_dquote_repeat = 'Du hast mit ci" 3-mal hintereinander den Inhalt in doppelten Anführungszeichen geändert',
       ci_squote_repeat = "Du hast mit ci' 3-mal hintereinander den Inhalt in einfachen Anführungszeichen geändert",
       ctrl_w_resize_repeat = 'Du hast Fenster 2-mal hintereinander einzeln in der Größe angepasst',
+      fold_open_repeat = 'Du hast 2-mal hintereinander Faltungen einzeln geöffnet',
+      fold_close_repeat = 'Du hast 2-mal hintereinander Faltungen einzeln geschlossen',
       cursor_center_repeat = 'Du hast mit <C-e>/<C-y> wiederholt die Cursorzeile neu positioniert',
       visual_block_opportunity = 'Du hast dieselbe einzeilige Änderung von Hand auf 3 aufeinanderfolgenden Zeilen vorgenommen',
       diff_jump_then_insert_next = 'Du bist mit ]c zum nächsten Diff-Hunk gesprungen und hast angefangen, ihn von Hand neu einzutippen',

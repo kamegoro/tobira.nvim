@@ -137,6 +137,8 @@ return {
       ci_dquote_repeat = 'ci" で二重引用符の中身を3回連続で変更しました',
       ci_squote_repeat = "ci' で単一引用符の中身を3回連続で変更しました",
       ctrl_w_resize_repeat = 'ウィンドウサイズを1回ずつ2回連続で調整しました',
+      fold_open_repeat = 'フォールドを1つずつ2回連続で開きました',
+      fold_close_repeat = 'フォールドを1つずつ2回連続で閉じました',
       cursor_center_repeat = '<C-e>/<C-y> でカーソル行の位置を何度も調整しました',
       visual_block_opportunity = '同じ1行編集を3行連続で手動で行いました',
       diff_jump_then_insert_next = ']c で次の差分ハンクにジャンプした後、手動で打ち直し始めました',

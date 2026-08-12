@@ -137,6 +137,8 @@ return {
       ci_dquote_repeat = 'You changed inside double quotes with ci" 3 times in a row',
       ci_squote_repeat = "You changed inside single quotes with ci' 3 times in a row",
       ctrl_w_resize_repeat = 'You resized windows one keystroke at a time, 2 times in a row',
+      fold_open_repeat = 'You opened folds one at a time, 2 times in a row',
+      fold_close_repeat = 'You closed folds one at a time, 2 times in a row',
       cursor_center_repeat = 'You scrolled with <C-e>/<C-y> repeatedly to reposition the cursor line',
       visual_block_opportunity = 'You made the same single-line edit on 3 consecutive lines by hand',
       diff_jump_then_insert_next = 'You jumped to the next diff hunk with ]c and started retyping it by hand',

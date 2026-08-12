@@ -137,6 +137,8 @@ return {
       ci_dquote_repeat = 'Vous avez changé le contenu entre guillemets doubles avec ci" 3 fois de suite',
       ci_squote_repeat = "Vous avez changé le contenu entre guillemets simples avec ci' 3 fois de suite",
       ctrl_w_resize_repeat = 'Vous avez redimensionné des fenêtres une touche à la fois, 2 fois de suite',
+      fold_open_repeat = 'Vous avez ouvert des pliages un par un, 2 fois de suite',
+      fold_close_repeat = 'Vous avez fermé des pliages un par un, 2 fois de suite',
       cursor_center_repeat = 'Vous avez défilé avec <C-e>/<C-y> à plusieurs reprises pour repositionner la ligne du curseur',
       visual_block_opportunity = "Vous avez fait la même modification d'une ligne à la main sur 3 lignes consécutives",
       diff_jump_then_insert_next = 'Vous avez sauté au bloc de différences suivant avec ]c et commencé à le retaper à la main',

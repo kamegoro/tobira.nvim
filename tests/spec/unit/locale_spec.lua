@@ -216,6 +216,8 @@ describe('float.reasons locale', function()
     'dot_repeat',
     'dw_then_insert',
     'f_repeat',
+    'fold_close_repeat',
+    'fold_open_repeat',
     'gq_then_jumpback',
     'h_repeat',
     'indent_run',

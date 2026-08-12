@@ -11,7 +11,7 @@
 -- (visual-block edit streak), 0099 (diff obtain/put after hunk jump), 0100
 -- (named-mark repeated line return), 0101 (tilde text-object refinement),
 -- 0106 (text-object variant own-usage tracking), 0107 (n_repeat intent-neutral
--- + reactive n_then_change → cgn).
+-- + reactive n_then_change → cgn), 0108 (fold open/close streak).
 
 local M = {}
 
@@ -72,6 +72,15 @@ function M.new_seq()
     -- the two families never interfere with each other's count — see
     -- docs/adr/0096-ctrl-w-resize-streak.md
     ctrl_w_resize_streak = 0,
+    -- zo repeated (or alternated with za/other z-targets, which reset it)
+    -- 2+ times in a row → zR. Tracked independently of fold_close_streak
+    -- below so the two never interfere with each other's count — same shape
+    -- as ctrl_w_close_streak/ctrl_w_resize_streak above — see
+    -- docs/adr/0108-fold-open-close-streak.md
+    fold_open_streak = 0,
+    -- zc repeated (or alternated) 2+ times in a row → zM. See
+    -- docs/adr/0108-fold-open-close-streak.md
+    fold_close_streak = 0,
     -- prefixes that consume exactly one following character
     pending_register = false, -- " or @ (register / macro name)
     pending_mark = false, -- m / ' / ` (mark name or target)
@@ -716,6 +725,33 @@ local function inner_feed(seq, key, line, is_diff, now)
     if z_targets[key] then
       seq.last_op = z_targets[key]
       seq.op_completed = true
+      -- zo repeated (or alternated with itself) 2+ times → suggest zR. za is
+      -- ambiguous (open-or-close depending on buffer fold state, which this
+      -- keystroke-only design deliberately never reads) and every other
+      -- z-target resets both streaks — see docs/adr/0108-fold-open-close-streak.md
+      if key == 'o' then
+        seq.fold_open_streak = seq.fold_open_streak + 1
+        seq.fold_close_streak = 0
+        if seq.fold_open_streak >= 2 then
+          seq.fold_open_streak = 0
+          return { pattern = 'fold_open_repeat', cmd = 'zR' }
+        end
+      -- zc repeated (or alternated with itself) 2+ times → suggest zM. See
+      -- docs/adr/0108-fold-open-close-streak.md
+      elseif key == 'c' then
+        seq.fold_close_streak = seq.fold_close_streak + 1
+        seq.fold_open_streak = 0
+        if seq.fold_close_streak >= 2 then
+          seq.fold_close_streak = 0
+          return { pattern = 'fold_close_repeat', cmd = 'zM' }
+        end
+      else
+        seq.fold_open_streak = 0
+        seq.fold_close_streak = 0
+      end
+    else
+      seq.fold_open_streak = 0
+      seq.fold_close_streak = 0
     end
     return nil
   end
@@ -1107,9 +1143,21 @@ local function inner_feed(seq, key, line, is_diff, now)
   -- key==op sets last_op='==' via the shared "same operator" branch, with no
   -- streak tracking needed (nothing else uses == as a `requires` target;
   -- display-accuracy only).
+  -- Starting an operator sequence (d/c/y/>/</=, e.g. the first 'd' of 'dd')
+  -- resolves entirely inside the pending_op block above on every subsequent
+  -- call and never reaches the "any unrelated key resets state" block below
+  -- (key ~= 'p' check) -- so ctrl_w/fold streaks must be reset explicitly
+  -- here too, or a streak like "zo" survives completely unrelated edits
+  -- (e.g. 'zo', 'dd', 'zo' would wrongly fire fold_open_repeat on the 2nd
+  -- zo). Independent QA finding on PR #288 -- see
+  -- docs/adr/0108-fold-open-close-streak.md.
   if key == 'd' or key == 'c' or key == 'y' or key == '>' or key == '<' or key == '=' then
     seq.pending_op = key
     seq.run = { key = nil, count = 0 }
+    seq.ctrl_w_close_streak = 0
+    seq.ctrl_w_resize_streak = 0
+    seq.fold_open_streak = 0
+    seq.fold_close_streak = 0
     return nil
   end
 
@@ -1203,6 +1251,24 @@ local function inner_feed(seq, key, line, is_diff, now)
   if not CI_QUOTE_NAV_KEYS[key] then
     seq.ci_dquote_streak = 0
     seq.ci_squote_streak = 0
+  end
+
+  -- ── fold_open_streak / fold_close_streak reset for keys that break the ──
+  -- ── zo/zc repeat flow ─────────────────────────────────────────────────────
+  -- Deliberately NOT folded into the generic reset block further down, same
+  -- reasoning as ci_dquote_streak/ci_squote_streak just above: reaching a
+  -- DIFFERENT fold to zo/zc it again necessarily requires a motion in
+  -- between (unlike ctrl_w_close_streak, where <C-w>q naturally re-focuses
+  -- the next window with no intervening key needed) -- a hard reset on any
+  -- key made this streak nearly impossible to observe in realistic usage
+  -- (independent QA finding on PR #288; see docs/adr/0020's own closing
+  -- guidance for streaks that must "survive across a necessary motion", and
+  -- docs/adr/0108-fold-open-close-streak.md). Reuses CI_QUOTE_NAV_KEYS as the
+  -- tolerance set -- an unrelated edit, another operator, or a big jump
+  -- (gg/G) still resets both streaks.
+  if not CI_QUOTE_NAV_KEYS[key] then
+    seq.fold_open_streak = 0
+    seq.fold_close_streak = 0
   end
 
   -- ── yy → p (duplicate line) ──────────────────────────────────────────────
@@ -1320,9 +1386,10 @@ local function inner_feed(seq, key, line, is_diff, now)
   -- bookkeeping has run for this G — see docs/adr/0019-jumplist-changelist-underuse-detection.md
   local gg_then_G = key == 'G' and seq.last_op == 'gg'
 
-  -- ci_dquote_streak/ci_squote_streak are deliberately NOT reset here — see
-  -- their own dedicated tolerance check (CI_QUOTE_NAV_KEYS) earlier in this
-  -- function, right after the ca_streak reset.
+  -- ci_dquote_streak/ci_squote_streak and fold_open_streak/fold_close_streak
+  -- are deliberately NOT reset here — see their own dedicated tolerance
+  -- checks (CI_QUOTE_NAV_KEYS) earlier in this function, right after the
+  -- ca_streak reset.
   if key ~= 'p' then
     seq.last_op = nil
     seq.dd_streak = 0

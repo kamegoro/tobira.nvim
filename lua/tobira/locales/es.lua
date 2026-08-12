@@ -137,6 +137,8 @@ return {
       ci_dquote_repeat = 'Cambiaste el contenido entre comillas dobles con ci" 3 veces seguidas',
       ci_squote_repeat = "Cambiaste el contenido entre comillas simples con ci' 3 veces seguidas",
       ctrl_w_resize_repeat = 'Redimensionaste ventanas una tecla a la vez, 2 veces seguidas',
+      fold_open_repeat = 'Abriste pliegues uno por uno, 2 veces seguidas',
+      fold_close_repeat = 'Cerraste pliegues uno por uno, 2 veces seguidas',
       cursor_center_repeat = 'Desplazaste la vista con <C-e>/<C-y> repetidamente para reposicionar la línea del cursor',
       visual_block_opportunity = 'Hiciste la misma edición de una línea manualmente en 3 líneas consecutivas',
       diff_jump_then_insert_next = 'Saltaste al siguiente bloque de diferencias con ]c y empezaste a reescribirlo a mano',

@@ -137,6 +137,8 @@ return {
       ci_dquote_repeat = '你用 ci" 连续 3 次修改双引号内的内容',
       ci_squote_repeat = "你用 ci' 连续 3 次修改单引号内的内容",
       ctrl_w_resize_repeat = '你连续 2 次单独调整了窗口大小',
+      fold_open_repeat = '你连续 2 次逐个展开折叠',
+      fold_close_repeat = '你连续 2 次逐个关闭折叠',
       cursor_center_repeat = '你反复使用 <C-e>/<C-y> 来调整光标所在行的位置',
       visual_block_opportunity = '你手动在连续 3 行上做了相同的单行编辑',
       diff_jump_then_insert_next = '你用 ]c 跳到下一个差异块后开始手动重新输入',
