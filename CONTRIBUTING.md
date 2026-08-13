@@ -124,6 +124,12 @@ This project follows strict TDD. **No implementation code without a failing test
   pattern fires in (see the table below), before touching the corresponding `patterns*.lua`
   module. `graph_spec.lua` is a different concern — see "What requires a test" below.
 - **Bug fix** → write a test that reproduces the bug first, then fix it
+- **Pattern whose correctness depends on cursor position, buffer content, window state, or
+  the order/timing of how `logger.lua` threads values into `patterns.feed()`** → a direct
+  `patterns.feed()` unit test is not sufficient on its own; also add a test that drives
+  real keystrokes through `nvim_feedkeys()`/`vim.on_key()`. See `tests/CLAUDE.md`'s
+  "Real-keystroke tests for state/timing-sensitive patterns" for the rule and a concrete
+  example (the `gj`/`gk` landing-line bug).
 - **PRs without tests for new behavior will not be merged**
 - Tests must pass on both Neovim stable and nightly before opening a PR
 

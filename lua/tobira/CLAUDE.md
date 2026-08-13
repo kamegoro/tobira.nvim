@@ -246,6 +246,11 @@ keystroke on top of whatever compound/variant bucket it correctly increments.
    - New insert-mode pattern → add a unit test to `patterns_insert_spec.lua` (#99)
    - New cmdline (Ex-command) pattern → add a unit test to `patterns_cmdline_spec.lua` (#57)
    - New terminal-mode pattern → add a unit test to `patterns_terminal_spec.lua` (#110)
+   - If the pattern's correctness depends on cursor position, buffer content, window
+     state, or the order/timing of how `logger.lua` threads values into `patterns.feed()`
+     → also add a real-keystroke (`vim.fn.feedkeys()`/`vim.on_key()`) test; a direct
+     `patterns.feed()` call alone does not prove it — see tests/CLAUDE.md's
+     "Real-keystroke tests for state/timing-sensitive patterns"
 3. Add display strings to all 6 locale files (`locales/{en,ja,de,es,fr,zh}.lua`) if needed
 4. Pass CI — `graph.lua`, `skills.lua`, and `logger.lua` update themselves automatically
 

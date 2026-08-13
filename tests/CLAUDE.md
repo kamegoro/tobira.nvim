@@ -79,6 +79,48 @@ end)
 Assert both `result.pattern` and `result.cmd`. Asserting only `cmd` won't catch a broken
 connection between pattern detection and the suggestion engine.
 
+This template alone is not sufficient proof of correctness for every pattern — see
+"Real-keystroke tests for state/timing-sensitive patterns" below.
+
+## Real-keystroke tests for state/timing-sensitive patterns
+
+A `patterns.feed()` direct-call test only proves the pure state machine handles the exact
+sequence you hand it. It cannot catch bugs in how `logger.lua` assembles that call from
+real Neovim state — cursor position, buffer content, window state, or the order/timing of
+`vim.on_key()` versus when Neovim actually applies the keystroke.
+
+**Rule:** if a pattern's correctness depends on any of the above (not just the sequence of
+key names), it must have at least one test that drives real keystrokes through
+`vim.fn.feedkeys()`/`nvim_feedkeys()` and the real `vim.on_key()` pipeline, in
+`tests/spec/integration/`. A direct-call test alone does not satisfy this — but direct-call
+tests stay the default and stay required for the pure sequence logic itself; this rule adds
+to that, it doesn't replace it.
+
+**Concrete example — the `gj`/`gk` landing-line bug (PR #289's independent QA):**
+`logger.lua`'s `current_line_is_wrapped()` originally read `vim.fn.getline('.')` — the
+cursor's line at the moment `vim.on_key()` fired. But `vim.on_key()` fires *before* Neovim
+applies the keystroke, so at call time the cursor was still on the line the streak was
+leaving, not the line the 5th `j`/`k` was about to land it on:
+
+```lua
+-- ❌ shipped: reads the departure line (cursor hasn't moved yet when vim.on_key fires)
+local display_width = vim.fn.strdisplaywidth(vim.fn.getline('.'))
+
+-- ✅ fixed: reads the landing line the keystroke is about to move the cursor to
+local target = key == 'j' and math.min(cur + 1, last) or math.max(cur - 1, 1)
+local display_width = vim.fn.strdisplaywidth(vim.fn.getline(target))
+```
+
+The two shipped unit tests used a single-line buffer, so the departure line and the
+landing line were always identical — the bug was invisible to them. It only surfaced when
+QA built a multi-line buffer and drove `vim.fn.feedkeys('jjjjj', 'xt')` through the real
+`vim.on_key()` pipeline.
+
+Other bugs this rule would have caught earlier, also found only by driving real keystrokes
+through the real dispatch path rather than calling `patterns.feed()` directly: the
+register/mark/f-F-t-T dispatch-ordering collisions (#257 and siblings), and the
+`key_consumed` gaps (#253/#277).
+
 ## patterns.lua handler ordering
 
 In `inner_feed`, the `pending_g` / `pending_z` handlers must appear **before** the `f/F/t/T`
@@ -191,3 +233,6 @@ end
 - [ ] assertions are specific (`assert.equals(1, #list)` not `assert.is_true(#list > 0)`)
 - [ ] no lines hidden with `-- luacov: disable`
 - [ ] `pairs()` iteration order is never asserted (non-deterministic across platforms)
+- [ ] patterns depending on cursor/buffer/window state or `vim.on_key()` timing have a
+      real-feedkeys test, not only a direct `patterns.feed()` test (see "Real-keystroke
+      tests for state/timing-sensitive patterns" above)
