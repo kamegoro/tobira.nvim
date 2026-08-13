@@ -3,7 +3,7 @@
 --
 -- This is NOT a reimplementation of patterns.lua's shared pending-state
 -- dispatcher (inner_feed). It shares no code and no data structure with it.
--- See tests/spec/differential/patterns_seq_differential_spec.lua for how
+-- See tests/differential/patterns_seq_differential_spec.lua for how
 -- this is run side-by-side against the real patterns.lua and compared.
 --
 -- Patterns modeled (per issue #316's scope): j_repeat, k_repeat, dd_run,

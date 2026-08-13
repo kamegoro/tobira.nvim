@@ -43,6 +43,26 @@
 -- matching anything for that issue, and this file's own assertions will
 -- start requiring exact agreement for it automatically — no test rewrite
 -- needed.
+--
+-- Lives in tests/differential/, a sibling of tests/spec/, NOT
+-- tests/spec/differential/ — same reasoning as tests/regression/
+-- (realistic_scale_spec.lua): issue #316 explicitly says not to wire this
+-- into .github/workflows/ci.yml in this PR (CI wiring for all of #315's
+-- sub-issues is a deliberate shared follow-up). ci.yml's existing
+-- `PlenaryBustedDirectory tests/spec/` invocation scans that directory
+-- recursively, so a file placed under tests/spec/ is wired into CI whether
+-- or not ci.yml itself is touched. Run it manually until that follow-up
+-- lands (see tests/CLAUDE.md).
+--
+-- Whoever does that CI wiring: this file's ~0.5s runtime does NOT hold once
+-- COVERAGE=1 is set. luacov's per-line debug.sethook instrumentation slowed
+-- this same 60-seeds-per-corpus suite to 50+ seconds (measured, reproduced
+-- twice), which exceeds plenary.nvim's own default 50000ms per-spec-file job
+-- timeout (test_harness.lua) — the child process gets killed before
+-- printing any result, exactly what broke this PR's Coverage CI job the
+-- first time this file lived under tests/spec/. Either keep this suite out
+-- of the coverage job, or re-measure and budget for the coverage slowdown
+-- (roughly two orders of magnitude here) before adding it there.
 
 package.path = vim.fn.getcwd() .. '/tests/differential/?.lua;' .. package.path
 

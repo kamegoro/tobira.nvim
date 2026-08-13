@@ -1,13 +1,14 @@
 -- Seedable, weighted-random keystroke sequence generator for the
 -- patterns.lua differential test (see reference_model.lua and
--- tests/spec/differential/patterns_seq_differential_spec.lua).
+-- tests/differential/patterns_seq_differential_spec.lua).
 --
--- Uses its own tiny deterministic PRNG (xorshift32) rather than Lua's
--- math.random/math.randomseed, so a given integer seed produces the exact
--- same keystroke sequence regardless of which Lua/LuaJIT build runs it
--- (PUC Lua and LuaJIT's math.random are not guaranteed to agree bit-for-bit
--- even with the same math.randomseed()) — required for "print the seed, a
--- human pastes it back and gets the identical failing sequence" reproducibility.
+-- Uses its own tiny deterministic PRNG (a Park-Miller LCG — see below) rather
+-- than Lua's math.random/math.randomseed, so a given integer seed produces
+-- the exact same keystroke sequence regardless of which Lua/LuaJIT build
+-- runs it (PUC Lua and LuaJIT's math.random are not guaranteed to agree
+-- bit-for-bit even with the same math.randomseed()) — required for "print
+-- the seed, a human pastes it back and gets the identical failing sequence"
+-- reproducibility.
 --
 -- Two kinds of chunks make up the output stream, always emitted as
 -- indivisible units (never interleaved by an independent draw mid-chunk):
