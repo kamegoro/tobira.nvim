@@ -316,21 +316,35 @@ local WRAP_GATE_KEYS = {
   k = true,
 }
 
--- Is the cursor's CURRENT line (before this keystroke moves it) genuinely
+-- Is the line this keystroke is about to MOVE THE CURSOR TO genuinely
 -- spanning multiple screen rows in the current window? 'wrap' being set is
 -- not enough by itself — a short line with 'wrap' on still fits one row, and
 -- suggesting gj/gk in that case would be a no-op the user can't observe. See
 -- docs/adr/0109-wrap-aware-gj-gk-redirect.md for the display-width technique
 -- and its known edge cases (folds, conceal, virtual text).
-local function current_line_is_wrapped()
+--
+-- Checks the DESTINATION line, not the line the cursor is currently on:
+-- vim.on_key() fires before Neovim applies the keystroke, so at call time the
+-- cursor is still one line short of where this j/k is about to land it. By
+-- the time the suggestion float actually appears (after idle_delay), the
+-- cursor already sits on the destination line — checking anything else would
+-- be stale relative to what the user is looking at. j always moves exactly
+-- one buffer line down and k exactly one up (this function is only ever
+-- called for key == 'j' or key == 'k', see WRAP_GATE_KEYS), so the
+-- destination is a simple ±1 clamped to the buffer's line range — no need to
+-- wait for the motion to actually happen.
+local function current_line_is_wrapped(key)
   if not vim.wo.wrap then
     return false
   end
+  local cur = vim.api.nvim_win_get_cursor(0)[1]
+  local last = vim.fn.line('$')
+  local target = key == 'j' and math.min(cur + 1, last) or math.max(cur - 1, 1)
   -- getwininfo() always resolves for the current window's own id, so info[1]
   -- is never nil here.
   local info = vim.fn.getwininfo(vim.api.nvim_get_current_win())[1]
   local text_width = info.width - info.textoff
-  local display_width = vim.fn.strdisplaywidth(vim.fn.getline('.'))
+  local display_width = vim.fn.strdisplaywidth(vim.fn.getline(target))
   return patterns.is_wrapped_line(display_width, text_width)
 end
 
@@ -649,7 +663,7 @@ local function handle_key(key)
   -- for keys j_repeat_wrapped/k_repeat_wrapped actually consult, and only
   -- read vim.wo.wrap (cheap) before doing the getwininfo()/strdisplaywidth()
   -- work (not free) — see WRAP_GATE_KEYS/current_line_is_wrapped above.
-  local is_wrapped = WRAP_GATE_KEYS[key] and current_line_is_wrapped() or false
+  local is_wrapped = WRAP_GATE_KEYS[key] and current_line_is_wrapped(key) or false
   -- Read once, reused for feed_macro() below too — patterns.lua stays
   -- vim.*-free and only ever sees this caller-supplied monotonic ms value.
   local now = vim.loop.now()

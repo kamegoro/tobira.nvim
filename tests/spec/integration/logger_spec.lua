@@ -677,6 +677,90 @@ describe('when k is pressed 5 times in a row on a genuinely wrapped line', funct
   end)
 end)
 
+-- Independent QA finding on PR #289: is_wrapped is measured against the line
+-- the cursor is leaving (before the streak's own last keystroke moves it),
+-- not the line the streak actually lands on. The two shipped is_wrapped
+-- tests above never exercise this distinction because their buffer has only
+-- one line, so the departure line and the landing line are always the same
+-- line. This test uses a buffer where they genuinely differ.
+describe('when j is pressed 5 times starting on short lines and landing on a genuinely wrapped line', function()
+  before_each(function()
+    logger.reset()
+    logger.on_pattern = nil
+    logger.setup()
+    vim.cmd('enew!')
+    vim.wo.wrap = true
+    vim.wo.number = false
+    vim.wo.signcolumn = 'no'
+    vim.api.nvim_win_set_width(0, 20)
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+      'short 1',
+      'short 2',
+      'short 3',
+      'short 4',
+      'short 5',
+      string.rep('x', 100),
+    })
+    vim.api.nvim_win_set_cursor(0, { 1, 0 })
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+    vim.cmd('bwipeout!')
+  end)
+
+  it('fires j_repeat_wrapped suggesting gj, not the unqualified {n}j', function()
+    local fired = nil
+    logger.on_pattern = function(pattern, cmd)
+      fired = { pattern = pattern, cmd = cmd }
+    end
+    vim.fn.feedkeys('jjjjj', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_not_nil(fired)
+    assert.equals('j_repeat_wrapped', fired.pattern)
+    assert.equals('gj', fired.cmd)
+  end)
+end)
+
+describe('when k is pressed 5 times starting on short lines and landing on a genuinely wrapped line', function()
+  before_each(function()
+    logger.reset()
+    logger.on_pattern = nil
+    logger.setup()
+    vim.cmd('enew!')
+    vim.wo.wrap = true
+    vim.wo.number = false
+    vim.wo.signcolumn = 'no'
+    vim.api.nvim_win_set_width(0, 20)
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+      string.rep('x', 100),
+      'short 1',
+      'short 2',
+      'short 3',
+      'short 4',
+      'short 5',
+    })
+    vim.api.nvim_win_set_cursor(0, { 6, 0 })
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+    vim.cmd('bwipeout!')
+  end)
+
+  it('fires k_repeat_wrapped suggesting gk, not the unqualified {n}k', function()
+    local fired = nil
+    logger.on_pattern = function(pattern, cmd)
+      fired = { pattern = pattern, cmd = cmd }
+    end
+    vim.fn.feedkeys('kkkkk', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_not_nil(fired)
+    assert.equals('k_repeat_wrapped', fired.pattern)
+    assert.equals('gk', fired.cmd)
+  end)
+end)
+
 -- ── Visual mode: route keystrokes through pattern tracking instead of wiping state ──
 -- See docs/adr/0017-mode-cache-state-reset-boundaries.md for the routing bug
 -- this covers. Unlike Insert mode (vim.fn.mode() always reports 'n' in

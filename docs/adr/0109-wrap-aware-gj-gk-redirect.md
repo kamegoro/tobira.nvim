@@ -70,9 +70,17 @@ first (cheap) so the more expensive width computation only runs when wrap is eve
   width minus whatever the number/sign/fold columns are currently consuming. `textoff` is
   Neovim's own answer to "how much of this window's width is not text," so this avoids
   re-deriving it from `'number'`/`'signcolumn'`/`'foldcolumn'` by hand.
-- `display_width`: `vim.fn.strdisplaywidth(vim.fn.getline('.'))` — the current line's
-  rendered width, accounting for tabs and multi-cell characters the way the screen actually
-  renders them (unlike `#line`, which counts bytes).
+- `display_width`: `vim.fn.strdisplaywidth(vim.fn.getline(target))` — the rendered width of
+  the line this j/k is about to land the cursor on, accounting for tabs and multi-cell
+  characters the way the screen actually renders them (unlike `#line`, which counts bytes).
+  `target` is `cursor line ± 1` (clamped to the buffer's line range; `+1` for `j`, `-1` for
+  `k`), not the cursor's line at call time. `vim.on_key()` fires before Neovim applies the
+  keystroke, so at call time the cursor is still one line short of where this j/k is about to
+  land it; checking the destination instead of the departure line is what makes the check
+  match what the user is actually looking at once the suggestion float appears (independent
+  QA finding on PR #289 — the shipped version checked `vim.fn.getline('.')`, the departure
+  line, which a same-line-only test buffer never exercised against a destination that
+  differs from the departure).
 
 This was verified empirically before implementation, not just derived on paper: in a
 headless Neovim session with a controlled window width, `wrap` off + a long line, `wrap` on
