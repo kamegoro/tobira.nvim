@@ -368,9 +368,15 @@ MOTION ~
   `b` × 5                       Suggest `B`    — jump backward by WORD
   `e` × 5                       Suggest `ge`   — jump to end of previous word
   `j` × 5                       Suggest `{n}j` — use a count prefix instead
+                                 (suggests `gj` instead while `'wrap'` is set
+                                 and the cursor's current line genuinely spans
+                                 multiple screen rows)
   `j` × 10                      Suggest `}`    — jump forward by paragraph
                                  (suggests `]c` instead while `&diff` is set — see DIFF below)
   `k` × 5                       Suggest `{n}k` — use a count prefix instead
+                                 (suggests `gk` instead while `'wrap'` is set
+                                 and the cursor's current line genuinely spans
+                                 multiple screen rows)
   `k` × 10                      Suggest `{`    — jump backward by paragraph
                                  (suggests `[c` instead while `&diff` is set — see DIFF below)
   `k` (once) → `o`              Suggest `O`    — open new line above directly

@@ -307,6 +307,33 @@ local DIFF_GATE_KEYS = {
   S = true,
 }
 
+-- Keys that make is_wrapped worth computing for: only j/k, since
+-- j_repeat_wrapped/k_repeat_wrapped are the only branches that consult it
+-- (unlike DIFF_GATE_KEYS above, nothing else needs it). See
+-- docs/adr/0109-wrap-aware-gj-gk-redirect.md.
+local WRAP_GATE_KEYS = {
+  j = true,
+  k = true,
+}
+
+-- Is the cursor's CURRENT line (before this keystroke moves it) genuinely
+-- spanning multiple screen rows in the current window? 'wrap' being set is
+-- not enough by itself — a short line with 'wrap' on still fits one row, and
+-- suggesting gj/gk in that case would be a no-op the user can't observe. See
+-- docs/adr/0109-wrap-aware-gj-gk-redirect.md for the display-width technique
+-- and its known edge cases (folds, conceal, virtual text).
+local function current_line_is_wrapped()
+  if not vim.wo.wrap then
+    return false
+  end
+  -- getwininfo() always resolves for the current window's own id, so info[1]
+  -- is never nil here.
+  local info = vim.fn.getwininfo(vim.api.nvim_get_current_win())[1]
+  local text_width = info.width - info.textoff
+  local display_width = vim.fn.strdisplaywidth(vim.fn.getline('.'))
+  return patterns.is_wrapped_line(display_width, text_width)
+end
+
 -- Raw on_key bytes -> canonical name for the handful of insert-mode-only keys
 -- patterns_insert.feed_insert() cares about. <C-w>/<C-n>/<C-o> each mean
 -- something different in Normal mode — see
@@ -618,10 +645,15 @@ local function handle_key(key)
   -- stays vim.*-free; this is the one call site that reads the option and
   -- threads it in as a parameter.
   local is_diff = DIFF_GATE_KEYS[key] and vim.wo.diff or false
+  -- Same gating rationale as is_diff above: only compute the width-comparison
+  -- for keys j_repeat_wrapped/k_repeat_wrapped actually consult, and only
+  -- read vim.wo.wrap (cheap) before doing the getwininfo()/strdisplaywidth()
+  -- work (not free) — see WRAP_GATE_KEYS/current_line_is_wrapped above.
+  local is_wrapped = WRAP_GATE_KEYS[key] and current_line_is_wrapped() or false
   -- Read once, reused for feed_macro() below too — patterns.lua stays
   -- vim.*-free and only ever sees this caller-supplied monotonic ms value.
   local now = vim.loop.now()
-  local result = patterns.feed(seq, key, line, is_diff, now)
+  local result = patterns.feed(seq, key, line, is_diff, now, is_wrapped)
 
   -- Fed from both this branch and handle_insert_key()'s matching call — see
   -- docs/adr/0016-pattern-dispatch-priority-and-key-collisions.md for why.
