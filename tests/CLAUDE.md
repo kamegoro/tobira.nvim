@@ -43,6 +43,34 @@ COVERAGE=1 nvim --headless --noplugin -u tests/minimal_init.lua \
 grep 'Total' luacov.report.out   # must be 100.00%
 ```
 
+## Realistic-scale regression suite (`tests/regression/`)
+
+A separate suite, sibling to `tests/spec/`, that runs `graph.find_best()` /
+`graph.efficiency_gaps()` / `graph.guide_commands()` / `graph.is_forgotten()` /
+`graph.is_mastered()` against a deterministic, seeded, realistic-scale
+generated `usage.json` fixture (`tests/regression/fixture.lua`) and asserts
+product-level invariants — see #317 / the #315 umbrella for why: several real
+bugs (#290–#292, #307) only manifested at realistic accumulated scale or
+duration (10+ simulated session boundaries), which the thin hand-picked
+fixtures above (`graph_spec.lua` etc.) structurally cannot reproduce.
+
+**Deliberately not wired into `.github/workflows/ci.yml`** — CI wiring for
+all of #315's sub-issues is a separate follow-up. Run it manually:
+
+```bash
+nvim --headless --noplugin -u tests/minimal_init.lua \
+  -c "PlenaryBustedDirectory tests/regression/ {minimal_init = 'tests/minimal_init.lua', sequential = true}"
+```
+
+Unlike `tests/spec/*_spec.lua`, some `it()` blocks in this suite are
+**expected to currently fail** — they are regression trackers for real,
+already-filed, still-open bugs, clearly marked `KNOWN FAILING` with the issue
+number they track. Do not `pending()`/skip/delete a `KNOWN FAILING` test:
+plenary's `pending()` never even executes the test body (see
+`plenary/busted.lua`'s `mod.pending`), which would silently stop exercising
+the real code path this suite exists to guard. Each should start passing
+with no changes needed once its referenced issue is fixed.
+
 **Coverage below 100% means one of two things — fix whichever applies:**
 - Lines are reachable but have no test → write the test
 - Lines are unreachable (dead code) → delete the code
