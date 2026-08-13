@@ -43,26 +43,23 @@ COVERAGE=1 nvim --headless --noplugin -u tests/minimal_init.lua \
 grep 'Total' luacov.report.out   # must be 100.00%
 ```
 
-## Realistic-scale regression suite (`tests/regression/`)
+## Regression suites (`tests/regression/`)
 
-A separate suite, sibling to `tests/spec/`, that runs `graph.find_best()` /
-`graph.efficiency_gaps()` / `graph.guide_commands()` / `graph.is_forgotten()` /
-`graph.is_mastered()` against a deterministic, seeded, realistic-scale
-generated `usage.json` fixture (`tests/regression/fixture.lua`) and asserts
-product-level invariants — see #317 / the #315 umbrella for why: several real
-bugs (#290–#292, #307) only manifested at realistic accumulated scale or
-duration (10+ simulated session boundaries), which the thin hand-picked
-fixtures above (`graph_spec.lua` etc.) structurally cannot reproduce.
+A directory sibling to `tests/spec/` that holds suites deliberately excluded
+from `.github/workflows/ci.yml`'s scan path — both because some of their
+`it()` blocks intentionally fail (tracking real, still-open bugs; CI wiring
+for #315's sub-issues is decided separately per suite, see below) and because
+running them isn't required to gate every PR the way `tests/spec/` is.
 
-**Deliberately not wired into `.github/workflows/ci.yml`** — CI wiring for
-all of #315's sub-issues is a separate follow-up. Run it manually:
+**Deliberately not wired into `.github/workflows/ci.yml`.** Run either or
+both manually:
 
 ```bash
 nvim --headless --noplugin -u tests/minimal_init.lua \
   -c "PlenaryBustedDirectory tests/regression/ {minimal_init = 'tests/minimal_init.lua', sequential = true}"
 ```
 
-Unlike `tests/spec/*_spec.lua`, some `it()` blocks in this suite are
+Unlike `tests/spec/*_spec.lua`, some `it()` blocks in these suites are
 **expected to currently fail** — they are regression trackers for real,
 already-filed, still-open bugs, clearly marked `KNOWN FAILING` with the issue
 number they track. Do not `pending()`/skip/delete a `KNOWN FAILING` test:
@@ -76,6 +73,33 @@ with no changes needed once its referenced issue is fixed.
 - Lines are unreachable (dead code) → delete the code
 
 Using `-- luacov: disable` is prohibited.
+
+### Realistic-scale fixture suite (`realistic_scale_spec.lua`)
+
+Runs `graph.find_best()` / `graph.efficiency_gaps()` / `graph.guide_commands()`
+/ `graph.is_forgotten()` / `graph.is_mastered()` against a deterministic,
+seeded, realistic-scale generated `usage.json` fixture (`fixture.lua`) and
+asserts product-level invariants — see #317 / the #315 umbrella for why:
+several real bugs (#290–#292, #307) only manifested at realistic accumulated
+scale or duration (10+ simulated session boundaries), which the thin
+hand-picked fixtures above (`graph_spec.lua` etc.) structurally cannot
+reproduce.
+
+### Long-session resource-bound suite (`long_session_resource_spec.lua`)
+
+Drives a single ~2200-real-keystroke scripted session through the real
+`vim.on_key()` dispatch path (`vim.fn.feedkeys()`/`nvim_feedkeys()`, never a
+direct call into `suggest.lua`'s or `logger.lua`'s internals) and asserts
+bounded resource usage at the end versus a session-start baseline — see #318
+/ the #315 umbrella for why: leaks that only manifest over a sustained
+session (unbounded `vim.on_key` namespace growth, unbounded per-session state
+tables) can't be caught by short, thin fixtures either. Three of its four
+`it()` blocks are `KNOWN FAILING`, tracking #310 (`suggest.lua`'s
+`watch_adoption()` leaks a `vim.on_key` namespace per shown, un-adopted
+suggestion) and #314 (`patterns_cmdline.lua`'s substitute/history-recall
+tracking tables grow without eviction). The fourth locks in
+`patterns_insert.lua`'s already-correct completion-ring cap as a regression
+guard.
 
 ## Smoke test for `track = true` commands
 

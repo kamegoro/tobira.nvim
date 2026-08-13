@@ -163,6 +163,60 @@ describe('when checking in-session keystroke counts before the session closes', 
   end)
 end)
 
+-- ── get_state_table_sizes ────────────────────────────────────────────────────
+--
+-- A lightweight direct-call counterpart to the full long-session scenario in
+-- tests/regression/long_session_resource_spec.lua (#318). That suite lives
+-- outside tests/spec/ (see tests/CLAUDE.md) because most of its assertions
+-- are intentional KNOWN FAILING regression trackers for #310/#314, so it is
+-- not run by CI's Coverage job. Without a test here, get_state_table_sizes()
+-- and its count_keys() helper would be exercised by no CI-gating test at
+-- all, dropping logger.lua below the 100% coverage requirement. This test
+-- only exists to keep that accessor covered — the resource-bound invariants
+-- themselves are asserted in the regression suite, not here.
+
+describe('when checking the size of long-lived cmdline/insert state tables', function()
+  local esc = vim.api.nvim_replace_termcodes('<Esc>', true, true, true)
+  local cr = vim.api.nvim_replace_termcodes('<CR>', true, true, true)
+
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    logger.setup()
+    vim.cmd('enew!')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'foo', 'bar' })
+  end)
+
+  it('reports non-zero entry counts after real substitute/Ex/insert-mode activity', function()
+    -- One real :s/// on one line -- populates substitute_state.entries with
+    -- one entry holding one line, exercising both the outer entries loop and
+    -- the inner per-entry lines loop in get_state_table_sizes().
+    vim.api.nvim_win_set_cursor(0, { 1, 0 })
+    pcall(vim.fn.feedkeys, ':s/foo/baz/' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    -- Credit is deferred to vim.schedule() (docs/adr/0015) -- wait for it to
+    -- settle before reading state.
+    vim.wait(20)
+
+    -- One harmless, distinct Ex command -- populates history_recall_state.
+    pcall(vim.fn.feedkeys, ':echo "state size check"' .. cr, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+
+    -- One >= 6-char insert-mode token, finalized by a trailing space --
+    -- populates the completion ring. Entry key and exit key travel in one
+    -- feedkeys() call (see tests/regression/long_session_resource_spec.lua's
+    -- header on why a split call would drop back to Normal mode early).
+    pcall(vim.fn.feedkeys, 'oabcdefgh ' .. esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+
+    local sizes = logger.get_state_table_sizes()
+    assert.equals(1, sizes.substitute_entries)
+    assert.equals(1, sizes.substitute_total_lines)
+    assert.equals(1, sizes.history_recall_entries)
+    assert.equals(1, sizes.insert_completion_ring)
+  end)
+end)
+
 -- ── set_suppressed ───────────────────────────────────────────────────────────
 
 describe('when a command is explicitly suppressed', function()

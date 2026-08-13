@@ -4,6 +4,19 @@
 -- bounded at the end versus the start. See docs/adr/0047 (adoption-watch
 -- rolling buffer) and docs/adr/0006/0095 (cmdline pattern state) for the
 -- production mechanisms this exercises.
+--
+-- Deliberately under tests/regression/, not tests/spec/ -- same reasoning as
+-- this directory's other suite (tests/regression/realistic_scale_spec.lua,
+-- #317): CI's Test/Coverage jobs both point PlenaryBustedDirectory at
+-- tests/spec/ only, so nothing here is picked up by .github/workflows/
+-- ci.yml. Three of the four it() blocks below are KNOWN FAILING regression
+-- trackers for real, still-open bugs (#310, #314) -- placing them in
+-- tests/spec/ would leave main's required per-PR CI permanently red until
+-- those bugs are fixed. Per #318's design guidance, CI wiring for this
+-- suite (per-PR vs. periodic) is a separate, later decision. Run manually:
+--
+--   nvim --headless --noplugin -u tests/minimal_init.lua \
+--     -c "PlenaryBustedDirectory tests/regression/ {minimal_init = 'tests/minimal_init.lua', sequential = true}"
 
 local logger = require('tobira.core.logger')
 local suggest = require('tobira.core.suggest')
@@ -273,13 +286,13 @@ end
 describe('after a long, realistic session with a mix of adopted and un-adopted suggestions', function()
   after_each(cleanup)
 
-  -- Tracks issue #310 (suggest.lua's watch_adoption() registers a
-  -- persistent vim.on_key namespace per shown suggestion, torn down only on
-  -- adoption; reset_session() is never called from production code). This
-  -- assertion is currently FAILING: this session shows every SUGGESTIONS
-  -- entry and adopts only half of them, so the leaked-namespace count is far
-  -- above any small, well-understood bound. Do not silently skip or delete
-  -- this test -- it should start passing once #310 is fixed.
+  -- KNOWN FAILING -- tracks issue #310 (open). suggest.lua's
+  -- watch_adoption() registers a persistent vim.on_key namespace per shown
+  -- suggestion, torn down only on adoption; reset_session() is never called
+  -- from production code. This session shows every SUGGESTIONS entry and
+  -- adopts only half of them, so the leaked-namespace count is far above any
+  -- small, well-understood bound. Do not pending()/skip/delete this test --
+  -- it should start passing once #310 is fixed.
   it('keeps the number of active vim.on_key namespaces within a small bound of the session-start baseline', function()
     local result = run_long_session()
     -- Generous headroom: the persistent tobira_logger/tobira_idle
@@ -302,11 +315,13 @@ end)
 describe('after a long session with many distinct Ex commands', function()
   after_each(cleanup)
 
-  -- Tracks issue #314 (patterns_cmdline.lua's substitute_state.entries and
-  -- history_recall_state.entries grow without bound or eviction). Currently
-  -- FAILING: SUB_LINE_COUNT/ECHO_COUNT distinct commands each create one
-  -- permanent entry, well past any reasonable cap. Do not silently skip or
-  -- delete this test -- it should start passing once #314 is fixed.
+  -- KNOWN FAILING -- tracks issue #314 (open). patterns_cmdline.lua's
+  -- substitute_state.entries and history_recall_state.entries grow without
+  -- bound or eviction; SUB_LINE_COUNT/ECHO_COUNT distinct commands each
+  -- create one permanent entry, well past any reasonable cap. Do not
+  -- pending()/skip/delete this test -- it should start passing once #314
+  -- is fixed. (Split into its own it() per one-concept-per-test convention;
+  -- the history-recall counterpart below carries the same marker.)
   it('keeps substitute-repeat tracking state below a reasonable cap', function()
     local result = run_long_session()
     local CAP = 20
@@ -316,6 +331,8 @@ describe('after a long session with many distinct Ex commands', function()
     )
   end)
 
+  -- KNOWN FAILING -- tracks issue #314 (open). Same guard as the
+  -- substitute-repeat test above, for history_recall_state.entries.
   it('keeps Ex-command history-recall tracking state below a reasonable cap', function()
     local result = run_long_session()
     local CAP = 20
