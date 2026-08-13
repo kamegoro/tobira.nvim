@@ -517,7 +517,7 @@ local function track_run(seq, key)
   return seq.run.count
 end
 
-local function inner_feed(seq, key, line, is_diff, now)
+local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
   -- ── changelist-underuse bookkeeping ────────────────────────────────────────
   -- Observes every key unconditionally, before any other handler, and never
   -- consumes/returns. EDIT_OP_KEYS mark "an edit just happened here"; any
@@ -1539,6 +1539,15 @@ local function inner_feed(seq, key, line, is_diff, now)
   elseif key == 'u' and count == 3 then
     return { pattern = 'u_repeat', cmd = '<C-r>' }
   elseif key == 'j' and count == 5 then
+    -- While the cursor is on a genuinely wrapped (multi-screen-row) line with
+    -- 'wrap' set, gj (display-line motion) beats a {n}j count prefix — {n}j
+    -- would jump by buffer lines, which is not what "move down 5 more times"
+    -- means visually on a wrapped line. is_wrapped is a plain parameter, not
+    -- seq state, for the same reason is_diff is: see logger.lua for where
+    -- it's computed and passed in.
+    if is_wrapped then
+      return { pattern = 'j_repeat_wrapped', cmd = 'gj' }
+    end
     return { pattern = 'j_repeat', cmd = '{n}j' }
   elseif key == 'j' and count == 10 then
     -- While &diff is set, hunting for the next changed hunk with plain j is
@@ -1552,6 +1561,9 @@ local function inner_feed(seq, key, line, is_diff, now)
     end
     return { pattern = 'j_many', cmd = '}' }
   elseif key == 'k' and count == 5 then
+    if is_wrapped then
+      return { pattern = 'k_repeat_wrapped', cmd = 'gk' }
+    end
     return { pattern = 'k_repeat', cmd = '{n}k' }
   elseif key == 'k' and count == 10 then
     if is_diff then
@@ -1604,6 +1616,20 @@ local function inner_feed(seq, key, line, is_diff, now)
   return nil
 end
 
+-- Pure width comparison deciding whether a line would genuinely wrap across
+-- more than one screen row: true when its rendered width exceeds the
+-- window's usable text width (window width minus number/sign/fold column
+-- offsets). Kept as a standalone pure function — no vim.* calls — so it's
+-- directly unit-testable with synthetic width inputs, and so logger.lua can
+-- feed it real vim.fn.strdisplaywidth()/getwininfo() values without
+-- patterns.lua ever touching vim.* itself. See
+-- docs/adr/0109-wrap-aware-gj-gk-redirect.md for why this technique was
+-- chosen over comparing vim.fn.winline()/screenpos() deltas, and for its
+-- known edge cases (folds, conceal, virtual text).
+function M.is_wrapped_line(display_width, text_width)
+  return text_width > 0 and display_width > text_width
+end
+
 -- is_diff: true when &diff is set on the window the keystroke came from.
 -- Only consulted by j_many/k_many. Passed in by the caller (logger.lua reads
 -- vim.wo.diff) since patterns.lua stays vim.*-free by design (pure Lua,
@@ -1614,11 +1640,18 @@ end
 -- clock never expires a tolerance window — keeps existing call sites and
 -- non-time-sensitive tests working unchanged. Real callers pass
 -- vim.loop.now(); tests pass a fake value.
-function M.feed(seq, key, line, is_diff, now)
+--
+-- is_wrapped: true when 'wrap' is set on the window AND the cursor's current
+-- line genuinely spans multiple screen rows (see is_wrapped_line above).
+-- Only consulted by j_repeat/k_repeat. Threaded in the same way as is_diff —
+-- appended after `now` rather than inserted before it, so existing 3/4/5-arg
+-- call sites (this module has hundreds across patterns_spec.lua) keep working
+-- unchanged; an omitted argument is falsy, same as omitted is_diff.
+function M.feed(seq, key, line, is_diff, now, is_wrapped)
   seq.key_consumed = false -- reset before each call; handlers set true when consuming
   seq.op_completed = false -- reset before each call; handlers set true when last_op is freshly set
   seq.last_op_variant = nil -- reset before each call; set only by the call that resolves pending_text_obj
-  local result = inner_feed(seq, key, line, is_diff, now or 0)
+  local result = inner_feed(seq, key, line, is_diff, now or 0, is_wrapped)
   return result
 end
 

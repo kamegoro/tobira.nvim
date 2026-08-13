@@ -325,6 +325,106 @@ describe('when j is pressed 10 times in a row outside diff mode', function()
   end)
 end)
 
+-- ── j / k at the 5-threshold while genuinely wrapped: prefer gj / gk over {n}j / {n}k ──
+-- feed()'s 6th argument is the caller-supplied "is the cursor currently on a
+-- genuinely wrapped (multi-screen-row) line, with 'wrap' set?" flag
+-- (patterns.lua stays vim.*-free, so it never reads vim.wo.wrap or computes
+-- display widths itself — logger.lua does and passes the boolean in). These
+-- tests inject it directly, mirroring is_diff's own tests above exactly.
+
+describe('when j is pressed 5 times in a row on a genuinely wrapped line', function()
+  it('fires j_repeat_wrapped at 5 suggesting gj instead of {n}j', function()
+    local s = seq()
+    for _ = 1, 4 do
+      patterns.feed(s, 'j', 1, nil, nil, true)
+    end
+    local at5 = patterns.feed(s, 'j', 1, nil, nil, true)
+    assert.is_not_nil(at5)
+    assert.equals('j_repeat_wrapped', at5.pattern)
+    assert.equals('gj', at5.cmd)
+  end)
+
+  it('does not fire before the 5th press', function()
+    local s = seq()
+    for _ = 1, 3 do
+      patterns.feed(s, 'j', 1, nil, nil, true)
+    end
+    local at4 = patterns.feed(s, 'j', 1, nil, nil, true)
+    assert.is_nil(at4)
+  end)
+end)
+
+describe('when j is pressed 5 times in a row while wrap is on but the line does not genuinely wrap', function()
+  it('still fires ordinary j_repeat suggesting {n}j (is_wrapped=false leaves the threshold unaffected)', function()
+    local s = seq()
+    for _ = 1, 4 do
+      patterns.feed(s, 'j', 1, nil, nil, false)
+    end
+    local at5 = patterns.feed(s, 'j', 1, nil, nil, false)
+    assert.is_not_nil(at5)
+    assert.equals('j_repeat', at5.pattern)
+    assert.equals('{n}j', at5.cmd)
+  end)
+end)
+
+describe('when k is pressed 5 times in a row on a genuinely wrapped line', function()
+  it('fires k_repeat_wrapped at 5 suggesting gk instead of {n}k', function()
+    local s = seq()
+    for _ = 1, 4 do
+      patterns.feed(s, 'k', 1, nil, nil, true)
+    end
+    local at5 = patterns.feed(s, 'k', 1, nil, nil, true)
+    assert.is_not_nil(at5)
+    assert.equals('k_repeat_wrapped', at5.pattern)
+    assert.equals('gk', at5.cmd)
+  end)
+end)
+
+describe('when k is pressed 5 times in a row while wrap is on but the line does not genuinely wrap', function()
+  it('still fires ordinary k_repeat suggesting {n}k (is_wrapped=false leaves the threshold unaffected)', function()
+    local s = seq()
+    for _ = 1, 4 do
+      patterns.feed(s, 'k', 1, nil, nil, false)
+    end
+    local at5 = patterns.feed(s, 'k', 1, nil, nil, false)
+    assert.is_not_nil(at5)
+    assert.equals('k_repeat', at5.pattern)
+    assert.equals('{n}k', at5.cmd)
+  end)
+end)
+
+describe('when j is pressed 10 times in a row on a genuinely wrapped line', function()
+  it('still fires j_many suggesting } at the higher threshold (is_wrapped only gates the 5-threshold)', function()
+    local s = seq()
+    for _ = 1, 9 do
+      patterns.feed(s, 'j', 1, nil, nil, true)
+    end
+    local at10 = patterns.feed(s, 'j', 1, nil, nil, true)
+    assert.is_not_nil(at10)
+    assert.equals('j_many', at10.pattern)
+    assert.equals('}', at10.cmd)
+  end)
+end)
+
+describe('tobira.core.patterns.is_wrapped_line', function()
+  it('reports genuinely wrapped when the line display width exceeds the window text width', function()
+    assert.is_true(patterns.is_wrapped_line(200, 80))
+  end)
+
+  it('reports not wrapped when the line fits within the window text width', function()
+    assert.is_false(patterns.is_wrapped_line(10, 80))
+  end)
+
+  it('reports not wrapped when the line exactly fills the window text width', function()
+    assert.is_false(patterns.is_wrapped_line(80, 80))
+  end)
+
+  it('reports not wrapped when the usable text width is zero or negative (e.g. gutters eat the whole window)', function()
+    assert.is_false(patterns.is_wrapped_line(50, 0))
+    assert.is_false(patterns.is_wrapped_line(50, -3))
+  end)
+end)
+
 -- ── diff hunk jump → insert: suggest do / dp ──────────────────────────────────
 -- see docs/adr/0099-diff-obtain-put-after-hunk-jump.md
 
