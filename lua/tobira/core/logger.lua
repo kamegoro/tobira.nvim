@@ -807,6 +807,31 @@ function M.get_session_counts()
   return session_counts
 end
 
+local function count_keys(t)
+  local n = 0
+  for _ in pairs(t) do
+    n = n + 1
+  end
+  return n
+end
+
+-- Exposed only for testing — lets specs assert that the module-local state
+-- tables which persist for the whole plugin session (unlike seq/insert_seq,
+-- which reset on every mode switch) stay bounded across a long session,
+-- mirroring get_session_counts()'s precedent above.
+function M.get_state_table_sizes()
+  local substitute_lines = 0
+  for _, entry in pairs(substitute_state.entries) do
+    substitute_lines = substitute_lines + count_keys(entry.lines)
+  end
+  return {
+    substitute_entries = count_keys(substitute_state.entries),
+    substitute_total_lines = substitute_lines,
+    history_recall_entries = count_keys(history_recall_state.entries),
+    insert_completion_ring = #insert_seq.ring,
+  }
+end
+
 function M.get_all()
   return usage
 end
