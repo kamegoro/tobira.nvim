@@ -13,12 +13,19 @@
 -- key strings, not canonical key names — this suite's real dispatch layer
 -- (real_model_terminal.lua) tests the raw-byte-to-canonical translation
 -- itself, so the generator has to hand it real bytes. NOISE_POOL below is
--- built from an empirical probe of vim.api.nvim_replace_termcodes() (see
--- issue #331's PR description for the probe output): every entry is either a
--- single byte (plain control keys) or the K_SPECIAL-prefixed multi-byte
--- string Neovim actually uses internally for special/Meta keys — never the
--- naive assumption that <M-x> arrives as a separate <Esc> byte followed by
--- 'x' (it doesn't; it's one atomic 4-byte sequence, confirmed by the probe).
+-- built from vim.api.nvim_replace_termcodes()'s STATIC encoding of each key:
+-- every entry is either a single byte (plain control keys) or the
+-- K_SPECIAL-prefixed multi-byte string Neovim uses internally to represent
+-- special/Meta keys, e.g. <M-x> encodes as one 4-byte string, not a separate
+-- <Esc> byte followed by 'x'. This is a fact about the ENCODING, not a
+-- guarantee that a live vim.on_key() callback always receives Meta chords as
+-- a single event — it can observe them split (see
+-- tests/spec/integration/logger_spec.lua's real-keystroke Meta-chord test).
+-- Emitting the whole encoded string as one generator element is still the
+-- right modeling choice here: it's what feeds the raw-byte translation layer
+-- under test, and the pattern's own reset-on-any-non-<Esc>-key semantics
+-- means a split delivery can't produce a false positive regardless (see the
+-- differential spec's header for the full reasoning).
 
 local M = {}
 
@@ -98,8 +105,9 @@ local NOISE_POOL = {
   { value = termcode('<Down>'), weight = 2 },
   { value = termcode('<Left>'), weight = 2 },
   { value = termcode('<Right>'), weight = 2 },
-  -- a Meta/Alt chord (one atomic raw sequence, never a split <Esc>+char —
-  -- see this file's header) — occasional, e.g. bash's Alt-b/Alt-f word nav
+  -- a Meta/Alt chord, encoded as one raw sequence (see this file's header
+  -- for what that does and doesn't guarantee) — occasional, e.g. bash's
+  -- Alt-b/Alt-f word nav
   { value = termcode('<M-x>'), weight = 2 },
   -- the escape hatch this whole feature exists to suggest, typed for real —
   -- must never itself contribute to a future streak

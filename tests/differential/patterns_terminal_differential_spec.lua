@@ -14,15 +14,23 @@
 -- feed_terminal() with an already-canonicalized '<Esc>' string or nil) —
 -- see real_model_terminal.lua and reference_model_terminal.lua's headers.
 --
--- No new divergence was found while building this suite. The one concrete,
--- previously-unverified risk investigated — whether a Meta/Alt chord (e.g.
--- <M-x>) could ever arrive at vim.on_key() split into a bare <Esc> byte
--- followed by a separate character (which would let ordinary Alt-key shell
--- usage, like bash's Alt-b/Alt-f, spuriously feed the <Esc> streak) — was
--- empirically checked (nvim_replace_termcodes('<M-x>', true, true, true)
--- returns one atomic 4-byte K_SPECIAL-prefixed sequence, never two events)
--- and confirmed to be a non-issue; the "Meta chords never contribute to a
--- streak" scenario below locks that in as a regression guard.
+-- No new divergence was found while building this suite.
+--
+-- One caveat on the "Meta chords never contribute to a streak" scenario
+-- below: it proves the raw-byte TRANSLATION LAYER treats a Meta/Alt chord's
+-- encoded string as one non-<Esc> unit. It does NOT prove vim.on_key() always
+-- delivers that chord as a single event — a live vim.on_key() probe can
+-- observe it split into a bare <Esc> byte followed by the character (see
+-- tests/spec/integration/logger_spec.lua's "Meta/Alt chords never falsely
+-- trigger terminal_esc_repeat" test for the real-keystroke check, which is
+-- what actually rules out the false-positive risk: feed_terminal()'s
+-- reset-on-any-non-<Esc>-key semantics means a split chord's character half
+-- always breaks the streak right after its <Esc> half, so no single chord
+-- can complete a 2-in-a-row streak by itself, split or not). Whether genuine
+-- terminal-job mode delivers Meta chords the same way as the mode-stub
+-- technique used here is unverified either way — headless Neovim cannot
+-- enter real 't' mode even with a live PTY-backed job attached, the same
+-- limitation logger_spec.lua's terminal tests already document.
 --
 -- Lives in tests/differential/, a sibling of tests/spec/, NOT
 -- tests/spec/differential/ — same reasoning as patterns_seq_differential_spec.lua:
@@ -171,12 +179,13 @@ describe(
         )
       end)
 
-      it('a Meta/Alt chord (single atomic raw sequence) never contributes to the <Esc> streak', function()
-        -- Empirically verified (see this file's header): <M-x> arrives at
-        -- vim.on_key() as ONE atomic K_SPECIAL-prefixed raw sequence, never as
-        -- a bare <Esc> byte followed by a separate 'x'. Interleaving Meta
-        -- chords between real <Esc> presses must not help or hinder the
-        -- streak — each chord is just an ordinary key that resets it.
+      it('a Meta/Alt chord fed as one raw-byte unit never contributes to the <Esc> streak', function()
+        -- This model treats <M-x>'s nvim_replace_termcodes() encoding as one
+        -- opaque raw_key element, which the translation layer correctly
+        -- resolves to "not <Esc>". It does NOT prove real vim.on_key()
+        -- always delivers the chord as a single event — see this file's
+        -- header and tests/spec/integration/logger_spec.lua's real-keystroke
+        -- Meta-chord test for that.
         local meta_x = vim.api.nvim_replace_termcodes('<M-x>', true, true, true)
         assert.same({}, replay({ meta_x, ESC, meta_x, ESC }))
       end)
