@@ -135,6 +135,43 @@ anything — this is what broke this suite's introducing PR's Coverage CI job
 before the suite was moved out of `tests/spec/`. `tests/` is excluded from
 the coverage gate by `.luacov` anyway, so there is nothing to measure here.
 
+## Differential testing for patterns_cmdline.lua's cmdline state machine (`tests/differential/`)
+
+A sibling suite to the one above, scoped to `patterns_cmdline.lua`'s four
+independent cmdline detectors (`substitute_repeat`/`substitute_repeat_wide`,
+`ex_file_pingpong`, `tabnew_run`, `cmdline_history_recall`) — see #330 / the
+#327 umbrella for the technique and rationale. Its vocabulary is one complete
+submitted command-line STRING per `<CR>` (plus `<Up>`/`<Down>`
+history-navigation keystrokes and cancel/restart sessions), not raw
+normal-mode keystrokes — a fundamentally different granularity from the seq
+suite above, matching how `patterns_cmdline.lua` itself operates (see
+`docs/adr/0002-ex-command-tokenizer-one-shot-parsing.md`).
+`tests/differential/generator_cmdline.lua` is the seedable session generator;
+`tests/differential/reference_model_cmdline.lua` is the independently-written
+reference model; `tests/differential/real_model_cmdline.lua` replays the real
+`tokenize()`/`command_arg()` and all four real detectors in `logger.lua`'s own
+dispatch order; `tests/differential/patterns_cmdline_differential_spec.lua` is
+the test itself.
+
+Besides the usual "does the real dispatch agree with the reference model"
+check, this suite also directly asserts the mutual-exclusivity-by-construction
+claim in `docs/adr/0095-cmdline-history-recall-detection.md` — "for any given
+submitted command line, at most one of the four cmdline detectors can ever
+return non-nil" — against the real functions (`#fires <= 1` on every
+submission), not just the reference model's own routing assumption.
+
+**Not wired into `.github/workflows/ci.yml`** (per #330) — unlike the seq
+suite above, this one is not yet a CI gate. It lives in the same
+`tests/differential/` directory, so the same manual command already runs both
+suites together:
+
+```bash
+nvim --headless --noplugin -u tests/minimal_init.lua \
+  -c "PlenaryBustedDirectory tests/differential/ {minimal_init = 'tests/minimal_init.lua', sequential = true}"
+```
+
+Same `COVERAGE=1` prohibition as the seq suite above applies here too.
+
 ## Smoke test for `track = true` commands
 
 Every command with `track = true` in `commands.lua` must have a smoke test in `logger_spec.lua`:
