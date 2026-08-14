@@ -11,16 +11,22 @@
 -- of which this pure state-machine differential test needs or wants (no
 -- headless-Neovim requirement, no disk I/O, no session/buffer bookkeeping —
 -- see reference_model.lua's header for why buffer-global `seq` state, #309,
--- is out of this test's scope). is_diff/is_wrapped are always passed as
--- false — this test's scope (issue #316) is the streak-family patterns
--- listed in reference_model.lua, none of which need those two parameters to
--- differ from their default.
+-- is out of this test's scope).
 --
--- named_mark_opportunity (the one pattern with its own narrower priority
--- exception over macro_result, #280) is not one of the 10 patterns tracked
--- here, so that exception can never engage for any keystroke this test
--- feeds — the plain "macro_result > result" priority is complete and
--- correct for this test's scope.
+-- Extended by issue #328 (was: always is_diff=false/is_wrapped=false/line=1,
+-- scoped to #316's original 10 streak patterns) to thread ctx.line/is_diff/
+-- is_wrapped through to patterns.feed(), since the expanded pattern surface
+-- now includes patterns gated on all three (named_mark_opportunity/f_repeat
+-- on line, diff_jump_then_insert_*/j_many_diff/k_many_diff on is_diff,
+-- j_repeat_wrapped/k_repeat_wrapped on is_wrapped).
+--
+-- Also implements the ONE narrow exception to "macro_result > result"
+-- documented in ADR 0016 and shipped for #280: named_mark_opportunity wins
+-- over macro_result specifically (every other pattern pair keeps the
+-- unqualified macro_result > result priority). #316/#323 scoped this out
+-- because named_mark_opportunity wasn't tracked yet; #328 tracks it, so this
+-- wrapper now mirrors logger.lua's real arbitration exactly instead of the
+-- simpler "macro_result or result" it used to be.
 
 local patterns = require('tobira.core.patterns')
 
@@ -37,22 +43,31 @@ end
 -- feed_macro()'s MACRO_WINDOW_MS/nav_run bookkeeping behaves the way it
 -- would for an actual typing session, rather than every keystroke landing on
 -- the same millisecond. Also keeps patterns.lua's own jumplist/changelist
--- 15s tolerance window (docs/adr/0019, unrelated to this test's 10 tracked
--- patterns but fed the same clock) from spanning an entire generated
+-- 15s tolerance window (docs/adr/0019) from spanning an entire generated
 -- sequence — a value close to real human inter-keystroke timing keeps that
 -- window's width proportionate to realistic usage instead of swallowing
 -- hundreds of keys at once.
 local STEP_MS = 300
 
+-- ctx (optional): { line=, is_diff=, is_wrapped= }. line defaults to 1
+-- (matches reference_model.lua's own default) so callers that don't care
+-- about line-dependent patterns (f_repeat, named_mark_opportunity) don't
+-- need to pass it.
+--
 -- Returns { pattern=, cmd= } or nil, mirroring patterns.feed()'s own return
 -- shape — exactly what the real Normal-mode dispatch would report to
 -- on_pattern for this keystroke.
-function M.step(state, key)
+function M.step(state, key, ctx)
+  ctx = ctx or {}
+  local line = ctx.line or 1
   state.now = state.now + STEP_MS
-  local line = 1 -- no cursor-line-dependent pattern is in this test's scope
-  local result = patterns.feed(state.seq, key, line, false, state.now, false)
+  local result = patterns.feed(state.seq, key, line, ctx.is_diff, state.now, ctx.is_wrapped)
   local macro_result = patterns.feed_macro(state.seq, key, state.now)
-  return macro_result or result
+
+  -- Priority: macro_result > result, EXCEPT named_mark_opportunity wins over
+  -- macro_result specifically — see this file's header (#280 / ADR 0016).
+  local named_mark_collision = macro_result and result and result.pattern == 'named_mark_opportunity'
+  return (named_mark_collision and result) or macro_result or result
 end
 
 return M
