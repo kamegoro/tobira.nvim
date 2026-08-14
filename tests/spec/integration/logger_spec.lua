@@ -986,6 +986,34 @@ describe('when the user is stuck in terminal mode', function()
     vim.api.nvim_feedkeys('', 'x', false)
     assert.equals(0, #fired, 'a single leftover Esc from a previous session must not carry over')
   end)
+
+  -- Independent QA finding on PR #332: that PR's differential suite assumed
+  -- vim.on_key() always delivers a Meta/Alt chord (e.g. <M-x>) as one atomic
+  -- event, based on nvim_replace_termcodes()'s encoding being one atomic
+  -- 4-byte string. A live vim.on_key() callback can actually observe it
+  -- split into a bare <Esc> byte followed by the character. This test drives
+  -- real chords through the real dispatch path (not the differential
+  -- suite's simplified raw-byte-translation model) to prove the property
+  -- that actually matters: whether split or not, no false
+  -- terminal_esc_repeat fires, because feed_terminal()'s reset-on-any-key
+  -- semantics means the character half of a split chord always breaks the
+  -- streak right after its <Esc> half arrives.
+  it('never falsely fires terminal_esc_repeat for Meta/Alt chords, split or not (independent QA, PR #332)', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+    local meta_x = vim.api.nvim_replace_termcodes('<M-x>', true, true, true)
+    vim.fn.feedkeys(meta_x, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys(esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys(meta_x, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.fn.feedkeys(esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.equals(0, #fired, 'ordinary Alt-key shell usage must never be mistaken for an <Esc> streak')
+  end)
 end)
 
 describe('terminal-mode <Esc> detection does not affect other modes (mode isolation)', function()
