@@ -49,6 +49,35 @@ jobs:
           nvim --headless --noplugin -u tests/minimal_init.lua \
             -c "PlenaryBustedDirectory tests/spec/ {minimal_init = 'tests/minimal_init.lua', sequential = true}"
 
+      - name: Run differential state-machine tests
+        run: |
+          nvim --headless --noplugin -u tests/minimal_init.lua \
+            -c "PlenaryBustedDirectory tests/differential/ {minimal_init = 'tests/minimal_init.lua', sequential = true}"
+
+  regression:
+    name: Regression suites (tracks #315 — non-blocking until known bugs are fixed)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Neovim nightly
+        uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: nightly
+
+      - name: Run realistic-scale and long-session regression suites
+        # continue-on-error: several `it()` blocks in these suites are KNOWN
+        # FAILING by design — they document real, still-open bugs (#291, #292,
+        # #307, #310, #314) so the suites report visibly in every PR without
+        # blocking merges on bugs unrelated to that PR. Remove
+        # continue-on-error once all tracked issues are closed and every
+        # block in tests/regression/ passes for real.
+        continue-on-error: true
+        run: |
+          nvim --headless --noplugin -u tests/minimal_init.lua \
+            -c "PlenaryBustedDirectory tests/regression/ {minimal_init = 'tests/minimal_init.lua', sequential = true}"
+
   coverage:
     name: Coverage (100%) · Neovim stable
     runs-on: ubuntu-latest

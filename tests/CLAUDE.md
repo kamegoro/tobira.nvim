@@ -45,14 +45,15 @@ grep 'Total' luacov.report.out   # must be 100.00%
 
 ## Regression suites (`tests/regression/`)
 
-A directory sibling to `tests/spec/` that holds suites deliberately excluded
-from `.github/workflows/ci.yml`'s scan path — both because some of their
-`it()` blocks intentionally fail (tracking real, still-open bugs; CI wiring
-for #315's sub-issues is decided separately per suite, see below) and because
-running them isn't required to gate every PR the way `tests/spec/` is.
+A directory sibling to `tests/spec/`, excluded from `tests/spec/`'s own scan
+path because some of its `it()` blocks intentionally fail (tracking real,
+still-open bugs — see below).
 
-**Deliberately not wired into `.github/workflows/ci.yml`.** Run either or
-both manually:
+**Wired into `.github/workflows/ci.yml` as a non-blocking job** (`continue-on-error: true`):
+it runs and reports on every PR, but doesn't block merges on bugs unrelated to
+that PR. Once every `KNOWN FAILING` block below is fixed and passes for real,
+remove `continue-on-error` from the `regression` job so this suite becomes a
+real gate like `tests/spec/`. Run manually the same way CI does:
 
 ```bash
 nvim --headless --noplugin -u tests/minimal_init.lua \
@@ -112,9 +113,10 @@ keystroke — see #316 / the #315 umbrella for the technique and rationale.
 `tests/differential/real_model.lua` replays the real dispatch;
 `tests/differential/patterns_seq_differential_spec.lua` is the test itself.
 
-**Deliberately not wired into `.github/workflows/ci.yml`** — same reason and
-same shape as the realistic-scale regression suite above: CI wiring for all
-of #315's sub-issues is a separate follow-up. Run it manually:
+**Wired into `.github/workflows/ci.yml`'s `test` job as a real, blocking gate**
+— every `it()` block here passes for real (unlike `tests/regression/`), so
+this suite runs alongside `tests/spec/` on every PR with no `continue-on-error`.
+Run it manually the same way CI does:
 
 ```bash
 nvim --headless --noplugin -u tests/minimal_init.lua \
