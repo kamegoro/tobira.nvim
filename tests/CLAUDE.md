@@ -101,6 +101,38 @@ tracking tables grow without eviction). The fourth locks in
 `patterns_insert.lua`'s already-correct completion-ring cap as a regression
 guard.
 
+## Differential testing for patterns.lua's seq state machine (`tests/differential/`)
+
+A separate suite, sibling to `tests/spec/`, that runs randomized-but-realistic
+keystroke sequences through both the real `patterns.lua` dispatch and a
+deliberately simple, independently-written reference model
+(`tests/differential/reference_model.lua`), asserting the two agree on every
+keystroke — see #316 / the #315 umbrella for the technique and rationale.
+`tests/differential/generator.lua` is the seedable keystroke generator;
+`tests/differential/real_model.lua` replays the real dispatch;
+`tests/differential/patterns_seq_differential_spec.lua` is the test itself.
+
+**Deliberately not wired into `.github/workflows/ci.yml`** — same reason and
+same shape as the realistic-scale regression suite above: CI wiring for all
+of #315's sub-issues is a separate follow-up. Run it manually:
+
+```bash
+nvim --headless --noplugin -u tests/minimal_init.lua \
+  -c "PlenaryBustedDirectory tests/differential/ {minimal_init = 'tests/minimal_init.lua', sequential = true}"
+```
+
+Known-expected divergences (currently #312 and #313) are classified and
+asserted as such rather than failing the suite — see the spec file's own
+header comment.
+
+**Do not run this suite with `COVERAGE=1`.** luacov's per-line instrumentation
+slows this suite by roughly two orders of magnitude (measured: ~0.5s normally,
+50+ seconds instrumented), which exceeds plenary.nvim's own default 50-second
+per-spec-file job timeout and kills the child process before it reports
+anything — this is what broke this suite's introducing PR's Coverage CI job
+before the suite was moved out of `tests/spec/`. `tests/` is excluded from
+the coverage gate by `.luacov` anyway, so there is nothing to measure here.
+
 ## Smoke test for `track = true` commands
 
 Every command with `track = true` in `commands.lua` must have a smoke test in `logger_spec.lua`:
