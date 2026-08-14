@@ -285,7 +285,7 @@ describe('patterns_cmdline.lua cmdline state machine (differential test against 
       assert.equals('tabnew_run', act4.fires[1].pattern)
     end)
 
-    it('cmdline_history_recall fires on the 2nd retype of an unclaimed command (e.g. :edit, #95)', function()
+    it('cmdline_history_recall fires on the 2nd retype of an unclaimed command (e.g. :edit)', function()
       local fake, real = reference_model.new_state(), real_model.new_state()
       local event = { kind = 'other', text = 'edit somefile.txt', word = 'edit', arg = 'somefile.txt' }
       local exp1, act1 = submit(fake, real, event)
