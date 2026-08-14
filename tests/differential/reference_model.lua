@@ -174,7 +174,22 @@ function M.new_state()
     -- gg<->G jump_back + gq's own jumpback — docs/adr/0019, docs/adr/0022.
     pending_g = false,
     pending_gq = false,
-    gq_backtick_armed = false,
+
+    -- single-char prefix consumers that swallow exactly one following
+    -- character with no further grammar — docs/adr/0023
+    -- (register-mark-bracket-prefix-consumers). Modeled as their own fields
+    -- (not folded into the ctrl_w/z/r `pending` group) because real
+    -- patterns.lua keeps them as fully independent booleans too — see
+    -- lua/tobira/CLAUDE.md's "patterns.lua — state machine" ordering rule.
+    pending_register = false, -- '"' or '@'
+    pending_clipboard_yank = false, -- '"+' immediately followed by 'y'
+    clipboard_yank_tail = false,
+    pending_mark = false, -- 'm' / "'" / '`'
+    -- true only when the mark-prefix key just armed was '`' AND last_op was
+    -- 'gq' at that moment — the one shape pending_mark's completion turns
+    -- into a real fired pattern (gq_then_jumpback) instead of a silent
+    -- consume — docs/adr/0022.
+    pending_gq_backtick = false,
 
     -- ]c/[c diff-hunk jump → do/dp — docs/adr/0099.
     pending_bracket = nil,
@@ -385,6 +400,17 @@ end
 -- Resolves pending_text_obj (ciw/ci"/ci'/diw/yiw-family completions) — see
 -- header rule 3 and docs/adr/0020/docs/adr/0106/docs/adr/0107.
 local function resolve_pending_text_obj(state, op, inner, key)
+  -- Real patterns.lua's pending_text_obj resolution unconditionally sets
+  -- last_op = op..'w' for ANY op (d/c/y), BEFORE the ci-quote-streak checks
+  -- below run — 'dw' is the one value this model's tracked reactive
+  -- patterns read (dw_then_insert), so diw/daw/dit/... arms
+  -- dw_then_insert exactly like a direct 'dw'/'d3w' would. 'cw'/'yw'
+  -- themselves aren't read by anything this model tracks, but the
+  -- assignment still OVERWRITES whatever last_op held before (e.g. a stale
+  -- 'dd' from an earlier, not-yet-consumed completion) — this must apply
+  -- unconditionally for every op, not only op=='c'.
+  state.last_op = op .. 'w'
+
   if op == 'c' and inner and key == '"' then
     state.ci_squote_streak = 0
     state.ci_dquote_streak = state.ci_dquote_streak + 1
@@ -392,7 +418,6 @@ local function resolve_pending_text_obj(state, op, inner, key)
       state.ci_dquote_streak = 0
       return { pattern = 'ci_dquote_repeat', cmd = 'ya"' }
     end
-    return nil
   elseif op == 'c' and inner and key == "'" then
     state.ci_dquote_streak = 0
     state.ci_squote_streak = state.ci_squote_streak + 1
@@ -400,18 +425,23 @@ local function resolve_pending_text_obj(state, op, inner, key)
       state.ci_squote_streak = 0
       return { pattern = 'ci_squote_repeat', cmd = "ya'" }
     end
-    return nil
+  else
+    state.ci_dquote_streak = 0
+    state.ci_squote_streak = 0
   end
-  state.ci_dquote_streak = 0
-  state.ci_squote_streak = 0
-  if op == 'c' then
-    state.last_op = 'dw' -- ciw/cit/... also complete a generic charwise 'cw'-shape; only 'dw' is a tracked value, so alias is intentionally NOT set — see note below
-    state.last_op = nil -- ciw itself is never dw_then_insert's precondition (that's the c-operator's OWN last_op='cw', outside this model's tracked set)
-    if state.n_watch then
-      state.n_watch = false
-      return { pattern = 'n_then_change', cmd = 'cgn' }
-    end
+
+  -- n-streak → change the match: suggest cgn (text-object path, e.g. ciw,
+  -- ci", cit). Checked after the ci-quote streaks above, REGARDLESS of
+  -- whether this exact key matched '"'/"'" or not — real patterns.lua
+  -- falls through to this check unconditionally when op=='c'; the
+  -- ci-quote branches above only return early on their OWN 3x-threshold
+  -- fire, never merely because the streak didn't (yet) qualify. See
+  -- docs/adr/0107-n-repeat-intent-neutral-reactive-cgn.md.
+  if op == 'c' and state.n_watch then
+    state.n_watch = false
+    return { pattern = 'n_then_change', cmd = 'cgn' }
   end
+
   return nil
 end
 
@@ -568,21 +598,56 @@ function M.step(state, key, ctx)
     return nil
   end
 
+  -- ── single-char prefix consumers: "/@ (register), m/'/` (mark) ──────────
+  -- Must precede pending_text_obj/pending_r/visual/f-F-t-T below, same
+  -- ordering rule as ]/[ and the ctrl_w/z/r group above — a register or
+  -- mark name that happens to collide with another prefix's own trigger
+  -- character must be consumed here first. See docs/adr/0023
+  -- (register-mark-bracket-prefix-consumers) and lua/tobira/CLAUDE.md's
+  -- "patterns.lua — state machine" section.
+  if state.pending_register then
+    state.pending_register = false
+    if key == '+' then
+      state.pending_clipboard_yank = true
+    end
+    return nil
+  end
+
+  if state.pending_clipboard_yank then
+    state.pending_clipboard_yank = false
+    if key == 'y' then
+      state.last_op = nil -- '"+y' is not a last_op value this model tracks
+      state.clipboard_yank_tail = true
+      return nil
+    end
+    -- falls through: a non-'y' key right after "+ is NOT consumed, exactly
+    -- like real patterns.lua's own pending_clipboard_yank branch.
+  end
+
+  if state.clipboard_yank_tail then
+    state.clipboard_yank_tail = false
+    if key == 'y' then
+      return nil
+    end
+    -- falls through, same reasoning as pending_clipboard_yank above.
+  end
+
+  if state.pending_mark then
+    state.pending_mark = false
+    local was_gq_backtick = state.pending_gq_backtick
+    state.pending_gq_backtick = false
+    if was_gq_backtick and key == '`' then
+      state.last_op = nil
+      return { pattern = 'gq_then_jumpback', cmd = 'gw' }
+    end
+    return nil
+  end
+
   -- ── ]c / [c diff-hunk jump prefix ──────────────────────────────────────
   if state.pending_bracket then
     local bracket = state.pending_bracket
     state.pending_bracket = nil
     state.diff_jump_dir = (key == 'c') and bracket or nil
-    return nil
-  end
-
-  -- ── gq `` (backtick-backtick jumpback) ───────────────────────────────
-  if state.gq_backtick_armed then
-    state.gq_backtick_armed = false
-    if key == '`' then
-      state.last_op = nil
-      return { pattern = 'gq_then_jumpback', cmd = 'gw' }
-    end
     return nil
   end
 
@@ -728,9 +793,22 @@ function M.step(state, key, ctx)
     return nil
   end
 
-  -- ── ` : mark prefix, tracked only for the gq-backtick jumpback chain ───
-  if key == '`' then
-    state.gq_backtick_armed = state.last_op == 'gq'
+  -- ── " / @ : register/macro-name prefix ─────────────────────────────────
+  -- Consumes exactly one following character with no further grammar (see
+  -- the consumer block above) — docs/adr/0023.
+  if key == '"' or key == '@' then
+    state.pending_register = true
+    reset_other_families(state, nil)
+    return nil
+  end
+
+  -- ── m / ' / ` : mark-name/target prefix ─────────────────────────────────
+  -- Consumes exactly one following character, same shape as the register
+  -- prefix above — except '`' additionally arms the gq-jumpback chain when
+  -- it immediately follows a completed 'gq' (docs/adr/0022).
+  if key == 'm' or key == "'" or key == '`' then
+    state.pending_mark = true
+    state.pending_gq_backtick = key == '`' and state.last_op == 'gq'
     reset_other_families(state, nil)
     return nil
   end
