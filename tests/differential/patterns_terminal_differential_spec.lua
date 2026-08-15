@@ -99,7 +99,7 @@ end
 -- A fixed seed range keeps this suite fully deterministic — required for a
 -- test asserting zero divergences to be a stable CI gate rather than a flaky
 -- one, same reasoning as patterns_seq_differential_spec.lua.
-local SEED_COUNT = 60
+local SEED_COUNT = tonumber(os.getenv('TOBIRA_DIFFERENTIAL_SEEDS')) or 150
 local BASE_SEED = 20260814
 
 describe(

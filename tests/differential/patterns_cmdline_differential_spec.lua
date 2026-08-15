@@ -160,7 +160,7 @@ end
 -- Fixed seed range: deterministic, required for a suite asserting zero
 -- divergences/violations to be a stable CI gate rather than a flaky one —
 -- same precedent as patterns_seq_differential_spec.lua.
-local SEED_COUNT = 60
+local SEED_COUNT = tonumber(os.getenv('TOBIRA_DIFFERENTIAL_SEEDS')) or 150
 local BASE_SEED = 20260814
 
 describe('patterns_cmdline.lua cmdline state machine (differential test against a naive reference model)', function()
