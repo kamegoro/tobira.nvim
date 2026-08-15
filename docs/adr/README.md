@@ -204,7 +204,7 @@ Ground-truth index of every ADR, grouped by which module actually points to it v
 - 0045 — equivalent-override-suppression-exemption
 - 0046 — terminal-category-cooldown-bypass
 - 0047 — adoption-watch-keytrans-rolling-buffer
-- 0111 — unified-suggestion-scheduling
+- 0112 — unified-suggestion-scheduling
 
 ### lua/tobira/ui/float.lua
 

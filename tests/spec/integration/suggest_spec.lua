@@ -1363,7 +1363,7 @@ end)
 
 -- ── unified scheduling: reactive vs. ambient priority, cooldown requeue,
 -- adoption-watch consolidation ──────────────────────────────────────────────
--- See docs/adr/0111-unified-suggestion-scheduling.md for the design.
+-- See docs/adr/0112-unified-suggestion-scheduling.md for the design.
 
 describe('when a reactive pattern is queued at the same moment the ambient idle timer would also fire (#290)', function()
   local graph = require('tobira.core.graph')

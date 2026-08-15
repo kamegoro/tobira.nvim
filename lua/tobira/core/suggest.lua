@@ -17,7 +17,7 @@ local session = {
   timer = nil,
   -- cmd -> { buf = <rolling keytrans buffer>, match_target = <normalized cmd> },
   -- consumed by the single shared adopt_on_key callback below -- see
-  -- docs/adr/0111-unified-suggestion-scheduling.md.
+  -- docs/adr/0112-unified-suggestion-scheduling.md.
   watches = {},
 }
 
@@ -26,7 +26,7 @@ local _idle_ns = nil
 
 -- Lazily created once, reused for the rest of the session; only the
 -- vim.on_key() attachment itself is added/removed as session.watches goes
--- non-empty/empty. See docs/adr/0111-unified-suggestion-scheduling.md.
+-- non-empty/empty. See docs/adr/0112-unified-suggestion-scheduling.md.
 local _adopt_ns = nil
 
 local KEY_BUF_MAX = 20
@@ -92,7 +92,7 @@ end
 
 -- Single vim.on_key callback shared by every pending adoption watch, rather
 -- than one registration per shown suggestion -- see
--- docs/adr/0111-unified-suggestion-scheduling.md. Each watch still keeps its
+-- docs/adr/0112-unified-suggestion-scheduling.md. Each watch still keeps its
 -- own independent rolling buffer (session.watches[cmd].buf), so adopting one
 -- suggested command still can't interfere with detecting another.
 local function adopt_on_key(key, typed)
@@ -114,7 +114,7 @@ end
 
 -- Watches for the user actually using cmd after it was suggested; see
 -- docs/adr/0047-adoption-watch-keytrans-rolling-buffer.md for the detection
--- approach and docs/adr/0111-unified-suggestion-scheduling.md for why this
+-- approach and docs/adr/0112-unified-suggestion-scheduling.md for why this
 -- registers into one shared vim.on_key callback instead of one per cmd.
 local function watch_adoption(cmd)
   session.watches[cmd] = { buf = '', match_target = normalize_cmd(cmd) }
@@ -176,7 +176,7 @@ end
 local function fire_ambient()
   -- A reactive suggestion is queued (or waiting out a cooldown retry) for
   -- this same idle window -- yield to it instead of racing it. See
-  -- docs/adr/0111-unified-suggestion-scheduling.md.
+  -- docs/adr/0112-unified-suggestion-scheduling.md.
   if session.timer then
     return
   end
@@ -235,7 +235,7 @@ end
 -- cooldown-retry wait) elapses. If suggestion_cooldown from an earlier,
 -- unrelated suggestion is still active, re-arms for exactly the remaining
 -- cooldown instead of dropping the suggestion -- see
--- docs/adr/0111-unified-suggestion-scheduling.md for why.
+-- docs/adr/0112-unified-suggestion-scheduling.md for why.
 local function resolve_queued(pattern, cmd)
   session.timer = nil
   if should_suppress(cmd) then

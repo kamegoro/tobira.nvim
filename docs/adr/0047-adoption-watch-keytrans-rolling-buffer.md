@@ -48,5 +48,5 @@ doing real per-keystroke work. Fixed by keeping each watch's own independent
 unchanged) but routing all of them through a single shared `vim.on_key`
 callback that iterates a small table of pending watches instead of one
 callback per watch — see
-[docs/adr/0111-unified-suggestion-scheduling.md](0111-unified-suggestion-scheduling.md)
+[docs/adr/0112-unified-suggestion-scheduling.md](0112-unified-suggestion-scheduling.md)
 for the full before/after and reasoning.

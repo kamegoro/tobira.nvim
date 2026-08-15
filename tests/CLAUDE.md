@@ -98,7 +98,7 @@ tables) can't be caught by short, thin fixtures either. All four `it()`
 blocks now pass for real. Two formerly tracked issues that are now both
 fixed: #310 (`suggest.lua`'s `watch_adoption()` leaking a `vim.on_key`
 namespace per shown, un-adopted suggestion — see
-docs/adr/0111-unified-suggestion-scheduling.md) and #314
+docs/adr/0112-unified-suggestion-scheduling.md) and #314
 (`patterns_cmdline.lua`'s substitute/history-recall tracking tables growing
 without eviction — see docs/adr/0110-cmdline-state-lru-eviction.md). The
 remaining two lock in `patterns_insert.lua`'s already-correct

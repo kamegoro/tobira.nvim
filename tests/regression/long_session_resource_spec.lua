@@ -2,7 +2,7 @@
 -- vim.on_key() dispatch path (never a direct call into suggest.lua's or
 -- logger.lua's internals), asserting that per-session resource usage stays
 -- bounded at the end versus the start. See docs/adr/0047 (adoption-watch
--- rolling buffer), docs/adr/0111 (unified suggestion scheduling, the #310
+-- rolling buffer), docs/adr/0112 (unified suggestion scheduling, the #310
 -- fix), docs/adr/0110 (cmdline state LRU eviction, the #314 fix), and
 -- docs/adr/0006/0095 (cmdline pattern state) for the production mechanisms
 -- this exercises.
@@ -293,7 +293,7 @@ describe('after a long, realistic session with a mix of adopted and un-adopted s
   -- Formerly KNOWN FAILING, tracking issue #310 -- fixed by consolidating
   -- watch_adoption() into a single shared vim.on_key registration over a
   -- small pending-watches table instead of one registration per shown
-  -- suggestion (see docs/adr/0111-unified-suggestion-scheduling.md). This
+  -- suggestion (see docs/adr/0112-unified-suggestion-scheduling.md). This
   -- session shows every SUGGESTIONS entry and adopts only half of them, so
   -- it still exercises the exact shape #310 leaked on -- now passes for
   -- real, kept as a permanent regression guard.
