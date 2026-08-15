@@ -53,9 +53,19 @@ cleared that bar, further raw-keystroke growth stops being informative for
 matters is how little the follow-up itself has been used, which the
 `- cmd_count` term (uncapped) continues to express. Below the cap, ordering
 is untouched — a genuinely more severe gap (bigger score) still wins.
-Above it, candidates whose triggers are all well-established now tie and
-fall through to the ordinary alphabetical tie-break instead of the single
-most astronomically-pressed key always winning.
+Above it, candidates whose triggers are all well-established now tie on
+score instead of the single most astronomically-pressed key always winning.
+
+Capping made these ties common — routine, in fact, for any trigger past
+~100 uses, since every one of its still-offered children (all below the
+100-count mastery bar themselves) then scores identically. A tie is broken
+first by `cmd_count` ascending (the candidate whose own command has been
+used *less* is the more severe gap and wins), and only falls through to the
+alphabetical tie-break if `cmd_count` also matches (independent QA finding:
+without this secondary key, two candidates sharing a well-established
+trigger but with very different `cmd_count` — e.g. never-tried vs.
+near-mastery — tied on score and were decided purely by command-name
+alphabetical order, which could and did pick the *less* severe of the two).
 
 Considered and rejected: a logarithmic transform of `trigger_count`. It
 smooths the curve but doesn't bound it, so an established trigger at
@@ -118,3 +128,25 @@ level it structurally has zero commands at.
   no usage'` test name is now slightly narrower than its behavior (most
   categories still do; `ex` doesn't) — see the test's own updated body and
   comment for the per-category framing.
+- `efficiency_gaps()`'s round-robin guarantees a slot to every distinct
+  trigger before any trigger gets a second one, which means a bare-minimum
+  qualifying gap (ratio just above the `>= 5` cutoff) from an underrepresented
+  trigger can displace a far more severe gap (ratio in the hundreds) from a
+  high-fan-out trigger once the number of distinct triggers approaches
+  `limit`. This is the intended trade — the issue's own repro was entire
+  categories never getting a turn at all — not an oversight, but it means
+  "top N by severity" and "top N after diversification" can diverge sharply
+  when many triggers each contribute exactly one marginal gap.
+- The per-category ceiling fix removes *cross*-category blocking but does not
+  add a per-category equivalent of the "stuck ceiling" fix within a category
+  that itself has very few beginner commands. A category with exactly one
+  beginner command that a given user happens to never press (independent of
+  how much they use that category's intermediate/advanced commands) still
+  shows only that one command — the same shape #292 fixed at the registry
+  level, just now possible to recreate inside a single sparse category. Not a
+  regression (this is strictly better than the old global ceiling, which
+  would have suppressed the same category's advanced content too, along with
+  every other category's), and out of #292's stated scope, but worth a
+  dedicated follow-up if a category this shape (currently `fold`, `window`,
+  `terminal` each have exactly one beginner command) turns out to matter in
+  practice.

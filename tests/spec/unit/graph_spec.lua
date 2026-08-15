@@ -135,6 +135,28 @@ describe('find_best score cap keeps raw trigger frequency from dominating severi
     graph.suggestions = original_suggestions
     assert.equals('a', result)
   end)
+
+  it(
+    'prefers the candidate whose own command is less used when two capped scores tie, instead of falling straight to the alphabetical tie-break',
+    function()
+      local original_suggestions = graph.suggestions
+      -- Both share the same well-established trigger, so both raw scores
+      -- (5000-99=4901 and 5000-0=5000) clear the cap and tie at 100. 'm'
+      -- sorts before 'z' alphabetically, but 'z' is the genuinely more
+      -- severe gap (never touched) while 'm' is nearly mastered (99 uses,
+      -- one shy of the 100-count mastery bar) -- capping must not make the
+      -- alphabetically-earlier, LESS severe candidate win a tie it wouldn't
+      -- have won on raw magnitude.
+      graph.suggestions = {
+        m = { cmd = 'm', trigger = 'j', level = 'beginner', category = 'motion' },
+        z = { cmd = 'z', trigger = 'j', level = 'beginner', category = 'motion' },
+      }
+      local usage = { j = usage_entry(5000), m = usage_entry(99), z = usage_entry(0) }
+      local result = graph.find_best(usage)
+      graph.suggestions = original_suggestions
+      assert.equals('z', result, "'z' (cmd_count 0) should win the tie over 'm' (cmd_count 99), not lose to it alphabetically")
+    end
+  )
 end)
 
 -- ── nil best_cmd guard at the -1 score sentinel ─────────────────────────────

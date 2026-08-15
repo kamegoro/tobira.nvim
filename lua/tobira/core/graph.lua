@@ -306,6 +306,9 @@ function M.find_best(usage, max_shown, max_level, overrides, promotions)
   local best_cmd = nil
   -- -math.huge, not -1: see docs/adr/0032-find-best-sentinel-negative-infinity.md for why
   local best_score = -math.huge
+  -- Secondary tie-break key once FIND_BEST_SCORE_CAP collapses several
+  -- candidates to the same score -- see docs/adr/0111-bounded-severity-scoring.md
+  local best_cmd_count = math.huge
 
   -- Separate pool for candidates that bypass the trigger_count > 0 gate below.
   -- see docs/adr/0031-priority-pool-for-gate-bypassing-candidates.md for why
@@ -347,8 +350,21 @@ function M.find_best(usage, max_shown, max_level, overrides, promotions)
 
         if trigger_count > 0 then
           local score = math.min(trigger_count - cmd_count, FIND_BEST_SCORE_CAP)
-          if score > best_score or (score == best_score and cmd < best_cmd) then
+          -- On a score tie (routine once the cap collapses several
+          -- well-established triggers to the same 100), prefer the
+          -- candidate whose own command has been used less -- i.e. the
+          -- genuinely more severe gap -- before falling back to the
+          -- alphabetical tie-break. Without this, capping made ties far
+          -- more common but left them decided by command name, which can
+          -- pick the LESS severe of two tied candidates. See
+          -- docs/adr/0111-bounded-severity-scoring.md for why.
+          if
+            score > best_score
+            or (score == best_score and cmd_count < best_cmd_count)
+            or (score == best_score and cmd_count == best_cmd_count and cmd < best_cmd)
+          then
             best_score = score
+            best_cmd_count = cmd_count
             best_cmd = cmd
           end
         end
