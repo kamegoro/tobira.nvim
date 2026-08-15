@@ -29,10 +29,15 @@ jobs:
               args: --check lua/ plugin/
 
           - name: Lint (selene)
-            uses: AlejandroSuero/selene-linter-action@v1.0.0
-            with:
-              token: ${{ secrets.GITHUB_TOKEN }}
-              args: --display-style=quiet lua/ plugin/
+            env:
+              GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            run: |
+              url=$(gh api repos/Kampfkarren/selene/releases/latest \
+                --jq '.assets[] | select(.name | test("^selene-[0-9].*-linux\\.zip$")) | .browser_download_url')
+              curl -sSfL -o selene.zip "$url"
+              unzip -o selene.zip
+              chmod +x selene
+              ./selene --display-style=quiet lua/ plugin/
 
           - name: Scripts (Python unit tests)
             run: |
