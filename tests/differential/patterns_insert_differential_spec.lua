@@ -15,9 +15,10 @@
 -- agree on every keystroke about which of the 6 insert-mode patterns (if
 -- any) fires.
 --
--- This DID surface a real, previously-unknown divergence — see the
--- "known-expected-divergence: pinned repro scenarios" describe block below
--- for the minimal repro and issue link.
+-- This DID surface a real, previously-unknown divergence (#334, now fixed)
+-- — see the "known-expected-divergence: pinned repro scenarios" describe
+-- block below for the minimal repro, and docs/adr/0115 for the fix. The
+-- KNOWN_334 classification bucket stays as a regression guard.
 --
 -- Lives in tests/differential/, NOT tests/spec/ — same reasoning as
 -- patterns_seq_differential_spec.lua: not wired into .github/workflows/ci.yml
@@ -37,23 +38,22 @@ local reference_model = require('reference_model_insert')
 local generator = require('generator_insert')
 local real_model = require('real_model_insert')
 
--- #334: patterns.feed_macro()'s MACRO_EDIT_KEYS set ({d,c,y,>,<} plus
--- EDIT_OP_KEYS = {x,X,i,I,a,A,o,O,s,S}) was designed for Normal-mode
+-- #334 (fixed): patterns.feed_macro()'s MACRO_EDIT_KEYS set ({d,c,y,>,<}
+-- plus EDIT_OP_KEYS = {x,X,i,I,a,A,o,O,s,S}) was designed for Normal-mode
 -- tokens, but logger.lua's handle_insert_key() feeds it the SAME raw
 -- characters an insert-mode keystroke stream produces (canonical or key —
 -- see docs/adr/0016's cross-mode feed_macro call). An ordinary identifier
 -- typed 3 times in a row (e.g. any word containing 'i', 'a', 'o', 's', 'x',
--- 'd', 'c', or 'y', which is most English/code identifiers) can anchor-
--- match macro_opportunity purely because its own letters happen to overlap
--- MACRO_EDIT_KEYS — a coincidence with no relationship to "the user is
--- repeating an edit". Once that fires, docs/adr/0016's unqualified
--- macro_result > result priority silently swallows whichever of this
--- module's 6 patterns would otherwise have fired on that same keystroke.
--- This is the SAME root-cause mechanism as #312 (macro_opportunity's
--- unqualified dispatch priority silently swallowing an unrelated pattern),
--- discovered at a new call site (insert-mode dispatch) #312's own report
--- never covered — see the PR description for why this was filed separately
--- rather than folded into #312's already-closed pattern list.
+-- 'd', 'c', or 'y', which is most English/code identifiers) could anchor-
+-- match macro_opportunity purely because its own letters happened to
+-- overlap MACRO_EDIT_KEYS — a coincidence with no relationship to "the user
+-- is repeating an edit". `patterns.feed_macro()` now takes an
+-- `is_normal_key` parameter (docs/adr/0115) and only counts a
+-- MACRO_EDIT_KEYS match for tokens fed from the Normal-mode call site;
+-- handle_insert_key's own call site always passes false, so insert-mode
+-- characters can no longer anchor-match macro_opportunity at all. The
+-- KNOWN_334 classification bucket below stays as a safety net for any
+-- future call site that reuses feed_macro without threading this through.
 local KNOWN_334 = { macro_opportunity = true, visual_block_opportunity = true }
 
 -- Raw real pattern names that legitimately, correctly outrank
@@ -206,15 +206,19 @@ describe('patterns_insert.lua insert-mode state machine (differential test again
         end
 
         assert.is_nil(first_failure, first_failure)
-        -- This corpus is EXPECTED to exercise #334 — assert it actually did,
-        -- so a future fix silently making this bucket go to zero is visible
-        -- (update this assertion, don't delete it, once fixed).
-        assert.is_true(
-          total.known_334 > 0,
-          'expected this mixed corpus to demonstrate #334 (insert-mode keystrokes anchor-matching '
-            .. 'macro_opportunity via MACRO_EDIT_KEYS letter overlap) at least once across '
+        -- #334 is fixed: is_normal_key=false on every insert-mode feed_macro
+        -- call means an insert-mode character can no longer anchor-match
+        -- MACRO_EDIT_KEYS, so the known_334 bucket no longer triggers at all
+        -- across this corpus. This is the flipped regression guard — a
+        -- future call site reusing feed_macro incorrectly would make this
+        -- fail again.
+        assert.equals(
+          0,
+          total.known_334,
+          'expected #334 (insert-mode keystrokes anchor-matching macro_opportunity via '
+            .. 'MACRO_EDIT_KEYS letter overlap) to no longer reproduce across '
             .. SEED_COUNT
-            .. ' seeds — if this now legitimately never happens, #334 may be fixed; update this test'
+            .. ' seeds now that is_normal_key is wired up — if this is nonzero again, #334 regressed'
         )
         assert.is_true(
           total.out_of_scope > 0,
@@ -232,30 +236,22 @@ describe('patterns_insert.lua insert-mode state machine (differential test again
     -- repro for #334 directly, independent of whatever the random corpora
     -- above happen to roll.
 
-    it(
-      '#334: typing the same 6+ char word 3 times swallows insert_completion_repeat under macro_opportunity',
-      function()
-        -- 'diamond' contains 'i', 'a', 'o', 'd' — all MACRO_EDIT_KEYS members
-        -- (i/a via EDIT_OP_KEYS' INSERT_KEYS, d via the operator set) — so the
-        -- macro_buf window "d i a m o n d <space>" (8 tokens, within
-        -- MACRO_MAX_LEN=15) anchor-matches on the 3rd repetition, 30ms apart
-        -- (well within MACRO_WINDOW_MS), same as any genuine 3x edit-repeat.
-        local fake = reference_model.new_state()
-        local real = real_model.new_state()
-        local fake_fires, real_fires = {}, {}
-        for _ = 1, 3 do
-          for c in ('diamond'):gmatch('.') do
-            local e = reference_model.step_insert(fake, nil, c)
-            local r = real_model.step_insert(real, nil, c)
-            if e then
-              table.insert(fake_fires, e.pattern)
-            end
-            if r then
-              table.insert(real_fires, r.pattern)
-            end
-          end
-          local e = reference_model.step_insert(fake, nil, ' ')
-          local r = real_model.step_insert(real, nil, ' ')
+    it('fixed (#334): typing the same 6+ char word 3 times no longer swallows insert_completion_repeat', function()
+      -- 'diamond' contains 'i', 'a', 'o', 'd' — all MACRO_EDIT_KEYS members
+      -- (i/a via EDIT_OP_KEYS' INSERT_KEYS, d via the operator set) — so the
+      -- macro_buf window "d i a m o n d <space>" (8 tokens, within
+      -- MACRO_MAX_LEN=15) would anchor-match on the 3rd repetition, 30ms
+      -- apart (well within MACRO_WINDOW_MS), same as any genuine 3x
+      -- edit-repeat — EXCEPT every token here is fed with
+      -- is_normal_key=false (docs/adr/0115), so it can no longer satisfy
+      -- MACRO_EDIT_KEYS at all and macro_opportunity never fires.
+      local fake = reference_model.new_state()
+      local real = real_model.new_state()
+      local fake_fires, real_fires = {}, {}
+      for _ = 1, 3 do
+        for c in ('diamond'):gmatch('.') do
+          local e = reference_model.step_insert(fake, nil, c)
+          local r = real_model.step_insert(real, nil, c)
           if e then
             table.insert(fake_fires, e.pattern)
           end
@@ -263,21 +259,24 @@ describe('patterns_insert.lua insert-mode state machine (differential test again
             table.insert(real_fires, r.pattern)
           end
         end
-        -- Naive/intended model: insert_completion_repeat fires on BOTH the
-        -- 2nd and 3rd occurrences' boundaries — the ring already contains a
-        -- match both times.
-        assert.same({ 'insert_completion_repeat', 'insert_completion_repeat' }, fake_fires)
-        -- Real dispatch: the 2nd occurrence's boundary still correctly fires
-        -- insert_completion_repeat (the macro_buf window hasn't anchor-matched
-        -- yet — only 2 reps so far). But the 3rd occurrence's boundary is
-        -- where the SAME window now also satisfies macro_check_len's 3x
-        -- anchored match, and docs/adr/0016's unqualified macro_result >
-        -- result priority means macro_opportunity wins that keystroke
-        -- instead — insert_completion_repeat's own 2nd (would-be) fire is
-        -- silently swallowed.
-        assert.same({ 'insert_completion_repeat', 'macro_opportunity' }, real_fires)
+        local e = reference_model.step_insert(fake, nil, ' ')
+        local r = real_model.step_insert(real, nil, ' ')
+        if e then
+          table.insert(fake_fires, e.pattern)
+        end
+        if r then
+          table.insert(real_fires, r.pattern)
+        end
       end
-    )
+      -- Naive/intended model: insert_completion_repeat fires on BOTH the
+      -- 2nd and 3rd occurrences' boundaries — the ring already contains a
+      -- match both times.
+      assert.same({ 'insert_completion_repeat', 'insert_completion_repeat' }, fake_fires)
+      -- Fixed: real dispatch now matches — macro_opportunity can never
+      -- anchor-match an insert-mode-only token stream, so nothing
+      -- silently swallows insert_completion_repeat's 3rd fire anymore.
+      assert.same({ 'insert_completion_repeat', 'insert_completion_repeat' }, real_fires)
+    end)
 
     it('x_then_insert legitimately outranks insert_co_oneshot when the one-shot motion is exactly x', function()
       -- x_then_insert (patterns.lua) fires whenever a single 'x' is
