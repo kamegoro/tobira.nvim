@@ -243,6 +243,69 @@ describe('patterns_cmdline.track_substitute', function()
   end)
 end)
 
+-- A long session accumulating many DISTINCT :s/// pattern+replacement pairs
+-- must not let state.entries (and each entry's own .lines set) grow without
+-- bound -- see docs/adr/0110-cmdline-state-lru-eviction.md (#314).
+
+local function count_keys(t)
+  local n = 0
+  for _ in pairs(t) do
+    n = n + 1
+  end
+  return n
+end
+
+local function total_substitute_lines(state)
+  local n = 0
+  for _, entry in pairs(state.entries) do
+    n = n + count_keys(entry.lines)
+  end
+  return n
+end
+
+describe('patterns_cmdline.track_substitute state growth bound (#314)', function()
+  it('caps the number of tracked substitute pairs instead of growing without bound', function()
+    local state = patterns_cmdline.new_substitute_state()
+    for i = 1, 200 do
+      patterns_cmdline.track_substitute(state, string.format('s/pat%d/rep%d/', i, i), 1)
+    end
+    assert.is_true(
+      count_keys(state.entries) <= 20,
+      string.format('expected a bounded number of tracked pairs, got %d', count_keys(state.entries))
+    )
+  end)
+
+  it("stops growing a fired pair's distinct-line set once its widest threshold (g&) has already fired", function()
+    local state = patterns_cmdline.new_substitute_state()
+    patterns_cmdline.track_substitute(state, 's/foo/bar/', 1)
+    patterns_cmdline.track_substitute(state, 's/foo/bar/', 2)
+    patterns_cmdline.track_substitute(state, 's/foo/bar/', 3) -- fires g&
+    for line = 4, 200 do
+      patterns_cmdline.track_substitute(state, 's/foo/bar/', line)
+    end
+    assert.is_true(
+      total_substitute_lines(state) <= 3,
+      string.format("expected the fired pair's line set to stop growing, got %d lines", total_substitute_lines(state))
+    )
+  end)
+
+  it(
+    'still fires substitute_repeat for an actively repeated pair while eviction removes unrelated one-off pairs',
+    function()
+      local state = patterns_cmdline.new_substitute_state()
+      -- Push well past the cap with distinct one-off pairs so LRU eviction is
+      -- actively removing entries by the time the pair below is tracked.
+      for i = 1, 25 do
+        patterns_cmdline.track_substitute(state, string.format('s/pat%d/rep%d/', i, i), i)
+      end
+      patterns_cmdline.track_substitute(state, 's/target/replaced/', 500)
+      local result = patterns_cmdline.track_substitute(state, 's/target/replaced/', 501)
+      assert.equals('substitute_repeat', result.pattern)
+      assert.equals('&', result.cmd)
+    end
+  )
+end)
+
 -- patterns_cmdline.command_arg(text): argument-aware counterpart to
 -- tokenize() above, shared by the tabnew streak and :e/:b ping-pong
 -- detectors below. See
@@ -738,4 +801,41 @@ describe('patterns_cmdline.feed_history_recall', function()
       assert.is_nil(result)
     end)
   end)
+end)
+
+-- A long session submitting many DISTINCT non-substitute/e/b/tabnew Ex
+-- commands must not let state.entries grow without bound -- see
+-- docs/adr/0110-cmdline-state-lru-eviction.md (#314).
+describe('patterns_cmdline.feed_history_recall state growth bound (#314)', function()
+  local function rseq()
+    return patterns_cmdline.new_history_recall_state()
+  end
+
+  it('caps the number of tracked distinct command lines instead of growing without bound', function()
+    local s = rseq()
+    for i = 1, 200 do
+      patterns_cmdline.feed_history_recall(s, string.format('echo "unique message %d"', i), 'echo', tostring(i))
+    end
+    local n = 0
+    for _ in pairs(s.entries) do
+      n = n + 1
+    end
+    assert.is_true(n <= 20, string.format('expected a bounded number of tracked command lines, got %d', n))
+  end)
+
+  it(
+    'still fires cmdline_history_recall for an actively retyped command while eviction removes unrelated ones',
+    function()
+      local s = rseq()
+      -- Push well past the cap with distinct one-off command lines so LRU
+      -- eviction is actively removing entries by the time the retype below happens.
+      for i = 1, 25 do
+        patterns_cmdline.feed_history_recall(s, string.format('echo "unique message %d"', i), 'echo', tostring(i))
+      end
+      patterns_cmdline.feed_history_recall(s, 'g/pattern/d', 'g', '/pattern/d')
+      local result = patterns_cmdline.feed_history_recall(s, 'g/pattern/d', 'g', '/pattern/d')
+      assert.equals('cmdline_history_recall', result.pattern)
+      assert.equals('q:', result.cmd)
+    end
+  )
 end)
