@@ -102,6 +102,39 @@ describe('when mark_adopted is called after 10 sessions have already been stored
   end)
 end)
 
+-- ── mark_adopted must bump peak_avg before evicting (#307) ─────────────────────
+-- mark_adopted() performs the exact same append-then-evict-oldest-once-over-
+-- MAX_SESSIONS mutation close_session() does, but originally never called
+-- bump_peak_avg() before doing it -- so a command flushed via mark_adopted()
+-- could lose its historical peak average the same way close_session() itself
+-- used to before #307 was fixed there. Independent QA repro on PR #342: seed
+-- a near-full 10-slot sessions window averaging ~10.1 and call mark_adopted()
+-- once -- peak_avg must capture that pre-append average, not stay at 0.
+
+describe('when mark_adopted flushes a near-full sessions window (#307)', function()
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+  end)
+
+  it('bumps peak_avg to the pre-append window average instead of leaving it at 0', function()
+    local all = logger.get_all()
+    all['cw'] = {
+      count = 500,
+      sessions = { 10, 10, 10, 10, 10, 10, 10, 10, 10, 11 },
+      shown = 0,
+      suppressed = false,
+      pinned = false,
+      celebrated = false,
+      peak_avg = 0,
+    }
+
+    logger.mark_adopted('cw')
+
+    assert.equals(101 / 10, logger.get('cw').peak_avg)
+  end)
+end)
+
 -- ── mark_celebrated / is_celebrated ─────────────────────────────────────────
 
 describe('when a command has never been celebrated', function()
@@ -382,6 +415,53 @@ describe('when a command is flushed via mark_adopted mid-session', function()
   end)
 end)
 
+-- ── heavily-used-then-abandoned commands stay forgotten (#307) ─────────────────
+-- See docs/adr/0117-persisted-peak-average-for-forgotten-detection.md.
+-- sessions[] is capped at MAX_SESSIONS=10 entries; before this fix,
+-- is_forgotten()'s historical average was computed purely from that capped
+-- window, so a handful of session closes after abandonment would roll the
+-- real high-usage history out of view and permanently un-flag the command as
+-- forgotten regardless of its lifetime count. This test drives the exact
+-- repro from #307's issue body through the real close_session() path.
+
+describe('when a heavily-used command goes quiet for many session closes (#307)', function()
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    logger.setup()
+  end)
+
+  it('stays flagged is_forgotten() == true well past the point the old fix would have reverted it', function()
+    local graph = require('tobira.core.graph')
+    local usage = logger.get_all()
+    -- Same shape as #307's own repro: heavy historical use, already tapering
+    -- off in the last two sessions.
+    usage['&'] = {
+      count = 1821,
+      sessions = { 10, 11, 12, 8, 9, 10, 11, 1, 0, 0 },
+      shown = 0,
+      suppressed = false,
+      pinned = false,
+      celebrated = false,
+      peak_avg = 0,
+    }
+
+    assert.is_true(graph.is_forgotten(usage['&']), 'precondition: genuinely forgotten right after the taper')
+
+    -- 12 further session closes with zero activity for '&' -- old sessions
+    -- roll off the 10-slot window well before this loop ends.
+    for _ = 1, 12 do
+      logger.close_session()
+    end
+
+    assert.equals(1821, logger.get('&').count, 'count must stay untouched by session closes')
+    assert.is_true(
+      graph.is_forgotten(logger.get('&')),
+      'a count=1821 command with 12 session-closes of zero recent activity must stay flagged forgotten (#307)'
+    )
+  end)
+end)
+
 -- ── old-format migration ──────────────────────────────────────────────────────
 
 describe('old-format migration', function()
@@ -424,6 +504,31 @@ describe('old-format migration', function()
     logger.mark_celebrated('cw')
     logger.load_from_disk()
     assert.is_true(logger.is_celebrated('cw'))
+  end)
+
+  it('defaults peak_avg to 0 for entries written before the field existed (#307)', function()
+    local usage = logger.get_all()
+    usage['e'] =
+      { count = 3, shown = 0, sessions = { 2, 3 }, suppressed = false, pinned = false, celebrated = false }
+    logger.save()
+    logger.load_from_disk()
+    assert.equals(0, logger.get('e').peak_avg)
+  end)
+
+  it('preserves a nonzero peak_avg across a save/load round-trip (#307)', function()
+    local usage = logger.get_all()
+    usage['e'] = {
+      count = 2000,
+      shown = 0,
+      sessions = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+      suppressed = false,
+      pinned = false,
+      celebrated = false,
+      peak_avg = 9.5,
+    }
+    logger.save()
+    logger.load_from_disk()
+    assert.equals(9.5, logger.get('e').peak_avg)
   end)
 end)
 
@@ -2507,6 +2612,183 @@ describe('when save is called explicitly', function()
   end)
 end)
 
+-- ── write failure must not silently discard pending data (#308) ────────────────
+-- See docs/adr/0118-write-failure-must-not-advance-the-merge-baseline.md.
+-- Before this fix, save()'s internal order (merge_with_disk -> sync_baseline
+-- -> write_file) advanced the in-memory merge baseline even when write_file
+-- failed, so the NEXT successful save would diff against a baseline that
+-- already believed the failed write's data had reached disk -- silently
+-- discarding whatever was pending at the time of the failure.
+
+describe('when write_file fails partway through save() (#308)', function()
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    logger.setup()
+  end)
+
+  -- Reads usage.json directly from disk, bypassing logger.lua entirely, so
+  -- checking "what actually reached disk" never disturbs the in-memory state
+  -- under test (unlike logger.load_from_disk(), which would replace it).
+  local function read_disk_count(cmd)
+    local f = io.open(vim.fn.stdpath('data') .. '/tobira/usage.json', 'r')
+    if not f then
+      return nil
+    end
+    local content = f:read('*a')
+    f:close()
+    local ok, data = pcall(vim.json.decode, content)
+    if not (ok and data[cmd]) then
+      return nil
+    end
+    return data[cmd].count
+  end
+
+  local function with_broken_write(fn)
+    local real_open = io.open
+    io.open = function(path, mode)
+      if mode == 'w' then
+        return nil
+      end
+      return real_open(path, mode)
+    end
+    local ok, err = pcall(fn)
+    io.open = real_open
+    assert.is_true(ok, tostring(err))
+  end
+
+  it(
+    'keeps the in-memory count intact after a failed save, and persists it correctly on the next successful save',
+    function()
+      -- Establish 'j' on both disk and the merge baseline at count = 0
+      -- first -- matching #308's own repro exactly: the bug only manifests
+      -- once BOTH sides of the merge already know about this command (a
+      -- brand new key with no disk/baseline entry yet takes
+      -- merge_with_disk()'s `elseif mem_entry then merged[cmd] = mem_entry`
+      -- branch, which is unaffected by the baseline-diff bug).
+      logger.mark_shown('j')
+      assert.equals(0, read_disk_count('j'))
+
+      vim.fn.feedkeys('jjjjjjjjjj', 'xt')
+      vim.api.nvim_feedkeys('', 'x', false)
+      assert.equals(10, logger.get('j').count)
+
+      with_broken_write(function()
+        logger.save()
+      end)
+
+      assert.equals(0, read_disk_count('j'), 'a failed write must not reach disk')
+      assert.equals(10, logger.get('j').count, 'the failed save must not lose the in-memory count')
+
+      -- io.open is restored now -- this save() succeeds.
+      logger.save()
+
+      assert.equals(
+        10,
+        read_disk_count('j'),
+        "the next successful save must persist what the failed save couldn't"
+      )
+      assert.equals(10, logger.get('j').count)
+    end
+  )
+
+  -- A distinct failure mode from with_broken_write above: io.open succeeds
+  -- (permissions are fine) but the write itself doesn't complete -- e.g. the
+  -- disk fills up mid-write. write_file() must treat this the same as a
+  -- failed open.
+  local function with_broken_mid_write(fn)
+    local real_open = io.open
+    io.open = function(path, mode)
+      if mode ~= 'w' then
+        return real_open(path, mode)
+      end
+      local real_f = real_open(path, mode)
+      return {
+        write = function()
+          return nil
+        end,
+        close = function()
+          if real_f then
+            real_f:close()
+          end
+        end,
+      }
+    end
+    local ok, err = pcall(fn)
+    io.open = real_open
+    assert.is_true(ok, tostring(err))
+  end
+
+  it(
+    'treats a failed f:write() (e.g. disk full) the same as a failed open -- does not advance the baseline',
+    function()
+      logger.mark_shown('j')
+      assert.equals(0, read_disk_count('j'))
+
+      vim.fn.feedkeys('jjjjjjjjjj', 'xt')
+      vim.api.nvim_feedkeys('', 'x', false)
+      assert.equals(10, logger.get('j').count)
+
+      with_broken_mid_write(function()
+        logger.save()
+      end)
+
+      assert.equals(10, logger.get('j').count, 'a mid-write failure must not lose the in-memory count either')
+
+      -- io.open is restored now -- this save() succeeds.
+      logger.save()
+
+      assert.equals(
+        10,
+        read_disk_count('j'),
+        "the next successful save must persist what the failed write couldn't"
+      )
+    end
+  )
+
+  -- A third failure mode, distinct from both above: io.open and f:write both
+  -- succeed, but the final os.rename() from the temp file to the real data
+  -- file fails (e.g. cross-device rename, out of inodes). write_file() must
+  -- treat this the same as a failed open or a failed write.
+  local function with_broken_rename(fn)
+    local real_rename = os.rename
+    os.rename = function()
+      return false
+    end
+    local ok, err = pcall(fn)
+    os.rename = real_rename
+    assert.is_true(ok, tostring(err))
+  end
+
+  it(
+    'treats a failed os.rename() the same as a failed open or write -- does not advance the baseline',
+    function()
+      logger.mark_shown('j')
+      assert.equals(0, read_disk_count('j'))
+
+      vim.fn.feedkeys('jjjjjjjjjj', 'xt')
+      vim.api.nvim_feedkeys('', 'x', false)
+      assert.equals(10, logger.get('j').count)
+
+      with_broken_rename(function()
+        logger.save()
+      end)
+
+      assert.equals(0, read_disk_count('j'), 'a failed rename must not reach disk')
+      assert.equals(10, logger.get('j').count, 'a failed rename must not lose the in-memory count either')
+
+      -- os.rename is restored now -- this save() succeeds.
+      logger.save()
+
+      assert.equals(
+        10,
+        read_disk_count('j'),
+        "the next successful save must persist what the failed rename couldn't"
+      )
+    end
+  )
+end)
+
 -- ── clear_disk (:TobiraReset) ─────────────────────────────────────────────────
 -- See docs/adr/0014-usage-json-concurrent-merge-and-migration.md for why
 -- clear_disk() bypasses save()'s merge-with-disk behavior.
@@ -2673,6 +2955,75 @@ describe('when a concurrent Neovim instance has recorded its own session', funct
     logger.load_from_disk()
 
     assert.same({ 3, 2 }, logger.get('e').sessions)
+  end)
+end)
+
+describe('when a concurrent Neovim instance has recorded a higher peak_avg (#307, docs/adr/0117)', function()
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    logger.setup()
+  end)
+
+  it('keeps the higher peak_avg instead of letting the last writer win', function()
+    -- This instance never builds up a peak of its own for 'e'.
+    logger.mark_shown('e')
+
+    -- A concurrent instance already recorded a higher peak_avg for 'e'.
+    local data_dir = vim.fn.stdpath('data') .. '/tobira'
+    vim.fn.mkdir(data_dir, 'p')
+    local f = io.open(data_dir .. '/usage.json', 'w')
+    f:write(vim.json.encode({
+      e = {
+        count = 0,
+        sessions = {},
+        shown = 0,
+        suppressed = false,
+        pinned = false,
+        celebrated = false,
+        peak_avg = 8.4,
+      },
+    }))
+    f:close()
+
+    logger.mark_shown('e') -- triggers another save(), merging with the concurrent instance's data
+    logger.load_from_disk()
+
+    assert.equals(8.4, logger.get('e').peak_avg)
+  end)
+
+  it("keeps this instance's own higher peak_avg instead of a concurrent instance's stale lower one", function()
+    local usage = logger.get_all()
+    usage['e'] = {
+      count = 0,
+      sessions = {},
+      shown = 0,
+      suppressed = false,
+      pinned = false,
+      celebrated = false,
+      peak_avg = 9.0,
+    }
+
+    local data_dir = vim.fn.stdpath('data') .. '/tobira'
+    vim.fn.mkdir(data_dir, 'p')
+    local f = io.open(data_dir .. '/usage.json', 'w')
+    f:write(vim.json.encode({
+      e = {
+        count = 0,
+        sessions = {},
+        shown = 0,
+        suppressed = false,
+        pinned = false,
+        celebrated = false,
+        peak_avg = 3.0,
+      },
+    }))
+    f:close()
+
+    logger.save()
+    logger.load_from_disk()
+
+    assert.equals(9.0, logger.get('e').peak_avg)
   end)
 end)
 

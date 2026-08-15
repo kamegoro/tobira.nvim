@@ -24,13 +24,13 @@
 --   nvim --headless --noplugin -u tests/minimal_init.lua \
 --     -c "PlenaryBustedDirectory tests/regression/ {minimal_init = 'tests/minimal_init.lua', sequential = true}"
 --
--- Unlike tests/spec/*_spec.lua, one it() block below is still EXPECTED TO
--- FAIL right now (#307, still open). It's a regression tracker for a real,
--- already-filed bug that building this fixture reproduced deterministically,
--- marked "KNOWN FAILING" with the issue it tracks. #291 and #292 were also
--- found this way and are now fixed -- their invariants below are ordinary
--- passing regression guards. Do not pending()/skip/delete a KNOWN FAILING
--- block:
+-- Unlike tests/spec/*_spec.lua, every it() block below currently passes for
+-- real. #291, #292, and #307 were all found this way; #307's fix is
+-- docs/adr/0117-persisted-peak-average-for-forgotten-detection.md. All three
+-- invariants below are now ordinary passing regression guards. If a future
+-- change to this suite ever needs to add a new KNOWN FAILING block for a
+-- freshly-discovered, still-open bug, follow this convention. Do not
+-- pending()/skip/delete a KNOWN FAILING block:
 --   - plenary's pending() does not even execute the test body (see
 --     plenary/busted.lua's mod.pending), so it would silently stop
 --     exercising the real code path -- exactly the kind of hidden problem
@@ -239,17 +239,20 @@ describe('when efficiency_gaps() ranks gaps from a realistic full-scale fixture'
 end)
 
 -- ── Invariant #3: a heavily-used-then-abandoned command must stay flagged ──
--- ── forgotten past 10+ session closes (root cause of #307) ─────────────────
+-- ── forgotten past 10+ session closes (root cause of #307, now fixed) ──────
 --
 -- usage[cmd].sessions is hard-capped at MAX_SESSIONS = 10 (logger.lua).
--- is_forgotten()'s historical average is always computed from at most 10
--- entries, so once enough zero-activity session closes roll the old
--- high-usage sessions off the window (empirically: as few as 3 closes past
--- abandonment), historical drops below FORGOTTEN_ADOPTED_BAR and
--- is_forgotten() unconditionally flips to false forever -- regardless of the
--- lifetime `count`, which stays huge the whole time. This directly
--- contradicts ADR 0029's stated goal. See #307's issue body for the exact
--- repro this mirrors (the same '&'-shaped sessions history).
+-- is_forgotten()'s historical average used to be computed purely from at
+-- most 10 entries, so once enough zero-activity session closes rolled the
+-- old high-usage sessions off the window (empirically: as few as 3 closes
+-- past abandonment), historical dropped below FORGOTTEN_ADOPTED_BAR and
+-- is_forgotten() unconditionally flipped to false forever -- regardless of
+-- the lifetime `count`, which stayed huge the whole time. This directly
+-- contradicted ADR 0029's stated goal. Fixed by persisting a separate
+-- peak_avg high-water mark that survives the rolling window's eviction --
+-- see docs/adr/0117-persisted-peak-average-for-forgotten-detection.md. See
+-- #307's issue body for the exact repro this mirrors (the same '&'-shaped
+-- sessions history).
 
 describe('when a heavily-used command goes quiet for 10+ simulated session closes', function()
   -- Same shape as #307's own repro: heavy historical use, already tapering
@@ -264,25 +267,26 @@ describe('when a heavily-used command goes quiet for 10+ simulated session close
   )
 
   for i = 1, 12 do
-    fixture.simulate_session_close(data.sessions, 0)
+    fixture.simulate_session_close(data, 0)
   end
 
   it('fixture precondition: count stays large throughout (this is not a light, easily-mastered command)', function()
     assert.equals(1821, data.count)
   end)
 
-  -- KNOWN FAILING -- tracks issue #307 (open, priority: high). Do not
-  -- pending()/skip/delete. Once the sessions[] rolling window fills with
-  -- zeros, is_forgotten() currently flips to false (and is_mastered() flips
-  -- to true) permanently, regardless of how large `count` is. This needs a
-  -- real design decision (per #307: the fixed-ratio/session-cap interaction
-  -- is the bug independent of #247's proposed adaptive-decay redesign).
-  -- Should start passing once #307 lands.
+  -- Regression guard for #307 (fixed): peak_avg locks in the historical
+  -- average from the very first of these session closes (while the window
+  -- still holds most of the original heavy-usage history), so it stays well
+  -- above FORGOTTEN_ADOPTED_BAR long after the rolling sessions[] window
+  -- itself has decayed to all zeros.
   it('is still flagged is_forgotten() == true after 12 session closes of zero activity', function()
     assert.is_true(
       graph.is_forgotten(data),
-      'a count=1821 command with 12 session-closes of zero recent activity is no longer flagged forgotten (#307); sessions='
+      'a count=1821 command with 12 session-closes of zero recent activity is no'
+        .. ' longer flagged forgotten (#307); sessions='
         .. vim.inspect(data.sessions)
+        .. ' peak_avg='
+        .. tostring(data.peak_avg)
     )
   end)
 end)

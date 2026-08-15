@@ -58,6 +58,17 @@ touched it" and "this instance explicitly set it back to false" must be told apa
   own branch in `merge_with_disk()`'s per-command merge — an omitted field silently
   falls back to whichever instance's `save()` runs last winning, reintroducing the
   original bug for just that field.
+
+### Addendum: monotonic fields don't need a `baseline_of()` entry
+
+`peak_avg` (added by docs/adr/0117-persisted-peak-average-for-forgotten-detection.md)
+is an exception to the rule above: it only ever grows (a running high-water mark), so
+`math.max(mem.peak_avg, disk.peak_avg)` is correct regardless of write order or which
+instance last synced — there is no "changed locally vs. was always the default"
+ambiguity for a plain max to resolve, so no `_baseline` entry is needed for it. Any
+future field should ask this same question before wiring up baseline tracking: if the
+field is monotonic (safe to merge with `max()`/`min()` alone), skip `baseline_of()`
+entirely and merge directly; otherwise follow the pattern above.
 - Touching `merge_with_disk()` without touching `_baseline`/`_sessions_appended`
   tracking (or vice versa) is almost always wrong — they are two halves of the same
   mechanism.

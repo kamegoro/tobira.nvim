@@ -48,6 +48,35 @@ local VISUAL_MODES = { v = true, V = true, ['\22'] = true }
 
 local MAX_SESSIONS = 10
 
+-- Plain arithmetic mean of a flat array. Only ever called by bump_peak_avg
+-- below, which already guards `#entry.sessions >= 3` before calling this --
+-- so this never runs against an empty array and has no empty-array guard of
+-- its own.
+local function avg(t)
+  local n = #t
+  local sum = 0
+  for _, v in ipairs(t) do
+    sum = sum + v
+  end
+  return sum / n
+end
+
+-- Bumps entry.peak_avg to the average of its CURRENT sessions[] window if
+-- that's a new high, BEFORE this session's count is appended below and the
+-- window is re-capped. See
+-- docs/adr/0117-persisted-peak-average-for-forgotten-detection.md: sessions[]
+-- is capped at MAX_SESSIONS entries, so without this, a command's average
+-- usage during a heavy-use period is lost forever once enough zero-activity
+-- session closes evict those entries from the window -- peak_avg is a
+-- separate, never-evicted high-water mark that graph.is_forgotten() falls
+-- back to. Guarded the same way is_forgotten() itself is (>= 3 sessions) so
+-- an early, noisy 1-2-session average can't lock in a misleadingly high peak.
+local function bump_peak_avg(entry)
+  if #entry.sessions >= 3 then
+    entry.peak_avg = math.max(entry.peak_avg or 0, avg(entry.sessions))
+  end
+end
+
 local function ensure_dir()
   vim.fn.mkdir(data_dir, 'p')
 end
@@ -66,6 +95,9 @@ local function migrate_entry(entry)
   end
   if entry.celebrated == nil then
     entry.celebrated = false
+  end
+  if entry.peak_avg == nil then
+    entry.peak_avg = 0
   end
   entry.adopted = nil
   return entry
@@ -193,6 +225,13 @@ local function merge_with_disk(disk_data)
         suppressed = merge_flag(mem_suppressed, baseline.suppressed, disk_entry.suppressed),
         pinned = merge_flag(mem_pinned, baseline.pinned, disk_entry.pinned),
         celebrated = merge_flag(mem_celebrated, baseline.celebrated, disk_entry.celebrated),
+        -- peak_avg is a monotonic high-water mark (only ever grows, see
+        -- bump_peak_avg() below) -- unlike count/suppressed/pinned/celebrated,
+        -- a plain max() of both sides is correct regardless of write order,
+        -- so it needs no _baseline entry to tell "changed locally" apart from
+        -- "was always the default". See
+        -- docs/adr/0117-persisted-peak-average-for-forgotten-detection.md.
+        peak_avg = math.max(mem_entry.peak_avg or 0, disk_entry.peak_avg or 0),
       }
     elseif mem_entry then
       merged[cmd] = mem_entry
@@ -204,19 +243,27 @@ local function merge_with_disk(disk_data)
   return merged
 end
 
--- Write to a temp file then rename so a crash mid-write can never corrupt the data file.
+-- Write to a temp file then rename so a crash mid-write can never corrupt the
+-- data file. Returns true only if the write genuinely reached disk -- false
+-- for any failure (permission denied on open, a short/failed write e.g. disk
+-- full, or a failed rename), so save() below can tell "persisted" apart from
+-- "silently didn't happen". See
+-- docs/adr/0118-write-failure-must-not-advance-the-merge-baseline.md.
 local function write_file()
   ensure_dir()
   local tmp = data_file .. '.tmp'
   local f = io.open(tmp, 'w')
   if not f then
-    return
+    return false
   end
   local payload = vim.deepcopy(usage)
   payload._meta = meta
-  f:write(vim.json.encode(payload))
+  local write_ok = f:write(vim.json.encode(payload))
   f:close()
-  os.rename(tmp, data_file)
+  if not write_ok then
+    return false
+  end
+  return os.rename(tmp, data_file) == true
 end
 
 local function save()
@@ -228,15 +275,27 @@ local function save()
   end
   disk_data._meta = nil
 
+  local previous_usage = usage
   usage = merge_with_disk(disk_data)
-  sync_baseline()
 
-  write_file()
+  if write_file() then
+    sync_baseline()
+  else
+    -- The write failed after merge_with_disk() already ran. Roll `usage`
+    -- back to its pre-merge in-memory state and leave
+    -- `_baseline`/`_sessions_appended` untouched, so the next save() call
+    -- re-merges cleanly against a fresh disk read instead of diffing against
+    -- a baseline that incorrectly believes this attempt's data already
+    -- reached disk (which would silently discard it). See
+    -- docs/adr/0118-write-failure-must-not-advance-the-merge-baseline.md.
+    usage = previous_usage
+  end
 end
 
 local function increment(cmd)
   if not usage[cmd] then
-    usage[cmd] = { count = 0, sessions = {}, shown = 0, suppressed = false, pinned = false, celebrated = false }
+    usage[cmd] =
+      { count = 0, sessions = {}, shown = 0, suppressed = false, pinned = false, celebrated = false, peak_avg = 0 }
   end
   usage[cmd].count = usage[cmd].count + 1
   session_counts[cmd] = (session_counts[cmd] or 0) + 1
@@ -790,6 +849,7 @@ end
 -- Called on VimLeave and exposed for testing.
 function M.close_session()
   for cmd, count in pairs(session_counts) do
+    bump_peak_avg(usage[cmd])
     table.insert(usage[cmd].sessions, count)
     _sessions_appended[cmd] = (_sessions_appended[cmd] or 0) + 1
     while #usage[cmd].sessions > MAX_SESSIONS do
@@ -802,6 +862,7 @@ function M.close_session()
   -- entry. Runs once per VimLeave, never on the vim.on_key hot path.
   for cmd, entry in pairs(usage) do
     if session_counts[cmd] == nil and not session_adopted[cmd] then
+      bump_peak_avg(entry)
       table.insert(entry.sessions, 0)
       _sessions_appended[cmd] = (_sessions_appended[cmd] or 0) + 1
       while #entry.sessions > MAX_SESSIONS do
@@ -819,7 +880,8 @@ function M.close_session()
 end
 
 function M.get(cmd)
-  return usage[cmd] or { count = 0, sessions = {}, shown = 0, suppressed = false, pinned = false, celebrated = false }
+  return usage[cmd]
+    or { count = 0, sessions = {}, shown = 0, suppressed = false, pinned = false, celebrated = false, peak_avg = 0 }
 end
 
 -- Exposed only for testing — lets specs verify in-session counts before close_session.
@@ -858,7 +920,8 @@ end
 
 function M.mark_shown(cmd)
   if not usage[cmd] then
-    usage[cmd] = { count = 0, sessions = {}, shown = 0, suppressed = false, pinned = false, celebrated = false }
+    usage[cmd] =
+      { count = 0, sessions = {}, shown = 0, suppressed = false, pinned = false, celebrated = false, peak_avg = 0 }
   end
   usage[cmd].shown = usage[cmd].shown + 1
   save()
@@ -872,8 +935,15 @@ function M.mark_adopted(cmd)
   session_counts[cmd] = nil
   session_adopted[cmd] = true
   if not usage[cmd] then
-    usage[cmd] = { count = 0, sessions = {}, shown = 0, suppressed = false, pinned = false, celebrated = false }
+    usage[cmd] =
+      { count = 0, sessions = {}, shown = 0, suppressed = false, pinned = false, celebrated = false, peak_avg = 0 }
   end
+  -- Same append-then-evict-oldest-once-over-MAX_SESSIONS mutation
+  -- close_session() performs, so it needs the same pre-append bump_peak_avg()
+  -- call close_session() makes -- otherwise a command flushed via
+  -- mark_adopted() can lose its historical peak average the same way #307
+  -- was filed for close_session() itself.
+  bump_peak_avg(usage[cmd])
   table.insert(usage[cmd].sessions, count)
   _sessions_appended[cmd] = (_sessions_appended[cmd] or 0) + 1
   while #usage[cmd].sessions > MAX_SESSIONS do
@@ -888,7 +958,8 @@ end
 
 function M.mark_celebrated(cmd)
   if not usage[cmd] then
-    usage[cmd] = { count = 0, sessions = {}, shown = 0, suppressed = false, pinned = false, celebrated = false }
+    usage[cmd] =
+      { count = 0, sessions = {}, shown = 0, suppressed = false, pinned = false, celebrated = false, peak_avg = 0 }
   end
   usage[cmd].celebrated = true
   save()
@@ -896,7 +967,8 @@ end
 
 function M.set_suppressed(cmd, value)
   if not usage[cmd] then
-    usage[cmd] = { count = 0, sessions = {}, shown = 0, suppressed = false, pinned = false, celebrated = false }
+    usage[cmd] =
+      { count = 0, sessions = {}, shown = 0, suppressed = false, pinned = false, celebrated = false, peak_avg = 0 }
   end
   usage[cmd].suppressed = value
   save()
@@ -904,7 +976,8 @@ end
 
 function M.set_pinned(cmd, value)
   if not usage[cmd] then
-    usage[cmd] = { count = 0, sessions = {}, shown = 0, suppressed = false, pinned = false, celebrated = false }
+    usage[cmd] =
+      { count = 0, sessions = {}, shown = 0, suppressed = false, pinned = false, celebrated = false, peak_avg = 0 }
   end
   usage[cmd].pinned = value
   save()
@@ -950,8 +1023,9 @@ end
 -- docs/adr/0014-usage-json-concurrent-merge-and-migration.md for why a full
 -- reset needs this rather than the normal merge-aware save path.
 function M.clear_disk()
-  write_file()
-  sync_baseline()
+  if write_file() then
+    sync_baseline()
+  end
 end
 
 -- Exposed for :checkhealth so health.lua doesn't recompute or duplicate
