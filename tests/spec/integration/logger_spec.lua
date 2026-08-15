@@ -102,6 +102,39 @@ describe('when mark_adopted is called after 10 sessions have already been stored
   end)
 end)
 
+-- ── mark_adopted must bump peak_avg before evicting (#307) ─────────────────────
+-- mark_adopted() performs the exact same append-then-evict-oldest-once-over-
+-- MAX_SESSIONS mutation close_session() does, but originally never called
+-- bump_peak_avg() before doing it -- so a command flushed via mark_adopted()
+-- could lose its historical peak average the same way close_session() itself
+-- used to before #307 was fixed there. Independent QA repro on PR #342: seed
+-- a near-full 10-slot sessions window averaging ~10.1 and call mark_adopted()
+-- once -- peak_avg must capture that pre-append average, not stay at 0.
+
+describe('when mark_adopted flushes a near-full sessions window (#307)', function()
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+  end)
+
+  it('bumps peak_avg to the pre-append window average instead of leaving it at 0', function()
+    local all = logger.get_all()
+    all['cw'] = {
+      count = 500,
+      sessions = { 10, 10, 10, 10, 10, 10, 10, 10, 10, 11 },
+      shown = 0,
+      suppressed = false,
+      pinned = false,
+      celebrated = false,
+      peak_avg = 0,
+    }
+
+    logger.mark_adopted('cw')
+
+    assert.equals(101 / 10, logger.get('cw').peak_avg)
+  end)
+end)
+
 -- ── mark_celebrated / is_celebrated ─────────────────────────────────────────
 
 describe('when a command has never been celebrated', function()
@@ -2709,6 +2742,48 @@ describe('when write_file fails partway through save() (#308)', function()
         10,
         read_disk_count('j'),
         "the next successful save must persist what the failed write couldn't"
+      )
+    end
+  )
+
+  -- A third failure mode, distinct from both above: io.open and f:write both
+  -- succeed, but the final os.rename() from the temp file to the real data
+  -- file fails (e.g. cross-device rename, out of inodes). write_file() must
+  -- treat this the same as a failed open or a failed write.
+  local function with_broken_rename(fn)
+    local real_rename = os.rename
+    os.rename = function()
+      return false
+    end
+    local ok, err = pcall(fn)
+    os.rename = real_rename
+    assert.is_true(ok, tostring(err))
+  end
+
+  it(
+    'treats a failed os.rename() the same as a failed open or write -- does not advance the baseline',
+    function()
+      logger.mark_shown('j')
+      assert.equals(0, read_disk_count('j'))
+
+      vim.fn.feedkeys('jjjjjjjjjj', 'xt')
+      vim.api.nvim_feedkeys('', 'x', false)
+      assert.equals(10, logger.get('j').count)
+
+      with_broken_rename(function()
+        logger.save()
+      end)
+
+      assert.equals(0, read_disk_count('j'), 'a failed rename must not reach disk')
+      assert.equals(10, logger.get('j').count, 'a failed rename must not lose the in-memory count either')
+
+      -- os.rename is restored now -- this save() succeeds.
+      logger.save()
+
+      assert.equals(
+        10,
+        read_disk_count('j'),
+        "the next successful save must persist what the failed rename couldn't"
       )
     end
   )

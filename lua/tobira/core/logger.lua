@@ -938,6 +938,12 @@ function M.mark_adopted(cmd)
     usage[cmd] =
       { count = 0, sessions = {}, shown = 0, suppressed = false, pinned = false, celebrated = false, peak_avg = 0 }
   end
+  -- Same append-then-evict-oldest-once-over-MAX_SESSIONS mutation
+  -- close_session() performs, so it needs the same pre-append bump_peak_avg()
+  -- call close_session() makes -- otherwise a command flushed via
+  -- mark_adopted() can lose its historical peak average the same way #307
+  -- was filed for close_session() itself.
+  bump_peak_avg(usage[cmd])
   table.insert(usage[cmd].sessions, count)
   _sessions_appended[cmd] = (_sessions_appended[cmd] or 0) + 1
   while #usage[cmd].sessions > MAX_SESSIONS do
