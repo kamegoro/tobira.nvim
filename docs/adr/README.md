@@ -188,6 +188,7 @@ Ground-truth index of every ADR, grouped by which module actually points to it v
 - 0006 — cmdline-substitute-repeat-detection
 - 0015 — ex-command-verify-before-credit
 - 0095 — cmdline-history-recall-detection
+- 0110 — cmdline-state-lru-eviction
 
 ### lua/tobira/core/patterns_insert.lua
 
@@ -204,6 +205,7 @@ Ground-truth index of every ADR, grouped by which module actually points to it v
 - 0045 — equivalent-override-suppression-exemption
 - 0046 — terminal-category-cooldown-bypass
 - 0047 — adoption-watch-keytrans-rolling-buffer
+- 0112 — unified-suggestion-scheduling
 
 ### lua/tobira/ui/float.lua
 

@@ -1360,3 +1360,197 @@ describe('when a command with no EQUIVALENT_REMAPS entry has been overridden by 
     assert.is_false(shown)
   end)
 end)
+
+-- ── unified scheduling: reactive vs. ambient priority, cooldown requeue,
+-- adoption-watch consolidation ──────────────────────────────────────────────
+-- See docs/adr/0112-unified-suggestion-scheduling.md for the design.
+
+describe('when a reactive pattern is queued at the same moment the ambient idle timer would also fire (#290)', function()
+  local graph = require('tobira.core.graph')
+  local orig_find_best
+
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    config.reset()
+    suggest.reset_session()
+    orig_find_best = graph.find_best
+  end)
+
+  after_each(function()
+    graph.find_best = orig_find_best
+    suggest.teardown_idle()
+  end)
+
+  it('shows the reactive suggestion instead of racing the ambient pick', function()
+    config.setup({ idle_suggestions = true, idle_delay = 10, suggestion_cooldown = 0 })
+    -- Stand-in ambient pick (';' is a real, always-suggestible command in
+    -- this fixture -- see other describe blocks' direct suggest.show(';')
+    -- calls), deliberately different from the reactive suggestion below, so
+    -- the two are trivially distinguishable in the assertion regardless of
+    -- graph.lua's real scoring.
+    graph.find_best = function()
+      return ';'
+    end
+    local shown_cmds = {}
+    suggest.on_show = function(sug)
+      table.insert(shown_cmds, sug.cmd)
+    end
+
+    suggest.setup_idle()
+    -- One keystroke both arms the ambient idle timer AND is the triggering
+    -- keystroke for a reactive pattern -- mirrors logger.lua calling
+    -- suggest.queue() from inside the same on_key dispatch that also resets
+    -- the idle timer, which is exactly how #290's race was produced.
+    vim.fn.feedkeys('f', 'xt')
+    suggest.queue('f_repeat', ',')
+
+    vim.wait(500, function()
+      return #shown_cmds > 0
+    end, 10)
+    suggest.on_show = nil
+
+    assert.equals(1, #shown_cmds, 'expected exactly one suggestion, not both racing through')
+    assert.equals(',', shown_cmds[1], 'the reactive suggestion must win over the ambient pick')
+  end)
+end)
+
+describe('when the ambient idle timer fires with no reactive suggestion pending (non-regression)', function()
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    config.reset()
+    suggest.reset_session()
+  end)
+  after_each(function()
+    suggest.teardown_idle()
+  end)
+
+  it('still shows the ambient pick normally', function()
+    config.setup({ idle_suggestions = true, idle_delay = 10, suggestion_cooldown = 0 })
+    local usage = logger.get_all()
+    usage['f'] = { count = 5, shown = 0, sessions = {}, suppressed = false }
+    local shown = false
+    suggest.on_show = function()
+      shown = true
+    end
+    suggest.setup_idle()
+    vim.fn.feedkeys('j', 'xt')
+    vim.wait(500, function()
+      return shown
+    end, 10)
+    suggest.on_show = nil
+    assert.is_true(shown, 'the ambient pick must still fire when nothing reactive is queued')
+  end)
+end)
+
+describe('when a reactive pattern fires while an earlier suggestion still has the cooldown active (#311)', function()
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    config.reset()
+    suggest.reset_session()
+  end)
+
+  it('is queued and shown once the cooldown lifts, instead of being dropped permanently', function()
+    config.setup({ idle_delay = 5, suggestion_cooldown = 0.05 })
+    with_float_spy(function()
+      suggest.show(';')
+    end)
+    -- ',' fires reactively while the 50ms cooldown started by ';' above is
+    -- still active -- the exact shape of #311's repro (a genuinely different,
+    -- eligible reactive pattern landing inside an already-active cooldown
+    -- window from an earlier, unrelated suggestion).
+    local shown_cmds = {}
+    suggest.on_show = function(sug)
+      table.insert(shown_cmds, sug.cmd)
+    end
+    suggest.queue('ci_dquote_repeat', ',')
+
+    vim.wait(1000, function()
+      return #shown_cmds > 0
+    end, 10)
+    suggest.on_show = nil
+
+    assert.equals(1, #shown_cmds, 'expected the reactive suggestion to eventually fire')
+    assert.equals(',', shown_cmds[1])
+  end)
+
+  it('gives up the cooldown-lift retry if the command becomes suppressed while waiting', function()
+    config.setup({ idle_delay = 5, suggestion_cooldown = 0.05 })
+    with_float_spy(function()
+      suggest.show(';')
+    end)
+    local shown_cmds = {}
+    suggest.on_show = function(sug)
+      table.insert(shown_cmds, sug.cmd)
+    end
+    suggest.queue('ci_dquote_repeat', ',')
+    -- Mastered before the idle_delay timer even resolves once -- should_suppress
+    -- must be re-checked at resolution time, not just at the original queue() call.
+    local usage = logger.get_all()
+    usage[','] = { count = 100, sessions = {}, shown = 0, suppressed = false, pinned = false }
+
+    vim.wait(1000, function()
+      return #shown_cmds > 0
+    end, 10)
+    suggest.on_show = nil
+
+    assert.equals(0, #shown_cmds, 'a now-suppressed command must not be shown once the cooldown lifts')
+  end)
+
+  it('does not fire before the cooldown actually lifts', function()
+    config.setup({ idle_delay = 5, suggestion_cooldown = 3600 })
+    with_float_spy(function()
+      suggest.show(';')
+    end)
+    local shown_cmds = {}
+    suggest.on_show = function(sug)
+      table.insert(shown_cmds, sug.cmd)
+    end
+    suggest.queue('ci_dquote_repeat', ',')
+
+    -- 3600s cooldown -- comfortably longer than any reasonable test wait, so
+    -- nothing should show up within this window.
+    vim.wait(200, function()
+      return #shown_cmds > 0
+    end, 10)
+    suggest.on_show = nil
+
+    assert.equals(0, #shown_cmds, 'must not show early -- the cooldown genuinely has not lifted yet')
+  end)
+end)
+
+describe('when several suggestions are shown without being adopted (#310)', function()
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    config.reset()
+    suggest.reset_session()
+  end)
+  after_each(function()
+    suggest.reset_session()
+  end)
+
+  it('does not register a new vim.on_key namespace per shown suggestion', function()
+    config.setup({ suggestion_cooldown = 0 })
+    local baseline = vim.on_key()
+
+    with_float_spy(function()
+      suggest.show(';')
+    end)
+    with_float_spy(function()
+      suggest.show(',')
+    end)
+    with_float_spy(function()
+      suggest.show('cw')
+    end)
+
+    local after_three = vim.on_key()
+    assert.equals(
+      baseline + 1,
+      after_three,
+      string.format('expected exactly one shared adoption-watch namespace, got %d beyond baseline', after_three - baseline)
+    )
+  end)
+end)
