@@ -24,11 +24,13 @@
 --   nvim --headless --noplugin -u tests/minimal_init.lua \
 --     -c "PlenaryBustedDirectory tests/regression/ {minimal_init = 'tests/minimal_init.lua', sequential = true}"
 --
--- Unlike tests/spec/*_spec.lua, several it() blocks below are EXPECTED TO
--- FAIL right now. They are regression trackers for real, already-filed,
--- still-open bugs (#291, #292, #307) that building this fixture reproduced
--- deterministically. Each is marked "KNOWN FAILING" with the issue it
--- tracks. Do not pending()/skip/delete them:
+-- Unlike tests/spec/*_spec.lua, one it() block below is still EXPECTED TO
+-- FAIL right now (#307, still open). It's a regression tracker for a real,
+-- already-filed bug that building this fixture reproduced deterministically,
+-- marked "KNOWN FAILING" with the issue it tracks. #291 and #292 were also
+-- found this way and are now fixed -- their invariants below are ordinary
+-- passing regression guards. Do not pending()/skip/delete a KNOWN FAILING
+-- block:
 --   - plenary's pending() does not even execute the test body (see
 --     plenary/busted.lua's mod.pending), so it would silently stop
 --     exercising the real code path -- exactly the kind of hidden problem
@@ -122,16 +124,17 @@ describe('when find_best() picks a suggestion from a realistic full-scale fixtur
 end)
 
 -- ── Invariant #1: a category with a genuinely mastered command must still ──
--- ── appear in guide_commands() (root cause of #292) ─────────────────────────
+-- ── appear in guide_commands() (regression guard for #292, now fixed) ──────
 --
--- graph.guide_commands() computes ONE global ceiling level from whether any
--- beginner-level command ANYWHERE in the registry is still unmastered, then
--- hides every command above that ceiling in EVERY category. A category with
--- zero beginner-level commands of its own (currently only 'ex') can never
--- clear that ceiling until the user has mastered literally every beginner
--- command across every other category -- so it can vanish from the Guide
--- panel entirely, even when its own commands are well-used. See #292's issue
--- body for the full repro this mirrors.
+-- guide_commands() used to compute ONE global ceiling level from whether any
+-- beginner-level command ANYWHERE in the registry was still unmastered, then
+-- hide every command above that ceiling in EVERY category. A category with
+-- zero beginner-level commands of its own (currently only 'ex') could never
+-- clear that ceiling until the user had mastered literally every beginner
+-- command across every other category -- so it could vanish from the Guide
+-- panel entirely, even when its own commands were well-used. The ceiling is
+-- now computed per category; see #292's issue body for the full repro this
+-- mirrors.
 
 describe('when a category with no beginner-level commands has a genuinely mastered command', function()
   for _, cat in ipairs(fixture.categories_without_beginner_commands()) do
@@ -177,11 +180,10 @@ describe('when a category with no beginner-level commands has a genuinely master
         assert.is_true(graph.is_mastered(usage[mastered_cmd]))
       end)
 
-      -- KNOWN FAILING -- tracks issue #292 (open). Do not pending()/skip/
-      -- delete. guide_commands()'s global ceiling currently hides this
-      -- category outright regardless of its own mastered command; this
-      -- should start passing once #292's fix (the issue's own suggested
-      -- direction: compute the ceiling per-category) lands.
+      -- Regression guard for #292 (fixed): guide_commands()'s ceiling is now
+      -- computed per category instead of globally, so this category is no
+      -- longer hidden outright just because its own mastered command exists
+      -- alongside unrelated unmastered beginner commands elsewhere.
       it('still appears in the guide_commands() output', function()
         local by_cat = graph.guide_commands(usage)
         assert.is_not_nil(by_cat[cat], "category '" .. cat .. "' is completely absent from guide_commands() (#292)")
@@ -191,12 +193,12 @@ describe('when a category with no beginner-level commands has a genuinely master
 end)
 
 -- ── Invariant #2: efficiency_gaps() top-N must not be monopolized by one ───
--- ── trigger (related to #291) ───────────────────────────────────────────────
+-- ── trigger (regression guard for #291, now fixed) ─────────────────────────
 --
 -- find_best()'s score (trigger_count - cmd_count) and efficiency_gaps()'s
--- ratio (trigger_count / max(child_count, 1)) are both unbounded, so a
+-- ratio (trigger_count / max(child_count, 1)) were both unbounded, so a
 -- naturally high-fan-out trigger (currently the base key with the most
--- registry children sharing it as `requires`) can flood the top-N results
+-- registry children sharing it as `requires`) could flood the top-N results
 -- with its own children, crowding out every other genuine gap. See #291's
 -- issue body: "4 of top 5 results all sharing trigger j" was the original
 -- repro; this reproduces the same shape against whichever trigger currently
@@ -216,12 +218,9 @@ describe('when efficiency_gaps() ranks gaps from a realistic full-scale fixture'
     assert.is_true(fanout >= 3, 'expected a trigger with real fan-out to test diversity against, got ' .. fanout)
   end)
 
-  -- KNOWN FAILING -- tracks issue #291 (open, "find_best()/efficiency_gaps()
-  -- let high-frequency base keys monopolize suggestions regardless of habit
-  -- severity"). Do not pending()/skip/delete. This is a real design-review
-  -- fix (unbounded ratio/score needs normalization, or efficiency_gaps needs
-  -- top-N dedup by parent), not yet implemented. Should start passing once
-  -- #291 lands.
+  -- Regression guard for #291 (fixed): efficiency_gaps()'s top-N is now
+  -- diversified across distinct parent triggers instead of letting the
+  -- single highest-fan-out trigger's children fill every slot.
   it('includes suggestions from at least 3 distinct trigger commands in the top 5', function()
     local gaps = graph.efficiency_gaps(usage, 5)
     local distinct_parents = {}
