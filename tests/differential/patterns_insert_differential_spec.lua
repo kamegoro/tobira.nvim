@@ -161,7 +161,7 @@ end
 -- A fixed seed range keeps this suite fully deterministic — required for a
 -- test asserting zero UNEXPLAINED divergences to be a stable CI gate rather
 -- than a flaky one.
-local SEED_COUNT = 60
+local SEED_COUNT = tonumber(os.getenv('TOBIRA_DIFFERENTIAL_SEEDS')) or 150
 local BASE_SEED = 20260814
 
 describe('patterns_insert.lua insert-mode state machine (differential test against a naive reference model)', function()

@@ -5,11 +5,18 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+  schedule:
+    # Nightly, off-peak UTC — feeds only the differential-stress job below
+    # (every other job is scoped to push/pull_request via its own `if:`,
+    # see #343).
+    - cron: '0 18 * * *'
 
 jobs:
   checks:
     name: Checks (lint & scripts)
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v7
 
@@ -40,6 +47,7 @@ jobs:
   test:
     name: Test (Neovim nightly)
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v7
 
@@ -62,6 +70,7 @@ jobs:
   regression:
     name: Regression suites (tracks #315 — non-blocking until known bugs are fixed)
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v7
 
@@ -86,6 +95,7 @@ jobs:
   coverage:
     name: Coverage (100%) · Neovim stable
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v7
 
@@ -113,3 +123,35 @@ jobs:
 
       - name: Enforce 100% coverage on tobira/ modules
         run: python3 .github/scripts/check_coverage.py luacov.report.out
+
+  differential-stress:
+    name: Differential stress (opt-in, high-scale)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Neovim nightly
+        uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: nightly
+
+      - name: Run differential state-machine tests at high scale
+        # TOBIRA_DIFFERENTIAL_SEEDS overrides the committed default of 150
+        # (see tests/differential/*_spec.lua). 20000 is in the range QA
+        # agents have actually run ad hoc during PR review and found real
+        # bugs at (#343) -- this is not run on every PR (see the
+        # workflow-level `on:` block and this job's own `if:` above), only
+        # on a nightly schedule and on manual workflow_dispatch, so it can
+        # afford to run far past the ~50s per-file budget the committed,
+        # PR-blocking suite is scoped to.
+        #
+        # Never run this with COVERAGE=1 -- luacov's per-line instrumentation
+        # slows tests/differential/ by roughly two orders of magnitude and
+        # would blow even the generous timeout below (see tests/CLAUDE.md).
+        env:
+          TOBIRA_DIFFERENTIAL_SEEDS: 20000
+        run: |
+          nvim --headless --noplugin -u tests/minimal_init.lua \
+            -c "PlenaryBustedDirectory tests/differential/ {minimal_init = 'tests/minimal_init.lua', sequential = true, timeout = 3600000}"

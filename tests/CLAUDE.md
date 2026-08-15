@@ -141,6 +141,50 @@ anything — this is what broke this suite's introducing PR's Coverage CI job
 before the suite was moved out of `tests/spec/`. `tests/` is excluded from
 the coverage gate by `.luacov` anyway, so there is nothing to measure here.
 
+### Two scaling tiers: PR-blocking default vs. opt-in high-scale (#343)
+
+Every spec file under `tests/differential/` (seq, insert, cmdline, terminal)
+reads its seed count the same way:
+
+```lua
+local SEED_COUNT = tonumber(os.getenv('TOBIRA_DIFFERENTIAL_SEEDS')) or 150
+```
+
+`BASE_SEED` is left untouched per file — it anchors the pinned,
+deterministic repro scenarios documented in each spec's own header/comments,
+which are independent of `SEED_COUNT` and must never be disturbed by a seed
+count or seed offset change.
+
+- **Tier 1 — committed default (150 seeds), blocking every PR.** This is
+  what runs with no environment variable set, including the `test` job
+  command above. Chosen to stay well under plenary's 50s per-spec-file
+  timeout (~12s for the heaviest file alone, ~15-20s for the whole
+  directory) while giving meaningfully more coverage than the old
+  `SEED_COUNT = 60`.
+- **Tier 2 — opt-in high-scale run, `TOBIRA_DIFFERENTIAL_SEEDS`.** Set this
+  env var before invoking the same command to run at any scale, e.g.
+  `TOBIRA_DIFFERENTIAL_SEEDS=20000`. This is what the `differential-stress`
+  job in `.github/workflows/ci.yml` does — it is **not** part of the
+  `push`/`pull_request`-triggered gate; it only runs on a nightly `schedule`
+  cron and on manual `workflow_dispatch`, with a correspondingly increased
+  plenary `timeout` opt (60 minutes) so a run at this scale doesn't get
+  killed mid-way. The scale (tens of thousands of seeds) is informed by what
+  QA agents on this project have actually run ad hoc during PR review and
+  found real bugs at (see #343) — this tier commits that stress-testing
+  practice to a recurring, permanent job instead of leaving it as one-off,
+  uncommitted QA passes.
+
+Run tier 2 locally the same way, e.g. at a smaller multiple to sanity-check
+before trusting the nightly run:
+
+```bash
+TOBIRA_DIFFERENTIAL_SEEDS=2000 nvim --headless --noplugin -u tests/minimal_init.lua \
+  -c "PlenaryBustedDirectory tests/differential/ {minimal_init = 'tests/minimal_init.lua', sequential = true, timeout = 300000}"
+```
+
+Raise the `timeout` opt above 150's when running higher seed counts locally
+— plenary's default 50s per-file timeout only comfortably covers tier 1.
+
 ## Differential testing for patterns_cmdline.lua's cmdline state machine (`tests/differential/`)
 
 A sibling suite to the one above, scoped to `patterns_cmdline.lua`'s four
@@ -166,17 +210,20 @@ submitted command line, at most one of the four cmdline detectors can ever
 return non-nil" — against the real functions (`#fires <= 1` on every
 submission), not just the reference model's own routing assumption.
 
-**Not wired into `.github/workflows/ci.yml`** (per #330) — unlike the seq
-suite above, this one is not yet a CI gate. It lives in the same
-`tests/differential/` directory, so the same manual command already runs both
-suites together:
+**Wired into `.github/workflows/ci.yml`'s `test` job as a real, blocking gate**,
+same as the seq suite above — it lives in the same `tests/differential/`
+directory, so the same `PlenaryBustedDirectory tests/differential/` command
+already runs both suites (and the insert and terminal differential suites)
+together:
 
 ```bash
 nvim --headless --noplugin -u tests/minimal_init.lua \
   -c "PlenaryBustedDirectory tests/differential/ {minimal_init = 'tests/minimal_init.lua', sequential = true}"
 ```
 
-Same `COVERAGE=1` prohibition as the seq suite above applies here too.
+Same `COVERAGE=1` prohibition, same committed-default-vs-opt-in-high-scale
+tiering (`TOBIRA_DIFFERENTIAL_SEEDS`), and same `BASE_SEED`-is-never-touched
+rule as the seq suite above apply here too — see "Two scaling tiers" above.
 
 ## Smoke test for `track = true` commands
 
