@@ -36,3 +36,24 @@ obvious from reading any single handler in isolation.
   these three invariants — in particular, a branch that returns before
   reaching `track_run()` needs to justify why it's safe to skip that
   keystroke's contribution to `seq.run`.
+
+### Addendum: the invariant was violated by 9 more branches (#313, resolved by docs/adr/0114)
+
+The `track_run()`-must-run-unconditionally invariant above was only actually
+enforced for the jumplist/changelist keys it was written about. `inner_feed`'s
+two-or-more-key prefix-consumer branches (`pending_r`, `pending_g`,
+`pending_z`, `pending_mark`, `pending_bracket`, `pending_register`,
+`pending_text_obj`, `pending_ctrl_w`, `pending_gq`, and the visual
+text-object chain) all `return` before ever reaching `track_run()`, freezing
+`seq.run` across the whole prefix instead of correctly reflecting the
+resolving key — and the same freeze mechanism affected the tolerated-streak
+families (`r_streak`/`ca_streak`/`ci_dquote_streak`/`ci_squote_streak`/
+`fold_open_streak`/`fold_close_streak`) too, not just `seq.run`.
+`docs/adr/0114-prefix-consumer-streak-bookkeeping.md` documents the fix (each
+branch now calls `track_run()`/a new `reset_unclaimed_streaks()` helper at
+its own resolution point) and the one deliberate exception
+(`pending_text_obj`, which must NOT call `track_run()` — see that ADR for
+why). Any new prefix-consumer branch must follow the same rule this
+addendum's own history demonstrates was easy to miss: check against ALL
+of `track_run()` and the tolerated-streak resets, not just the one this
+ADR's original text called out by name.

@@ -107,3 +107,32 @@ pattern, exactly as the unqualified priority above states. `patterns.feed()`'s
 `mark_ready` reset is unaffected (and still unconditional) — the fix only changes
 which already-computed result `logger.lua` reports, not `patterns.lua`'s internal
 state machine, so neither invasive option above was needed after all.
+
+### Addendum: the one-pair exception generalized (#312, resolved by docs/adr/0113)
+
+A systematic sweep found 8 more pattern pairs sharing the identical collision
+mechanism (`dd_run`, `indent_run`, `dedent_run`, `r_run`, `fold_open_repeat`,
+`fold_close_repeat`, `ci_dquote_repeat`, `ci_squote_repeat` vs.
+`macro_opportunity`) — each is itself a same-family repeat-count streak
+completion, the same shape as `named_mark_opportunity` above, just not yet
+caught. Rather than growing this section into 9 hardcoded one-pair
+exceptions, `docs/adr/0113-macro-dispatch-priority-generalization.md`
+replaces the `result.pattern == 'named_mark_opportunity'` string match with
+a declared `result.beats_macro = true` field, set at each of the 9
+patterns' own return sites (including `named_mark_opportunity`'s). See that
+ADR for the full mechanism and why a blanket "every `result` beats
+`macro_result`" flip was deliberately rejected — the unqualified priority
+this ADR states above still holds for every pattern that does not declare
+`beats_macro`.
+
+### Addendum: cross-mode `feed_macro` calls now distinguish their source (#334, resolved by docs/adr/0115)
+
+The cross-mode `feed_macro` call this ADR describes above (fed from both
+`handle_key`'s Normal-mode branch and `handle_insert_key`) used to feed both
+call sites' raw characters through the identical `MACRO_EDIT_KEYS` check,
+letting an ordinary insert-mode-typed word anchor-match `macro_opportunity`
+purely by letter coincidence with the Normal-mode operator alphabet. See
+`docs/adr/0115-macro-edit-keys-mode-source-distinction.md` for the
+`is_normal_key` parameter that now gates this — the cross-mode call still
+exists exactly as designed here, but the two call sites are no longer
+indistinguishable to `feed_macro`'s own edit-key content check.

@@ -173,6 +173,15 @@ The callback fires on **every keystroke**. Keep it minimal.
 `inner_feed()` reconstructs Neovim's operator grammar from raw keystrokes so that
 `dw`, `d3w`, `diw`, `daw`, `di"`, and `da(` all normalize to the same `last_op = 'dw'`.
 
+**`seq` is buffer-scoped, not session-global (docs/adr/0112-buffer-local-seq-reset-with-ctrl-w-exemption.md):**
+`logger.lua` resets `seq` (via `patterns.reset_for_buffer_switch`) on `BufEnter`, so a
+streak armed in one buffer cannot complete and fire right after switching to an
+unrelated one. The `<C-w>` window-command streak fields are the one deliberate
+exception — see that ADR for why. Any new streak field added to `seq` resets on the
+next buffer switch by default (it's part of `M.new_seq()`'s fresh state); only add it
+to `reset_for_buffer_switch`'s preserved set if it, like `<C-w>`'s own fields, is
+genuinely meant to span buffer switches by construction.
+
 **Operator-pending state (`pending_op`):**
 
 ```
@@ -216,6 +225,36 @@ text-object completion — the exact defect #253 reports as its impact, still
 reproducing live against the real `logger.lua` pipeline. Any new pending-state
 consumer must set this flag too, or its completing key double-counts as a bare
 keystroke on top of whatever compound/variant bucket it correctly increments.
+
+**Streak bookkeeping on prefix/compound completion (docs/adr/0114-prefix-consumer-streak-bookkeeping.md):**
+Every handler above must ALSO call `track_run(seq, key)` and (unless the resolving
+key belongs to one of the tolerated-streak families itself — `reset_unclaimed_streaks`'s
+`except` parameter) `reset_unclaimed_streaks(seq, key, except)` on the call that
+resolves it, or `seq.run` and the tolerated streak counters (`r_streak`/`ca_streak`/
+`ci_dquote_streak`/`ci_squote_streak`/`fold_open_streak`/`fold_close_streak`) freeze
+across the whole prefix instead of correctly reacting to it (see `docs/adr/0026`'s
+addendum). The one deliberate exception is `pending_text_obj`, which must NOT call
+`track_run()` — see `docs/adr/0114`'s own explanation. Any new pending-state consumer
+needs the same check `docs/adr/0114` walks through: does this key belong to a family
+this branch already manages inline (pass it as `except`), and does `seq.run` need
+this key's contribution?
+
+**`beats_macro` on new streak-completion patterns (docs/adr/0113-macro-dispatch-priority-generalization.md):**
+A new pattern that fires from a counted repeat (2-3+ reps) of a short, specific
+compound — the same shape as `dd_run`/`r_run`/`ci_dquote_repeat`/etc. — should set
+`beats_macro = true` on its returned table if it could ever collide with
+`macro_opportunity` on the same keystroke (i.e. if its own compound, repeated 3x,
+could also satisfy `patterns.feed_macro()`'s anchored-window match). Reactive
+one-shot patterns (fired from a single prior keystroke, not a counted streak) should
+NOT set this — `macro_opportunity`'s confirmed 3x edit-repeat legitimately outranks
+those, per `docs/adr/0016`.
+
+**`is_normal_key` on `feed_macro()` calls (docs/adr/0115-macro-edit-keys-mode-source-distinction.md):**
+Any new call site feeding `patterns.feed_macro()` must pass `is_normal_key = true` only
+when the token is a genuine Normal-mode keystroke, `false`/omitted for anything fed
+from insert-mode (or another) dispatch — an insert-mode character must never be able
+to satisfy `MACRO_EDIT_KEYS` membership just because it shares a letter with a
+Normal-mode operator.
 
 ## How to add a command
 
