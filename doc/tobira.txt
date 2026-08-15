@@ -175,6 +175,10 @@ Default configuration: >lua
   Minimum seconds between automatic suggestions. Prevents repeated
   interruptions within a short period.
 
+  A suggestion that becomes eligible while the cooldown from an earlier,
+  unrelated suggestion is still active is not lost: it is shown as soon as
+  the cooldown lifts, rather than only at that exact moment.
+
   The terminal-mode suggestion (`<C-\><C-n>`, see below) is exempt from this
   cooldown: it only ever fires while you are actively stuck in terminal-job
   mode at that exact moment, so an unrelated suggestion earlier in the

@@ -94,14 +94,16 @@ direct call into `suggest.lua`'s or `logger.lua`'s internals) and asserts
 bounded resource usage at the end versus a session-start baseline — see #318
 / the #315 umbrella for why: leaks that only manifest over a sustained
 session (unbounded `vim.on_key` namespace growth, unbounded per-session state
-tables) can't be caught by short, thin fixtures either. One of its four
-`it()` blocks is `KNOWN FAILING`, tracking #310 (`suggest.lua`'s
-`watch_adoption()` leaks a `vim.on_key` namespace per shown, un-adopted
-suggestion). The other three lock in currently-correct behavior as
-regression guards: `patterns_insert.lua`'s already-correct completion-ring
-cap, and (since #314 was fixed) `patterns_cmdline.lua`'s substitute/
-history-recall tracking tables now evicting their least-recently-touched
-entry past a fixed cap instead of growing without bound.
+tables) can't be caught by short, thin fixtures either. All four `it()`
+blocks now pass for real. Two formerly tracked issues that are now both
+fixed: #310 (`suggest.lua`'s `watch_adoption()` leaking a `vim.on_key`
+namespace per shown, un-adopted suggestion — see
+docs/adr/0111-unified-suggestion-scheduling.md) and #314
+(`patterns_cmdline.lua`'s substitute/history-recall tracking tables growing
+without eviction — see docs/adr/0110-cmdline-state-lru-eviction.md). The
+remaining two lock in `patterns_insert.lua`'s already-correct
+completion-ring cap as a regression guard. All four are kept as permanent
+regression guards going forward.
 
 ## Differential testing for patterns.lua's seq state machine (`tests/differential/`)
 

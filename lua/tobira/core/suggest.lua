@@ -15,11 +15,19 @@ M.on_adopt = nil
 local session = {
   last_auto_at = nil,
   timer = nil,
-  watching_ns = {},
+  -- cmd -> { buf = <rolling keytrans buffer>, match_target = <normalized cmd> },
+  -- consumed by the single shared adopt_on_key callback below -- see
+  -- docs/adr/0111-unified-suggestion-scheduling.md.
+  watches = {},
 }
 
 local _idle_timer = nil
 local _idle_ns = nil
+
+-- Lazily created once, reused for the rest of the session; only the
+-- vim.on_key() attachment itself is added/removed as session.watches goes
+-- non-empty/empty. See docs/adr/0111-unified-suggestion-scheduling.md.
+local _adopt_ns = nil
 
 local KEY_BUF_MAX = 20
 
@@ -68,32 +76,52 @@ local function cancel_timer()
   end
 end
 
+-- Marks cmd adopted and fires the first-adoption celebration if this is the
+-- first time ever. Shared by the single adopt_on_key callback below for
+-- every pending watch that matches on a given keystroke.
+local function mark_adopted(cmd)
+  local first_adoption = not logger.is_celebrated(cmd)
+  logger.mark_adopted(cmd)
+  if first_adoption then
+    logger.mark_celebrated(cmd)
+    if M.on_adopt then
+      M.on_adopt(cmd)
+    end
+  end
+end
+
+-- Single vim.on_key callback shared by every pending adoption watch, rather
+-- than one registration per shown suggestion -- see
+-- docs/adr/0111-unified-suggestion-scheduling.md. Each watch still keeps its
+-- own independent rolling buffer (session.watches[cmd].buf), so adopting one
+-- suggested command still can't interfere with detecting another.
+local function adopt_on_key(key, typed)
+  if typed == '' then
+    return
+  end
+  local k = vim.fn.keytrans(typed or key)
+  for cmd, watch in pairs(session.watches) do
+    watch.buf = (watch.buf .. k):sub(-KEY_BUF_MAX)
+    if buf_matches(watch.match_target, watch.buf) then
+      mark_adopted(cmd)
+      session.watches[cmd] = nil
+    end
+  end
+  if next(session.watches) == nil and _adopt_ns then
+    vim.on_key(nil, _adopt_ns)
+  end
+end
+
 -- Watches for the user actually using cmd after it was suggested; see
--- docs/adr/0047-adoption-watch-keytrans-rolling-buffer.md for the detection approach.
+-- docs/adr/0047-adoption-watch-keytrans-rolling-buffer.md for the detection
+-- approach and docs/adr/0111-unified-suggestion-scheduling.md for why this
+-- registers into one shared vim.on_key callback instead of one per cmd.
 local function watch_adoption(cmd)
-  local ns = vim.api.nvim_create_namespace('tobira_adopt_' .. cmd)
-  session.watching_ns[cmd] = ns
-  local match_target = normalize_cmd(cmd)
-  local buf = ''
-  vim.on_key(function(key, typed)
-    if typed == '' then
-      return
-    end
-    local k = vim.fn.keytrans(typed or key)
-    buf = (buf .. k):sub(-KEY_BUF_MAX)
-    if buf_matches(match_target, buf) then
-      local first_adoption = not logger.is_celebrated(cmd)
-      logger.mark_adopted(cmd)
-      if first_adoption then
-        logger.mark_celebrated(cmd)
-        if M.on_adopt then
-          M.on_adopt(cmd)
-        end
-      end
-      session.watching_ns[cmd] = nil
-      vim.on_key(nil, ns)
-    end
-  end, ns)
+  session.watches[cmd] = { buf = '', match_target = normalize_cmd(cmd) }
+  if not _adopt_ns then
+    _adopt_ns = vim.api.nvim_create_namespace('tobira_adopt')
+  end
+  vim.on_key(adopt_on_key, _adopt_ns)
 end
 
 local function do_show(cmd, focused, pattern)
@@ -136,7 +164,22 @@ local function cooldown_blocks(cmd)
   return over_auto_limit() and not bypasses_cooldown(cmd)
 end
 
+-- Milliseconds left until suggestion_cooldown lifts, given it is currently
+-- active (only ever called from resolve_queued while cooldown_blocks(cmd) is
+-- true, so session.last_auto_at is guaranteed non-nil here).
+local function cooldown_remaining_ms()
+  local elapsed_ms = vim.loop.now() - session.last_auto_at
+  local remaining = (config.values.suggestion_cooldown * 1000) - elapsed_ms
+  return math.max(remaining, 0)
+end
+
 local function fire_ambient()
+  -- A reactive suggestion is queued (or waiting out a cooldown retry) for
+  -- this same idle window -- yield to it instead of racing it. See
+  -- docs/adr/0111-unified-suggestion-scheduling.md.
+  if session.timer then
+    return
+  end
   if vim.fn.mode():sub(1, 1) ~= 'n' then
     return
   end
@@ -188,17 +231,38 @@ function M.teardown_idle()
   end
 end
 
-function M.queue(pattern, cmd)
-  if cooldown_blocks(cmd) then
+-- Resolves a queued reactive suggestion once its idle_delay (or a later
+-- cooldown-retry wait) elapses. If suggestion_cooldown from an earlier,
+-- unrelated suggestion is still active, re-arms for exactly the remaining
+-- cooldown instead of dropping the suggestion -- see
+-- docs/adr/0111-unified-suggestion-scheduling.md for why.
+local function resolve_queued(pattern, cmd)
+  session.timer = nil
+  if should_suppress(cmd) then
     return
   end
+  if cooldown_blocks(cmd) then
+    session.timer = vim.defer_fn(function()
+      resolve_queued(pattern, cmd)
+    end, cooldown_remaining_ms())
+    return
+  end
+  M.show(cmd, pattern)
+end
+
+-- Queues a reactive suggestion to fire after idle_delay. Only the most
+-- recent reactive pattern within an unresolved window is kept (cancel_timer
+-- below), matching the pre-existing single-pending-suggestion behavior of
+-- this mechanism. cooldown is intentionally NOT checked here -- see
+-- resolve_queued, which re-checks it once idle_delay elapses and requeues
+-- for the remaining cooldown instead of dropping the suggestion outright.
+function M.queue(pattern, cmd)
   if should_suppress(cmd) then
     return
   end
   cancel_timer()
   session.timer = vim.defer_fn(function()
-    session.timer = nil
-    M.show(cmd, pattern)
+    resolve_queued(pattern, cmd)
   end, config.values.idle_delay)
 end
 
@@ -215,11 +279,11 @@ end
 
 function M.reset_session()
   cancel_timer()
-  for _, ns in pairs(session.watching_ns) do
-    vim.on_key(nil, ns)
+  if _adopt_ns then
+    vim.on_key(nil, _adopt_ns)
   end
   session.last_auto_at = nil
-  session.watching_ns = {}
+  session.watches = {}
 end
 
 function M.manual()

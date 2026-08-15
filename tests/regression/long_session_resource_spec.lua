@@ -2,20 +2,22 @@
 -- vim.on_key() dispatch path (never a direct call into suggest.lua's or
 -- logger.lua's internals), asserting that per-session resource usage stays
 -- bounded at the end versus the start. See docs/adr/0047 (adoption-watch
--- rolling buffer) and docs/adr/0006/0095 (cmdline pattern state) for the
--- production mechanisms this exercises.
+-- rolling buffer), docs/adr/0111 (unified suggestion scheduling, the #310
+-- fix), docs/adr/0110 (cmdline state LRU eviction, the #314 fix), and
+-- docs/adr/0006/0095 (cmdline pattern state) for the production mechanisms
+-- this exercises.
 --
 -- Deliberately under tests/regression/, not tests/spec/ -- same reasoning as
 -- this directory's other suite (tests/regression/realistic_scale_spec.lua,
 -- #317): CI's Test/Coverage jobs both point PlenaryBustedDirectory at
 -- tests/spec/ only, so nothing here is picked up by .github/workflows/
--- ci.yml. One of the four it() blocks below is a KNOWN FAILING regression
--- tracker for a real, still-open bug (#310) -- placing it in tests/spec/
--- would leave main's required per-PR CI permanently red until that bug is
--- fixed. The other three (formerly two more KNOWN FAILING trackers for
--- #314, now fixed) lock in currently-correct behavior as regression guards.
--- Per #318's design guidance, CI wiring for this suite (per-PR vs.
--- periodic) is a separate, later decision. Run manually:
+-- ci.yml. All four it() blocks below now pass for real. Two formerly
+-- tracked issues are now both fixed: #310 (suggest.lua's watch_adoption()
+-- leaking a vim.on_key namespace) and #314 (patterns_cmdline.lua's
+-- substitute/history-recall tracking tables growing without eviction). All
+-- four are kept as permanent regression guards. Per #318's design guidance,
+-- CI wiring for this suite (per-PR vs. periodic) is a separate, later
+-- decision. Run manually:
 --
 --   nvim --headless --noplugin -u tests/minimal_init.lua \
 --     -c "PlenaryBustedDirectory tests/regression/ {minimal_init = 'tests/minimal_init.lua', sequential = true}"
@@ -288,13 +290,13 @@ end
 describe('after a long, realistic session with a mix of adopted and un-adopted suggestions', function()
   after_each(cleanup)
 
-  -- KNOWN FAILING -- tracks issue #310 (open). suggest.lua's
-  -- watch_adoption() registers a persistent vim.on_key namespace per shown
-  -- suggestion, torn down only on adoption; reset_session() is never called
-  -- from production code. This session shows every SUGGESTIONS entry and
-  -- adopts only half of them, so the leaked-namespace count is far above any
-  -- small, well-understood bound. Do not pending()/skip/delete this test --
-  -- it should start passing once #310 is fixed.
+  -- Formerly KNOWN FAILING, tracking issue #310 -- fixed by consolidating
+  -- watch_adoption() into a single shared vim.on_key registration over a
+  -- small pending-watches table instead of one registration per shown
+  -- suggestion (see docs/adr/0111-unified-suggestion-scheduling.md). This
+  -- session shows every SUGGESTIONS entry and adopts only half of them, so
+  -- it still exercises the exact shape #310 leaked on -- now passes for
+  -- real, kept as a permanent regression guard.
   it('keeps the number of active vim.on_key namespaces within a small bound of the session-start baseline', function()
     local result = run_long_session()
     -- Generous headroom: the persistent tobira_logger/tobira_idle
@@ -305,7 +307,7 @@ describe('after a long, realistic session with a mix of adopted and un-adopted s
     assert.is_true(
       result.final_on_key <= result.baseline_on_key + BOUND,
       string.format(
-        'expected on_key namespaces to stay near baseline (%d + %d), got %d -- tracks #310',
+        'expected on_key namespaces to stay near baseline (%d + %d), got %d',
         result.baseline_on_key,
         BOUND,
         result.final_on_key
@@ -346,8 +348,7 @@ end)
 describe('after a long session with many distinct insert-mode completion tokens', function()
   after_each(cleanup)
 
-  -- Locks in currently-correct behavior (unlike #310/#314 above, this is
-  -- NOT a known-failing regression guard) -- patterns_insert.lua's
+  -- Locks in currently-correct behavior -- patterns_insert.lua's
   -- completion ring already evicts its oldest entry past RING_SIZE (8).
   it('keeps the completion-repeat ring capped at its fixed size', function()
     local result = run_long_session()

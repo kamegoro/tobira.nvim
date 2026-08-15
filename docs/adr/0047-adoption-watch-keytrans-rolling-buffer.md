@@ -35,3 +35,18 @@ licensed) for reconstructing multi-key sequences from raw keystrokes.
   keys the user types before finally using (or not using) the suggested command.
 - Any new suggestible command shape (beyond literal / special-key / count-prefix)
   needs a new case in `buf_matches`, not just a new registry entry.
+
+### Addendum: one shared `vim.on_key` registration, not one per watcher
+
+The original decision above registered a *separate* `vim.on_key` namespace
+per call to `watch_adoption(cmd)`, torn down only on adoption. In practice
+`reset_session()` — the only other thing that tore a watcher down — was
+never called from production code, so every shown-but-never-adopted
+suggestion leaked one live registration for the rest of the session, each
+doing real per-keystroke work. Fixed by keeping each watch's own independent
+`{ buf, match_target }` state (the rolling-buffer technique above is
+unchanged) but routing all of them through a single shared `vim.on_key`
+callback that iterates a small table of pending watches instead of one
+callback per watch — see
+[docs/adr/0111-unified-suggestion-scheduling.md](0111-unified-suggestion-scheduling.md)
+for the full before/after and reasoning.
