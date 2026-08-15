@@ -87,6 +87,56 @@ describe('when multiple triggers are active', function()
   end)
 end)
 
+-- ── find_best score cap (#291) ──────────────────────────────────────────────
+-- see docs/adr/0110-bounded-severity-scoring.md for why
+
+describe('find_best score cap keeps raw trigger frequency from dominating severity (#291)', function()
+  it('ties two candidates whose raw scores are both well past the cap, deciding by the ordinary alphabetical tie-break instead of raw magnitude', function()
+    local original_suggestions = graph.suggestions
+    graph.suggestions = {
+      w = { cmd = 'w', trigger = 'q', level = 'beginner', category = 'macro' },
+      z = { cmd = 'z', trigger = 'j', level = 'beginner', category = 'motion' },
+    }
+    -- j's realistic-scale count (5000) is 33x q's (150). Uncapped, 'z' (the
+    -- j-triggered candidate) would win purely on raw magnitude; once both
+    -- scores clear the cap, they must tie and the alphabetical tie-break
+    -- must decide instead.
+    local usage = { j = usage_entry(5000), q = usage_entry(150) }
+    local result = graph.find_best(usage)
+    graph.suggestions = original_suggestions
+    assert.equals('w', result, "'w' should win the alphabetical tie-break, not 'z' just because j's count is far larger")
+  end)
+
+  it('caps the score at the same 100-count threshold mastery_level() treats as familiar', function()
+    local original_suggestions = graph.suggestions
+    graph.suggestions = {
+      w = { cmd = 'w', trigger = 'q', level = 'beginner', category = 'macro' },
+      z = { cmd = 'z', trigger = 'j', level = 'beginner', category = 'motion' },
+    }
+    -- j's raw score (200) and q's raw score (100) both meet/exceed the cap,
+    -- so they must tie rather than the j-triggered candidate ('z') winning
+    -- outright on raw magnitude.
+    local usage = { j = usage_entry(200), q = usage_entry(100) }
+    local result = graph.find_best(usage)
+    graph.suggestions = original_suggestions
+    assert.equals('w', result)
+  end)
+
+  it('still prefers the more severe gap when both scores stay under the cap', function()
+    local original_suggestions = graph.suggestions
+    graph.suggestions = {
+      a = { cmd = 'a', trigger = 'j', level = 'beginner', category = 'motion' },
+      b = { cmd = 'b', trigger = 'q', level = 'beginner', category = 'macro' },
+    }
+    -- a's score = 40-0 = 40; b's score = 90-80 = 10 -> a is genuinely more
+    -- severe and must still win below the cap.
+    local usage = { j = usage_entry(40), q = usage_entry(90), b = usage_entry(80) }
+    local result = graph.find_best(usage)
+    graph.suggestions = original_suggestions
+    assert.equals('a', result)
+  end)
+end)
+
 -- ── nil best_cmd guard at the -1 score sentinel ─────────────────────────────
 
 describe('when the only offered candidate has trigger_count - cmd_count == -1', function()
@@ -470,15 +520,28 @@ describe('when building the list of commands to show in the guide', function()
     return { count = 100, sessions = {} }
   end
 
-  it('returns only beginner commands when no usage', function()
-    local result = graph.guide_commands({})
-    for _, cmds in pairs(result) do
-      for _, cmd in ipairs(cmds) do
-        local entry = commands.registry[cmd]
-        assert.equals('beginner', entry.level, cmd .. ' should be beginner level')
+  it(
+    'returns only each category\'s own lowest existing level when no usage, not necessarily "beginner" everywhere (#292)',
+    function()
+      -- The ceiling is computed per category (#292): a category with beginner
+      -- commands of its own stays capped at beginner, same as before. A
+      -- category with none (only 'ex' currently) has no beginner rung to be
+      -- capped by, so its own floor is whichever level it actually starts at.
+      local result = graph.guide_commands({})
+      for cat, cmds in pairs(result) do
+        local cat_levels = {}
+        for _, entry in pairs(commands.registry) do
+          if not entry.compound and entry.category == cat then
+            cat_levels[entry.level] = true
+          end
+        end
+        local floor = cat_levels.beginner and 'beginner' or (cat_levels.intermediate and 'intermediate' or 'advanced')
+        for _, cmd in ipairs(cmds) do
+          assert.equals(floor, commands.registry[cmd].level, cmd .. ": expected " .. cat .. "'s own floor (" .. floor .. ')')
+        end
       end
     end
-  end)
+  )
 
   it('excludes a command that has reached mastery (count >= 100)', function()
     local result = graph.guide_commands({ [';'] = mastered() })
@@ -557,10 +620,14 @@ describe('when building the list of commands to show in the guide', function()
     end
   end)
 
-  it('counts a forgotten command as unmastered for the ceiling calculation (#68)', function()
+  it('counts a forgotten command as unmastered for each category\'s own ceiling calculation (#68, #292)', function()
     -- Every beginner command forgotten (not just mastered-and-forgotten) must
-    -- still count as "unmastered" so the ceiling doesn't prematurely open up
-    -- to intermediate/advanced levels.
+    -- still count as "unmastered" so a category's own ceiling doesn't
+    -- prematurely open up to intermediate/advanced levels. Scoped per
+    -- category (#292) rather than checking "anywhere in the result", since a
+    -- category with no beginner commands of its own (ex) is legitimately
+    -- unaffected by this override and may show its own higher floor
+    -- regardless -- see the "no usage" test above.
     local usage = {}
     for cmd, entry in pairs(commands.registry) do
       if not entry.compound and entry.level == 'beginner' then
@@ -568,15 +635,59 @@ describe('when building the list of commands to show in the guide', function()
       end
     end
     local result = graph.guide_commands(usage)
-    local found_intermediate = false
-    for _, cmds in pairs(result) do
-      for _, cmd in ipairs(cmds) do
-        if commands.registry[cmd].level == 'intermediate' then
-          found_intermediate = true
+    for cat, cmds in pairs(result) do
+      local cat_has_beginner = false
+      for _, entry in pairs(commands.registry) do
+        if not entry.compound and entry.category == cat and entry.level == 'beginner' then
+          cat_has_beginner = true
+        end
+      end
+      if cat_has_beginner then
+        for _, cmd in ipairs(cmds) do
+          assert.equals(
+            'beginner',
+            commands.registry[cmd].level,
+            cmd .. ": forgotten beginner commands should keep " .. cat .. "'s own ceiling at beginner"
+          )
         end
       end
     end
-    assert.is_false(found_intermediate, 'forgotten beginner commands should keep the ceiling at beginner')
+  end)
+end)
+
+-- ── guide_commands per-category ceiling (#292) ──────────────────────────────
+-- see docs/adr/0110-bounded-severity-scoring.md for why
+
+describe("when a category has no beginner-level commands of its own (#292)", function()
+  it('is not hidden by unrelated categories still having unmastered beginner commands', function()
+    -- Every other category's beginner commands stay untouched (unmastered),
+    -- which is exactly the scenario that kept the old global ceiling stuck
+    -- at 1 (beginner) forever, hiding 'ex' outright.
+    local result = graph.guide_commands({})
+    assert.is_not_nil(result.ex, "'ex' has zero beginner commands of its own but must still appear")
+  end)
+
+  it('keeps ex capped at its own intermediate command while that command is still unmastered', function()
+    local result = graph.guide_commands({})
+    for _, cmd in ipairs(result.ex or {}) do
+      assert.not_equals(
+        'advanced',
+        require('tobira.commands').registry[cmd].level,
+        cmd .. ": ex's advanced commands should not show yet, its own intermediate command is still unmastered"
+      )
+    end
+  end)
+
+  it("shows ex's advanced commands once its own intermediate command (ex:copen) is mastered", function()
+    local usage = { ['ex:copen'] = { count = 250, sessions = { 10, 10, 10, 10, 10 } } }
+    local result = graph.guide_commands(usage)
+    local found_advanced = false
+    for _, cmd in ipairs(result.ex or {}) do
+      if require('tobira.commands').registry[cmd].level == 'advanced' then
+        found_advanced = true
+      end
+    end
+    assert.is_true(found_advanced, "ex's advanced commands should show once ex:copen is mastered")
   end)
 end)
 
@@ -672,6 +783,70 @@ describe('when a command is used heavily but a more efficient follow-up command 
     })
     for i = 2, #gaps do
       assert.is_true(gaps[i - 1].ratio >= gaps[i].ratio, 'gaps should be sorted by ratio desc')
+    end
+  end)
+end)
+
+-- ── efficiency_gaps top-N diversity (#291) ──────────────────────────────────
+-- see docs/adr/0110-bounded-severity-scoring.md for why
+
+describe('efficiency_gaps top-N diversity (#291)', function()
+  it('interleaves distinct triggers in the limited top-N instead of one trigger filling every slot', function()
+    -- A fake registry, swapped in for the duration of this test, so the
+    -- scenario doesn't depend on the real registry's current fan-out shape.
+    local original = package.loaded['tobira.commands']
+    package.loaded['tobira.commands'] = {
+      registry = {
+        c1 = { requires = 'j', category = 'motion', level = 'beginner' },
+        c2 = { requires = 'j', category = 'motion', level = 'beginner' },
+        c3 = { requires = 'j', category = 'motion', level = 'beginner' },
+        c4 = { requires = 'j', category = 'motion', level = 'beginner' },
+        d1 = { requires = 'zf', category = 'fold', level = 'beginner' },
+        d2 = { requires = 'gg', category = 'window', level = 'beginner' },
+        d3 = { requires = 'q', category = 'macro', level = 'beginner' },
+      },
+    }
+    local usage = {
+      j = { count = 10000, sessions = {} },
+      zf = { count = 50, sessions = {} },
+      gg = { count = 50, sessions = {} },
+      q = { count = 50, sessions = {} },
+    }
+    local gaps = graph.efficiency_gaps(usage, 5)
+    package.loaded['tobira.commands'] = original
+
+    local distinct_parents = {}
+    for _, g in ipairs(gaps) do
+      distinct_parents[g.parent] = true
+    end
+    local n = 0
+    for _ in pairs(distinct_parents) do
+      n = n + 1
+    end
+    assert.is_true(n >= 3, 'top 5 efficiency_gaps() results came from only ' .. n .. ' distinct trigger(s)')
+  end)
+
+  it('still returns results ordered by ratio descending after diversifying', function()
+    local original = package.loaded['tobira.commands']
+    package.loaded['tobira.commands'] = {
+      registry = {
+        c1 = { requires = 'j', category = 'motion', level = 'beginner' },
+        c2 = { requires = 'j', category = 'motion', level = 'beginner' },
+        c3 = { requires = 'j', category = 'motion', level = 'beginner' },
+        d1 = { requires = 'zf', category = 'fold', level = 'beginner' },
+        d2 = { requires = 'gg', category = 'window', level = 'beginner' },
+      },
+    }
+    local usage = {
+      j = { count = 10000, sessions = {} },
+      zf = { count = 50, sessions = {} },
+      gg = { count = 50, sessions = {} },
+    }
+    local gaps = graph.efficiency_gaps(usage, 5)
+    package.loaded['tobira.commands'] = original
+
+    for i = 2, #gaps do
+      assert.is_true(gaps[i - 1].ratio >= gaps[i].ratio, 'diversified top-N should still be ratio-sorted for display')
     end
   end)
 end)

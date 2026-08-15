@@ -101,43 +101,54 @@ function M.mastery_level(data)
 end
 
 -- Returns unmastered-or-forgotten commands grouped by category for the Guide panel.
--- Ceiling level = lowest level that still has commands with is_mastered(data) == false.
+-- Ceiling level = lowest level that still has commands with is_mastered(data) == false,
+-- computed separately PER CATEGORY (see docs/adr/0110-bounded-severity-scoring.md for
+-- why) -- a category is never blocked by a level it has zero commands at, so one with
+-- no beginner rungs of its own (currently only 'ex') opens straight to its own actual
+-- floor instead of waiting on every other category's beginner commands.
 -- Commands within each category are sorted alphabetically for determinism.
 -- Uses is_mastered(), not a raw mastery_level(data) < 2 check —
 -- see docs/adr/0029-graded-forgotten-command-detection.md for why
 function M.guide_commands(usage)
   local cmds = require('tobira.commands')
 
-  local unmastered = { beginner = 0, intermediate = 0, advanced = 0 }
+  local unmastered_by_cat = {}
   for cmd, entry in pairs(cmds.registry) do
     if not entry.compound then
+      local cat = entry.category or 'motion'
       local lv = entry.level or 'beginner'
       local data = usage[cmd] or { count = 0 }
+      if not unmastered_by_cat[cat] then
+        unmastered_by_cat[cat] = { beginner = 0, intermediate = 0, advanced = 0 }
+      end
       if not M.is_mastered(data) then
-        unmastered[lv] = (unmastered[lv] or 0) + 1
+        unmastered_by_cat[cat][lv] = unmastered_by_cat[cat][lv] + 1
       end
     end
   end
 
-  local ceiling
-  if unmastered.beginner > 0 then
-    ceiling = 1
-  elseif unmastered.intermediate > 0 then
-    ceiling = 2
-  else
-    ceiling = 3
+  local function ceiling_for(cat)
+    local u = unmastered_by_cat[cat] or { beginner = 0, intermediate = 0, advanced = 0 }
+    if u.beginner > 0 then
+      return 1
+    elseif u.intermediate > 0 then
+      return 2
+    end
+    return 3
   end
 
   local by_cat = {}
   for cmd, entry in pairs(cmds.registry) do
-    if not entry.compound and (LEVEL_ORDER[entry.level] or 1) <= ceiling then
-      local data = usage[cmd] or { count = 0 }
-      if not M.is_mastered(data) then
-        local cat = entry.category or 'motion'
-        if not by_cat[cat] then
-          by_cat[cat] = {}
+    if not entry.compound then
+      local cat = entry.category or 'motion'
+      if (LEVEL_ORDER[entry.level] or 1) <= ceiling_for(cat) then
+        local data = usage[cmd] or { count = 0 }
+        if not M.is_mastered(data) then
+          if not by_cat[cat] then
+            by_cat[cat] = {}
+          end
+          table.insert(by_cat[cat], cmd)
         end
-        table.insert(by_cat[cat], cmd)
       end
     end
   end
@@ -182,6 +193,10 @@ end
 -- from ambient = false (which only gates find_best; <C-\><C-n> is
 -- ambient = false yet deliberately still appears here). See
 -- docs/adr/0107-n-repeat-intent-neutral-reactive-cgn.md.
+--
+-- Top-N diversity (limit ~= nil): a single high-fan-out trigger's children
+-- can otherwise tie for the highest ratio and fill every slot, crowding out
+-- every other genuine gap -- see docs/adr/0110-bounded-severity-scoring.md.
 function M.efficiency_gaps(usage, limit, overrides)
   local cmds = require('tobira.commands')
   local gaps = {}
@@ -205,20 +220,58 @@ function M.efficiency_gaps(usage, limit, overrides)
       end
     end
   end
-  table.sort(gaps, function(a, b)
+
+  local function by_ratio_desc(a, b)
     if a.ratio ~= b.ratio then
       return a.ratio > b.ratio
     end
     return a.child < b.child
-  end)
-  if limit then
-    local trimmed = {}
-    for i = 1, math.min(limit, #gaps) do
-      trimmed[i] = gaps[i]
-    end
-    return trimmed
   end
-  return gaps
+  table.sort(gaps, by_ratio_desc)
+
+  if not limit then
+    return gaps
+  end
+
+  -- Round-robin across distinct parents, each visited in the order its
+  -- best-ranked gap appears in the list above, so no single parent can
+  -- claim a second slot before every other parent has had a first one.
+  local by_parent, parent_order = {}, {}
+  for _, g in ipairs(gaps) do
+    if not by_parent[g.parent] then
+      by_parent[g.parent] = {}
+      table.insert(parent_order, g.parent)
+    end
+    table.insert(by_parent[g.parent], g)
+  end
+
+  local trimmed, next_idx = {}, {}
+  for _, p in ipairs(parent_order) do
+    next_idx[p] = 1
+  end
+  while #trimmed < limit do
+    local picked_any = false
+    for _, p in ipairs(parent_order) do
+      if #trimmed >= limit then
+        break
+      end
+      local i = next_idx[p]
+      local candidate = by_parent[p][i]
+      if candidate then
+        table.insert(trimmed, candidate)
+        next_idx[p] = i + 1
+        picked_any = true
+      end
+    end
+    if not picked_any then
+      break
+    end
+  end
+
+  -- Re-sort the diversified subset so severity still drives display order
+  -- within it, rather than round-robin visitation order.
+  table.sort(trimmed, by_ratio_desc)
+  return trimmed
 end
 
 -- Only the y/"+y clipboard heuristic is implemented (not "wrong paste" or
@@ -233,6 +286,13 @@ function M.is_register_underused(usage)
   local clip_count = (clip_data and clip_data.count) or 0
   return y_count >= REGISTER_UNDERUSE_TRIGGER and clip_count == 0
 end
+
+-- Caps the ordinary-pool score (trigger_count - cmd_count) so raw trigger
+-- frequency alone cannot dominate irrespective of habit severity once a
+-- trigger is already well-established -- reuses the same 100-count
+-- threshold mastery_level() treats as "familiar" rather than inventing a new
+-- magic number. See docs/adr/0110-bounded-severity-scoring.md for why.
+local FIND_BEST_SCORE_CAP = 100
 
 -- max_level: 'beginner' | 'intermediate' | 'advanced' | nil (no filter)
 -- overrides: table of cmd -> { rhs, equivalent } built by integrations.lua.
@@ -286,7 +346,7 @@ function M.find_best(usage, max_shown, max_level, overrides, promotions)
         local cmd_count = data.count
 
         if trigger_count > 0 then
-          local score = trigger_count - cmd_count
+          local score = math.min(trigger_count - cmd_count, FIND_BEST_SCORE_CAP)
           if score > best_score or (score == best_score and cmd < best_cmd) then
             best_score = score
             best_cmd = cmd
