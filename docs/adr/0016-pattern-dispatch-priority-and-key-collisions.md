@@ -125,6 +125,13 @@ ADR for the full mechanism and why a blanket "every `result` beats
 this ADR states above still holds for every pattern that does not declare
 `beats_macro`.
 
+That same sweep's own "confirmed SAFE" list turned out to still contain two
+false negatives — `ctrl_w_close_repeat`/`ctrl_w_resize_repeat` share the
+identical mechanism too (`<C-w>c`'s `c` and `<C-w><`/`<C-w>>`'s `<`/`>` are
+all `MACRO_EDIT_KEYS` members), found only during independent QA of the PR
+implementing `docs/adr/0114`. Both now also declare `beats_macro = true` —
+see that ADR's own addendum for detail. The total is 11 patterns, not 9.
+
 ### Addendum: cross-mode `feed_macro` calls now distinguish their source (#334, resolved by docs/adr/0116)
 
 The cross-mode `feed_macro` call this ADR describes above (fed from both

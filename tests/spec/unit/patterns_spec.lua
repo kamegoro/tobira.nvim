@@ -4544,6 +4544,34 @@ describe('beats_macro is declared on every pattern confirmed vulnerable to the m
     assert.equals('dd_then_p', result.pattern)
     assert.is_nil(result.beats_macro)
   end)
+
+  -- ctrl_w_close_repeat/ctrl_w_resize_repeat share the identical vulnerable
+  -- shape as the 9 patterns above: a counted 2-rep streak over a short
+  -- compound (<C-w>c / <C-w>< etc.) whose own keys (c/</>) are
+  -- MACRO_EDIT_KEYS members, so a long enough homogeneous run also
+  -- satisfies macro_opportunity's anchored 3x-repeat window on the exact
+  -- same keystroke. Independently confirmed via a realistic dispatch
+  -- simulation (patterns.feed() + patterns.feed_macro(), mirroring
+  -- logger.lua's own Normal-mode priority) during QA of this PR.
+  it('ctrl_w_close_repeat', function()
+    local s = seq()
+    feed(s, { '\23', 'c' })
+    feed(s, { '\23', 'c' }) -- fires here (streak==2), resets
+    feed(s, { '\23', 'c' })
+    local result = feed(s, { '\23', 'c' }) -- 2nd fire; by now macro_opportunity also qualifies
+    assert.equals('ctrl_w_close_repeat', result.pattern)
+    assert.is_true(result.beats_macro)
+  end)
+
+  it('ctrl_w_resize_repeat', function()
+    local s = seq()
+    feed(s, { '\23', '>' })
+    feed(s, { '\23', '<' }) -- fires here (streak==2), resets
+    feed(s, { '\23', '>' })
+    local result = feed(s, { '\23', '<' }) -- 2nd fire; by now macro_opportunity also qualifies
+    assert.equals('ctrl_w_resize_repeat', result.pattern)
+    assert.is_true(result.beats_macro)
+  end)
 end)
 
 -- ── feed_macro's is_normal_key mode-source distinction (#334) ───────────────

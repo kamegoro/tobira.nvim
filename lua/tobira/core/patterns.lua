@@ -878,7 +878,12 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
         seq.ctrl_w_resize_streak = 0
         if seq.ctrl_w_close_streak >= 2 then
           seq.ctrl_w_close_streak = 0
-          return { pattern = 'ctrl_w_close_repeat', cmd = '<C-w>o' }
+          -- beats_macro: <C-w>c's own 'c' is a MACRO_EDIT_KEYS member, so a
+          -- long enough homogeneous <C-w>c run also satisfies
+          -- macro_opportunity's anchored 3x-repeat window on this same
+          -- keystroke — the identical #312 collision shape dd_run/r_run/etc.
+          -- were fixed for. See docs/adr/0114-macro-dispatch-priority-generalization.md.
+          return { pattern = 'ctrl_w_close_repeat', cmd = '<C-w>o', beats_macro = true }
         end
       -- <C-w>+ / <C-w>- / <C-w>< / <C-w>> repeated (or alternated) 2+ times
       -- → suggest <C-w>= — see docs/adr/0096-ctrl-w-resize-streak.md
@@ -887,7 +892,10 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
         seq.ctrl_w_close_streak = 0
         if seq.ctrl_w_resize_streak >= 2 then
           seq.ctrl_w_resize_streak = 0
-          return { pattern = 'ctrl_w_resize_repeat', cmd = '<C-w>=' }
+          -- beats_macro: <C-w>< / <C-w>> resolve to MACRO_EDIT_KEYS members
+          -- ('<'/'>') too — same collision shape as <C-w>c above. See
+          -- docs/adr/0114-macro-dispatch-priority-generalization.md.
+          return { pattern = 'ctrl_w_resize_repeat', cmd = '<C-w>=', beats_macro = true }
         end
       else
         seq.ctrl_w_close_streak = 0

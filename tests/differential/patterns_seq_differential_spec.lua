@@ -31,11 +31,17 @@
 --          satisfy macro's anchored 3x-repeat window (docs/adr/0018).
 --          dd_run/indent_run/dedent_run/r_run/fold_open_repeat/
 --          fold_close_repeat/ci_dquote_repeat/ci_squote_repeat/
---          named_mark_opportunity now each declare `beats_macro = true`
---          (docs/adr/0114) and win this collision instead of losing it. The
---          known_312 classification bucket below stays as a safety net for
---          any future pattern that shares this same collision shape without
---          being wired up correctly.
+--          named_mark_opportunity/ctrl_w_close_repeat/ctrl_w_resize_repeat
+--          now each declare `beats_macro = true` (docs/adr/0114) and win
+--          this collision instead of losing it. (ctrl_w_close_repeat/
+--          ctrl_w_resize_repeat were missed by #312's own sweep and only
+--          added during independent QA of PR #340 — the known_312 bucket
+--          below existing as a non-failing safety net rather than a hard
+--          assertion is exactly why the gap survived undetected until then;
+--          see the two pinned scenarios below for the deterministic repro.)
+--          The known_312 classification bucket below stays as a safety net
+--          for any future pattern that shares this same collision shape
+--          without being wired up correctly.
 --   #313 (fixed) — several of patterns.lua's early-return prefix-consumer
 --          branches skipped the shared bottom-of-function bookkeeping
 --          (track_run()/streak-reset) docs/adr/0026 says should run
@@ -332,6 +338,65 @@ describe('patterns.lua seq state machine (differential test against a naive refe
       assert.equals('dd_run', real_fired_by_step[12])
       assert.equals('dd_run', real_fired_by_step[18])
     end)
+
+    it(
+      'ctrl_w_close_repeat wins its collision with macro_opportunity on every qualifying pair '
+        .. '(independent QA finding on PR #340)',
+      function()
+        -- <C-w>c repeated 8 times = 4 ctrl_w_close_repeat-qualifying pairs,
+        -- each completing on the 'c' of every 2nd rep (overall keystroke 4,
+        -- 8, 12, 16). 'c' is a MACRO_EDIT_KEYS member, so once the
+        -- homogeneous <C-w>c run is long enough (from the 3rd rep onward),
+        -- macro_opportunity's own anchored 3x-repeat window (docs/adr/0018)
+        -- ALSO qualifies on that same keystroke -- the identical #312/
+        -- docs/adr/0114 collision mechanism dd_run/r_run/etc. were fixed
+        -- for, but ctrl_w_close_repeat/ctrl_w_resize_repeat were never
+        -- audited against: neither declares beats_macro, so before this
+        -- fix macro_opportunity silently swallowed every fire past the
+        -- first pair.
+        local fake = reference_model.new_state()
+        local real = real_model.new_state()
+        local real_fired_by_step = {}
+        local step = 0
+        for _ = 1, 8 do
+          for _, key in ipairs({ '\23', 'c' }) do
+            step = step + 1
+            reference_model.step(fake, key)
+            local r = real_model.step(real, key)
+            real_fired_by_step[step] = r and r.pattern
+          end
+        end
+        assert.equals('ctrl_w_close_repeat', real_fired_by_step[4])
+        assert.equals('ctrl_w_close_repeat', real_fired_by_step[8])
+        assert.equals('ctrl_w_close_repeat', real_fired_by_step[12])
+        assert.equals('ctrl_w_close_repeat', real_fired_by_step[16])
+      end
+    )
+
+    it(
+      'ctrl_w_resize_repeat wins its collision with macro_opportunity on every qualifying pair '
+        .. '(independent QA finding on PR #340)',
+      function()
+        -- Same mechanism as ctrl_w_close_repeat above, via <C-w>> repeated
+        -- ('>' is also a MACRO_EDIT_KEYS member).
+        local fake = reference_model.new_state()
+        local real = real_model.new_state()
+        local real_fired_by_step = {}
+        local step = 0
+        for _ = 1, 8 do
+          for _, key in ipairs({ '\23', '>' }) do
+            step = step + 1
+            reference_model.step(fake, key)
+            local r = real_model.step(real, key)
+            real_fired_by_step[step] = r and r.pattern
+          end
+        end
+        assert.equals('ctrl_w_resize_repeat', real_fired_by_step[4])
+        assert.equals('ctrl_w_resize_repeat', real_fired_by_step[8])
+        assert.equals('ctrl_w_resize_repeat', real_fired_by_step[12])
+        assert.equals('ctrl_w_resize_repeat', real_fired_by_step[16])
+      end
+    )
 
     it('fixed (#313): r_run streak correctly resets across an unrelated ctrl_w_close_repeat compound', function()
       -- Starting an entirely unrelated <C-w>c compound between two r{char}

@@ -38,6 +38,23 @@ what happened here: 8 more instances of the identical mechanism, found only
 because #312 went looking, not because anything caught the gap
 structurally.
 
+**#312's own sweep still missed two instances of its own mechanism**
+(`ctrl_w_close_repeat`/`ctrl_w_resize_repeat` — #312's issue text lists both
+as "confirmed SAFE"), found only during independent QA of the PR that
+implemented this ADR. `<C-w>c`'s own `c` and `<C-w><`/`<C-w>>`'s own `<`/`>`
+are `MACRO_EDIT_KEYS` members exactly like `dd`'s `d` or `r{char}`'s
+implicit edit — a homogeneous `<C-w>c` (or `<C-w><`/`<C-w>>`) run long
+enough to satisfy macro's 3x-repeat window silently starved these two
+patterns the same way, undetected by the differential suite's `known_312`
+bucket because that bucket is a non-failing catch-all by design (see
+`tests/differential/patterns_seq_differential_spec.lua`'s own header). Both
+now also declare `beats_macro = true`, bringing the total to 11 patterns.
+This is itself the concrete illustration of this ADR's own "Consequences"
+section below: opt-in declarations require a human to remember to check
+every candidate, and #312's own investigation is proof that "structurally
+can't collide" classifications need to be verified against the real
+`MACRO_EDIT_KEYS` set, not just asserted.
+
 ## Decision
 
 Replace the string-matched exception with a declared property on the
@@ -93,8 +110,9 @@ narrower fallback here, it is the complete fix.
 
 - `dd_run`/`indent_run`/`dedent_run`/`r_run`/`fold_open_repeat`/
   `fold_close_repeat`/`ci_dquote_repeat`/`ci_squote_repeat`/
-  `named_mark_opportunity` now correctly fire on every qualifying
-  repetition, not just the first one before `macro_opportunity` arms.
+  `named_mark_opportunity`/`ctrl_w_close_repeat`/`ctrl_w_resize_repeat` now
+  correctly fire on every qualifying repetition, not just the first one
+  before `macro_opportunity` arms.
   `macro_opportunity` can still legitimately fire on OTHER keystrokes in the
   same run that these patterns don't have an opinion about (e.g. between
   trio boundaries) — that's unrelated, correct behavior, not something this
