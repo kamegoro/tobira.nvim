@@ -136,7 +136,7 @@ Ground-truth index of every ADR, grouped by which module actually points to it v
 - 0031 — priority-pool-for-gate-bypassing-candidates
 - 0032 — find-best-sentinel-negative-infinity
 - 0107 — n-repeat-intent-neutral-reactive-cgn
-- 0110 — bounded-severity-scoring
+- 0111 — bounded-severity-scoring
 
 ### lua/tobira/core/integrations.lua
 

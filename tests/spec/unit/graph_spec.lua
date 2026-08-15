@@ -88,7 +88,7 @@ describe('when multiple triggers are active', function()
 end)
 
 -- ── find_best score cap (#291) ──────────────────────────────────────────────
--- see docs/adr/0110-bounded-severity-scoring.md for why
+-- see docs/adr/0111-bounded-severity-scoring.md for why
 
 describe('find_best score cap keeps raw trigger frequency from dominating severity (#291)', function()
   it('ties two candidates whose raw scores are both well past the cap, deciding by the ordinary alphabetical tie-break instead of raw magnitude', function()
@@ -656,7 +656,7 @@ describe('when building the list of commands to show in the guide', function()
 end)
 
 -- ── guide_commands per-category ceiling (#292) ──────────────────────────────
--- see docs/adr/0110-bounded-severity-scoring.md for why
+-- see docs/adr/0111-bounded-severity-scoring.md for why
 
 describe("when a category has no beginner-level commands of its own (#292)", function()
   it('is not hidden by unrelated categories still having unmastered beginner commands', function()
@@ -788,7 +788,7 @@ describe('when a command is used heavily but a more efficient follow-up command 
 end)
 
 -- ── efficiency_gaps top-N diversity (#291) ──────────────────────────────────
--- see docs/adr/0110-bounded-severity-scoring.md for why
+-- see docs/adr/0111-bounded-severity-scoring.md for why
 
 describe('efficiency_gaps top-N diversity (#291)', function()
   it('interleaves distinct triggers in the limited top-N instead of one trigger filling every slot', function()

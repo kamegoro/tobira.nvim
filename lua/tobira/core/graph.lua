@@ -102,7 +102,7 @@ end
 
 -- Returns unmastered-or-forgotten commands grouped by category for the Guide panel.
 -- Ceiling level = lowest level that still has commands with is_mastered(data) == false,
--- computed separately PER CATEGORY (see docs/adr/0110-bounded-severity-scoring.md for
+-- computed separately PER CATEGORY (see docs/adr/0111-bounded-severity-scoring.md for
 -- why) -- a category is never blocked by a level it has zero commands at, so one with
 -- no beginner rungs of its own (currently only 'ex') opens straight to its own actual
 -- floor instead of waiting on every other category's beginner commands.
@@ -196,7 +196,7 @@ end
 --
 -- Top-N diversity (limit ~= nil): a single high-fan-out trigger's children
 -- can otherwise tie for the highest ratio and fill every slot, crowding out
--- every other genuine gap -- see docs/adr/0110-bounded-severity-scoring.md.
+-- every other genuine gap -- see docs/adr/0111-bounded-severity-scoring.md.
 function M.efficiency_gaps(usage, limit, overrides)
   local cmds = require('tobira.commands')
   local gaps = {}
@@ -291,7 +291,7 @@ end
 -- frequency alone cannot dominate irrespective of habit severity once a
 -- trigger is already well-established -- reuses the same 100-count
 -- threshold mastery_level() treats as "familiar" rather than inventing a new
--- magic number. See docs/adr/0110-bounded-severity-scoring.md for why.
+-- magic number. See docs/adr/0111-bounded-severity-scoring.md for why.
 local FIND_BEST_SCORE_CAP = 100
 
 -- max_level: 'beginner' | 'intermediate' | 'advanced' | nil (no filter)
