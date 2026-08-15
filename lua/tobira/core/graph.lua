@@ -53,8 +53,10 @@ local FORGOTTEN_ADOPTED_BAR = 5
 local FORGOTTEN_RATIO = 0.3
 
 -- True when historical avg usage (all sessions before the last
--- FORGOTTEN_RECENT_WINDOW) reached FORGOTTEN_ADOPTED_BAR but recent avg has
--- decayed below FORGOTTEN_RATIO of it. Requires >= 3 sessions.
+-- FORGOTTEN_RECENT_WINDOW, OR the persisted long-term peak -- whichever is
+-- higher, see docs/adr/0117-persisted-peak-average-for-forgotten-detection.md)
+-- reached FORGOTTEN_ADOPTED_BAR but recent avg has decayed below
+-- FORGOTTEN_RATIO of it. Requires >= 3 sessions.
 -- see docs/adr/0029-graded-forgotten-command-detection.md for why
 function M.is_forgotten(data)
   local sessions = data.sessions or {}
@@ -66,7 +68,13 @@ function M.is_forgotten(data)
   for i = 1, n - FORGOTTEN_RECENT_WINDOW do
     historical_slice[i] = sessions[i]
   end
-  local historical = avg_last_n(historical_slice, #historical_slice)
+  local windowed_historical = avg_last_n(historical_slice, #historical_slice)
+  -- data.peak_avg is logger.lua's persisted high-water mark, sustained
+  -- across MAX_SESSIONS window evictions -- see docs/adr/0117 for why
+  -- windowed_historical alone (bounded by the 10-slot sessions[] array)
+  -- cannot answer "was this ever genuinely adopted" once enough
+  -- zero-activity session closes have rolled the real history out of view.
+  local historical = math.max(data.peak_avg or 0, windowed_historical)
   if historical < FORGOTTEN_ADOPTED_BAR then
     return false
   end

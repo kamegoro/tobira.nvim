@@ -193,14 +193,21 @@ local PROFILES = {
 
   -- #307's exact repro shape: a command with a huge lifetime count whose
   -- 10-slot sessions window is now entirely zero -- i.e. the state AFTER 10+
-  -- session-close boundaries of total inactivity since abandonment.
+  -- session-close boundaries of total inactivity since abandonment. peak_avg
+  -- is set explicitly here (10-20/session) because this profile is a
+  -- hand-crafted end-state snapshot, not built incrementally through
+  -- simulate_session_close() the way the dedicated #307 regression describe
+  -- block below is -- without it, this entry would not actually carry the
+  -- persisted high-water mark a real prior heavy-use period would have left
+  -- behind (see docs/adr/0117), and would misrepresent the state its name
+  -- promises.
   heavy_then_long_abandoned = function(rng)
     local count = 1500 + math.floor(rng() * 3000)
     local sessions = {}
     for i = 1, 10 do
       sessions[i] = 0
     end
-    return { count = count, sessions = sessions }
+    return { count = count, sessions = sessions, peak_avg = 10 + rng() * 10 }
   end,
 
   -- Genuinely used every 3rd session, not abandoned -- #307's "secondary,
@@ -301,19 +308,32 @@ function M.generate(seed, overrides)
   return usage
 end
 
--- Mirrors logger.lua's close_session() session-array rolling-window behavior
--- (MAX_SESSIONS = 10 there): appends `count` then truncates from the front
--- once the array exceeds max_sessions. Lets regression tests simulate N
--- session-close boundaries directly on a sessions array without depending on
--- logger.lua's I/O (data_dir / vim.on_key / VimLeave) -- keeps this fixture
--- module pure Lua, matching graph.lua's own vim.*-free contract.
-function M.simulate_session_close(sessions, count, max_sessions)
+-- Mirrors logger.lua's close_session() behavior for one usage entry: bumps
+-- data.peak_avg to the current sessions[] window's average (if that's a new
+-- high) BEFORE appending `count` and truncating the array from the front
+-- once it exceeds max_sessions -- same order, same >= 3 guard, as
+-- bump_peak_avg() there. See docs/adr/0117 for why peak_avg exists
+-- (MAX_SESSIONS = 10 in logger.lua makes the sessions[] window alone too
+-- short-memory for is_forgotten() to catch abandonment over months -- #307).
+-- Lets regression tests simulate N session-close boundaries directly on a
+-- usage entry without depending on logger.lua's I/O (data_dir / vim.on_key /
+-- VimLeave) -- keeps this fixture module pure Lua, matching graph.lua's own
+-- vim.*-free contract.
+function M.simulate_session_close(data, count, max_sessions)
   max_sessions = max_sessions or 10
-  table.insert(sessions, count)
-  while #sessions > max_sessions do
-    table.remove(sessions, 1)
+  data.sessions = data.sessions or {}
+  if #data.sessions >= 3 then
+    local sum = 0
+    for _, v in ipairs(data.sessions) do
+      sum = sum + v
+    end
+    data.peak_avg = math.max(data.peak_avg or 0, sum / #data.sessions)
   end
-  return sessions
+  table.insert(data.sessions, count)
+  while #data.sessions > max_sessions do
+    table.remove(data.sessions, 1)
+  end
+  return data
 end
 
 return M

@@ -325,6 +325,42 @@ describe('when a command was adopted but recently fell out of use', function()
   end)
 end)
 
+-- ── is_forgotten with a persisted peak_avg (docs/adr/0117, #307) ───────────────
+-- sessions[] is capped at MAX_SESSIONS=10 entries in logger.lua, so once a
+-- heavily-used-then-abandoned command has had enough zero-activity session
+-- closes, the current window alone can no longer prove the command was ever
+-- genuinely adopted. peak_avg is logger.lua's persisted high-water mark for
+-- exactly this case.
+-- see docs/adr/0117-persisted-peak-average-for-forgotten-detection.md
+
+describe('when a command has a persisted peak_avg from before its sessions[] window decayed', function()
+  it('stays forgotten even though the current window alone no longer clears the adopted bar', function()
+    -- The current window is now all zero (as if 10+ zero-activity closes
+    -- happened since abandonment) -- windowed historical alone would be 0,
+    -- below FORGOTTEN_ADOPTED_BAR (5). peak_avg alone must carry the bar.
+    local data = { count = 1821, sessions = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }, peak_avg = 7.2 }
+    assert.is_true(graph.is_forgotten(data))
+  end)
+
+  it('is not forgotten when neither peak_avg nor the current window ever cleared the adopted bar', function()
+    local data = { count = 5, sessions = { 1, 1, 1, 1, 1 }, peak_avg = 1 }
+    assert.is_false(graph.is_forgotten(data))
+  end)
+
+  it('un-forgets once recent usage resumes above 30% of the persisted peak_avg', function()
+    -- recent avg(last 2) = avg(3, 3) = 3, which is >= peak_avg(7.2) * 0.3
+    -- (=2.16), so a genuine resumption of use still un-forgets it --
+    -- peak_avg makes abandonment sticky, it does not make forgotten permanent.
+    local data = { count = 1821, sessions = { 0, 0, 0, 0, 0, 0, 0, 3, 3, 3 }, peak_avg = 7.2 }
+    assert.is_false(graph.is_forgotten(data))
+  end)
+
+  it('treats a missing peak_avg field the same as 0 (backward compatible with pre-migration data)', function()
+    local data = usage_entry(50, { 7, 8, 0, 0 })
+    assert.is_true(graph.is_forgotten(data))
+  end)
+end)
+
 describe('when a command is explicitly suppressed', function()
   it('is never suggested even with low usage', function()
     local usage = {
