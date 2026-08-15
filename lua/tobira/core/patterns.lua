@@ -11,7 +11,11 @@
 -- (visual-block edit streak), 0099 (diff obtain/put after hunk jump), 0100
 -- (named-mark repeated line return), 0101 (tilde text-object refinement),
 -- 0106 (text-object variant own-usage tracking), 0107 (n_repeat intent-neutral
--- + reactive n_then_change → cgn), 0108 (fold open/close streak).
+-- + reactive n_then_change → cgn), 0108 (fold open/close streak), 0109
+-- (wrap-aware gj/gk redirect), 0112 (buffer-local seq reset with <C-w>
+-- exemption), 0113 (macro dispatch priority generalization), 0114
+-- (prefix-consumer streak bookkeeping), 0115 (macro-edit-keys mode-source
+-- distinction).
 
 local M = {}
 
@@ -141,6 +145,19 @@ function M.new_seq()
     -- docs/adr/0018-macro-opportunity-detection.md
     macro_buf = {},
   }
+end
+
+-- Resets seq for a buffer switch (BufEnter), preserving ONLY the <C-w>
+-- window-command streak fields -- <C-w>q/<C-w>c/<C-w>s/<C-w>v's own effect
+-- IS a window (and usually buffer) switch, so a blanket reset-on-buffer-
+-- switch would make ctrl_w_close_repeat/ctrl_w_resize_repeat structurally
+-- undetectable. See docs/adr/0112-buffer-local-seq-reset-with-ctrl-w-exemption.md.
+function M.reset_for_buffer_switch(seq)
+  local fresh = M.new_seq()
+  fresh.pending_ctrl_w = seq.pending_ctrl_w
+  fresh.ctrl_w_close_streak = seq.ctrl_w_close_streak
+  fresh.ctrl_w_resize_streak = seq.ctrl_w_resize_streak
+  return fresh
 end
 
 local INSERT_KEYS = {
@@ -304,9 +321,16 @@ end
 -- S must contain at least one genuine edit keystroke, not just any 3+ exact
 -- repeat of a nav-only window (follow-up bug) — see
 -- docs/adr/0018-macro-opportunity-detection.md
+--
+-- Only counts a MACRO_EDIT_KEYS match when the token was fed from the
+-- Normal-mode call site (buf[i].is_normal_key) -- an insert-mode-typed
+-- character sharing a letter with an operator key (e.g. the 'd'/'i'/'a'/'o'
+-- in an ordinary word like "diamond") is not evidence of a repeated EDIT,
+-- just prose that happens to overlap the operator alphabet. See
+-- docs/adr/0115-macro-edit-keys-mode-source-distinction.md.
 local function macro_contains_edit(buf, s_start, s_end)
   for i = s_start, s_end do
-    if MACRO_EDIT_KEYS[buf[i].tok] then
+    if buf[i].is_normal_key and MACRO_EDIT_KEYS[buf[i].tok] then
       return true
     end
   end
@@ -426,7 +450,11 @@ local function visual_block_check_len(buf, n, l)
   if s_start < 1 then
     return false
   end
-  if not INSERT_KEYS[buf[s_start].tok] or buf[n].tok ~= '<Esc>' then
+  -- buf[s_start] must be a genuine Normal-mode insert-entry key (the one
+  -- that opens the edit window this shape detects), not an insert-mode-typed
+  -- character that happens to share a letter — same is_normal_key gate as
+  -- macro_contains_edit, see docs/adr/0115.
+  if not (buf[s_start].is_normal_key and INSERT_KEYS[buf[s_start].tok]) or buf[n].tok ~= '<Esc>' then
     return false
   end
   if macro_contains_bad(buf, s_start, n) then
@@ -495,7 +523,13 @@ end
 -- INSERT_SPECIAL table (patterns.lua stays vim.*-free, so this is threaded
 -- in as a parameter, like is_diff/now).
 -- now: optional caller-supplied clock (ms); omitted calls behave as now == 0.
-function M.feed_macro(seq, token, now)
+-- is_normal_key: true when this token was fed from the Normal-mode call
+-- site (logger.lua's handle_key, a genuine operator/command keystroke),
+-- false/omitted when fed from handle_insert_key (an ordinary insert-mode
+-- character stream, or its <Esc>/<BS>/etc canonical names). Only tokens fed
+-- with is_normal_key=true can ever satisfy MACRO_EDIT_KEYS membership — see
+-- macro_contains_edit and docs/adr/0115.
+function M.feed_macro(seq, token, now, is_normal_key)
   local t = now or 0
   local buf = seq.macro_buf
   local prev = buf[#buf]
@@ -503,7 +537,7 @@ function M.feed_macro(seq, token, now)
   if MACRO_NAV_KEYS[token] then
     nav_run = (prev and prev.nav_run or 0) + 1
   end
-  buf[#buf + 1] = { tok = token, t = t, nav_run = nav_run }
+  buf[#buf + 1] = { tok = token, t = t, nav_run = nav_run, is_normal_key = is_normal_key == true }
   macro_trim(buf)
   return macro_detect(seq)
 end
@@ -515,6 +549,35 @@ local function track_run(seq, key)
     seq.run = { key = key, count = 1 }
   end
   return seq.run.count
+end
+
+-- Streak-tolerance bookkeeping (r_streak/ca_streak/ci_dquote_streak/
+-- ci_squote_streak/fold_open_streak/fold_close_streak) and seq.run tracking
+-- that must run for every key consumed as the resolving key of a two-or-
+-- more-key prefix, not just keys that fall through inner_feed's dispatch
+-- chain uncontested — see docs/adr/0026 and
+-- docs/adr/0114-prefix-consumer-streak-bookkeeping.md.
+--
+-- `except` names the ONE family (if any) the calling branch has ALREADY
+-- updated for `key` itself this same call, so this doesn't immediately
+-- undo that update — nil | 'r' | 'ci' | 'fold'.
+local function reset_unclaimed_streaks(seq, key, except)
+  if except ~= 'r' and key ~= 'h' and key ~= 'l' then
+    seq.r_streak = 0
+  end
+  if key ~= 'j' and key ~= 'k' then
+    seq.ca_streak = 0
+  end
+  if not CI_QUOTE_NAV_KEYS[key] then
+    if except ~= 'ci' then
+      seq.ci_dquote_streak = 0
+      seq.ci_squote_streak = 0
+    end
+    if except ~= 'fold' then
+      seq.fold_open_streak = 0
+      seq.fold_close_streak = 0
+    end
+  end
 end
 
 local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
@@ -625,11 +688,15 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
   -- ── consumed by their own handlers rather than starting an f/t search.  ────
   if seq.pending_g then
     seq.pending_g = false
+    -- This key resolves the g-prefix — see reset_unclaimed_streaks and
+    -- docs/adr/0114-prefix-consumer-streak-bookkeeping.md.
+    reset_unclaimed_streaks(seq, key, nil)
     -- gq is a real operator (needs a further motion), unlike every other
     -- pending_g target below which is a complete two-key command on its own —
     -- hand it off to pending_gq instead of the flat dispatch table.
     if key == 'q' then
       seq.pending_gq = true
+      track_run(seq, key)
       return nil
     end
     local g_targets = {
@@ -672,6 +739,11 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
       elseif seq.last_op == 'g;' then
         seq.g_semi_seen = true
       end
+    else
+      -- Unrecognized key after 'g': not a real g-compound, but this key
+      -- still must not be silently dropped from seq.run's bookkeeping — see
+      -- reset_unclaimed_streaks's header.
+      track_run(seq, key)
     end
     return nil
   end
@@ -684,6 +756,10 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
     end
     seq.pending_gq = false
     if key == '\27' then
+      -- <Esc> resolves (aborts) the gq-pending state; still needs
+      -- track_run/tolerance bookkeeping — see reset_unclaimed_streaks.
+      reset_unclaimed_streaks(seq, key, nil)
+      track_run(seq, key)
       return nil -- <Esc> cancels
     end
     if key == 'i' or key == 'a' then
@@ -693,6 +769,8 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
     -- 'q' (linewise, like dd) or any other motion character completes gq.
     seq.last_op = 'gq'
     seq.op_completed = true
+    reset_unclaimed_streaks(seq, key, nil)
+    track_run(seq, key)
     return nil
   end
 
@@ -700,11 +778,18 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
     seq.pending_gq_text_obj = false
     seq.last_op = 'gq'
     seq.op_completed = true
+    reset_unclaimed_streaks(seq, key, nil)
+    track_run(seq, key)
     return nil
   end
 
   if seq.pending_z then
     seq.pending_z = false
+    -- This key resolves the z-prefix; fold_open/close_streak are already
+    -- managed inline below (hence except='fold') — see
+    -- reset_unclaimed_streaks's header.
+    reset_unclaimed_streaks(seq, key, 'fold')
+    track_run(seq, key)
     local z_targets = {
       z = 'zz',
       t = 'zt',
@@ -734,7 +819,10 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
         seq.fold_close_streak = 0
         if seq.fold_open_streak >= 2 then
           seq.fold_open_streak = 0
-          return { pattern = 'fold_open_repeat', cmd = 'zR' }
+          -- beats_macro: logger.lua's dispatch reports this over a same-
+          -- keystroke macro_opportunity result — see
+          -- docs/adr/0113-macro-dispatch-priority-generalization.md.
+          return { pattern = 'fold_open_repeat', cmd = 'zR', beats_macro = true }
         end
       -- zc repeated (or alternated with itself) 2+ times → suggest zM. See
       -- docs/adr/0108-fold-open-close-streak.md
@@ -743,7 +831,7 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
         seq.fold_open_streak = 0
         if seq.fold_close_streak >= 2 then
           seq.fold_close_streak = 0
-          return { pattern = 'fold_close_repeat', cmd = 'zM' }
+          return { pattern = 'fold_close_repeat', cmd = 'zM', beats_macro = true }
         end
       else
         seq.fold_open_streak = 0
@@ -761,6 +849,10 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
   -- docs/adr/0096-ctrl-w-resize-streak.md
   if seq.pending_ctrl_w then
     seq.pending_ctrl_w = false
+    -- This key resolves the <C-w>-prefix; ctrl_w's own streaks are a
+    -- separate field entirely — see reset_unclaimed_streaks's header.
+    reset_unclaimed_streaks(seq, key, nil)
+    track_run(seq, key)
     local ctrl_w_targets = {
       s = '<C-w>s',
       v = '<C-w>v',
@@ -839,6 +931,10 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
   if seq.pending_register then
     seq.pending_register = false
     seq.key_consumed = true
+    -- This key resolves the register-name prefix — see
+    -- reset_unclaimed_streaks's header.
+    reset_unclaimed_streaks(seq, key, nil)
+    track_run(seq, key)
     -- "+ specifically arms pending_clipboard_yank; every other register name
     -- (including "*) keeps the existing consume-and-forget behavior below.
     if key == '+' then
@@ -851,6 +947,10 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
     seq.pending_mark = false
     local was_gq_backtick = seq.pending_gq_backtick
     seq.pending_gq_backtick = false
+    -- This key resolves the mark-name prefix — see
+    -- reset_unclaimed_streaks's header.
+    reset_unclaimed_streaks(seq, key, nil)
+    track_run(seq, key)
     -- `` right after a completed gq — see
     -- docs/adr/0022-gq-operator-pending-and-post-format-jumpback.md
     if was_gq_backtick and key == '`' then
@@ -866,6 +966,10 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
     local bracket = seq.pending_bracket
     seq.pending_bracket = false
     seq.key_consumed = true
+    -- This key resolves the bracket prefix — see
+    -- reset_unclaimed_streaks's header.
+    reset_unclaimed_streaks(seq, key, nil)
+    track_run(seq, key)
     -- ]c / [c diff-hunk jump: arm diff_jump_dir for one following key only —
     -- see docs/adr/0099-diff-obtain-put-after-hunk-jump.md
     seq.diff_jump_dir = (key == 'c') and bracket or nil
@@ -883,6 +987,17 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
     local inner = seq.pending_text_obj_inner
     seq.pending_text_obj = nil
     seq.pending_text_obj_inner = false
+    -- This key resolves the text-object prefix; ci_dquote_streak/
+    -- ci_squote_streak are already managed inline below (hence
+    -- except='ci') — see reset_unclaimed_streaks's header. seq.run is
+    -- deliberately left untouched here (unlike the other prefix consumers):
+    -- the pending_op starter (d/c/y) that always precedes this branch
+    -- already wipes seq.run unconditionally on its own, so this key can
+    -- never leave a stale PRE-compound value behind the way pending_r/
+    -- pending_ctrl_w/etc's own starters don't — and text-object completions
+    -- (ciw/diw/yiw) are deliberately not bare-motion keystrokes for
+    -- w_repeat's own counting purposes.
+    reset_unclaimed_streaks(seq, key, 'ci')
     seq.last_op = op .. 'w'
     seq.op_completed = true
     -- Sets key_consumed the same as pending_register/pending_mark/
@@ -904,14 +1019,14 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
       seq.ci_dquote_streak = seq.ci_dquote_streak + 1
       if seq.ci_dquote_streak >= 3 then
         seq.ci_dquote_streak = 0
-        return { pattern = 'ci_dquote_repeat', cmd = 'ya"' }
+        return { pattern = 'ci_dquote_repeat', cmd = 'ya"', beats_macro = true }
       end
     elseif op == 'c' and inner and key == "'" then
       seq.ci_dquote_streak = 0
       seq.ci_squote_streak = seq.ci_squote_streak + 1
       if seq.ci_squote_streak >= 3 then
         seq.ci_squote_streak = 0
-        return { pattern = 'ci_squote_repeat', cmd = "ya'" }
+        return { pattern = 'ci_squote_repeat', cmd = "ya'", beats_macro = true }
       end
     else
       seq.ci_dquote_streak = 0
@@ -937,10 +1052,15 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
   -- than being reinterpreted as a fresh f/t-search.
   if seq.pending_r then
     seq.pending_r = false
+    -- This key resolves the r-prefix; r_streak is managed explicitly
+    -- right below (hence except='r') — see reset_unclaimed_streaks's
+    -- header.
+    reset_unclaimed_streaks(seq, key, 'r')
+    track_run(seq, key)
     seq.r_streak = seq.r_streak + 1
     if seq.r_streak >= 3 then
       seq.r_streak = 0
-      return { pattern = 'r_run', cmd = 'R' }
+      return { pattern = 'r_run', cmd = 'R', beats_macro = true }
     end
     return nil
   end
@@ -955,6 +1075,10 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
       local cmd = key .. seq.visual_inner .. seq.visual_obj
       seq.visual_obj = nil
       seq.visual_inner = nil
+      -- This key resolves the visual text-object chain — see
+      -- reset_unclaimed_streaks's header (track_run only here: this
+      -- chain's own characters are not one of the r/ca/ci/fold families).
+      track_run(seq, key)
       return { pattern = 'visual_textobj', cmd = cmd }
     end
     -- Non-operator: cancel and fall through
@@ -964,6 +1088,7 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
 
   if seq.visual_inner then
     seq.visual_obj = key
+    track_run(seq, key)
     return nil
   end
 
@@ -974,6 +1099,7 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
       -- half of the streak. Fires here (on the confirming <Esc>), not on the
       -- v itself — see docs/adr/0021-visual-repeat-gv-detection.md
       seq.v_clean_exit = true
+      track_run(seq, key)
       if seq.v_streak >= 3 then
         seq.v_streak = 0
         return { pattern = 'v_repeat', cmd = 'gv' }
@@ -985,6 +1111,7 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
     if key == 'i' or key == 'a' then
       seq.visual_inner = key
     end
+    track_run(seq, key)
     -- Whether accepted or cancelled, consume and return
     return nil
   end
@@ -1048,13 +1175,13 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
           seq.indent_streak = seq.indent_streak + 1
           if seq.indent_streak == 3 then
             seq.indent_streak = 0
-            return { pattern = 'indent_run', cmd = '{n}>>' }
+            return { pattern = 'indent_run', cmd = '{n}>>', beats_macro = true }
           end
         else
           seq.dedent_streak = seq.dedent_streak + 1
           if seq.dedent_streak == 3 then
             seq.dedent_streak = 0
-            return { pattern = 'dedent_run', cmd = '{n}<<' }
+            return { pattern = 'dedent_run', cmd = '{n}<<', beats_macro = true }
           end
         end
       else
@@ -1111,7 +1238,7 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
           seq.dd_streak = seq.dd_streak + 1
           if seq.dd_streak >= 3 then
             seq.dd_streak = 0
-            return { pattern = 'dd_run', cmd = '{n}dd' }
+            return { pattern = 'dd_run', cmd = '{n}dd', beats_macro = true }
           end
         elseif op == 'c' then
           seq.cc_streak = seq.cc_streak + 1
@@ -1529,7 +1656,7 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
     seq.mark_anchor_line = nil
     seq.mark_left_anchor = false
     seq.mark_edited_away = false
-    return { pattern = 'named_mark_opportunity', cmd = 'ma' }
+    return { pattern = 'named_mark_opportunity', cmd = 'ma', beats_macro = true }
   end
 
   -- == (not >=): each threshold fires exactly once, enabling multi-threshold

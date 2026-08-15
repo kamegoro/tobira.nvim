@@ -3906,11 +3906,15 @@ end)
 -- M.feed_macro(seq, token, now) is a separate entry point from M.feed() — see
 -- docs/adr/0018-macro-opportunity-detection.md
 
+-- is_normal_key=true: these tests exercise macro_check_len's own algorithm
+-- (window matching, gap tolerance, edit-key content check), not the
+-- Normal-vs-Insert mode-source distinction #334/docs/adr/0115 added — that
+-- distinction has its own dedicated describe block further down.
 local function feed_macro_seq(s, keys, now_start)
   local result
   local now = now_start
   for _, k in ipairs(keys) do
-    result = patterns.feed_macro(s, k, now)
+    result = patterns.feed_macro(s, k, now, true)
     if now then
       now = now + 1
     end
@@ -3995,17 +3999,17 @@ describe('when 3 repetitions span more than the 30-second detection window', fun
     local s = seq()
     -- rep1 @ t=0..2, gap @ t=3, rep2 @ t=4..6, gap @ t=7, rep3 @ t=40000..40002
     -- (40002 - 0 = 40002ms, over the 30000ms window).
-    patterns.feed_macro(s, 'a', 0)
-    patterns.feed_macro(s, 'b', 1)
-    patterns.feed_macro(s, 'c', 2)
-    patterns.feed_macro(s, 'j', 3)
-    patterns.feed_macro(s, 'a', 4)
-    patterns.feed_macro(s, 'b', 5)
-    patterns.feed_macro(s, 'c', 6)
-    patterns.feed_macro(s, 'j', 7)
-    patterns.feed_macro(s, 'a', 40000)
-    patterns.feed_macro(s, 'b', 40001)
-    local result = patterns.feed_macro(s, 'c', 40002)
+    patterns.feed_macro(s, 'a', 0, true)
+    patterns.feed_macro(s, 'b', 1, true)
+    patterns.feed_macro(s, 'c', 2, true)
+    patterns.feed_macro(s, 'j', 3, true)
+    patterns.feed_macro(s, 'a', 4, true)
+    patterns.feed_macro(s, 'b', 5, true)
+    patterns.feed_macro(s, 'c', 6, true)
+    patterns.feed_macro(s, 'j', 7, true)
+    patterns.feed_macro(s, 'a', 40000, true)
+    patterns.feed_macro(s, 'b', 40001, true)
+    local result = patterns.feed_macro(s, 'c', 40002, true)
     assert.is_nil(result)
   end)
 end)
@@ -4013,17 +4017,17 @@ end)
 describe('when 3 repetitions all fall within the 30-second detection window', function()
   it('fires macro_opportunity', function()
     local s = seq()
-    patterns.feed_macro(s, 'a', 0)
-    patterns.feed_macro(s, 'b', 1)
-    patterns.feed_macro(s, 'c', 2)
-    patterns.feed_macro(s, 'j', 3)
-    patterns.feed_macro(s, 'a', 4)
-    patterns.feed_macro(s, 'b', 5)
-    patterns.feed_macro(s, 'c', 6)
-    patterns.feed_macro(s, 'j', 7)
-    patterns.feed_macro(s, 'a', 8000)
-    patterns.feed_macro(s, 'b', 8001)
-    local result = patterns.feed_macro(s, 'c', 8002)
+    patterns.feed_macro(s, 'a', 0, true)
+    patterns.feed_macro(s, 'b', 1, true)
+    patterns.feed_macro(s, 'c', 2, true)
+    patterns.feed_macro(s, 'j', 3, true)
+    patterns.feed_macro(s, 'a', 4, true)
+    patterns.feed_macro(s, 'b', 5, true)
+    patterns.feed_macro(s, 'c', 6, true)
+    patterns.feed_macro(s, 'j', 7, true)
+    patterns.feed_macro(s, 'a', 8000, true)
+    patterns.feed_macro(s, 'b', 8001, true)
+    local result = patterns.feed_macro(s, 'c', 8002, true)
     assert.is_not_nil(result)
     assert.equals('macro_opportunity', result.pattern)
   end)
@@ -4036,7 +4040,7 @@ describe('when the repeated window S is pure navigation (#60 follow-up bug)', fu
       local s = seq()
       local result
       for _ = 1, 12 do
-        result = patterns.feed_macro(s, 'j')
+        result = patterns.feed_macro(s, 'j', nil, true)
       end
       assert.is_nil(result)
     end
@@ -4071,7 +4075,7 @@ describe("seq.macro_buf's bounded growth", function()
   it('trims back down to the soft cap once the hard cap is exceeded', function()
     local s = seq()
     for i = 1, 151 do
-      patterns.feed_macro(s, 'TOK' .. tostring(i % 5))
+      patterns.feed_macro(s, 'TOK' .. tostring(i % 5), nil, true)
     end
     assert.equals(100, #s.macro_buf)
   end)
@@ -4363,5 +4367,273 @@ describe("jump_back's last_op sentinel has no time bound (intentional, see above
     patterns.feed(s, 'g', 1, nil, 0)
     local result = patterns.feed(s, 'g', 1, nil, 60000) -- 60s later, no other key
     assert.equals('jump_back', result.pattern)
+  end)
+end)
+
+-- ── track_run/tolerated-streak bookkeeping through prefix-consumer branches ──
+-- see docs/adr/0026-state-machine-bookkeeping-invariants.md and
+-- docs/adr/0114-prefix-consumer-streak-bookkeeping.md
+
+describe('when an unrelated prefix compound resolves between two bare-motion keystrokes', function()
+  it('does not let l_repeat fire from non-consecutive l presses interleaved with r{char} replacements', function()
+    -- Exact repro from the issue: r{char}l repeated 20 times must not fire
+    -- l_repeat after only 5 NON-consecutive l presses -- r/{char} must not
+    -- freeze seq.run across themselves.
+    local s = seq()
+    local result
+    for _ = 1, 20 do
+      patterns.feed(s, 'r', 1)
+      patterns.feed(s, 'x', 1) -- replacement char; resolves pending_r
+      result = patterns.feed(s, 'l', 1)
+    end
+    assert.is_nil(result, 'l_repeat must not fire: every l is separated by an r{char} replacement')
+  end)
+
+  it('fires l_repeat normally once 5 l presses are genuinely consecutive after a resolved r{char}', function()
+    local s = seq()
+    patterns.feed(s, 'r', 1)
+    patterns.feed(s, 'x', 1)
+    local result
+    for _ = 1, 5 do
+      result = patterns.feed(s, 'l', 1)
+    end
+    assert.is_not_nil(result)
+    assert.equals('l_repeat', result.pattern)
+  end)
+
+  it('updates seq.run for the key resolving a <C-w> window-command compound', function()
+    local s = seq()
+    patterns.feed(s, '0', 1) -- seq.run = { key = '0', count = 1 }
+    patterns.feed(s, '\23', 1) -- <C-w> starter
+    patterns.feed(s, '>', 1) -- resolves to <C-w>>, an unrelated key
+    assert.equals('>', s.run.key)
+    assert.equals(1, s.run.count)
+  end)
+
+  it('updates seq.run for an unrecognized key after g (not a real g-compound)', function()
+    local s = seq()
+    patterns.feed(s, 'g', 1)
+    local result = patterns.feed(s, 'z', 1) -- 'z' is not a g_targets member
+    assert.is_nil(result)
+    assert.equals('z', s.run.key)
+    assert.equals(1, s.run.count)
+  end)
+
+  it('resets r_streak across an unrelated <C-w>c compound instead of leaving it frozen', function()
+    local s = seq()
+    patterns.feed(s, 'r', 1)
+    patterns.feed(s, 'x', 1) -- r_streak = 1
+    patterns.feed(s, '\23', 1)
+    patterns.feed(s, 'c', 1) -- unrelated <C-w>c compound: must reset r_streak
+    patterns.feed(s, 'r', 1)
+    local result = patterns.feed(s, 'x', 1) -- only the 2nd genuine rep since the reset
+    assert.is_nil(result, 'r_run must not fire: the streak was broken by the intervening <C-w>c')
+    assert.equals(1, s.r_streak)
+  end)
+
+  it('resets ca_streak/ci_dquote_streak/fold streaks across an unrelated register-prefix consume', function()
+    local s = seq()
+    patterns.feed(s, 'c', 1)
+    patterns.feed(s, 'i', 1)
+    patterns.feed(s, '"', 1) -- ci_dquote_streak = 1
+    patterns.feed(s, '"', 1) -- register-name prefix starter (unrelated to ci")
+    patterns.feed(s, 'x', 1) -- resolves the register prefix
+    assert.equals(0, s.ci_dquote_streak)
+  end)
+end)
+
+-- ── macro dispatch priority: beats_macro (#312) ──────────────────────────────
+-- see docs/adr/0113-macro-dispatch-priority-generalization.md
+-- Only patterns.lua's dispatch-side field is unit-tested here (each
+-- collision-vulnerable pattern's returned table declares beats_macro =
+-- true); the actual PRIORITY ARBITRATION this field drives lives in
+-- logger.lua and is covered there (see logger_spec.lua) and by
+-- tests/differential/patterns_seq_differential_spec.lua's pinned scenarios.
+
+describe('beats_macro is declared on every pattern confirmed vulnerable to the macro_opportunity collision', function()
+  it('dd_run', function()
+    local s = seq()
+    feed(s, { 'd', 'd' })
+    feed(s, { 'd', 'd' })
+    local result = feed(s, { 'd', 'd' })
+    assert.equals('dd_run', result.pattern)
+    assert.is_true(result.beats_macro)
+  end)
+
+  it('indent_run', function()
+    local s = seq()
+    feed(s, { '>', '>' })
+    feed(s, { '>', '>' })
+    local result = feed(s, { '>', '>' })
+    assert.equals('indent_run', result.pattern)
+    assert.is_true(result.beats_macro)
+  end)
+
+  it('dedent_run', function()
+    local s = seq()
+    feed(s, { '<', '<' })
+    feed(s, { '<', '<' })
+    local result = feed(s, { '<', '<' })
+    assert.equals('dedent_run', result.pattern)
+    assert.is_true(result.beats_macro)
+  end)
+
+  it('r_run', function()
+    local s = seq()
+    feed(s, { 'r', 'x' })
+    feed(s, { 'r', 'x' })
+    local result = feed(s, { 'r', 'x' })
+    assert.equals('r_run', result.pattern)
+    assert.is_true(result.beats_macro)
+  end)
+
+  it('fold_open_repeat', function()
+    local s = seq()
+    feed(s, { 'z', 'o' })
+    local result = feed(s, { 'z', 'o' })
+    assert.equals('fold_open_repeat', result.pattern)
+    assert.is_true(result.beats_macro)
+  end)
+
+  it('fold_close_repeat', function()
+    local s = seq()
+    feed(s, { 'z', 'c' })
+    local result = feed(s, { 'z', 'c' })
+    assert.equals('fold_close_repeat', result.pattern)
+    assert.is_true(result.beats_macro)
+  end)
+
+  it('ci_dquote_repeat', function()
+    local s = seq()
+    feed(s, { 'c', 'i', '"' })
+    feed(s, { 'c', 'i', '"' })
+    local result = feed(s, { 'c', 'i', '"' })
+    assert.equals('ci_dquote_repeat', result.pattern)
+    assert.is_true(result.beats_macro)
+  end)
+
+  it('ci_squote_repeat', function()
+    local s = seq()
+    feed(s, { 'c', 'i', "'" })
+    feed(s, { 'c', 'i', "'" })
+    local result = feed(s, { 'c', 'i', "'" })
+    assert.equals('ci_squote_repeat', result.pattern)
+    assert.is_true(result.beats_macro)
+  end)
+
+  it('named_mark_opportunity', function()
+    local s = seq()
+    patterns.feed(s, 'h', 1)
+    patterns.feed(s, 'j', 2)
+    patterns.feed(s, 'x', 2)
+    patterns.feed(s, 'k', 1)
+    patterns.feed(s, 'j', 2)
+    patterns.feed(s, 'x', 2)
+    patterns.feed(s, 'k', 1)
+    patterns.feed(s, 'j', 2)
+    patterns.feed(s, 'x', 2)
+    local result = patterns.feed(s, 'k', 1)
+    assert.equals('named_mark_opportunity', result.pattern)
+    assert.is_true(result.beats_macro)
+  end)
+
+  it('does not declare beats_macro on an ordinary reactive one-shot pattern (dd_then_p, non-regression)', function()
+    local s = seq()
+    feed(s, { 'd', 'd' })
+    local result = feed(s, { 'p' })
+    assert.equals('dd_then_p', result.pattern)
+    assert.is_nil(result.beats_macro)
+  end)
+end)
+
+-- ── feed_macro's is_normal_key mode-source distinction (#334) ───────────────
+-- see docs/adr/0115-macro-edit-keys-mode-source-distinction.md
+
+describe('feed_macro only counts a MACRO_EDIT_KEYS match for is_normal_key=true tokens', function()
+  it('does not fire macro_opportunity for a 3x-repeated word typed with is_normal_key=false', function()
+    -- 'diamond' contains d/i/a/o -- all MACRO_EDIT_KEYS members -- but every
+    -- character here is fed as an insert-mode character (is_normal_key
+    -- omitted/false), so none of them can satisfy macro_contains_edit.
+    local s = seq()
+    local result
+    for _ = 1, 3 do
+      for c in ('diamond'):gmatch('.') do
+        result = patterns.feed_macro(s, c)
+      end
+      result = patterns.feed_macro(s, ' ')
+    end
+    assert.is_nil(result)
+  end)
+
+  it('still fires macro_opportunity for the same shape when fed with is_normal_key=true', function()
+    local s = seq()
+    local result
+    for _ = 1, 3 do
+      for c in ('diamond'):gmatch('.') do
+        result = patterns.feed_macro(s, c, nil, true)
+      end
+      result = patterns.feed_macro(s, ' ', nil, true)
+    end
+    assert.is_not_nil(result)
+    assert.equals('macro_opportunity', result.pattern)
+  end)
+
+  it('does not let an insert-mode-typed INSERT_KEYS character anchor visual_block_opportunity', function()
+    -- visual_block_check_len's own start-of-window check must also respect
+    -- is_normal_key -- an insert-mode-typed 'i' character must not open a
+    -- visual_block_opportunity window the way a genuine Normal-mode 'i'
+    -- keystroke (entering insert mode) does.
+    local s = seq()
+    local result
+    for _ = 1, 3 do
+      result = patterns.feed_macro(s, 'i') -- is_normal_key=false: an ordinary typed 'i'
+      patterns.feed_macro(s, 'j', nil, true) -- genuine Normal-mode 'j' gap
+    end
+    assert.is_nil(result)
+  end)
+end)
+
+-- ── buffer-local seq reset (#309) ────────────────────────────────────────────
+-- see docs/adr/0112-buffer-local-seq-reset-with-ctrl-w-exemption.md
+-- Real-keystroke, cross-buffer integration coverage lives in
+-- tests/spec/integration/logger_spec.lua (BufEnter only fires against real
+-- Neovim buffer/window state, which this pure-function unit test cannot
+-- exercise) -- see "Real-keystroke tests for state/timing-sensitive
+-- patterns" in tests/CLAUDE.md.
+
+describe('patterns.reset_for_buffer_switch', function()
+  it('resets streak-counter fields that must not survive a buffer switch', function()
+    local s = seq()
+    feed(s, { 'd', 'd' }) -- dd_streak = 1
+    feed(s, { 'd', 'd' }) -- dd_streak = 2
+    local fresh = patterns.reset_for_buffer_switch(s)
+    assert.equals(0, fresh.dd_streak)
+    assert.is_nil(fresh.run.key)
+    assert.equals(0, fresh.run.count)
+  end)
+
+  it('does not let dd_run fire from 2 reps before a buffer switch plus 1 rep after it', function()
+    local s = seq()
+    feed(s, { 'd', 'd' })
+    feed(s, { 'd', 'd' })
+    s = patterns.reset_for_buffer_switch(s)
+    local result = feed(s, { 'd', 'd' })
+    assert.is_nil(result)
+    assert.equals(1, s.dd_streak)
+  end)
+
+  it('preserves pending_ctrl_w and the ctrl_w streak fields across a buffer switch', function()
+    -- <C-w>q/<C-w>c's own effect IS a window (and often buffer) switch —
+    -- these fields must survive it, or ctrl_w_close_repeat/
+    -- ctrl_w_resize_repeat become structurally undetectable.
+    local s = seq()
+    patterns.feed(s, '\23', 1)
+    patterns.feed(s, 'q', 1) -- ctrl_w_close_streak = 1
+    local fresh = patterns.reset_for_buffer_switch(s)
+    assert.equals(1, fresh.ctrl_w_close_streak)
+    patterns.feed(fresh, '\23', 1)
+    local result = patterns.feed(fresh, 'q', 1)
+    assert.is_not_nil(result)
+    assert.equals('ctrl_w_close_repeat', result.pattern)
   end)
 end)
