@@ -281,8 +281,35 @@ local function find_unescaped(text, start, delim)
   return nil
 end
 
+-- Shared LRU cap for both new_substitute_state()'s and
+-- new_history_recall_state()'s `entries` maps below — see
+-- docs/adr/0110-cmdline-state-lru-eviction.md for why 20, and why
+-- least-recently-touched eviction (not a soft/hard trim like
+-- patterns.lua's seq.macro_buf) is the right shape for a map keyed by
+-- distinct command-line text rather than a flat buffer.
+local ENTRY_CAP = 20
+
+-- Evicts the single least-recently-touched key from `entries` (each value
+-- must carry a numeric `touched` field). Only called immediately before
+-- inserting a new key once `entries` already has ENTRY_CAP entries, so this
+-- always makes room for exactly one insertion. `touched` is a strictly
+-- increasing counter unique per touch, so the minimum is always unique —
+-- the result is deterministic regardless of pairs() iteration order.
+local function evict_lru(entries)
+  local lru_key, lru_touched
+  for k, v in pairs(entries) do
+    if lru_touched == nil or v.touched < lru_touched then
+      lru_touched = v.touched
+      lru_key = k
+    end
+  end
+  if lru_key ~= nil then
+    entries[lru_key] = nil
+  end
+end
+
 function M.new_substitute_state()
-  return { entries = {} }
+  return { entries = {}, clock = 0, count = 0 }
 end
 
 -- state: from M.new_substitute_state(). text: the command-line buffer
@@ -344,8 +371,22 @@ function M.track_substitute(state, text, line)
   local key = pattern .. '\0' .. replacement
   local entry = state.entries[key]
   if not entry then
+    if state.count >= ENTRY_CAP then
+      evict_lru(state.entries)
+      state.count = state.count - 1
+    end
     entry = { lines = {}, count = 0 }
     state.entries[key] = entry
+    state.count = state.count + 1
+  end
+  state.clock = state.clock + 1
+  entry.touched = state.clock
+
+  if entry.count >= 3 then
+    -- Already fired the widest threshold (g&) for this pair — nothing left
+    -- to detect, so stop growing entry.lines any further. See
+    -- docs/adr/0110-cmdline-state-lru-eviction.md.
+    return nil
   end
 
   if entry.lines[line] then
@@ -383,7 +424,7 @@ end
 -- see docs/adr/0095-cmdline-history-recall-detection.md for the full
 -- rationale, the exclusion design, and the fires-once-per-distinct-text latch.
 function M.new_history_recall_state()
-  return { entries = {} }
+  return { entries = {}, clock = 0, count = 0 }
 end
 
 -- state: from M.new_history_recall_state(), persists for the whole session
@@ -417,9 +458,16 @@ function M.feed_history_recall(state, text, word, arg, recalled_via_history)
 
   local entry = state.entries[trimmed]
   if not entry then
+    if state.count >= ENTRY_CAP then
+      evict_lru(state.entries)
+      state.count = state.count - 1
+    end
     entry = { count = 0, fired = false }
     state.entries[trimmed] = entry
+    state.count = state.count + 1
   end
+  state.clock = state.clock + 1
+  entry.touched = state.clock
   entry.count = entry.count + 1
 
   -- Latches after firing once -- see ADR above for why a 3rd+ identical
