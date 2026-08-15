@@ -9,11 +9,13 @@
 -- this directory's other suite (tests/regression/realistic_scale_spec.lua,
 -- #317): CI's Test/Coverage jobs both point PlenaryBustedDirectory at
 -- tests/spec/ only, so nothing here is picked up by .github/workflows/
--- ci.yml. Three of the four it() blocks below are KNOWN FAILING regression
--- trackers for real, still-open bugs (#310, #314) -- placing them in
--- tests/spec/ would leave main's required per-PR CI permanently red until
--- those bugs are fixed. Per #318's design guidance, CI wiring for this
--- suite (per-PR vs. periodic) is a separate, later decision. Run manually:
+-- ci.yml. One of the four it() blocks below is a KNOWN FAILING regression
+-- tracker for a real, still-open bug (#310) -- placing it in tests/spec/
+-- would leave main's required per-PR CI permanently red until that bug is
+-- fixed. The other three (formerly two more KNOWN FAILING trackers for
+-- #314, now fixed) lock in currently-correct behavior as regression guards.
+-- Per #318's design guidance, CI wiring for this suite (per-PR vs.
+-- periodic) is a separate, later decision. Run manually:
 --
 --   nvim --headless --noplugin -u tests/minimal_init.lua \
 --     -c "PlenaryBustedDirectory tests/regression/ {minimal_init = 'tests/minimal_init.lua', sequential = true}"
@@ -315,13 +317,11 @@ end)
 describe('after a long session with many distinct Ex commands', function()
   after_each(cleanup)
 
-  -- KNOWN FAILING -- tracks issue #314 (open). patterns_cmdline.lua's
-  -- substitute_state.entries and history_recall_state.entries grow without
-  -- bound or eviction; SUB_LINE_COUNT/ECHO_COUNT distinct commands each
-  -- create one permanent entry, well past any reasonable cap. Do not
-  -- pending()/skip/delete this test -- it should start passing once #314
-  -- is fixed. (Split into its own it() per one-concept-per-test convention;
-  -- the history-recall counterpart below carries the same marker.)
+  -- Locks in currently-correct behavior (#314, fixed) -- patterns_cmdline.lua's
+  -- substitute_state.entries now evicts its least-recently-touched entry
+  -- once past a fixed cap, rather than growing without bound. (Split into
+  -- its own it() per one-concept-per-test convention; the history-recall
+  -- counterpart below is the same guard for a sibling state map.)
   it('keeps substitute-repeat tracking state below a reasonable cap', function()
     local result = run_long_session()
     local CAP = 20
@@ -331,7 +331,7 @@ describe('after a long session with many distinct Ex commands', function()
     )
   end)
 
-  -- KNOWN FAILING -- tracks issue #314 (open). Same guard as the
+  -- Locks in currently-correct behavior (#314, fixed) -- same guard as the
   -- substitute-repeat test above, for history_recall_state.entries.
   it('keeps Ex-command history-recall tracking state below a reasonable cap', function()
     local result = run_long_session()
