@@ -126,9 +126,12 @@ nvim --headless --noplugin -u tests/minimal_init.lua \
   -c "PlenaryBustedDirectory tests/differential/ {minimal_init = 'tests/minimal_init.lua', sequential = true}"
 ```
 
-Known-expected divergences (currently #312 and #313) are classified and
-asserted as such rather than failing the suite — see the spec file's own
-header comment.
+Two classes of divergence against the deliberately-simpler reference model
+are classified rather than failing the suite outright — a macro_opportunity/
+visual_block_opportunity dispatch-priority collision, and an already-tracked
+pattern firing on a different keystroke than this model expects (broader
+than any one bug — see the spec file's own header comment for the two
+originating issues, #312 and #313, both now fixed).
 
 **Do not run this suite with `COVERAGE=1`.** luacov's per-line instrumentation
 slows this suite by roughly two orders of magnitude (measured: ~0.5s normally,

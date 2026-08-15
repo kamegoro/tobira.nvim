@@ -20,13 +20,13 @@
 -- on line, diff_jump_then_insert_*/j_many_diff/k_many_diff on is_diff,
 -- j_repeat_wrapped/k_repeat_wrapped on is_wrapped).
 --
--- Also implements the ONE narrow exception to "macro_result > result"
--- documented in ADR 0016 and shipped for #280: named_mark_opportunity wins
--- over macro_result specifically (every other pattern pair keeps the
--- unqualified macro_result > result priority). #316/#323 scoped this out
--- because named_mark_opportunity wasn't tracked yet; #328 tracks it, so this
--- wrapper now mirrors logger.lua's real arbitration exactly instead of the
--- simpler "macro_result or result" it used to be.
+-- Also implements the general "beats_macro" exception to "macro_result >
+-- result" documented in ADR 0016/ADR 0114 (generalized from the single
+-- named_mark_opportunity exception #280 originally shipped): any `result`
+-- that declares `beats_macro = true` wins over macro_result on the same
+-- keystroke instead of losing to it (every other pattern pair keeps the
+-- unqualified macro_result > result priority), so this wrapper mirrors
+-- logger.lua's real arbitration exactly.
 
 local patterns = require('tobira.core.patterns')
 
@@ -62,12 +62,14 @@ function M.step(state, key, ctx)
   local line = ctx.line or 1
   state.now = state.now + STEP_MS
   local result = patterns.feed(state.seq, key, line, ctx.is_diff, state.now, ctx.is_wrapped)
-  local macro_result = patterns.feed_macro(state.seq, key, state.now)
+  -- is_normal_key=true: this suite only ever feeds genuine Normal-mode
+  -- keystrokes — see docs/adr/0116-macro-edit-keys-mode-source-distinction.md.
+  local macro_result = patterns.feed_macro(state.seq, key, state.now, true)
 
-  -- Priority: macro_result > result, EXCEPT named_mark_opportunity wins over
-  -- macro_result specifically — see this file's header (#280 / ADR 0016).
-  local named_mark_collision = macro_result and result and result.pattern == 'named_mark_opportunity'
-  return (named_mark_collision and result) or macro_result or result
+  -- Priority: macro_result > result, EXCEPT a beats_macro result wins over
+  -- macro_result — see this file's header (ADR 0016 / ADR 0114).
+  local result_beats_macro = macro_result and result and result.beats_macro == true
+  return (result_beats_macro and result) or macro_result or result
 end
 
 return M

@@ -1416,6 +1416,30 @@ describe('insert-mode completion detection (#112)', function()
     vim.api.nvim_feedkeys('', 'x', false)
     assert.equals(0, logger.get('<C-n>').count)
   end)
+
+  -- #334: 'diamond' contains 'd'/'i'/'a'/'o' -- all MACRO_EDIT_KEYS members --
+  -- so typing it 3 times used to let the 3rd occurrence's macro_buf window
+  -- also anchor-match macro_opportunity, which won the dispatch-priority
+  -- collision and silently swallowed insert_completion_repeat's own fire.
+  -- See docs/adr/0116-macro-edit-keys-mode-source-distinction.md.
+  it('fires insert_completion_repeat on the 3rd repetition of a word overlapping MACRO_EDIT_KEYS letters', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { '' })
+    vim.fn.feedkeys('idiamond diamond diamond' .. esc, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    local completion_fires = 0
+    for _, f in ipairs(fired) do
+      assert.are_not.equal('macro_opportunity', f.pattern)
+      if f.pattern == 'insert_completion_repeat' then
+        completion_fires = completion_fires + 1
+      end
+    end
+    assert.equals(2, completion_fires, 'expected insert_completion_repeat on both the 2nd and 3rd occurrence')
+  end)
 end)
 
 -- Insert-mode <C-o> (run exactly one Normal-mode command, then return to
@@ -3254,6 +3278,26 @@ describe('macro opportunity detection (#60)', function()
       assert.are_not.equal('macro_opportunity', f.pattern)
     end
   end)
+
+  -- #312: macro_opportunity's dispatch priority used to silently swallow
+  -- dd_run/indent_run/dedent_run/r_run/fold_open_repeat/fold_close_repeat/
+  -- ci_dquote_repeat/ci_squote_repeat once a streak repeated long enough to
+  -- also satisfy macro's own anchored 3x-repeat window — see
+  -- docs/adr/0114-macro-dispatch-priority-generalization.md.
+  it('fires dd_run, not macro_opportunity, when 3 dd reps also satisfy the macro anchor window', function()
+    vim.cmd('enew')
+    local lines = {}
+    for i = 1, 10 do
+      lines[i] = tostring(i)
+    end
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+    vim.api.nvim_win_set_cursor(0, { 1, 0 })
+    local fired = feed_and_collect(string.rep('dd', 3))
+    local last = fired[#fired]
+    assert.is_not_nil(last, 'expected at least one pattern to fire')
+    assert.equals('dd_run', last.pattern)
+    assert.equals('{n}dd', last.cmd)
+  end)
 end)
 
 -- ── named_mark_opportunity vs macro_opportunity collision (#280) ───────────────
@@ -3335,4 +3379,86 @@ describe('named_mark_opportunity vs macro_opportunity collision (#280)', functio
       assert.equals('@q', last.cmd)
     end
   )
+end)
+
+-- ── buffer-local seq reset on BufEnter (#309) ────────────────────────────────
+-- see docs/adr/0113-buffer-local-seq-reset-with-ctrl-w-exemption.md
+describe('when the user switches buffers mid-streak', function()
+  local buf_a, buf_b
+
+  before_each(function()
+    logger.reset()
+    logger.on_pattern = nil
+    logger.setup()
+    buf_a = vim.api.nvim_create_buf(true, false)
+    buf_b = vim.api.nvim_create_buf(true, false)
+    vim.api.nvim_buf_set_lines(buf_a, 0, -1, false, { 'a1', 'a2', 'a3', 'a4', 'a5' })
+    vim.api.nvim_buf_set_lines(buf_b, 0, -1, false, { 'b1', 'b2', 'b3', 'b4', 'b5' })
+    vim.api.nvim_set_current_buf(buf_a)
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+    pcall(vim.api.nvim_buf_delete, buf_a, { force = true })
+    pcall(vim.api.nvim_buf_delete, buf_b, { force = true })
+  end)
+
+  it('does not fire dd_run from 2 dd reps in one buffer plus 1 more after switching buffers', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+    -- 2 genuine dd reps in buffer A (dd_streak -> 2, below the 3-rep threshold).
+    vim.fn.feedkeys('ddddd', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    fired = {}
+    -- Switch to an entirely unrelated buffer, then press dd just ONCE there.
+    vim.api.nvim_set_current_buf(buf_b)
+    vim.fn.feedkeys('dd', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    for _, f in ipairs(fired) do
+      assert.is_not_equal('dd_run', f.pattern, 'dd_run must not fire from a streak spanning a buffer switch')
+    end
+  end)
+
+  it('does not fire j_repeat from 3 j presses in one buffer plus 2 more after switching buffers', function()
+    vim.api.nvim_win_set_cursor(0, { 1, 0 })
+    vim.fn.feedkeys('jjj', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+    vim.api.nvim_set_current_buf(buf_b)
+    vim.api.nvim_win_set_cursor(0, { 1, 0 })
+    vim.fn.feedkeys('jj', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    for _, f in ipairs(fired) do
+      assert.is_not_equal('j_repeat', f.pattern, 'j_repeat must not fire from a streak spanning a buffer switch')
+    end
+  end)
+
+  it('still fires ctrl_w_close_repeat across the window/buffer switch <C-w>q itself causes', function()
+    -- <C-w>q's own effect IS a window (and here, buffer) switch — the fix
+    -- must not make this pattern structurally undetectable. Two splits of
+    -- buffer A, then <C-w>q twice in a row closes one and should still
+    -- suggest <C-w>o on the 2nd close.
+    vim.cmd('split')
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, { pattern = pattern, cmd = cmd })
+    end
+    vim.fn.feedkeys(vim.api.nvim_replace_termcodes('<C-w>q', true, true, true), 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.cmd('split')
+    vim.fn.feedkeys(vim.api.nvim_replace_termcodes('<C-w>q', true, true, true), 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    local saw_close_repeat = false
+    for _, f in ipairs(fired) do
+      if f.pattern == 'ctrl_w_close_repeat' then
+        saw_close_repeat = true
+      end
+    end
+    assert.is_true(saw_close_repeat, 'ctrl_w_close_repeat must still fire across <C-w>q-caused window switches')
+  end)
 end)

@@ -561,7 +561,11 @@ local function handle_insert_key(key)
   -- Fed from both this function and the Normal-mode branch of handle_key()
   -- below — see docs/adr/0016-pattern-dispatch-priority-and-key-collisions.md
   -- for why macro-opportunity detection has to cross the mode boundary.
-  local macro_result = patterns.feed_macro(seq, canonical or key, vim.loop.now())
+  -- is_normal_key=false: this call site only ever feeds ordinary insert-mode
+  -- characters (or their canonical <Esc>/<BS>/etc names), never a genuine
+  -- Normal-mode operator keystroke — see
+  -- docs/adr/0116-macro-edit-keys-mode-source-distinction.md.
+  local macro_result = patterns.feed_macro(seq, canonical or key, vim.loop.now(), false)
 
   -- Priority: macro_result > result — see the ADR above.
   local fired = macro_result or result
@@ -671,7 +675,9 @@ local function handle_key(key)
 
   -- Fed from both this branch and handle_insert_key()'s matching call — see
   -- docs/adr/0016-pattern-dispatch-priority-and-key-collisions.md for why.
-  local macro_result = patterns.feed_macro(seq, key, now)
+  -- is_normal_key=true: this call site only ever feeds genuine Normal-mode
+  -- keystrokes — see docs/adr/0116-macro-edit-keys-mode-source-distinction.md.
+  local macro_result = patterns.feed_macro(seq, key, now, true)
 
   -- Compound operators (dw, dd, gg, >>, …) are tracked via seq.op_completed,
   -- never a before/after comparison on seq.last_op — see
@@ -691,12 +697,15 @@ local function handle_key(key)
   -- Priority: macro_result > result > co_result — all three can fire for the
   -- same keystroke. See
   -- docs/adr/0016-pattern-dispatch-priority-and-key-collisions.md for the
-  -- full reasoning, including the narrow named_mark_opportunity exception
-  -- below (#280): named_mark_opportunity wins over macro_result specifically,
-  -- rather than macro_result winning outright. Every other pattern pair keeps
-  -- the unqualified macro_result > result > co_result order.
-  local named_mark_collision = macro_result and result and result.pattern == 'named_mark_opportunity'
-  local fired = (named_mark_collision and result) or macro_result or result or co_result
+  -- full reasoning, and docs/adr/0114-macro-dispatch-priority-generalization.md
+  -- for the general exception: a `result` pattern that declares
+  -- `beats_macro = true` (itself a same-family repeat-count completion, at
+  -- least as strong evidence as macro_opportunity's own anchored 3x-repeat
+  -- match) wins over macro_result instead of losing to it. Every other
+  -- pattern pair keeps the unqualified macro_result > result > co_result
+  -- order.
+  local result_beats_macro = macro_result and result and result.beats_macro == true
+  local fired = (result_beats_macro and result) or macro_result or result or co_result
   if fired and M.on_pattern then
     M.on_pattern(fired.pattern, fired.cmd)
   end
@@ -733,6 +742,17 @@ function M.setup()
         terminal_seq = patterns_terminal.new_terminal_seq()
       end
       current_mode = new_mode
+    end,
+  })
+
+  -- patterns.lua's seq is module-local and otherwise never scoped to a
+  -- buffer, so a streak armed in one buffer can complete and fire right
+  -- after switching to an unrelated one — see
+  -- docs/adr/0113-buffer-local-seq-reset-with-ctrl-w-exemption.md.
+  vim.api.nvim_create_autocmd('BufEnter', {
+    group = mode_group,
+    callback = function()
+      seq = patterns.reset_for_buffer_switch(seq)
     end,
   })
 

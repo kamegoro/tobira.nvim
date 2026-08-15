@@ -22,33 +22,37 @@
 --
 -- This DID immediately surface real divergences at the original 10-pattern
 -- scope — exactly what issue #316 predicted. Every one found there traced to
--- one of two already-tracked, open issues, and #328's much larger surface
--- reproduces the identical two mechanisms at a larger scale (see the
--- classification helpers below):
+-- one of two mechanisms, both now fixed (see the classification helpers
+-- below, which stay as regression guards rather than being deleted):
 --
---   #312 — macro_opportunity's dispatch priority over ANY other pattern
---          (docs/adr/0016) silently swallows a tracked pattern's own fire
---          once a streak repeats long enough to also satisfy macro's
---          anchored 3x-repeat window (docs/adr/0018). #312's own
---          investigation found dd_run/indent_run/dedent_run/r_run/
---          fold_open_repeat/fold_close_repeat vulnerable and confirmed a
---          specific list of OTHER patterns safe by construction (ca_run,
---          v_repeat, ci_dquote_repeat/ci_squote_repeat, ctrl_w_*, j/k
---          repeat/many, x/tilde/dot/J/u/p/P_repeat) — this file's mixed
---          corpus exercises that full list plus every pattern #328 newly
---          added, so any NEW collision this corpus finds beyond #312's own
---          catalog is real evidence worth folding into #312 (same root
---          cause, broader manifestation — same precedent PR #323 already
---          set for #313 below), not a separate issue.
---   #313 — several of patterns.lua's early-return prefix-consumer branches
---          skip the shared bottom-of-function bookkeeping (track_run()/
---          streak-reset) docs/adr/0026 says should run unconditionally on
---          every key. PR #323 already found this gap is broader than #313's
---          own repro (not just seq.run, but also several streak counters,
---          and can cascade). #328's much larger reference model similarly
---          reuses this bucket for the same mechanism showing up against the
---          newly-modeled patterns (e.g. last_op surviving an unrelated
---          prefix key that returns before the generic bottom reset).
+--   #312 (fixed) — macro_opportunity's dispatch priority over ANY other
+--          pattern (docs/adr/0016) could silently swallow a tracked
+--          pattern's own fire once a streak repeated long enough to also
+--          satisfy macro's anchored 3x-repeat window (docs/adr/0018).
+--          dd_run/indent_run/dedent_run/r_run/fold_open_repeat/
+--          fold_close_repeat/ci_dquote_repeat/ci_squote_repeat/
+--          named_mark_opportunity/ctrl_w_close_repeat/ctrl_w_resize_repeat
+--          now each declare `beats_macro = true` (docs/adr/0114) and win
+--          this collision instead of losing it. (ctrl_w_close_repeat/
+--          ctrl_w_resize_repeat were missed by #312's own sweep and only
+--          added during independent QA of PR #340 — the known_312 bucket
+--          below existing as a non-failing safety net rather than a hard
+--          assertion is exactly why the gap survived undetected until then;
+--          see the two pinned scenarios below for the deterministic repro.)
+--          The known_312 classification bucket below stays as a safety net
+--          for any future pattern that shares this same collision shape
+--          without being wired up correctly.
+--   #313 (fixed) — several of patterns.lua's early-return prefix-consumer
+--          branches skipped the shared bottom-of-function bookkeeping
+--          (track_run()/streak-reset) docs/adr/0026 says should run
+--          unconditionally on every key, freezing tolerated streaks and
+--          seq.run across an unrelated compound instead of correctly
+--          reacting to it. Every branch docs/adr/0115 lists now calls
+--          track_run()/reset_unclaimed_streaks() itself. The known_313
+--          bucket below is broader than this one gap (it also classifies
+--          ordinary timing divergences against this deliberately-simpler
+--          reference model), so it is not expected to reach zero just
+--          because this specific gap is fixed.
 --
 -- Lives in tests/differential/, a sibling of tests/spec/, NOT
 -- tests/spec/differential/ — CI wiring for this suite is a deliberate,
@@ -207,22 +211,26 @@ describe('patterns.lua seq state machine (differential test against a naive refe
       end
 
       assert.is_nil(first_failure, first_failure)
-      -- This corpus is EXPECTED to exercise #312/#313 — assert it actually
-      -- did, so a future fix silently making these buckets go to zero is
-      -- visible (update this assertion, don't delete it, once fixed).
-      assert.is_true(
-        total.known_312 > 0,
-        'expected this mixed corpus to demonstrate #312 (macro_opportunity dispatch-priority '
-          .. 'collision) at least once across '
-          .. SEED_COUNT
-          .. ' seeds — if this now legitimately never happens, #312 may be fixed; update this test'
-      )
+      -- #312 is fixed for its own specific failure mode (a beats_macro
+      -- pattern silently swallowed by macro_opportunity on the exact
+      -- keystroke both fire on) — the three pinned scenarios below assert
+      -- that directly, deterministically. The known_312 bucket itself
+      -- stays nonzero-tolerant here, same reasoning as known_313: it also
+      -- classifies ordinary reactive ONE-SHOT patterns (e.g. dd_then_p)
+      -- correctly losing to macro_opportunity per ADR 0016's original,
+      -- still-valid rationale (a confirmed 3x edit-repeat outranks a
+      -- single one-off suggestion) — this model has no notion of macro at
+      -- all, so it cannot tell that apart from a real regression on its
+      -- own. Only patterns that declare beats_macro = true are expected to
+      -- never lose this collision; see the pinned scenarios for that
+      -- specific, precise guarantee.
+      assert.is_true(total.known_312 >= 0, 'known_312 must be a non-negative count')
       assert.is_true(
         total.known_313 > 0,
-        'expected this mixed corpus to demonstrate #313 (prefix-consumer branches skipping '
-          .. 'shared streak bookkeeping) at least once across '
+        'expected this mixed corpus to demonstrate at least one already-tracked-pattern timing '
+          .. 'divergence across '
           .. SEED_COUNT
-          .. ' seeds — if this now legitimately never happens, #313 may be fixed; update this test'
+          .. ' seeds — if this now legitimately never happens, update this test'
       )
     end)
   end)
@@ -298,44 +306,106 @@ describe('patterns.lua seq state machine (differential test against a naive refe
     -- exact minimal repro for each known issue directly, independent of
     -- whatever the random corpora above happen to roll.
 
-    it('#312: macro_opportunity silently swallows dd_run on repetitions past the first', function()
-      -- dd pressed 9 times = 3 dd_run-qualifying trios. The reference model
-      -- expects dd_run to fire again at every trio boundary (3 total
-      -- fires); the real dispatch fires dd_run only once — from the moment
-      -- macro_opportunity's own anchored 3x-repeat window (docs/adr/0018)
-      -- also qualifies (the 3rd trio, key 9 of 18), it wins every remaining
-      -- keystroke's dispatch instead, per docs/adr/0016's unqualified
-      -- macro_result > result priority (#312).
+    it('fixed (#312): dd_run wins its collision with macro_opportunity on every qualifying trio', function()
+      -- dd pressed 9 times = 3 dd_run-qualifying trios, each completing on
+      -- the 2nd 'd' of every 3rd rep (overall keystroke 6, 12, 18). Before
+      -- the fix, macro_opportunity's own anchored 3x-repeat window
+      -- (docs/adr/0018) ALSO qualified on that same keystroke from the 3rd
+      -- trio onward and won the collision (docs/adr/0016's unqualified
+      -- macro_result > result priority), silently swallowing dd_run past
+      -- its first fire. dd_run now declares beats_macro = true
+      -- (docs/adr/0114), so it wins this collision on every trio.
+      --
+      -- macro_opportunity legitimately keeps firing on OTHER keystrokes in
+      -- this run too (it re-qualifies on almost every 'd' once its window
+      -- is long enough — a homogeneous 'dd' run is a valid, if repetitive,
+      -- macro candidate on its own) — that's correct, unrelated behavior
+      -- this test does not assert against; it only checks that dd_run is
+      -- never silently swallowed on the exact keystroke where BOTH fire.
       local fake = reference_model.new_state()
       local real = real_model.new_state()
-      local fake_fires, real_fires = {}, {}
+      local real_fired_by_step = {}
+      local step = 0
       for _ = 1, 9 do
         for _, key in ipairs({ 'd', 'd' }) do
-          local e = reference_model.step(fake, key)
+          step = step + 1
+          reference_model.step(fake, key)
           local r = real_model.step(real, key)
-          if e then
-            table.insert(fake_fires, e.pattern)
-          end
-          if r then
-            table.insert(real_fires, r.pattern)
-          end
+          real_fired_by_step[step] = r and r.pattern
         end
       end
-      assert.same({ 'dd_run', 'dd_run', 'dd_run' }, fake_fires)
-      assert.equals('dd_run', real_fires[1])
-      for i = 2, #real_fires do
-        assert.equals('macro_opportunity', real_fires[i])
-      end
-      assert.is_true(#real_fires > 3) -- macro re-qualifies on almost every 'd' once armed
+      assert.equals('dd_run', real_fired_by_step[6])
+      assert.equals('dd_run', real_fired_by_step[12])
+      assert.equals('dd_run', real_fired_by_step[18])
     end)
 
-    it('#313: r_run streak survives an unrelated ctrl_w_close_repeat compound instead of resetting', function()
-      -- Naive/intended behavior: starting an entirely unrelated <C-w>c
-      -- compound between two r{char} replacements is "doing something
-      -- else" and should reset r_streak (docs/adr/0027's h/l tolerance is
-      -- the only documented exception). Real patterns.lua's pending_ctrl_w
-      -- branch resolves and returns before reaching r_streak's own reset
-      -- check, so the streak is left frozen instead.
+    it(
+      'ctrl_w_close_repeat wins its collision with macro_opportunity on every qualifying pair '
+        .. '(independent QA finding on PR #340)',
+      function()
+        -- <C-w>c repeated 8 times = 4 ctrl_w_close_repeat-qualifying pairs,
+        -- each completing on the 'c' of every 2nd rep (overall keystroke 4,
+        -- 8, 12, 16). 'c' is a MACRO_EDIT_KEYS member, so once the
+        -- homogeneous <C-w>c run is long enough (from the 3rd rep onward),
+        -- macro_opportunity's own anchored 3x-repeat window (docs/adr/0018)
+        -- ALSO qualifies on that same keystroke -- the identical #312/
+        -- docs/adr/0114 collision mechanism dd_run/r_run/etc. were fixed
+        -- for, but ctrl_w_close_repeat/ctrl_w_resize_repeat were never
+        -- audited against: neither declares beats_macro, so before this
+        -- fix macro_opportunity silently swallowed every fire past the
+        -- first pair.
+        local fake = reference_model.new_state()
+        local real = real_model.new_state()
+        local real_fired_by_step = {}
+        local step = 0
+        for _ = 1, 8 do
+          for _, key in ipairs({ '\23', 'c' }) do
+            step = step + 1
+            reference_model.step(fake, key)
+            local r = real_model.step(real, key)
+            real_fired_by_step[step] = r and r.pattern
+          end
+        end
+        assert.equals('ctrl_w_close_repeat', real_fired_by_step[4])
+        assert.equals('ctrl_w_close_repeat', real_fired_by_step[8])
+        assert.equals('ctrl_w_close_repeat', real_fired_by_step[12])
+        assert.equals('ctrl_w_close_repeat', real_fired_by_step[16])
+      end
+    )
+
+    it(
+      'ctrl_w_resize_repeat wins its collision with macro_opportunity on every qualifying pair '
+        .. '(independent QA finding on PR #340)',
+      function()
+        -- Same mechanism as ctrl_w_close_repeat above, via <C-w>> repeated
+        -- ('>' is also a MACRO_EDIT_KEYS member).
+        local fake = reference_model.new_state()
+        local real = real_model.new_state()
+        local real_fired_by_step = {}
+        local step = 0
+        for _ = 1, 8 do
+          for _, key in ipairs({ '\23', '>' }) do
+            step = step + 1
+            reference_model.step(fake, key)
+            local r = real_model.step(real, key)
+            real_fired_by_step[step] = r and r.pattern
+          end
+        end
+        assert.equals('ctrl_w_resize_repeat', real_fired_by_step[4])
+        assert.equals('ctrl_w_resize_repeat', real_fired_by_step[8])
+        assert.equals('ctrl_w_resize_repeat', real_fired_by_step[12])
+        assert.equals('ctrl_w_resize_repeat', real_fired_by_step[16])
+      end
+    )
+
+    it('fixed (#313): r_run streak correctly resets across an unrelated ctrl_w_close_repeat compound', function()
+      -- Starting an entirely unrelated <C-w>c compound between two r{char}
+      -- replacements is "doing something else" and must reset r_streak
+      -- (docs/adr/0027's h/l tolerance is the only documented exception).
+      -- Before the fix, patterns.lua's pending_ctrl_w branch resolved and
+      -- returned before reaching r_streak's own reset check, leaving the
+      -- streak frozen. reset_unclaimed_streaks now runs from that branch
+      -- too (docs/adr/0115), so real now matches the reference model.
       local fake = reference_model.new_state()
       local real = real_model.new_state()
       local sequence = { 'r', 'x', '\23', 'c', 'r', 'x', 'r', 'x' }
@@ -346,20 +416,23 @@ describe('patterns.lua seq state machine (differential test against a naive refe
         fake_fired = fake_fired or (e and e.pattern)
         real_fired = real_fired or (r and r.pattern)
       end
-      assert.is_nil(fake_fired) -- naive model: <C-w>c broke the streak, only 2 genuine reps followed
-      assert.equals('r_run', real_fired) -- real: streak survived, firing on the 3rd (interrupted) rep
+      assert.is_nil(fake_fired) -- <C-w>c broke the streak, only 2 genuine reps followed
+      assert.is_nil(real_fired) -- fixed: real now agrees
     end)
 
-    it('#313 cascade: a stray zero_then_w check swallows an unrelated ctrl_w_resize_repeat reset', function()
-      -- '0' sets seq.run.key = '0'. <C-w>> (a resize target) resolves via
-      -- pending_ctrl_w and returns before track_run() ever updates
-      -- seq.run — so seq.run.key is STILL '0' afterward. The next bare 'w'
-      -- then matches patterns.lua's unrelated "0 → w" check
-      -- (zero_then_w), which ALSO returns early, skipping the ordinary
-      -- bottom-of-function reset that this 'w' should have applied to
-      -- ctrl_w_resize_streak. A second <C-w>> then wrongly completes what
-      -- should have been a broken streak. Two hops of #313's same
-      -- mechanism, chained.
+    it('fixed (#313) cascade: a stray zero_then_w check no longer swallows a ctrl_w_resize_repeat reset', function()
+      -- '0' sets seq.run.key = '0'. Before the fix, <C-w>> (a resize target)
+      -- resolved via pending_ctrl_w and returned before track_run() ever
+      -- updated seq.run, so seq.run.key was STILL '0' afterward — the next
+      -- bare 'w' then wrongly matched patterns.lua's unrelated "0 → w"
+      -- check (zero_then_w), which ALSO returned early, skipping the
+      -- bottom-of-function reset that 'w' should have applied to
+      -- ctrl_w_resize_streak. A second <C-w>> then wrongly completed what
+      -- should have been a broken streak — two chained hops of the same
+      -- #313 mechanism. pending_ctrl_w now calls track_run() unconditionally
+      -- (docs/adr/0115), so seq.run.key is '>' (not '0') by the time 'w'
+      -- arrives, zero_then_w no longer misfires, and the ordinary bottom
+      -- reset correctly breaks the resize streak.
       local fake = reference_model.new_state()
       local real = real_model.new_state()
       local sequence = { '0', '\23', '>', 'w', '\23', '>' }
@@ -374,8 +447,8 @@ describe('patterns.lua seq state machine (differential test against a naive refe
           real_fired_resize = true
         end
       end
-      assert.is_false(fake_fired_resize) -- naive model: bare 'w' broke the resize streak
-      assert.is_true(real_fired_resize) -- real: streak survived via the cascade above
+      assert.is_false(fake_fired_resize) -- bare 'w' broke the resize streak
+      assert.is_false(real_fired_resize) -- fixed: real now agrees
     end)
 
     it('#280 (fixed): named_mark_opportunity wins its narrow exception over macro_opportunity', function()
