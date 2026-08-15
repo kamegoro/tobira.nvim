@@ -564,7 +564,7 @@ local function handle_insert_key(key)
   -- is_normal_key=false: this call site only ever feeds ordinary insert-mode
   -- characters (or their canonical <Esc>/<BS>/etc names), never a genuine
   -- Normal-mode operator keystroke — see
-  -- docs/adr/0115-macro-edit-keys-mode-source-distinction.md.
+  -- docs/adr/0116-macro-edit-keys-mode-source-distinction.md.
   local macro_result = patterns.feed_macro(seq, canonical or key, vim.loop.now(), false)
 
   -- Priority: macro_result > result — see the ADR above.
@@ -676,7 +676,7 @@ local function handle_key(key)
   -- Fed from both this branch and handle_insert_key()'s matching call — see
   -- docs/adr/0016-pattern-dispatch-priority-and-key-collisions.md for why.
   -- is_normal_key=true: this call site only ever feeds genuine Normal-mode
-  -- keystrokes — see docs/adr/0115-macro-edit-keys-mode-source-distinction.md.
+  -- keystrokes — see docs/adr/0116-macro-edit-keys-mode-source-distinction.md.
   local macro_result = patterns.feed_macro(seq, key, now, true)
 
   -- Compound operators (dw, dd, gg, >>, …) are tracked via seq.op_completed,
@@ -697,7 +697,7 @@ local function handle_key(key)
   -- Priority: macro_result > result > co_result — all three can fire for the
   -- same keystroke. See
   -- docs/adr/0016-pattern-dispatch-priority-and-key-collisions.md for the
-  -- full reasoning, and docs/adr/0113-macro-dispatch-priority-generalization.md
+  -- full reasoning, and docs/adr/0114-macro-dispatch-priority-generalization.md
   -- for the general exception: a `result` pattern that declares
   -- `beats_macro = true` (itself a same-family repeat-count completion, at
   -- least as strong evidence as macro_opportunity's own anchored 3x-repeat
@@ -748,7 +748,7 @@ function M.setup()
   -- patterns.lua's seq is module-local and otherwise never scoped to a
   -- buffer, so a streak armed in one buffer can complete and fire right
   -- after switching to an unrelated one — see
-  -- docs/adr/0112-buffer-local-seq-reset-with-ctrl-w-exemption.md.
+  -- docs/adr/0113-buffer-local-seq-reset-with-ctrl-w-exemption.md.
   vim.api.nvim_create_autocmd('BufEnter', {
     group = mode_group,
     callback = function()

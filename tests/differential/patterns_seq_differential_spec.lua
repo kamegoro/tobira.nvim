@@ -32,7 +32,7 @@
 --          dd_run/indent_run/dedent_run/r_run/fold_open_repeat/
 --          fold_close_repeat/ci_dquote_repeat/ci_squote_repeat/
 --          named_mark_opportunity now each declare `beats_macro = true`
---          (docs/adr/0113) and win this collision instead of losing it. The
+--          (docs/adr/0114) and win this collision instead of losing it. The
 --          known_312 classification bucket below stays as a safety net for
 --          any future pattern that shares this same collision shape without
 --          being wired up correctly.
@@ -41,7 +41,7 @@
 --          (track_run()/streak-reset) docs/adr/0026 says should run
 --          unconditionally on every key, freezing tolerated streaks and
 --          seq.run across an unrelated compound instead of correctly
---          reacting to it. Every branch docs/adr/0114 lists now calls
+--          reacting to it. Every branch docs/adr/0115 lists now calls
 --          track_run()/reset_unclaimed_streaks() itself. The known_313
 --          bucket below is broader than this one gap (it also classifies
 --          ordinary timing divergences against this deliberately-simpler
@@ -308,7 +308,7 @@ describe('patterns.lua seq state machine (differential test against a naive refe
       -- trio onward and won the collision (docs/adr/0016's unqualified
       -- macro_result > result priority), silently swallowing dd_run past
       -- its first fire. dd_run now declares beats_macro = true
-      -- (docs/adr/0113), so it wins this collision on every trio.
+      -- (docs/adr/0114), so it wins this collision on every trio.
       --
       -- macro_opportunity legitimately keeps firing on OTHER keystrokes in
       -- this run too (it re-qualifies on almost every 'd' once its window
@@ -340,7 +340,7 @@ describe('patterns.lua seq state machine (differential test against a naive refe
       -- Before the fix, patterns.lua's pending_ctrl_w branch resolved and
       -- returned before reaching r_streak's own reset check, leaving the
       -- streak frozen. reset_unclaimed_streaks now runs from that branch
-      -- too (docs/adr/0114), so real now matches the reference model.
+      -- too (docs/adr/0115), so real now matches the reference model.
       local fake = reference_model.new_state()
       local real = real_model.new_state()
       local sequence = { 'r', 'x', '\23', 'c', 'r', 'x', 'r', 'x' }
@@ -365,7 +365,7 @@ describe('patterns.lua seq state machine (differential test against a naive refe
       -- ctrl_w_resize_streak. A second <C-w>> then wrongly completed what
       -- should have been a broken streak — two chained hops of the same
       -- #313 mechanism. pending_ctrl_w now calls track_run() unconditionally
-      -- (docs/adr/0114), so seq.run.key is '>' (not '0') by the time 'w'
+      -- (docs/adr/0115), so seq.run.key is '>' (not '0') by the time 'w'
       -- arrives, zero_then_w no longer misfires, and the ordinary bottom
       -- reset correctly breaks the resize streak.
       local fake = reference_model.new_state()

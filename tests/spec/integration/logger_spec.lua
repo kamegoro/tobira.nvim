@@ -1421,7 +1421,7 @@ describe('insert-mode completion detection (#112)', function()
   -- so typing it 3 times used to let the 3rd occurrence's macro_buf window
   -- also anchor-match macro_opportunity, which won the dispatch-priority
   -- collision and silently swallowed insert_completion_repeat's own fire.
-  -- See docs/adr/0115-macro-edit-keys-mode-source-distinction.md.
+  -- See docs/adr/0116-macro-edit-keys-mode-source-distinction.md.
   it('fires insert_completion_repeat on the 3rd repetition of a word overlapping MACRO_EDIT_KEYS letters', function()
     local fired = {}
     logger.on_pattern = function(pattern, cmd)
@@ -3283,7 +3283,7 @@ describe('macro opportunity detection (#60)', function()
   -- dd_run/indent_run/dedent_run/r_run/fold_open_repeat/fold_close_repeat/
   -- ci_dquote_repeat/ci_squote_repeat once a streak repeated long enough to
   -- also satisfy macro's own anchored 3x-repeat window — see
-  -- docs/adr/0113-macro-dispatch-priority-generalization.md.
+  -- docs/adr/0114-macro-dispatch-priority-generalization.md.
   it('fires dd_run, not macro_opportunity, when 3 dd reps also satisfy the macro anchor window', function()
     vim.cmd('enew')
     local lines = {}
@@ -3382,7 +3382,7 @@ describe('named_mark_opportunity vs macro_opportunity collision (#280)', functio
 end)
 
 -- ── buffer-local seq reset on BufEnter (#309) ────────────────────────────────
--- see docs/adr/0112-buffer-local-seq-reset-with-ctrl-w-exemption.md
+-- see docs/adr/0113-buffer-local-seq-reset-with-ctrl-w-exemption.md
 describe('when the user switches buffers mid-streak', function()
   local buf_a, buf_b
 

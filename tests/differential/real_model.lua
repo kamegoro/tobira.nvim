@@ -21,7 +21,7 @@
 -- j_repeat_wrapped/k_repeat_wrapped on is_wrapped).
 --
 -- Also implements the general "beats_macro" exception to "macro_result >
--- result" documented in ADR 0016/ADR 0113 (generalized from the single
+-- result" documented in ADR 0016/ADR 0114 (generalized from the single
 -- named_mark_opportunity exception #280 originally shipped): any `result`
 -- that declares `beats_macro = true` wins over macro_result on the same
 -- keystroke instead of losing to it (every other pattern pair keeps the
@@ -63,11 +63,11 @@ function M.step(state, key, ctx)
   state.now = state.now + STEP_MS
   local result = patterns.feed(state.seq, key, line, ctx.is_diff, state.now, ctx.is_wrapped)
   -- is_normal_key=true: this suite only ever feeds genuine Normal-mode
-  -- keystrokes — see docs/adr/0115-macro-edit-keys-mode-source-distinction.md.
+  -- keystrokes — see docs/adr/0116-macro-edit-keys-mode-source-distinction.md.
   local macro_result = patterns.feed_macro(state.seq, key, state.now, true)
 
   -- Priority: macro_result > result, EXCEPT a beats_macro result wins over
-  -- macro_result — see this file's header (ADR 0016 / ADR 0113).
+  -- macro_result — see this file's header (ADR 0016 / ADR 0114).
   local result_beats_macro = macro_result and result and result.beats_macro == true
   return (result_beats_macro and result) or macro_result or result
 end

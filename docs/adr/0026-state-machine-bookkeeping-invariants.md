@@ -37,7 +37,7 @@ obvious from reading any single handler in isolation.
   reaching `track_run()` needs to justify why it's safe to skip that
   keystroke's contribution to `seq.run`.
 
-### Addendum: the invariant was violated by 9 more branches (#313, resolved by docs/adr/0114)
+### Addendum: the invariant was violated by 9 more branches (#313, resolved by docs/adr/0115)
 
 The `track_run()`-must-run-unconditionally invariant above was only actually
 enforced for the jumplist/changelist keys it was written about. `inner_feed`'s
@@ -49,7 +49,7 @@ text-object chain) all `return` before ever reaching `track_run()`, freezing
 resolving key — and the same freeze mechanism affected the tolerated-streak
 families (`r_streak`/`ca_streak`/`ci_dquote_streak`/`ci_squote_streak`/
 `fold_open_streak`/`fold_close_streak`) too, not just `seq.run`.
-`docs/adr/0114-prefix-consumer-streak-bookkeeping.md` documents the fix (each
+`docs/adr/0115-prefix-consumer-streak-bookkeeping.md` documents the fix (each
 branch now calls `track_run()`/a new `reset_unclaimed_streaks()` helper at
 its own resolution point) and the one deliberate exception
 (`pending_text_obj`, which must NOT call `track_run()` — see that ADR for

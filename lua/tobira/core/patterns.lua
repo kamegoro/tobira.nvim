@@ -12,9 +12,9 @@
 -- (named-mark repeated line return), 0101 (tilde text-object refinement),
 -- 0106 (text-object variant own-usage tracking), 0107 (n_repeat intent-neutral
 -- + reactive n_then_change → cgn), 0108 (fold open/close streak), 0109
--- (wrap-aware gj/gk redirect), 0112 (buffer-local seq reset with <C-w>
--- exemption), 0113 (macro dispatch priority generalization), 0114
--- (prefix-consumer streak bookkeeping), 0115 (macro-edit-keys mode-source
+-- (wrap-aware gj/gk redirect), 0113 (buffer-local seq reset with <C-w>
+-- exemption), 0114 (macro dispatch priority generalization), 0115
+-- (prefix-consumer streak bookkeeping), 0116 (macro-edit-keys mode-source
 -- distinction).
 
 local M = {}
@@ -151,7 +151,7 @@ end
 -- window-command streak fields -- <C-w>q/<C-w>c/<C-w>s/<C-w>v's own effect
 -- IS a window (and usually buffer) switch, so a blanket reset-on-buffer-
 -- switch would make ctrl_w_close_repeat/ctrl_w_resize_repeat structurally
--- undetectable. See docs/adr/0112-buffer-local-seq-reset-with-ctrl-w-exemption.md.
+-- undetectable. See docs/adr/0113-buffer-local-seq-reset-with-ctrl-w-exemption.md.
 function M.reset_for_buffer_switch(seq)
   local fresh = M.new_seq()
   fresh.pending_ctrl_w = seq.pending_ctrl_w
@@ -327,7 +327,7 @@ end
 -- character sharing a letter with an operator key (e.g. the 'd'/'i'/'a'/'o'
 -- in an ordinary word like "diamond") is not evidence of a repeated EDIT,
 -- just prose that happens to overlap the operator alphabet. See
--- docs/adr/0115-macro-edit-keys-mode-source-distinction.md.
+-- docs/adr/0116-macro-edit-keys-mode-source-distinction.md.
 local function macro_contains_edit(buf, s_start, s_end)
   for i = s_start, s_end do
     if buf[i].is_normal_key and MACRO_EDIT_KEYS[buf[i].tok] then
@@ -453,7 +453,7 @@ local function visual_block_check_len(buf, n, l)
   -- buf[s_start] must be a genuine Normal-mode insert-entry key (the one
   -- that opens the edit window this shape detects), not an insert-mode-typed
   -- character that happens to share a letter — same is_normal_key gate as
-  -- macro_contains_edit, see docs/adr/0115.
+  -- macro_contains_edit, see docs/adr/0116.
   if not (buf[s_start].is_normal_key and INSERT_KEYS[buf[s_start].tok]) or buf[n].tok ~= '<Esc>' then
     return false
   end
@@ -528,7 +528,7 @@ end
 -- false/omitted when fed from handle_insert_key (an ordinary insert-mode
 -- character stream, or its <Esc>/<BS>/etc canonical names). Only tokens fed
 -- with is_normal_key=true can ever satisfy MACRO_EDIT_KEYS membership — see
--- macro_contains_edit and docs/adr/0115.
+-- macro_contains_edit and docs/adr/0116.
 function M.feed_macro(seq, token, now, is_normal_key)
   local t = now or 0
   local buf = seq.macro_buf
@@ -556,7 +556,7 @@ end
 -- that must run for every key consumed as the resolving key of a two-or-
 -- more-key prefix, not just keys that fall through inner_feed's dispatch
 -- chain uncontested — see docs/adr/0026 and
--- docs/adr/0114-prefix-consumer-streak-bookkeeping.md.
+-- docs/adr/0115-prefix-consumer-streak-bookkeeping.md.
 --
 -- `except` names the ONE family (if any) the calling branch has ALREADY
 -- updated for `key` itself this same call, so this doesn't immediately
@@ -689,7 +689,7 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
   if seq.pending_g then
     seq.pending_g = false
     -- This key resolves the g-prefix — see reset_unclaimed_streaks and
-    -- docs/adr/0114-prefix-consumer-streak-bookkeeping.md.
+    -- docs/adr/0115-prefix-consumer-streak-bookkeeping.md.
     reset_unclaimed_streaks(seq, key, nil)
     -- gq is a real operator (needs a further motion), unlike every other
     -- pending_g target below which is a complete two-key command on its own —
@@ -821,7 +821,7 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
           seq.fold_open_streak = 0
           -- beats_macro: logger.lua's dispatch reports this over a same-
           -- keystroke macro_opportunity result — see
-          -- docs/adr/0113-macro-dispatch-priority-generalization.md.
+          -- docs/adr/0114-macro-dispatch-priority-generalization.md.
           return { pattern = 'fold_open_repeat', cmd = 'zR', beats_macro = true }
         end
       -- zc repeated (or alternated with itself) 2+ times → suggest zM. See

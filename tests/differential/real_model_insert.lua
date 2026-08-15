@@ -66,7 +66,7 @@ function M.step_insert(state, canonical, char)
   state.now = state.now + STEP_MS
   local result = patterns_insert.feed_insert(state.insert_seq, canonical, char)
   -- is_normal_key=false: mirrors logger.lua's handle_insert_key call site —
-  -- see docs/adr/0115-macro-edit-keys-mode-source-distinction.md.
+  -- see docs/adr/0116-macro-edit-keys-mode-source-distinction.md.
   local macro_result = patterns.feed_macro(state.seq, canonical or char, state.now, false)
   return macro_result or result
 end
@@ -76,7 +76,7 @@ function M.step_normal_watch(state, key)
   local co_result = patterns_insert.feed_after_escape(state.insert_seq, key)
   local result = patterns.feed(state.seq, key, 1, false, state.now, false)
   -- is_normal_key=true: mirrors logger.lua's Normal-mode handle_key call
-  -- site — see docs/adr/0115-macro-edit-keys-mode-source-distinction.md.
+  -- site — see docs/adr/0116-macro-edit-keys-mode-source-distinction.md.
   local macro_result = patterns.feed_macro(state.seq, key, state.now, true)
   local result_beats_macro = macro_result and result and result.beats_macro == true
   return (result_beats_macro and result) or macro_result or result or co_result

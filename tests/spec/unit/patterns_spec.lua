@@ -3908,7 +3908,7 @@ end)
 
 -- is_normal_key=true: these tests exercise macro_check_len's own algorithm
 -- (window matching, gap tolerance, edit-key content check), not the
--- Normal-vs-Insert mode-source distinction #334/docs/adr/0115 added — that
+-- Normal-vs-Insert mode-source distinction #334/docs/adr/0116 added — that
 -- distinction has its own dedicated describe block further down.
 local function feed_macro_seq(s, keys, now_start)
   local result
@@ -4372,7 +4372,7 @@ end)
 
 -- ── track_run/tolerated-streak bookkeeping through prefix-consumer branches ──
 -- see docs/adr/0026-state-machine-bookkeeping-invariants.md and
--- docs/adr/0114-prefix-consumer-streak-bookkeeping.md
+-- docs/adr/0115-prefix-consumer-streak-bookkeeping.md
 
 describe('when an unrelated prefix compound resolves between two bare-motion keystrokes', function()
   it('does not let l_repeat fire from non-consecutive l presses interleaved with r{char} replacements', function()
@@ -4443,7 +4443,7 @@ describe('when an unrelated prefix compound resolves between two bare-motion key
 end)
 
 -- ── macro dispatch priority: beats_macro (#312) ──────────────────────────────
--- see docs/adr/0113-macro-dispatch-priority-generalization.md
+-- see docs/adr/0114-macro-dispatch-priority-generalization.md
 -- Only patterns.lua's dispatch-side field is unit-tested here (each
 -- collision-vulnerable pattern's returned table declares beats_macro =
 -- true); the actual PRIORITY ARBITRATION this field drives lives in
@@ -4547,7 +4547,7 @@ describe('beats_macro is declared on every pattern confirmed vulnerable to the m
 end)
 
 -- ── feed_macro's is_normal_key mode-source distinction (#334) ───────────────
--- see docs/adr/0115-macro-edit-keys-mode-source-distinction.md
+-- see docs/adr/0116-macro-edit-keys-mode-source-distinction.md
 
 describe('feed_macro only counts a MACRO_EDIT_KEYS match for is_normal_key=true tokens', function()
   it('does not fire macro_opportunity for a 3x-repeated word typed with is_normal_key=false', function()
@@ -4594,7 +4594,7 @@ describe('feed_macro only counts a MACRO_EDIT_KEYS match for is_normal_key=true 
 end)
 
 -- ── buffer-local seq reset (#309) ────────────────────────────────────────────
--- see docs/adr/0112-buffer-local-seq-reset-with-ctrl-w-exemption.md
+-- see docs/adr/0113-buffer-local-seq-reset-with-ctrl-w-exemption.md
 -- Real-keystroke, cross-buffer integration coverage lives in
 -- tests/spec/integration/logger_spec.lua (BufEnter only fires against real
 -- Neovim buffer/window state, which this pure-function unit test cannot

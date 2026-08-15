@@ -17,7 +17,7 @@
 --
 -- This DID surface a real, previously-unknown divergence (#334, now fixed)
 -- — see the "known-expected-divergence: pinned repro scenarios" describe
--- block below for the minimal repro, and docs/adr/0115 for the fix. The
+-- block below for the minimal repro, and docs/adr/0116 for the fix. The
 -- KNOWN_334 classification bucket stays as a regression guard.
 --
 -- Lives in tests/differential/, NOT tests/spec/ — same reasoning as
@@ -48,7 +48,7 @@ local real_model = require('real_model_insert')
 -- match macro_opportunity purely because its own letters happened to
 -- overlap MACRO_EDIT_KEYS — a coincidence with no relationship to "the user
 -- is repeating an edit". `patterns.feed_macro()` now takes an
--- `is_normal_key` parameter (docs/adr/0115) and only counts a
+-- `is_normal_key` parameter (docs/adr/0116) and only counts a
 -- MACRO_EDIT_KEYS match for tokens fed from the Normal-mode call site;
 -- handle_insert_key's own call site always passes false, so insert-mode
 -- characters can no longer anchor-match macro_opportunity at all. The
@@ -243,7 +243,7 @@ describe('patterns_insert.lua insert-mode state machine (differential test again
       -- MACRO_MAX_LEN=15) would anchor-match on the 3rd repetition, 30ms
       -- apart (well within MACRO_WINDOW_MS), same as any genuine 3x
       -- edit-repeat — EXCEPT every token here is fed with
-      -- is_normal_key=false (docs/adr/0115), so it can no longer satisfy
+      -- is_normal_key=false (docs/adr/0116), so it can no longer satisfy
       -- MACRO_EDIT_KEYS at all and macro_opportunity never fires.
       local fake = reference_model.new_state()
       local real = real_model.new_state()
