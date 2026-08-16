@@ -40,3 +40,24 @@ displace.
   read it as implying the generic threshold applies.
 - See `core/patterns_cmdline.lua`'s own header for the full Ex-command parsing
   scope; this ADR covers only the registry-level `commands.lua` decisions.
+
+### Addendum: `requires` chaining one `ex_command = true` entry off another
+
+`ex:v` (`:vglobal`, `:help :vglobal`) is `:g`'s documented inverse, so it's
+registered as `requires = 'ex:g'` — the first `ex_command = true` entry whose
+`requires` points at another `ex_command = true` entry rather than at a
+manual-keystroke workaround key. This still works end to end with no code
+changes: `graph.lua`'s trigger resolution is a generic string-keyed lookup
+into `commands.lua`, indifferent to whether the key it resolves is a
+keystroke or another Ex command, and `logger.lua`'s cmdline tokenizer
+increments usage for any submitted Ex command regardless of its registry
+`track` value.
+
+The "what manual workaround this replaces" framing in this ADR's Decision
+section above was accurate for `:g`/`:norm` but was never the actual
+constraint — the real semantics of `requires` on an `ex_command = true` entry
+is simply "the user must have tried the more fundamental command first,"
+which generalizes cleanly to a prerequisite that is itself an Ex command.
+Future Ex-command entries should pick whichever prerequisite shape fits
+(manual keystroke or another Ex command) rather than treating the former as
+the only valid option.

@@ -125,6 +125,7 @@ return {
       dot_repeat = 'Du hast die letzte Änderung 3-mal hintereinander wiederholt',
       J_repeat = 'Du hast 3-mal hintereinander Zeilen zusammengeführt',
       ca_run = 'Du hast eine Zahl erhöht, eine Zeile weiterbewegt und das 3-mal wiederholt',
+      cx_run = 'Du hast eine Zahl verringert, eine Zeile weiterbewegt und das 3-mal wiederholt',
       ctrl_w_close_repeat = 'Du hast 2-mal hintereinander Fenster einzeln geschlossen',
       v_repeat = 'Du bist 3-mal hintereinander in den visuellen Modus gegangen und sofort wieder heraus, ohne etwas auszuwählen',
       manual_return = 'Du bist zu einer entfernten Stelle gesprungen und dann manuell zurückgescrollt',
@@ -459,6 +460,11 @@ return {
       title = 'g<C-a> — Sequenz im Visual-Block-Modus hochzählen',
       body = 'Erst die Zeilen mit <C-v> (visueller Block) auswählen, dann erhöht g<C-a> jede Zeile um eins mehr als die vorherige — aus wiederholten Zahlen wird eine Sequenz\nErsetzt das mühsame Zeile-für-Zeile: <C-a> → j → <C-a> → j → ...',
       example = 'Mit <C-v> 3 Zeilen "0" auswählen → g<C-a> → 1 / 2 / 3',
+    },
+    ['g<C-x>'] = {
+      title = 'g<C-x> — Sequenz im Visual-Block-Modus herunterzählen',
+      body = 'Erst die Zeilen mit <C-v> (visueller Block) auswählen, dann verringert g<C-x> jede Zeile um eins weniger als die vorherige — aus wiederholten Zahlen wird ein Countdown\nErsetzt das mühsame Zeile-für-Zeile: <C-x> → j → <C-x> → j → ...',
+      example = 'Mit <C-v> 3 Zeilen "3" auswählen → g<C-x> → 2 / 1 / 0',
     },
 
     -- ── visual mode chain ─────────────────────────────────────────────────
@@ -930,6 +936,16 @@ return {
       body = 'Schließt das Fenster und verwirft Änderungen ohne Bestätigungsaufforderung\nEntspricht :q!, aber schneller zu tippen',
       example = 'ZZ → speichern und beenden; ZQ → beenden und Änderungen verwerfen',
     },
+    ['q/'] = {
+      title = 'q/ — Befehlszeilenfenster mit Vorwärtssuchverlauf öffnen',
+      body = 'Öffnet das Befehlszeilenfenster mit deinem /-Suchverlauf statt dem :-Befehlsverlauf\nBearbeite und wiederhole eine alte Suche, ohne sie neu einzutippen — nützlich bei langen oder komplexen Mustern',
+      example = 'q/ → Suchverlauf durchsuchen und bearbeiten; <CR> führt das ausgewählte Muster erneut aus',
+    },
+    ['q?'] = {
+      title = 'q? — Befehlszeilenfenster mit Rückwärtssuchverlauf öffnen',
+      body = 'Wie q/, aber für den ?-Verlauf (Rückwärtssuche) statt den /-Verlauf (Vorwärtssuche)',
+      example = 'q? → Rückwärtssuchverlauf durchsuchen und bearbeiten; <CR> führt das ausgewählte Muster erneut aus',
+    },
     ['q:'] = {
       title = 'q: — Befehlszeilenfenster öffnen',
       body = 'Öffnet einen Puffer mit deinem Ex-Befehlsverlauf\nDu kannst jeden vorherigen Befehl bearbeiten und mit Enter erneut ausführen',
@@ -971,8 +987,8 @@ return {
     -- ── macro: play specific register ────────────────────────────────────
     ['@q'] = {
       title = '@q — Makro aus Register q abspielen',
-      body = 'Spielt die im Register q aufgezeichnete Tastenfolge erneut ab\nErsetze q durch einen beliebigen Buchstaben a-z, um aus einem anderen Register abzuspielen',
-      example = 'qq → Aufnahme starten; q → stoppen; @q → abspielen',
+      body = 'Spielt die im Register q aufgezeichnete Tastenfolge erneut ab\nLive-Aufnahme (qq...q) geht leicht schief — ein einziger Tippfehler zerstört das ganze Makro. Die Änderung zuerst als reinen Text in einem Scratch-Puffer schreiben und dann ins Register q kopieren, übersteht Tippfehler viel besser\nErsetze q durch einen beliebigen Buchstaben a-z, um ein anderes Register zu verwenden',
+      example = 'Die Änderung als Text in einem Scratch-Puffer schreiben, "qy zum Kopieren ins Register q → @q zum Ausführen (oder live mit qq...q aufnehmen)',
     },
 
     -- ── marks ─────────────────────────────────────────────────────────────
@@ -1101,6 +1117,11 @@ return {
       body = 'Findet jede Zeile, die auf ein Muster passt, und führt einen Ex-Befehl auf jeder aus\nErsetzt das manuelle Wiederholen von n / . für jede Fundstelle einzeln',
       example = ':g/TODO/d → löscht jede Zeile, die TODO enthält',
     },
+    ['ex:v'] = {
+      title = ':v — einen Befehl auf jede nicht passende Zeile anwenden',
+      body = 'Das Gegenteil von :g: findet jede Zeile, die NICHT auf ein Muster passt, und führt einen Ex-Befehl auf jeder aus\nDieselbe Idee wie :g, nur umgekehrt — für den Fall, dass dich "alles außer diesem" interessiert',
+      example = ':v/TODO/d → löscht jede Zeile, die KEIN TODO enthält',
+    },
     ['ex:norm'] = {
       title = ':norm — einen Normal-Modus-Befehl auf jede ausgewählte Zeile anwenden',
       body = 'Wendet eine Folge von Normal-Modus-Tasten auf jede Zeile im Bereich an\nErsetzt das Aufnehmen eines Makros, wenn die Änderung einfach genug ist',
@@ -1204,6 +1225,23 @@ return {
       title = '[p — davor einfügen und Einrückung anpassen',
       body = 'Wie P, passt aber die Einrückung des eingefügten Texts an die aktuelle Zeile an\nDas Gegenstück zu ]p',
       example = '[p → fügt zeilenweisen Text oberhalb ein, eingerückt wie die aktuelle Zeile',
+    },
+
+    -- ── argument list navigation ──────────────────────────────────────────────
+    [']a'] = {
+      title = ']a — zur nächsten Datei in der Argumentliste springen',
+      body = 'Springt zur nächsten Datei in der Argumentliste (gesetzt mit :args)\nErsetzt das manuelle erneute Ausführen von :next oder das Öffnen der Datei über den Namen',
+      example = ':args *.lua dann ]a → springt zur nächsten Datei in der Liste',
+    },
+    ['[a'] = {
+      title = '[a — zur vorherigen Datei in der Argumentliste springen',
+      body = 'Wie ]a, bewegt sich aber rückwärts durch die Argumentliste\nDas Gegenstück zu ]a',
+      example = '[a → springt zurück zur vorherigen Datei in der Argumentliste',
+    },
+    ['ex:argdo'] = {
+      title = ':argdo — Befehl auf jeder Datei der Argumentliste ausführen',
+      body = 'Führt einen Ex-Befehl einmal pro Datei der Argumentliste aus und lädt dabei jede Datei nacheinander\nErsetzt das manuelle Öffnen und Bearbeiten jeder Datei in der Liste einzeln',
+      example = ':argdo %s/foo/bar/g | update → ersetzt foo durch bar in jeder Datei der Argumentliste',
     },
   },
 }

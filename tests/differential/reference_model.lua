@@ -72,9 +72,10 @@
 
 local M = {}
 
--- \1 = <C-a>, \5 = <C-e>, \15 = <C-o>, \23 = <C-w>, \25 = <C-y>, \27 = <Esc>
+-- \1 = <C-a>, \5 = <C-e>, \15 = <C-o>, \23 = <C-w>, \24 = <C-x>, \25 = <C-y>, \27 = <Esc>
 -- (matches patterns.lua's own raw-byte convention).
 local CTRL_A = '\1'
+local CTRL_X = '\24'
 local CTRL_E = '\5'
 local CTRL_O = '\15'
 local CTRL_W = '\23'
@@ -162,6 +163,8 @@ function M.new_state()
 
     -- <C-a> sequential-increment streak — docs/adr/0027.
     ca_streak = 0,
+    -- <C-x> sequential-decrement streak — mirrors ca_streak above, docs/adr/0027.
+    cx_streak = 0,
 
     -- f/F/t/T repeat-search — needs same line + same char + same operator.
     pending_f = nil,
@@ -244,6 +247,9 @@ local function reset_other_families(state, except)
   end
   if except ~= 'ca' then
     state.ca_streak = 0
+  end
+  if except ~= 'cx' then
+    state.cx_streak = 0
   end
   if except ~= 'v' then
     state.v_streak = 0
@@ -756,6 +762,18 @@ function M.step(state, key, ctx)
     return nil
   end
 
+  -- ── <C-x> sequential-decrement streak ─────────────────────────────────
+  -- Mirrors the <C-a> block above — see docs/adr/0027.
+  if key == CTRL_X then
+    state.cx_streak = state.cx_streak + 1
+    reset_other_families(state, 'cx')
+    if state.cx_streak >= 3 then
+      state.cx_streak = 0
+      return { pattern = 'cx_run', cmd = 'g<C-x>' }
+    end
+    return nil
+  end
+
   -- ── v: visual streak + text-object chain start ────────────────────────
   if key == 'v' then
     state.v_streak = state.v_clean_exit and (state.v_streak + 1) or 1
@@ -1105,6 +1123,7 @@ M.TRACKED_PATTERNS = {
   visual_textobj = true,
 
   ca_run = true,
+  cx_run = true,
   f_repeat = true,
 
   gq_then_jumpback = true,

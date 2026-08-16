@@ -6,7 +6,7 @@
 -- underuse), 0020 (ci-quote streak), 0021 (v/gv streak), 0022 (gq operator),
 -- 0023 (register/mark/bracket prefixes), 0024 (<C-w> window compound),
 -- 0025 (paste motion streak), 0026 (state-machine bookkeeping invariants),
--- 0027 (r/ctrl-a tolerated streaks), 0028 (dd/cc/indent/dedent streaks),
+-- 0027 (r/ctrl-a/ctrl-x tolerated streaks), 0028 (dd/cc/indent/dedent streaks),
 -- 0096 (<C-w> resize streak), 0097 (cursor-centering streak), 0098
 -- (visual-block edit streak), 0099 (diff obtain/put after hunk jump), 0100
 -- (named-mark repeated line return), 0101 (tilde text-object refinement),
@@ -51,6 +51,9 @@ function M.new_seq()
     -- <C-a> sequential-increment tracking: <C-a> j <C-a> j <C-a> → g<C-a>
     -- see docs/adr/0027-tolerated-motion-streaks-r-and-ctrl-a.md
     ca_streak = 0,
+    -- <C-x> sequential-decrement tracking: <C-x> j <C-x> j <C-x> → g<C-x>
+    -- mirrors ca_streak above — see docs/adr/0027-tolerated-motion-streaks-r-and-ctrl-a.md
+    cx_streak = 0,
     -- visual text-object tracking: v i {obj} c/d/y → c/d/yiw etc.
     pending_visual = false,
     visual_inner = nil,
@@ -552,7 +555,7 @@ local function track_run(seq, key)
   return seq.run.count
 end
 
--- Streak-tolerance bookkeeping (r_streak/ca_streak/ci_dquote_streak/
+-- Streak-tolerance bookkeeping (r_streak/ca_streak/cx_streak/ci_dquote_streak/
 -- ci_squote_streak/fold_open_streak/fold_close_streak) and seq.run tracking
 -- that must run for every key consumed as the resolving key of a two-or-
 -- more-key prefix, not just keys that fall through inner_feed's dispatch
@@ -568,6 +571,7 @@ local function reset_unclaimed_streaks(seq, key, except)
   end
   if key ~= 'j' and key ~= 'k' then
     seq.ca_streak = 0
+    seq.cx_streak = 0
   end
   if not CI_QUOTE_NAV_KEYS[key] then
     if except ~= 'ci' then
@@ -1314,6 +1318,18 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
     return nil
   end
 
+  -- ── <C-x>: sequential-decrement streak tracking ────────────────────────────
+  -- Raw byte for Ctrl-X (ASCII 24 / 0x18). Mirrors the <C-a> block above — see
+  -- docs/adr/0027-tolerated-motion-streaks-r-and-ctrl-a.md
+  if key == '\24' then
+    seq.cx_streak = seq.cx_streak + 1
+    if seq.cx_streak >= 3 then
+      seq.cx_streak = 0
+      return { pattern = 'cx_run', cmd = 'g<C-x>' }
+    end
+    return nil
+  end
+
   -- ── v: start visual text-object tracking ─────────────────────────────────
   -- Also extends the v_repeat streak — see docs/adr/0021-visual-repeat-gv-detection.md
   if key == 'v' then
@@ -1367,12 +1383,13 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
     seq.r_streak = 0
   end
 
-  -- ── ca_streak reset for keys that break the C-a increment flow ───────────
-  -- j and k are the tolerated connecting motion between increments; any
-  -- other key reaching this point means the sequence wasn't built line by
+  -- ── ca_streak / cx_streak reset for keys that break the C-a/C-x flow ─────
+  -- j and k are the tolerated connecting motion between increments/decrements;
+  -- any other key reaching this point means the sequence wasn't built line by
   -- line and the streak no longer applies.
   if key ~= 'j' and key ~= 'k' then
     seq.ca_streak = 0
+    seq.cx_streak = 0
   end
 
   -- ── ci_dquote_streak / ci_squote_streak reset for keys that break the ────

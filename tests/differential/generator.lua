@@ -350,6 +350,17 @@ local function emit_ca_run(rng, out)
   end
 end
 
+-- <C-x> repeated, mirrors emit_ca_run above — see docs/adr/0027.
+local function emit_cx_run(rng, out)
+  local reps = rand_reps(rng, 1, 5)
+  for i = 1, reps do
+    table.insert(out, '\24')
+    if i < reps and rand_int(rng, 1, 3) == 1 then
+      table.insert(out, rand_int(rng, 1, 2) == 1 and 'j' or 'k')
+    end
+  end
+end
+
 local function emit_v_repeat(rng, out)
   for _ = 1, rand_reps(rng, 2, 5) do
     table.insert(out, 'v')
@@ -577,6 +588,7 @@ local PATTERN_CHUNKS = {
   },
 
   ca_run = { weight = 3, emit = emit_ca_run },
+  cx_run = { weight = 3, emit = emit_cx_run },
   v_repeat = { weight = 3, emit = emit_v_repeat },
   visual_textobj = { weight = 4, emit = emit_visual_textobj },
 

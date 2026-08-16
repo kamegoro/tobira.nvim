@@ -204,6 +204,7 @@ describe('float.reasons locale', function()
     'ctrl_w_close_repeat',
     'ctrl_w_resize_repeat',
     'cursor_center_repeat',
+    'cx_run',
     'd_dollar',
     'D_then_insert',
     'dd_run',
