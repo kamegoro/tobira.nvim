@@ -185,6 +185,39 @@ TOBIRA_DIFFERENTIAL_SEEDS=2000 nvim --headless --noplugin -u tests/minimal_init.
 Raise the `timeout` opt above 150's when running higher seed counts locally
 — plenary's default 50s per-file timeout only comfortably covers tier 1.
 
+#### Ceiling on `TOBIRA_DIFFERENTIAL_SEEDS`: seed-offset band collisions (#346)
+
+Several spec files under `tests/differential/` don't use a single seed loop — they run more
+than one, each with its own additive offset off `BASE_SEED` (e.g.
+`patterns_seq_differential_spec.lua` uses `BASE_SEED+i`, `+100000+i`, `+200000+i`,
+`+300000+i`), to keep each loop's generator state independent of the others. A loop that
+runs `SEED_COUNT` times starting at `offset` covers the seed range `[offset+1,
+offset+SEED_COUNT]` — so if `TOBIRA_DIFFERENTIAL_SEEDS` is ever raised enough that
+`SEED_COUNT` exceeds the gap between two of a file's own offsets, one band's range grows
+into the next band's territory and both loops start silently re-running (part of) the same
+seeds instead of covering new ones. This would NOT show up as a test failure — just reduced
+effective coverage with no visible error.
+
+Every `*_differential_spec.lua` file that uses more than one band therefore calls
+`tests/differential/seed_bands.lua`'s `assert_no_band_collision(SEED_COUNT, offsets)` right
+after computing `SEED_COUNT`, which raises a real Lua `error()` (not a silent clamp) if
+`SEED_COUNT` would make its own bands collide. The threshold is per file, derived from that
+file's own offsets, not a single hardcoded number:
+
+| File | Bands (offsets) | Fails at `TOBIRA_DIFFERENTIAL_SEEDS >=` |
+|---|---|---|
+| `patterns_seq_differential_spec.lua` | 0, 100000, 200000, 300000 | 100001 |
+| `patterns_insert_differential_spec.lua` | 0, 100000 | 100001 |
+| `patterns_cmdline_differential_spec.lua` | 0, 100000 | 100001 |
+| `patterns_terminal_differential_spec.lua` | 0 (single band) | never (nothing to collide with) |
+
+Both the committed default (150) and the nightly stress job's value (20000, see above) are
+far under every threshold. If you're about to raise `TOBIRA_DIFFERENTIAL_SEEDS` past 100000
+for a manual `workflow_dispatch` run, either widen the affected file's offsets first or run
+a smaller value — do not remove or weaken this guard to make a large run pass.
+`assert_no_band_collision`'s own logic is unit-tested with fake seed counts in
+`tests/spec/unit/seed_bands_spec.lua`, not by an actual large-scale differential run.
+
 ## Differential testing for patterns_cmdline.lua's cmdline state machine (`tests/differential/`)
 
 A sibling suite to the one above, scoped to `patterns_cmdline.lua`'s four

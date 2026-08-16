@@ -41,6 +41,7 @@ package.path = vim.fn.getcwd() .. '/tests/differential/?.lua;' .. package.path
 local reference_model = require('reference_model_cmdline')
 local generator = require('generator_cmdline')
 local real_model = require('real_model_cmdline')
+local seed_bands = require('seed_bands')
 
 -- Renders a session for a human-pasteable failure report.
 local function describe_session(session)
@@ -162,6 +163,12 @@ end
 -- same precedent as patterns_seq_differential_spec.lua.
 local SEED_COUNT = tonumber(os.getenv('TOBIRA_DIFFERENTIAL_SEEDS')) or 150
 local BASE_SEED = 20260814
+
+-- This file uses 2 seed-offset bands below (BASE_SEED+i, +100000+i) to keep each loop's
+-- generator state independent of the other. Fails loudly, rather than silently losing
+-- coverage, if TOBIRA_DIFFERENTIAL_SEEDS is ever raised enough to make them overlap — see
+-- tests/differential/seed_bands.lua and issue #346.
+seed_bands.assert_no_band_collision(SEED_COUNT, { 0, 100000 })
 
 describe('patterns_cmdline.lua cmdline state machine (differential test against a naive reference model)', function()
   describe('isolated corpus: one detector family + realistic session noise at a time', function()
