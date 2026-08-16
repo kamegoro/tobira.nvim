@@ -99,6 +99,7 @@ return {
       x_then_insert = 'You deleted a character then entered insert mode',
       D_then_insert = 'You deleted to end of line then started typing',
       dw_then_insert = 'You deleted a word then entered insert mode',
+      diw_then_insert = 'You deleted the inner word text object then entered insert mode',
       gq_then_jumpback = 'You formatted text with gq then jumped back to where you started',
       jump_back = 'You jumped to the end of the file, then straight back to the start (or the reverse)',
       x_repeat = 'You deleted characters one at a time, 3 in a row',

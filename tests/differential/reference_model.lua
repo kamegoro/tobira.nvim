@@ -150,6 +150,12 @@ function M.new_state()
     -- last completed compound this model cares about — see header rule 4's
     -- exception. nil | 'dd' | 'dw' | 'gg' | 'G' | 'gq' | 'yy'.
     last_op = nil,
+    -- Persists alongside last_op (unlike the single-shot last_op_variant
+    -- concept — this model doesn't track that one at all, it isn't read by
+    -- any TRACKED_PATTERNS entry). True only when the resolution that most
+    -- recently set last_op = 'dw' was specifically the diw text object —
+    -- see docs/adr/0119-diw-then-insert-text-object-variant-collapse.md.
+    last_op_diw = false,
 
     -- n-streak → reactive cgn watch — docs/adr/0107.
     n_watch = false,
@@ -394,6 +400,9 @@ local function resolve_pending_op(state, op, key)
   else
     if op == 'd' then
       state.last_op = 'dw'
+      -- A bare/counted charwise motion, never the diw text object — see
+      -- docs/adr/0119-diw-then-insert-text-object-variant-collapse.md.
+      state.last_op_diw = false
     end
     if op == 'c' and state.n_watch then
       state.n_watch = false
@@ -404,18 +413,22 @@ local function resolve_pending_op(state, op, key)
 end
 
 -- Resolves pending_text_obj (ciw/ci"/ci'/diw/yiw-family completions) — see
--- header rule 3 and docs/adr/0020/docs/adr/0106/docs/adr/0107.
+-- header rule 3 and docs/adr/0020/docs/adr/0106/docs/adr/0107/docs/adr/0119.
 local function resolve_pending_text_obj(state, op, inner, key)
   -- Real patterns.lua's pending_text_obj resolution unconditionally sets
   -- last_op = op..'w' for ANY op (d/c/y), BEFORE the ci-quote-streak checks
   -- below run — 'dw' is the one value this model's tracked reactive
-  -- patterns read (dw_then_insert), so diw/daw/dit/... arms
-  -- dw_then_insert exactly like a direct 'dw'/'d3w' would. 'cw'/'yw'
+  -- patterns read (dw_then_insert/diw_then_insert), so daw/dit/... arm
+  -- dw_then_insert exactly like a direct 'dw'/'d3w' would, while diw
+  -- specifically (op='d', inner=true, key='w') arms the more specific
+  -- diw_then_insert instead — see
+  -- docs/adr/0119-diw-then-insert-text-object-variant-collapse.md. 'cw'/'yw'
   -- themselves aren't read by anything this model tracks, but the
   -- assignment still OVERWRITES whatever last_op held before (e.g. a stale
   -- 'dd' from an earlier, not-yet-consumed completion) — this must apply
   -- unconditionally for every op, not only op=='c'.
   state.last_op = op .. 'w'
+  state.last_op_diw = op == 'd' and inner and key == 'w'
 
   if op == 'c' and inner and key == '"' then
     state.ci_squote_streak = 0
@@ -896,6 +909,11 @@ function M.step(state, key, ctx)
   if INSERT_KEYS[key] and prev_run_key == 'D' then
     return { pattern = 'D_then_insert', cmd = 'C' }
   end
+  if state.last_op == 'dw' and state.last_op_diw and INSERT_KEYS[key] then
+    state.last_op = nil
+    state.last_op_diw = false
+    return { pattern = 'diw_then_insert', cmd = 'ciw' }
+  end
   if state.last_op == 'dw' and INSERT_KEYS[key] then
     state.last_op = nil
     return { pattern = 'dw_then_insert', cmd = 'cw' }
@@ -1102,6 +1120,7 @@ M.TRACKED_PATTERNS = {
 
   dd_then_insert = true,
   dw_then_insert = true,
+  diw_then_insert = true,
   x_then_insert = true,
   D_then_insert = true,
   zero_then_insert = true,

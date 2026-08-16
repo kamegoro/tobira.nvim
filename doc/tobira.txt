@@ -409,6 +409,7 @@ EDIT ~
                                  `nnoremap Y y$` in place — see the narrow
                                  exception under KEYMAP OVERRIDES above)
   `dw` → `i`                    Suggest `cw`    — change word in one motion
+  `diw` → `i`                   Suggest `ciw`   — change inner word in one motion
   `yy` → `p`                    Suggest `yyp`   — duplicate the current line
   `dd` → `p`                    Suggest `ddp`   — swap current line with next
   `dd` → `i` / `a` / `o`       Suggest `cc`    — change whole line

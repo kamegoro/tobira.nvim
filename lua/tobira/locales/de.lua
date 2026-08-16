@@ -99,6 +99,7 @@ return {
       x_then_insert = 'Du hast ein Zeichen gelöscht und bist in den Einfügemodus gewechselt',
       D_then_insert = 'Du hast bis zum Zeilenende gelöscht und angefangen zu tippen',
       dw_then_insert = 'Du hast ein Wort gelöscht und bist in den Einfügemodus gewechselt',
+      diw_then_insert = 'Du hast das innere Wort-Textobjekt gelöscht und bist in den Einfügemodus gewechselt',
       gq_then_jumpback = 'Du hast mit gq formatiert und bist danach zur Ausgangsposition zurückgesprungen',
       jump_back = 'Du bist zum Dateiende gesprungen und dann direkt zurück zum Anfang (oder umgekehrt)',
       x_repeat = 'Du hast 3-mal hintereinander einzelne Zeichen gelöscht',

@@ -23,7 +23,7 @@ it quietly shows you the one command that would have helped. No quizzes. No inte
 ## ✨ Features
 
 - 👀 **Fully passive** — reads keystrokes via `vim.on_key()`; no config required, zero impact on your existing mappings
-- 🎯 **76 detected patterns** across motion, edit, search, window, fold, mark, macro, diff, ex, and terminal — repeated `f` searches, `dw`→`i` instead of `cw`, retyping the same `:s///` substitution instead of `&`/`g&`, and more (see [examples below](#-detected-patterns-examples))
+- 🎯 **77 detected patterns** across motion, edit, search, window, fold, mark, macro, diff, ex, and terminal — repeated `f` searches, `dw`→`i` instead of `cw`, retyping the same `:s///` substitution instead of `&`/`g&`, and more (see [examples below](#-detected-patterns-examples))
 - ⌨️ **Ex commands, too** — `:g`, `:norm`, `:s`, and friends are tracked from the command line itself, not just normal-mode keys, so `:g` / `:norm` can be suggested to users who have never tried them (tobira's own `:Tobira*` commands are excluded, so checking your stats never counts as usage)
 - 💬 **One suggestion at a time** — shown after a natural pause, capped per session, with a cooldown between auto-suggestions — never a popup quiz
 - 📈 **Mastery-aware** — once you've used a command ~100 times, tobira stops suggesting it and moves on
@@ -152,6 +152,7 @@ why those two surfaces don't read this distinction.
 |---|---|
 | `fa` → `fa` on the same line | `;` — repeat the last f/t |
 | `dw` → `i` | `cw` — change word in one command |
+| `diw` → `i` | `ciw` — change inner word in one command |
 | `j` × 5 in a row on a genuinely wrapped line (with `'wrap'` set) | `gj` — move by display line instead |
 | `j` × 10 in a row | `}` — jump by paragraph |
 | `j` × 10 in a row while `&diff` is set | `]c` — jump to the next diff hunk |
@@ -170,7 +171,7 @@ why those two surfaces don't read this distinction.
 | Cursor returns to the same line 3× with real edits in between | `ma` — set a named mark to jump back to |
 | `~` × 6 (spans a word) / × 12 (spans a line) | `g~iw` / `g~$` — toggle case in one motion |
 
-76 patterns total — see `:help tobira-patterns` for the full list.
+77 patterns total — see `:help tobira-patterns` for the full list.
 
 ## 🆚 Similar plugins
 
