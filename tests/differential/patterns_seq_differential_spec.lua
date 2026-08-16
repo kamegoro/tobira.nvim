@@ -75,6 +75,7 @@ package.path = vim.fn.getcwd() .. '/tests/differential/?.lua;' .. package.path
 local reference_model = require('reference_model')
 local generator = require('generator')
 local real_model = require('real_model')
+local seed_bands = require('seed_bands')
 
 -- Runs one generated sequence through both models, classifying every
 -- disagreement. Returns { known_312 = n, known_313 = n } and a list of
@@ -164,6 +165,12 @@ end
 -- than a flaky one.
 local SEED_COUNT = tonumber(os.getenv('TOBIRA_DIFFERENTIAL_SEEDS')) or 150
 local BASE_SEED = 20260810
+
+-- This file uses 4 seed-offset bands below (BASE_SEED+i, +100000+i, +200000+i, +300000+i)
+-- to keep each loop's generator state independent of the others. Fails loudly, rather than
+-- silently losing coverage, if TOBIRA_DIFFERENTIAL_SEEDS is ever raised enough to make two
+-- of them overlap — see tests/differential/seed_bands.lua and issue #346.
+seed_bands.assert_no_band_collision(SEED_COUNT, { 0, 100000, 200000, 300000 })
 
 describe('patterns.lua seq state machine (differential test against a naive reference model)', function()
   describe('isolated corpus: one chunk family + safe noise at a time', function()

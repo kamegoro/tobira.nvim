@@ -47,6 +47,7 @@ package.path = vim.fn.getcwd() .. '/tests/differential/?.lua;' .. package.path
 local reference_model = require('reference_model_terminal')
 local real_model = require('real_model_terminal')
 local generator = require('generator_terminal')
+local seed_bands = require('seed_bands')
 
 -- Runs one generated sequence through both models, asserting full agreement
 -- on the pattern name AND cmd at every single keystroke. Unlike the seq
@@ -101,6 +102,11 @@ end
 -- one, same reasoning as patterns_seq_differential_spec.lua.
 local SEED_COUNT = tonumber(os.getenv('TOBIRA_DIFFERENTIAL_SEEDS')) or 150
 local BASE_SEED = 20260814
+
+-- This file uses only 1 seed-offset band (BASE_SEED+i) — nothing for it to collide with —
+-- but this call still runs so the guard covers this file too if a second band is ever
+-- added here. See tests/differential/seed_bands.lua and issue #346.
+seed_bands.assert_no_band_collision(SEED_COUNT, { 0 })
 
 describe(
   'patterns_terminal.lua <Esc>-streak state machine (differential test against a naive reference model)',
