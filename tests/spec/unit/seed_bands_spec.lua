@@ -39,15 +39,21 @@ describe('seed_bands.assert_no_band_collision', function()
     end)
   end)
 
-  it('does not raise one seed below the collision threshold (boundary check)', function()
+  it('does not raise well below the collision threshold (boundary check)', function()
     assert.has_no.errors(function()
       seed_bands.assert_no_band_collision(99999, { 0, 100000, 200000, 300000 })
     end)
   end)
 
-  it('raises exactly at the point the smallest band gap becomes unsafe (boundary check)', function()
-    assert.has_error(function()
+  it('does not raise exactly at the smallest band gap (band A ends where band B begins, boundary check)', function()
+    assert.has_no.errors(function()
       seed_bands.assert_no_band_collision(100000, { 0, 100000, 200000, 300000 })
+    end)
+  end)
+
+  it('raises exactly one seed past the smallest band gap, where band A grows into band B (boundary check)', function()
+    assert.has_error(function()
+      seed_bands.assert_no_band_collision(100001, { 0, 100000, 200000, 300000 })
     end)
   end)
 
@@ -65,17 +71,33 @@ describe('seed_bands.assert_no_band_collision', function()
 
   it("derives its own threshold from a two-band file's actual gap, not a hardcoded 100000", function()
     assert.has_no.errors(function()
-      seed_bands.assert_no_band_collision(49999, { 0, 50000 })
+      seed_bands.assert_no_band_collision(50000, { 0, 50000 })
     end)
     assert.has_error(function()
-      seed_bands.assert_no_band_collision(50000, { 0, 50000 })
+      seed_bands.assert_no_band_collision(50001, { 0, 50000 })
+    end)
+  end)
+
+  -- Matches the real bands used by patterns_insert_differential_spec.lua and
+  -- patterns_cmdline_differential_spec.lua: band A covers [1, 100000], band B covers
+  -- [100001, ...], so SEED_COUNT=100000 is exactly the safe boundary and 100001 is the
+  -- first unsafe value.
+  it('accepts SEED_COUNT=100000 for a two-band file with offsets {0, 100000}', function()
+    assert.has_no.errors(function()
+      seed_bands.assert_no_band_collision(100000, { 0, 100000 })
+    end)
+  end)
+
+  it('rejects SEED_COUNT=100001 for a two-band file with offsets {0, 100000}', function()
+    assert.has_error(function()
+      seed_bands.assert_no_band_collision(100001, { 0, 100000 })
     end)
   end)
 
   it('raises with a message naming both the offending SEED_COUNT and the colliding offsets', function()
-    local ok, err = pcall(seed_bands.assert_no_band_collision, 100000, { 0, 100000 })
+    local ok, err = pcall(seed_bands.assert_no_band_collision, 100001, { 0, 100000 })
     assert.is_false(ok)
     local message = tostring(err)
-    assert.truthy(message:find('100000', 1, true))
+    assert.truthy(message:find('100001', 1, true))
   end)
 end)

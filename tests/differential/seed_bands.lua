@@ -7,7 +7,7 @@
 -- patterns_seq_differential_spec.lua uses BASE_SEED+i, BASE_SEED+100000+i,
 -- BASE_SEED+200000+i, BASE_SEED+300000+i. Each loop iterates SEED_COUNT times, so a band
 -- starting at `offset` actually covers the range [offset+1, offset+SEED_COUNT]. If
--- SEED_COUNT ever reaches the gap between two offsets, one band's range grows into the
+-- SEED_COUNT ever exceeds the gap between two offsets, one band's range grows into the
 -- next band's territory and both loops start re-running (part of) the same seeds — a
 -- silent reduction in effective coverage, not a crash, so nothing would otherwise surface
 -- it.
@@ -42,7 +42,7 @@ end
 -- pass every offset that file's own seed loops actually use (including 0).
 function M.assert_no_band_collision(seed_count, offsets)
   local gap = M.smallest_gap(offsets)
-  if gap == nil or seed_count < gap then
+  if gap == nil or seed_count <= gap then
     return
   end
 

@@ -193,7 +193,7 @@ than one, each with its own additive offset off `BASE_SEED` (e.g.
 `+300000+i`), to keep each loop's generator state independent of the others. A loop that
 runs `SEED_COUNT` times starting at `offset` covers the seed range `[offset+1,
 offset+SEED_COUNT]` — so if `TOBIRA_DIFFERENTIAL_SEEDS` is ever raised enough that
-`SEED_COUNT` reaches the gap between two of a file's own offsets, one band's range grows
+`SEED_COUNT` exceeds the gap between two of a file's own offsets, one band's range grows
 into the next band's territory and both loops start silently re-running (part of) the same
 seeds instead of covering new ones. This would NOT show up as a test failure — just reduced
 effective coverage with no visible error.
@@ -206,9 +206,9 @@ file's own offsets, not a single hardcoded number:
 
 | File | Bands (offsets) | Fails at `TOBIRA_DIFFERENTIAL_SEEDS >=` |
 |---|---|---|
-| `patterns_seq_differential_spec.lua` | 0, 100000, 200000, 300000 | 100000 |
-| `patterns_insert_differential_spec.lua` | 0, 100000 | 100000 |
-| `patterns_cmdline_differential_spec.lua` | 0, 100000 | 100000 |
+| `patterns_seq_differential_spec.lua` | 0, 100000, 200000, 300000 | 100001 |
+| `patterns_insert_differential_spec.lua` | 0, 100000 | 100001 |
+| `patterns_cmdline_differential_spec.lua` | 0, 100000 | 100001 |
 | `patterns_terminal_differential_spec.lua` | 0 (single band) | never (nothing to collide with) |
 
 Both the committed default (150) and the nightly stress job's value (20000, see above) are
