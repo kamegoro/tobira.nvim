@@ -736,6 +736,11 @@ return {
       body = 'Reemplaza todo el párrafo actual (bloque contiguo de líneas no vacías)\nip selecciona hasta pero sin incluir las líneas en blanco circundantes',
       example = 'cip → todo el párrafo actual se borra → modo inserción',
     },
+    ['cis'] = {
+      title = 'cis — cambiar oración interior',
+      body = 'Reemplaza toda la oración actual (delimitada por ./!/? y el espacio siguiente)\nis selecciona hasta pero sin incluir la puntuación final y el espacio',
+      example = 'cis → toda la oración actual se borra → modo inserción',
+    },
 
     -- ── partial word search ───────────────────────────────────────────────
     ['g*'] = {

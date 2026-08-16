@@ -528,11 +528,13 @@ describe('tracking integrity', function()
     -- increments both — see
     -- docs/adr/0106-text-object-variant-own-usage-tracking.md. Only the
     -- variants that are themselves a `requires` target of another entry need
-    -- to be listed here (ciw ← ci"/cip/diw, ci" ← ci'/cib, cib ← ciB/cit).
+    -- to be listed here (ciw ← ci"/cip/diw, ci" ← ci'/cib, cib ← ciB/cit,
+    -- cip ← cis).
     ciw = true,
     ['ci"'] = true,
     ["ci'"] = true,
     cib = true,
+    cip = true,
   }
 
   -- Entries left untrackable on purpose (see each group's comment below for

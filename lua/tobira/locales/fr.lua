@@ -736,6 +736,11 @@ return {
       body = "Remplace tout le paragraphe actuel (bloc contigu de lignes non vides)\nip sélectionne jusqu'aux lignes vides environnantes sans les inclure",
       example = 'cip → tout le paragraphe actuel est effacé → mode insertion',
     },
+    ['cis'] = {
+      title = 'cis — modifier la phrase intérieure',
+      body = "Remplace toute la phrase actuelle (délimitée par ./!/? et l'espace qui suit)\nis sélectionne jusqu'à la ponctuation finale et l'espace, sans les inclure",
+      example = 'cis → toute la phrase actuelle est effacée → mode insertion',
+    },
 
     -- ── partial word search ───────────────────────────────────────────────
     ['g*'] = {
