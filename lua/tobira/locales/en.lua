@@ -125,6 +125,7 @@ return {
       dot_repeat = 'You repeated the last change 3 times in a row',
       J_repeat = 'You joined lines 3 times in a row',
       ca_run = 'You incremented a number, moved down a line, and repeated it 3 times',
+      cx_run = 'You decremented a number, moved down a line, and repeated it 3 times',
       ctrl_w_close_repeat = 'You closed windows one at a time, 2 times in a row',
       v_repeat = 'You entered and left visual mode without selecting anything, 3 times in a row',
       manual_return = 'You jumped to a distant spot, then scrolled back manually',
@@ -459,6 +460,11 @@ return {
       title = 'g<C-a> — increment a sequence in visual-block mode',
       body = 'Select the lines with <C-v> (visual block) first, then g<C-a> increments each line one more than the last, turning repeated numbers into a clean sequence\nReplaces doing it the hard way: <C-a> → j → <C-a> → j → ...',
       example = '<C-v> select 3 lines of "0" → g<C-a> → 1 / 2 / 3',
+    },
+    ['g<C-x>'] = {
+      title = 'g<C-x> — decrement a sequence in visual-block mode',
+      body = 'Select the lines with <C-v> (visual block) first, then g<C-x> decrements each line one less than the last, turning repeated numbers into a clean countdown\nReplaces doing it the hard way: <C-x> → j → <C-x> → j → ...',
+      example = '<C-v> select 3 lines of "3" → g<C-x> → 2 / 1 / 0',
     },
 
     -- ── visual mode chain ─────────────────────────────────────────────────
@@ -926,6 +932,16 @@ return {
       body = 'Closes the window and discards changes without a confirmation prompt\nEquivalent to :q! but faster to type',
       example = 'ZZ → save and quit; ZQ → quit and discard changes',
     },
+    ['q/'] = {
+      title = 'q/ — open command-line window from search-forward history',
+      body = 'Opens the command-line window pre-filled with your / search history instead of : command history\nEdit and re-run an old search without retyping it — useful for long or complex patterns',
+      example = 'q/ → browse & edit search-forward history, <CR> to re-run the selected pattern',
+    },
+    ['q?'] = {
+      title = 'q? — open command-line window from search-backward history',
+      body = 'Like q/ but for ? (backward search) history instead of / (forward search) history',
+      example = 'q? → browse & edit search-backward history, <CR> to re-run the selected pattern',
+    },
     ['q:'] = {
       title = 'q: — open command-line window',
       body = 'Opens a buffer containing your Ex command history\nYou can edit and re-run any previous command with Enter',
@@ -967,8 +983,8 @@ return {
     -- ── macro: play specific register ────────────────────────────────────
     ['@q'] = {
       title = '@q — play macro from register q',
-      body = 'Replays the sequence of keystrokes recorded in register q\nReplace q with any letter a-z to play from a different register',
-      example = 'qq → start recording; q → stop; @q → replay',
+      body = 'Replays the sequence of keystrokes recorded in register q\nRecording live (qq...q) is easy to botch — one mistyped key corrupts the whole macro. Composing the edit as plain text in a scratch buffer first, then yanking it into register q, survives typos far better\nReplace q with any letter a-z to use a different register',
+      example = 'Write the edit as text in a scratch buffer, "qy to yank it into register q → @q to run it (or record live with qq...q)',
     },
 
     -- ── marks ─────────────────────────────────────────────────────────────
@@ -1097,6 +1113,11 @@ return {
       body = 'Finds every line matching a pattern and runs an Ex command on each one\nReplaces manually repeating n / . one match at a time',
       example = ':g/TODO/d → delete every line containing TODO',
     },
+    ['ex:v'] = {
+      title = ':v — run a command over every non-matching line',
+      body = 'The inverse of :g: finds every line that does NOT match a pattern and runs an Ex command on each one\nSame idea as :g, flipped — for when the lines you care about are "everything except this"',
+      example = ':v/TODO/d → delete every line that does NOT contain TODO',
+    },
     ['ex:norm'] = {
       title = ':norm — run a normal-mode command on every selected line',
       body = 'Applies a sequence of normal-mode keystrokes to every line in a range\nReplaces recording a macro when the edit is simple enough to type directly',
@@ -1200,6 +1221,23 @@ return {
       title = '[p — paste before and adjust indent',
       body = 'Like P but re-indents the pasted text to match the current line\nThe backward complement of ]p',
       example = '[p → paste linewise text above, indented to match the current line',
+    },
+
+    -- ── argument-list navigation ──────────────────────────────────────────────
+    [']a'] = {
+      title = ']a — jump to next file in the argument list',
+      body = 'Jumps to the next file in the argument list (set with :args)\nReplaces manually re-running :next or opening the file by name',
+      example = ':args *.lua then ]a → jump to the next file in the list',
+    },
+    ['[a'] = {
+      title = '[a — jump to previous file in the argument list',
+      body = 'Like ]a but moves backward through the argument list\nThe reverse complement of ]a',
+      example = '[a → jump back to the previous file in the argument list',
+    },
+    ['ex:argdo'] = {
+      title = ':argdo — run a command on every file in the argument list',
+      body = 'Runs an Ex command once per file in the argument list, loading each one in turn\nReplaces manually opening and editing every file in the list one by one',
+      example = ':argdo %s/foo/bar/g | update → replace foo with bar in every argument-list file',
     },
   },
 }

@@ -249,6 +249,8 @@ local chain_cases = {
   { '<C-x>', '<C-a>', '<C-a> → <C-x>: decrement number under cursor' },
   -- manual sequential increment → visual-block g<C-a>
   { 'g<C-a>', '<C-a>', '<C-a> → g<C-a>: increment a sequence in visual-block mode' },
+  -- manual sequential decrement → visual-block g<C-x>
+  { 'g<C-x>', '<C-x>', '<C-x> → g<C-x>: decrement a sequence in visual-block mode' },
   -- visual mode chain
   { 'V', 'v', 'v → V: line-wise visual selection' },
   { '<C-v>', 'V', 'V → <C-v>: block visual selection' },
@@ -371,6 +373,8 @@ local chain_cases = {
   { 'ZQ', 'ZZ', 'ZZ → ZQ: quit without writing' },
   -- command-line window
   { 'q:', 'q', 'q → q:: open command-line window' },
+  { 'q/', 'q', 'q → q/: open command-line window from search-forward history' },
+  { 'q?', 'q', 'q → q?: open command-line window from search-backward history' },
   -- column motion
   { '|', '0', '0 → |: move to column N' },
   -- first non-blank (current line)
@@ -391,6 +395,7 @@ local chain_cases = {
   { '[c', 'k', 'k → [c: jump to previous diff hunk (while &diff is set)' },
   -- Ex commands
   { 'ex:g', 'n', 'n → ex:g: global command over search matches' },
+  { 'ex:v', 'ex:g', 'ex:g → ex:v: inverse-match global command' },
   { 'ex:norm', 'q', 'q → ex:norm: run a normal-mode command per line' },
   -- terminal mode: ineffective <Esc> → exit terminal mode
   { '<C-\\><C-n>', 'i', 'i → <C-\\><C-n>: exit terminal mode (nominal anchor, see commands.lua comment)' },
@@ -404,6 +409,10 @@ local chain_cases = {
   { '[l', 'N', 'N → [l: jump to previous location-list entry' },
   { 'ex:copen', 'n', 'n → ex:copen: open the quickfix window' },
   { 'ex:cdo', 'q', 'q → ex:cdo: run a command over every quickfix entry' },
+  -- argument-list navigation
+  { ']a', 'n', 'n → ]a: jump to next file in the argument list' },
+  { '[a', 'N', 'N → [a: jump to previous file in the argument list' },
+  { 'ex:argdo', 'q', 'q → ex:argdo: run a command over every file in the argument list' },
   -- spell-check
   { ']s', 'n', 'n → ]s: jump to next misspelled word' },
   { '[s', 'N', 'N → [s: jump to previous misspelled word' },
@@ -427,7 +436,7 @@ end)
 -- ── Ex commands ──────────────────────────────────────────────────────────────
 
 describe('Ex command registry entries', function()
-  for _, cmd in ipairs({ 'ex:g', 'ex:norm', 'ex:copen', 'ex:cdo', 'ex:sort' }) do
+  for _, cmd in ipairs({ 'ex:g', 'ex:v', 'ex:norm', 'ex:copen', 'ex:cdo', 'ex:sort', 'ex:argdo' }) do
     it(cmd .. ' is flagged ex_command = true with category = "ex"', function()
       assert.is_true(commands.registry[cmd].ex_command)
       assert.equals('ex', commands.registry[cmd].category)
@@ -580,7 +589,19 @@ describe('tracking integrity', function()
       if not entry.compound and entry.requires and #entry.requires > 1 then
         local req = entry.requires
         local req_entry = commands.registry[req]
-        local trackable = (req_entry and req_entry.track) or (req_entry and req_entry.compound) or PATTERN_TRACKED[req]
+        -- ex_command entries (e.g. ex:g) are tracked via a wholly separate
+        -- mechanism from track=true/compound/PATTERN_TRACKED above: every
+        -- submitted cmdline is tokenized and unconditionally incremented by
+        -- logger.lua's handle_cmdline_key, regardless of the registry's
+        -- track field (deliberately always false for ex_command entries —
+        -- see docs/adr/0010-ex-command-never-tried-gate.md). So an ex:
+        -- command chained off another ex: command (e.g. ex:v requiring
+        -- ex:g) is genuinely trackable even though none of the three checks
+        -- above can see that mechanism.
+        local trackable = (req_entry and req_entry.track)
+          or (req_entry and req_entry.compound)
+          or (req_entry and req_entry.ex_command)
+          or PATTERN_TRACKED[req]
         if not trackable and not KNOWN_DEFERRED[cmd] then
           table.insert(violations, cmd .. ' (requires "' .. req .. '")')
         end
@@ -603,6 +624,7 @@ describe('tracking integrity', function()
         local trackable = #entry.requires == 1
           or (req_entry and req_entry.track)
           or (req_entry and req_entry.compound)
+          or (req_entry and req_entry.ex_command)
           or PATTERN_TRACKED[entry.requires]
         if trackable then
           table.insert(stale, cmd)

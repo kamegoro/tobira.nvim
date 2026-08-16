@@ -170,6 +170,12 @@ M.registry = {
   -- docs/adr/0012-reactive-only-direct-fire-entries.md.
   ['g<C-a>'] = { requires = '<C-a>', track = false, category = 'edit', level = 'advanced' },
 
+  -- ── <C-x> streak → g<C-x> visual-block sequential decrement ─────────────
+  -- Mechanical mirror of g<C-a> above (documented via :help v_g_CTRL-X).
+  -- Reactive-only (cx_run fires this directly) — see
+  -- docs/adr/0012-reactive-only-direct-fire-entries.md.
+  ['g<C-x>'] = { requires = '<C-x>', track = false, category = 'edit', level = 'advanced' },
+
   -- ── v → V → <C-v> visual mode chain ─────────────────────────────────────
   ['V'] = { requires = 'v', track = true, category = 'edit', level = 'beginner' },
   ['<C-v>'] = { requires = 'V', track = true, category = 'edit', level = 'intermediate' },
@@ -351,6 +357,13 @@ M.registry = {
   -- ── q → q: command-line window ───────────────────────────────────────────────
   ['q:'] = { requires = 'q', track = false, category = 'macro', level = 'advanced' },
 
+  -- ── q → q// / q? command-line window (search history) ───────────────────────
+  -- q:/q// / q? are documented siblings sharing the same command-line-window
+  -- mechanism (:help q/, :help q?) — mechanical mirror of q: above, narrower
+  -- value (mainly useful for editing long/complex search patterns).
+  ['q/'] = { requires = 'q', track = false, category = 'macro', level = 'advanced' },
+  ['q?'] = { requires = 'q', track = false, category = 'macro', level = 'advanced' },
+
   -- ── 0 → | go to column ───────────────────────────────────────────────────────
   ['|'] = { requires = '0', track = true, category = 'motion', level = 'intermediate' },
 
@@ -481,6 +494,9 @@ M.registry = {
   -- docs/adr/0010-ex-command-never-tried-gate.md.
   ['ex:g'] = { requires = 'n', track = false, category = 'ex', level = 'advanced', ex_command = true },
   ['ex:norm'] = { requires = 'q', track = false, category = 'ex', level = 'advanced', ex_command = true },
+  -- ex:v is :g's documented inverse (:help :vglobal) — mechanical mirror of
+  -- ex:g above, chained off it.
+  ['ex:v'] = { requires = 'ex:g', track = false, category = 'ex', level = 'advanced', ex_command = true },
 
   -- ── terminal mode: ineffective <Esc> → exit terminal mode ────────────────
   -- Detected reactively by patterns_terminal.lua while mode() == 't'.
@@ -542,6 +558,19 @@ M.registry = {
   -- variant advanced.
   [']p'] = { requires = 'p', track = false, category = 'edit', level = 'intermediate' },
   ['[p'] = { requires = 'P', track = false, category = 'edit', level = 'advanced' },
+
+  -- ── ]a / [a argument-list navigation ──────────────────────────────────────
+  -- Built-in bracket motions (:help ]a, :help [a), same generic
+  -- pending_bracket consume-and-forget handling as ]q/[q/]s/[s/]p/[p above —
+  -- no patterns.lua change needed.
+  [']a'] = { requires = 'n', track = false, category = 'motion', level = 'intermediate' },
+  ['[a'] = { requires = 'N', track = false, category = 'motion', level = 'intermediate' },
+
+  -- ── :argdo ─────────────────────────────────────────────────────────────────
+  -- Mechanical mirror of ex:cdo above (:help :argdo): runs a command over
+  -- every file in the argument list, the way ex:cdo runs one over every
+  -- quickfix entry.
+  ['ex:argdo'] = { requires = 'q', track = false, category = 'ex', level = 'advanced', ex_command = true },
 }
 
 -- Strips the 'i_' composite-key prefix (see the 'i_<C-o>' entry above) so the

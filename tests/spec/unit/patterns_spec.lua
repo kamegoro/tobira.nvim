@@ -1400,6 +1400,69 @@ describe('when the user increments a number, moves down, and repeats 3 or more t
   end)
 end)
 
+-- ── <C-x> → j/k → <C-x> × 3: suggest g<C-x> ───────────────────────────────────
+-- Mechanical mirror of the <C-a>/ca_run block above. Raw byte for
+-- Ctrl-X (ASCII 24 / 0x18).
+
+describe('when the user decrements a number, moves down, and repeats 3 or more times', function()
+  local ctrl_a = '\1'
+  local ctrl_x = '\24'
+
+  it('fires cx_run suggesting g<C-x> after <C-x> j <C-x> j <C-x>', function()
+    local s = seq()
+    patterns.feed(s, ctrl_x, 1) -- 1st decrement
+    patterns.feed(s, 'j', 1)
+    patterns.feed(s, ctrl_x, 1) -- 2nd decrement
+    patterns.feed(s, 'j', 1)
+    local result = patterns.feed(s, ctrl_x, 1) -- 3rd decrement → fires
+    assert.is_not_nil(result)
+    assert.equals('cx_run', result.pattern)
+    assert.equals('g<C-x>', result.cmd)
+  end)
+
+  it('also fires when k is used as the connecting motion instead of j', function()
+    local s = seq()
+    patterns.feed(s, ctrl_x, 1)
+    patterns.feed(s, 'k', 1)
+    patterns.feed(s, ctrl_x, 1)
+    patterns.feed(s, 'k', 1)
+    local result = patterns.feed(s, ctrl_x, 1)
+    assert.is_not_nil(result)
+    assert.equals('cx_run', result.pattern)
+    assert.equals('g<C-x>', result.cmd)
+  end)
+
+  it('does not fire after only 2 decrements', function()
+    local s = seq()
+    patterns.feed(s, ctrl_x, 1)
+    patterns.feed(s, 'j', 1)
+    local result = patterns.feed(s, ctrl_x, 1)
+    assert.is_nil(result)
+  end)
+
+  it('resets the streak when an unrelated key separates the decrements', function()
+    local s = seq()
+    patterns.feed(s, ctrl_x, 1)
+    patterns.feed(s, 'j', 1)
+    patterns.feed(s, ctrl_x, 1)
+    patterns.feed(s, 'x', 1) -- unrelated key: not j/k, breaks the streak
+    patterns.feed(s, ctrl_x, 1)
+    patterns.feed(s, 'j', 1)
+    local result = patterns.feed(s, ctrl_x, 1)
+    assert.is_nil(result)
+  end)
+
+  it('tracks ca_streak and cx_streak independently — mixing <C-a> and <C-x> never completes either', function()
+    local s = seq()
+    patterns.feed(s, ctrl_a, 1)
+    patterns.feed(s, 'j', 1)
+    patterns.feed(s, ctrl_x, 1)
+    patterns.feed(s, 'j', 1)
+    local result = patterns.feed(s, ctrl_a, 1)
+    assert.is_nil(result)
+  end)
+end)
+
 -- ── v i {obj} c/d/y → c/d/y + i + {obj} text object shortcut ────────────────
 
 describe('when the user selects an inner text object visually then operates', function()
