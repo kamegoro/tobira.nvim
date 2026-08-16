@@ -292,6 +292,7 @@ M.registry = {
   ['ciB'] = { requires = 'cib', track = false, category = 'edit', level = 'intermediate' },
   ['cit'] = { requires = 'cib', track = false, category = 'edit', level = 'advanced' },
   ['cip'] = { requires = 'ciw', track = false, category = 'edit', level = 'intermediate' },
+  ['cis'] = { requires = 'cip', track = false, category = 'edit', level = 'intermediate' },
 
   -- ── ci" / ci' × 3 (direct, non-visual) → ya" / ya' ───────────────────────
   -- Reactive-only (ci_dquote_repeat / ci_squote_repeat fire this directly) —

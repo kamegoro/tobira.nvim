@@ -206,9 +206,9 @@ local CI_QUOTE_NAV_KEYS = {
 -- by the exact character pressed after i/a; the variant key itself is built
 -- as op .. (inner and 'i' or 'a') .. key, e.g. op='c', inner=true, key='"'
 -- → 'ci"'. Restricted to the text objects commands.lua's registry actually
--- chains off (ciw/ci"/ci'/cib/ciB/cit/cip/diw) rather than every character
--- reaching this state, so an accidental keystroke can't create throwaway
--- usage.json entries no `requires` chain will ever read. See
+-- chains off (ciw/ci"/ci'/cib/ciB/cit/cip/cis/diw) rather than every
+-- character reaching this state, so an accidental keystroke can't create
+-- throwaway usage.json entries no `requires` chain will ever read. See
 -- docs/adr/0106-text-object-variant-own-usage-tracking.md.
 local TRACKED_TEXT_OBJ_CHARS = {
   w = true,
@@ -218,6 +218,7 @@ local TRACKED_TEXT_OBJ_CHARS = {
   B = true,
   t = true,
   p = true,
+  s = true,
 }
 
 -- ── jumplist / changelist underuse detection ────────────────────────────────

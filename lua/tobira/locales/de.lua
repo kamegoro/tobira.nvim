@@ -742,6 +742,11 @@ return {
       body = 'Ersetzt den gesamten aktuellen Absatz (zusammenhängender Block nicht leerer Zeilen)\nip wählt bis zu, aber ohne die umgebenden Leerzeilen',
       example = 'cip → gesamter aktueller Absatz wird geleert → Einfügemodus',
     },
+    ['cis'] = {
+      title = 'cis — inneren Satz ändern',
+      body = 'Ersetzt den gesamten aktuellen Satz (begrenzt durch ./!/? und das folgende Leerzeichen)\nis wählt bis zu, aber ohne die abschließende Interpunktion und das Leerzeichen',
+      example = 'cis → gesamter aktueller Satz wird geleert → Einfügemodus',
+    },
 
     -- ── partial word search ───────────────────────────────────────────────
     ['g*'] = {

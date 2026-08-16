@@ -1840,6 +1840,9 @@ describe('when the user completes a text-object variant directly (ciw, ci", cib,
     { op = 'c', inner = 'i', char = 't', last_op = 'cw', variant = 'cit' },
     { op = 'c', inner = 'i', char = 'p', last_op = 'cw', variant = 'cip' },
     { op = 'd', inner = 'i', char = 'w', last_op = 'dw', variant = 'diw' },
+    { op = 'c', inner = 'i', char = 's', last_op = 'cw', variant = 'cis' },
+    { op = 'd', inner = 'i', char = 's', last_op = 'dw', variant = 'dis' },
+    { op = 'y', inner = 'i', char = 's', last_op = 'yw', variant = 'yis' },
   }
 
   for _, tc in ipairs(variant_cases) do

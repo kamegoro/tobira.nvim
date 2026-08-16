@@ -743,6 +743,11 @@ return {
       body = 'Replaces the entire current paragraph (contiguous block of non-blank lines)\nip selects up to but not including the surrounding blank lines',
       example = 'cip → entire current paragraph cleared → insert mode',
     },
+    ['cis'] = {
+      title = 'cis — change inner sentence',
+      body = 'Replaces the entire current sentence, delimited by ./!/? plus trailing whitespace\nis selects up to but not including the punctuation and space that end the sentence',
+      example = 'cis → entire current sentence cleared → insert mode',
+    },
 
     -- ── partial word search ───────────────────────────────────────────────
     ['g*'] = {
