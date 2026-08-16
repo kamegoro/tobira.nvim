@@ -99,6 +99,7 @@ return {
       x_then_insert = '你删除了一个字符后进入了插入模式',
       D_then_insert = '你删除到行尾后开始输入新内容',
       dw_then_insert = '你删除了一个单词后进入了插入模式',
+      diw_then_insert = '你删除了内部单词文本对象后进入了插入模式',
       gq_then_jumpback = '你用 gq 格式化后又跳回了起始位置',
       jump_back = '你跳到文件末尾后又立刻跳回了开头（反过来也一样）',
       x_repeat = '你连续 3 次逐个删除字符',

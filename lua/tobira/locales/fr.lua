@@ -99,6 +99,7 @@ return {
       x_then_insert = 'Vous avez supprimé un caractère puis êtes entré en mode insertion',
       D_then_insert = "Vous avez supprimé jusqu'à la fin de ligne puis commencé à taper",
       dw_then_insert = 'Vous avez supprimé un mot puis êtes entré en mode insertion',
+      diw_then_insert = "Vous avez supprimé l'objet texte mot intérieur puis êtes entré en mode insertion",
       gq_then_jumpback = 'Vous avez formaté avec gq puis êtes revenu à la position de départ',
       jump_back = "Vous avez sauté à la fin du fichier puis directement de retour au début (ou l'inverse)",
       x_repeat = 'Vous avez supprimé des caractères un par un, 3 fois de suite',

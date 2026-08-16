@@ -240,6 +240,16 @@ local function emit_dw_then_insert(rng, out)
   table.insert(out, INSERT_TRIGGERS[rand_int(rng, 1, #INSERT_TRIGGERS)])
 end
 
+-- diw specifically (op='d', inner=true, key='w') is the one text-object
+-- shape that arms diw_then_insert instead of the generic dw_then_insert —
+-- see docs/adr/0119-diw-then-insert-text-object-variant-collapse.md.
+local function emit_diw_then_insert(rng, out)
+  table.insert(out, 'd')
+  table.insert(out, 'i')
+  table.insert(out, 'w')
+  table.insert(out, INSERT_TRIGGERS[rand_int(rng, 1, #INSERT_TRIGGERS)])
+end
+
 -- Must be EXACTLY one 'x' — x_then_insert requires seq.run.count == 1, not
 -- just seq.run.key == 'x'.
 local function emit_x_then_insert(rng, out)
@@ -552,6 +562,7 @@ local PATTERN_CHUNKS = {
 
   dd_then_insert = { weight = 4, emit = emit_dd_then_insert },
   dw_then_insert = { weight = 4, emit = emit_dw_then_insert },
+  diw_then_insert = { weight = 4, emit = emit_diw_then_insert },
   x_then_insert = { weight = 3, emit = emit_x_then_insert },
   D_then_insert = { weight = 3, emit = emit_D_then_insert },
   zero_then_insert = { weight = 3, emit = emit_zero_then_insert },

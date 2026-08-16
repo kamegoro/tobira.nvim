@@ -213,6 +213,7 @@ describe('float.reasons locale', function()
     'dedent_run',
     'diff_jump_then_insert_next',
     'diff_jump_then_insert_prev',
+    'diw_then_insert',
     'dollar_then_append',
     'dot_repeat',
     'dw_then_insert',

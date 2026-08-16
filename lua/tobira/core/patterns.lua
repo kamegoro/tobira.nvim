@@ -15,7 +15,7 @@
 -- (wrap-aware gj/gk redirect), 0113 (buffer-local seq reset with <C-w>
 -- exemption), 0114 (macro dispatch priority generalization), 0115
 -- (prefix-consumer streak bookkeeping), 0116 (macro-edit-keys mode-source
--- distinction).
+-- distinction), 0119 (diw_then_insert text-object variant collapse).
 
 local M = {}
 
@@ -34,6 +34,13 @@ function M.new_seq()
     -- bucket set in last_op. Reset every M.feed() call, same discipline as
     -- op_completed — see docs/adr/0106-text-object-variant-own-usage-tracking.md.
     last_op_variant = nil,
+    -- Persists alongside last_op (unlike last_op_variant above, which is
+    -- reset every M.feed() call) — true only when the resolution that most
+    -- recently set last_op = 'dw' was specifically the diw text object, not
+    -- a bare/counted dw motion or any other text object (daw, di", ...).
+    -- Read by diw_then_insert to suggest the more precise ciw instead of
+    -- dw_then_insert's cw. See docs/adr/0119-diw-then-insert-text-object-variant-collapse.md.
+    last_op_diw = false,
     dd_streak = 0,
     cc_streak = 0,
     indent_streak = 0,
@@ -1012,6 +1019,11 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
     reset_unclaimed_streaks(seq, key, 'ci')
     seq.last_op = op .. 'w'
     seq.op_completed = true
+    -- Every text-object resolution overwrites this alongside last_op above —
+    -- true only for the exact diw shape (op='d', inner=true, key='w'), false
+    -- for every other text object (daw, di", ciw, ...). See
+    -- docs/adr/0119-diw-then-insert-text-object-variant-collapse.md.
+    seq.last_op_diw = op == 'd' and inner and key == 'w'
     -- Sets key_consumed the same as pending_register/pending_mark/
     -- pending_bracket above -- without it, the completing key (e.g. the w of
     -- ciw/diw/yiw) also silently increments bare usage['w'].count on top of
@@ -1265,6 +1277,9 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
     else
       seq.last_op = op .. 'w'
       seq.op_completed = true
+      -- A bare/counted charwise motion (dw, d3w, de, ...), never the diw
+      -- text object — see docs/adr/0119-diw-then-insert-text-object-variant-collapse.md.
+      seq.last_op_diw = false
       -- n-streak → change the match: suggest cgn (charwise-motion path, e.g.
       -- cw, ce, c3w). Text-object path (ciw, ci", ...) is handled in the
       -- pending_text_obj block above. See
@@ -1500,6 +1515,16 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
   -- ── D → insert: suggest C ────────────────────────────────────────────────
   if INSERT_KEYS[key] and seq.run.key == 'D' then
     return { pattern = 'D_then_insert', cmd = 'C' }
+  end
+
+  -- ── diw → insert: suggest ciw ─────────────────────────────────────────────
+  -- Checked before the generic dw → insert case below: diw is a more
+  -- specific match than a bare/counted dw motion, so it gets the more
+  -- precise suggestion. See docs/adr/0119-diw-then-insert-text-object-variant-collapse.md.
+  if seq.last_op == 'dw' and seq.last_op_diw and INSERT_KEYS[key] then
+    seq.last_op = nil
+    seq.last_op_diw = false
+    return { pattern = 'diw_then_insert', cmd = 'ciw' }
   end
 
   -- ── dw → insert: suggest cw ──────────────────────────────────────────────

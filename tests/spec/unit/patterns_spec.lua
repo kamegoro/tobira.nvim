@@ -852,16 +852,6 @@ describe('when the user deletes a word then enters insert mode to retype it', fu
     assert.equals('dw_then_insert', result.pattern)
   end)
 
-  it('fires for diw (inner word text object)', function()
-    local s = seq()
-    patterns.feed(s, 'd', 1)
-    patterns.feed(s, 'i', 1)
-    patterns.feed(s, 'w', 1)
-    local result = patterns.feed(s, 'i', 1)
-    assert.is_not_nil(result)
-    assert.equals('dw_then_insert', result.pattern)
-  end)
-
   it('fires for daw (around word text object)', function()
     local s = seq()
     patterns.feed(s, 'd', 1)
@@ -877,6 +867,71 @@ describe('when the user deletes a word then enters insert mode to retype it', fu
     patterns.feed(s, 'd', 1)
     patterns.feed(s, 'i', 1)
     patterns.feed(s, '"', 1)
+    local result = patterns.feed(s, 'i', 1)
+    assert.is_not_nil(result)
+    assert.equals('dw_then_insert', result.pattern)
+  end)
+
+  it('does NOT fire for diw — diw_then_insert (see below) is the more specific match', function()
+    local s = seq()
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'i', 1)
+    patterns.feed(s, 'w', 1)
+    local result = patterns.feed(s, 'i', 1)
+    assert.is_not_nil(result)
+    assert.equals('diw_then_insert', result.pattern)
+  end)
+end)
+
+-- ── diw is a text-object variant of dw (docs/adr/0106-text-object-variant- ───
+-- ── own-usage-tracking.md), tracked separately from the shared dw bucket. ────
+-- The user explicitly reached for the text object rather than a bare/counted
+-- motion, so the more precise ciw is a better suggestion than cw — see
+-- docs/adr/0119-diw-then-insert-text-object-variant-collapse.md.
+describe('when the user deletes an inner word (diw) then enters insert mode to retype it', function()
+  it('fires diw_then_insert suggesting ciw', function()
+    local s = seq()
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'i', 1)
+    patterns.feed(s, 'w', 1)
+    local result = patterns.feed(s, 'i', 1)
+    assert.is_not_nil(result)
+    assert.equals('diw_then_insert', result.pattern)
+    assert.equals('ciw', result.cmd)
+  end)
+
+  it('also fires when the user appends with a instead of i', function()
+    local s = seq()
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'i', 1)
+    patterns.feed(s, 'w', 1)
+    local result = patterns.feed(s, 'a', 1)
+    assert.is_not_nil(result)
+    assert.equals('diw_then_insert', result.pattern)
+    assert.equals('ciw', result.cmd)
+  end)
+
+  it('does not fire for a bare dw (no text-object prefix) — dw_then_insert covers that', function()
+    local s = seq()
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'w', 1)
+    local result = patterns.feed(s, 'i', 1)
+    assert.is_not_nil(result)
+    assert.equals('dw_then_insert', result.pattern)
+  end)
+
+  it('does not leak into a later unrelated dw after an intervening dd', function()
+    local s = seq()
+    -- Arm the diw variant flag once.
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'i', 1)
+    patterns.feed(s, 'w', 1)
+    -- An unrelated linewise delete overwrites last_op entirely.
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'd', 1)
+    -- A bare dw right after must not still read the stale diw flag.
+    patterns.feed(s, 'd', 1)
+    patterns.feed(s, 'w', 1)
     local result = patterns.feed(s, 'i', 1)
     assert.is_not_nil(result)
     assert.equals('dw_then_insert', result.pattern)
