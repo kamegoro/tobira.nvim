@@ -125,6 +125,7 @@ return {
       dot_repeat = 'Repetiste el último cambio 3 veces seguidas',
       J_repeat = 'Uniste líneas 3 veces seguidas',
       ca_run = 'Incrementaste un número, bajaste una línea y lo repetiste 3 veces',
+      cx_run = 'Decrementaste un número, bajaste una línea y lo repetiste 3 veces',
       ctrl_w_close_repeat = 'Cerraste ventanas una por una, 2 veces seguidas',
       v_repeat = 'Entraste y saliste del modo visual sin seleccionar nada, 3 veces seguidas',
       manual_return = 'Saltaste a un lugar lejano y luego retrocediste desplazándote manualmente',
@@ -459,6 +460,11 @@ return {
       title = 'g<C-a> — incrementar una secuencia en modo bloque visual',
       body = 'Selecciona las líneas con <C-v> (bloque visual) primero, luego g<C-a> incrementa cada línea un número más que la anterior — convirtiendo números repetidos en una secuencia\nSustituye hacerlo a mano línea por línea: <C-a> → j → <C-a> → j → ...',
       example = 'Selecciona 3 líneas de "0" con <C-v> → g<C-a> → 1 / 2 / 3',
+    },
+    ['g<C-x>'] = {
+      title = 'g<C-x> — decrementar una secuencia en modo bloque visual',
+      body = 'Selecciona las líneas con <C-v> (bloque visual) primero, luego g<C-x> decrementa cada línea un número menos que la anterior — convirtiendo números repetidos en una cuenta regresiva\nSustituye hacerlo a mano línea por línea: <C-x> → j → <C-x> → j → ...',
+      example = 'Selecciona 3 líneas de "3" con <C-v> → g<C-x> → 2 / 1 / 0',
     },
 
     -- ── visual mode chain ─────────────────────────────────────────────────
@@ -925,6 +931,16 @@ return {
       body = 'Cierra la ventana y descarta los cambios sin pedir confirmación\nEquivalente a :q! pero más rápido de escribir',
       example = 'ZZ → guarda y sal; ZQ → sal y descarta los cambios',
     },
+    ['q/'] = {
+      title = 'q/ — abrir la ventana de línea de comandos del historial de búsqueda hacia adelante',
+      body = 'Abre la ventana de línea de comandos con tu historial de búsquedas / en vez del historial de comandos :\nEdita y vuelve a ejecutar una búsqueda antigua sin volver a escribirla — útil para patrones largos o complejos',
+      example = 'q/ → explora y edita el historial de búsqueda hacia adelante; <CR> vuelve a ejecutar el patrón seleccionado',
+    },
+    ['q?'] = {
+      title = 'q? — abrir la ventana de línea de comandos del historial de búsqueda hacia atrás',
+      body = 'Como q/ pero para el historial de ? (búsqueda hacia atrás) en vez de / (búsqueda hacia adelante)',
+      example = 'q? → explora y edita el historial de búsqueda hacia atrás; <CR> vuelve a ejecutar el patrón seleccionado',
+    },
     ['q:'] = {
       title = 'q: — abrir la ventana de línea de comandos',
       body = 'Abre un búfer con tu historial de comandos Ex\nPuedes editar y volver a ejecutar cualquier comando anterior con Enter',
@@ -966,8 +982,8 @@ return {
     -- ── macro: play specific register ────────────────────────────────────
     ['@q'] = {
       title = '@q — reproducir macro del registro q',
-      body = 'Reproduce la secuencia de pulsaciones grabada en el registro q\nCambia q por cualquier letra a-z para reproducir desde otro registro',
-      example = 'qq → empieza a grabar; q → detiene; @q → reproduce',
+      body = 'Reproduce la secuencia de pulsaciones grabada en el registro q\nGrabar en vivo (qq...q) se estropea fácilmente — una sola tecla mal pulsada corrompe toda la macro. Componer la edición como texto plano en un búfer temporal primero, y luego copiarla al registro q, resiste mucho mejor los errores de tecleo\nCambia q por cualquier letra a-z para usar otro registro',
+      example = 'Escribe la edición como texto en un búfer temporal, "qy para copiarla al registro q → @q para ejecutarla (o graba en vivo con qq...q)',
     },
 
     -- ── marks ─────────────────────────────────────────────────────────────
@@ -1096,6 +1112,11 @@ return {
       body = 'Encuentra cada línea que coincide con un patrón y ejecuta un comando Ex en cada una\nSustituye repetir n / . manualmente en cada coincidencia',
       example = ':g/TODO/d → elimina cada línea que contiene TODO',
     },
+    ['ex:v'] = {
+      title = ':v — ejecutar un comando sobre cada línea que NO coincide',
+      body = 'El inverso de :g: encuentra cada línea que NO coincide con un patrón y ejecuta un comando Ex en cada una\nLa misma idea que :g, invertida — para cuando lo que te interesa es "todo excepto esto"',
+      example = ':v/TODO/d → elimina cada línea que NO contiene TODO',
+    },
     ['ex:norm'] = {
       title = ':norm — ejecutar un comando en modo normal en cada línea seleccionada',
       body = 'Aplica una secuencia de teclas de modo normal a cada línea de un rango\nSustituye grabar una macro cuando la edición es lo bastante simple',
@@ -1199,6 +1220,23 @@ return {
       title = '[p — pegar antes y ajustar la sangría',
       body = 'Como P pero reindenta el texto pegado para que coincida con la línea actual\nEl complemento inverso de ]p',
       example = '[p → pega texto por líneas arriba, con la sangría de la línea actual',
+    },
+
+    -- ── navegación de la lista de argumentos ─────────────────────────────────
+    [']a'] = {
+      title = ']a — saltar al siguiente archivo de la lista de argumentos',
+      body = 'Salta al siguiente archivo de la lista de argumentos (definida con :args)\nSustituye volver a ejecutar :next manualmente o abrir el archivo por su nombre',
+      example = ':args *.lua y luego ]a → salta al siguiente archivo de la lista',
+    },
+    ['[a'] = {
+      title = '[a — saltar al archivo anterior de la lista de argumentos',
+      body = 'Como ]a pero retrocede por la lista de argumentos\nEl complemento inverso de ]a',
+      example = '[a → vuelve al archivo anterior de la lista de argumentos',
+    },
+    ['ex:argdo'] = {
+      title = ':argdo — ejecutar un comando en cada archivo de la lista de argumentos',
+      body = 'Ejecuta un comando Ex una vez por cada archivo de la lista de argumentos, cargando cada uno por turno\nSustituye abrir y editar manualmente cada archivo de la lista uno por uno',
+      example = ':argdo %s/foo/bar/g | update → reemplaza foo por bar en cada archivo de la lista de argumentos',
     },
   },
 }

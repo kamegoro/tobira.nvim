@@ -435,6 +435,7 @@ EDIT ~
   `v` → `<Esc>` × 3            Suggest `gv`    — reselect the last visual selection
   `p` / `P` → rightward × 3    Suggest `gp` / `gP` — paste, leave cursor after it
   `<C-a>` → `j` × 3             Suggest `g<C-a>` — visual-block sequential increment
+  `<C-x>` → `j` × 3             Suggest `g<C-x>` — visual-block sequential decrement
   `gq` → jump back              Suggest `gw`    — format without moving the cursor
   Identical `:s/pat/repl/` on a 2nd line
                                 Suggest `&`     — repeat the last substitute here

@@ -125,6 +125,7 @@ return {
       dot_repeat = 'Vous avez répété la dernière modification 3 fois de suite',
       J_repeat = 'Vous avez fusionné des lignes 3 fois de suite',
       ca_run = "Vous avez incrémenté un nombre, déplacé d'une ligne, et répété cela 3 fois",
+      cx_run = "Vous avez décrémenté un nombre, déplacé d'une ligne, et répété cela 3 fois",
       ctrl_w_close_repeat = 'Vous avez fermé des fenêtres une par une, 2 fois de suite',
       v_repeat = 'Vous êtes entré et sorti du mode visuel sans rien sélectionner, 3 fois de suite',
       manual_return = 'Vous avez sauté à un endroit éloigné, puis êtes revenu en faisant défiler manuellement',
@@ -459,6 +460,11 @@ return {
       title = 'g<C-a> — incrémenter une séquence en mode bloc visuel',
       body = "Sélectionnez d'abord les lignes avec <C-v> (bloc visuel), puis g<C-a> incrémente chaque ligne d'une unité de plus que la précédente — transformant des nombres répétés en séquence\nRemplace la méthode manuelle ligne par ligne : <C-a> → j → <C-a> → j → ...",
       example = 'Sélectionnez 3 lignes de "0" avec <C-v> → g<C-a> → 1 / 2 / 3',
+    },
+    ['g<C-x>'] = {
+      title = 'g<C-x> — décrémenter une séquence en mode bloc visuel',
+      body = "Sélectionnez d'abord les lignes avec <C-v> (bloc visuel), puis g<C-x> décrémente chaque ligne d'une unité de moins que la précédente — transformant des nombres répétés en compte à rebours\nRemplace la méthode manuelle ligne par ligne : <C-x> → j → <C-x> → j → ...",
+      example = 'Sélectionnez 3 lignes de "3" avec <C-v> → g<C-x> → 2 / 1 / 0',
     },
 
     -- ── visual mode chain ─────────────────────────────────────────────────
@@ -925,6 +931,16 @@ return {
       body = 'Ferme la fenêtre et abandonne les modifications sans invite de confirmation\nÉquivalent à :q! mais plus rapide à taper',
       example = 'ZZ → enregistre et quitte ; ZQ → quitte et abandonne les modifications',
     },
+    ['q/'] = {
+      title = "q/ — ouvrir la fenêtre de ligne de commande depuis l'historique de recherche avant",
+      body = "Ouvre la fenêtre de ligne de commande pré-remplie avec votre historique de recherche / plutôt que l'historique des commandes :\nÉditez et réexécutez une ancienne recherche sans la retaper — utile pour les motifs longs ou complexes",
+      example = "q/ → parcourir et éditer l'historique de recherche avant, <CR> pour réexécuter le motif sélectionné",
+    },
+    ['q?'] = {
+      title = "q? — ouvrir la fenêtre de ligne de commande depuis l'historique de recherche arrière",
+      body = "Comme q/ mais pour l'historique de ? (recherche arrière) plutôt que / (recherche avant)",
+      example = "q? → parcourir et éditer l'historique de recherche arrière, <CR> pour réexécuter le motif sélectionné",
+    },
     ['q:'] = {
       title = 'q: — ouvrir la fenêtre de ligne de commande',
       body = "Ouvre un buffer contenant votre historique de commandes Ex\nVous pouvez éditer et réexécuter n'importe quelle commande précédente avec Entrée",
@@ -966,8 +982,8 @@ return {
     -- ── macro: play specific register ────────────────────────────────────
     ['@q'] = {
       title = '@q — jouer la macro du registre q',
-      body = "Rejoue la séquence de touches enregistrée dans le registre q\nRemplacez q par n'importe quelle lettre a-z pour jouer depuis un autre registre",
-      example = "qq → démarre l'enregistrement ; q → arrête ; @q → rejoue",
+      body = "Rejoue la séquence de touches enregistrée dans le registre q\nL'enregistrement en direct (qq...q) échoue facilement — une seule touche mal tapée corrompt toute la macro. Composer d'abord la modification en texte brut dans un buffer temporaire, puis la copier dans le registre q, résiste beaucoup mieux aux fautes de frappe\nRemplacez q par n'importe quelle lettre a-z pour utiliser un autre registre",
+      example = 'Écrivez la modification en texte dans un buffer temporaire, "qy pour la copier dans le registre q → @q pour l\'exécuter (ou enregistrez en direct avec qq...q)',
     },
 
     -- ── marks ─────────────────────────────────────────────────────────────
@@ -1096,6 +1112,11 @@ return {
       body = 'Trouve chaque ligne correspondant à un motif et exécute une commande Ex sur chacune\nRemplace la répétition manuelle de n / . à chaque occurrence',
       example = ':g/TODO/d → supprime chaque ligne contenant TODO',
     },
+    ['ex:v'] = {
+      title = ':v — exécuter une commande sur chaque ligne non correspondante',
+      body = "L'inverse de :g : trouve chaque ligne qui ne correspond PAS à un motif et exécute une commande Ex sur chacune\nMême idée que :g, inversée — pour quand ce qui vous intéresse, c'est « tout sauf ceci »",
+      example = ':v/TODO/d → supprime chaque ligne qui ne contient PAS TODO',
+    },
     ['ex:norm'] = {
       title = ':norm — exécuter une commande du mode normal sur chaque ligne sélectionnée',
       body = "Applique une séquence de touches du mode normal à chaque ligne d'une plage\nRemplace l'enregistrement d'une macro quand la modification est assez simple",
@@ -1199,6 +1220,23 @@ return {
       title = "[p — coller avant en ajustant l'indentation",
       body = 'Comme P mais réindente le texte collé pour correspondre à la ligne actuelle\nLe complément inverse de ]p',
       example = '[p → colle du texte en mode ligne au-dessus, indenté comme la ligne actuelle',
+    },
+
+    -- ── navigation dans la liste d'arguments ─────────────────────────────────
+    [']a'] = {
+      title = "]a — aller au fichier suivant de la liste d'arguments",
+      body = "Saute au fichier suivant de la liste d'arguments (définie avec :args)\nRemplace la réexécution manuelle de :next ou l'ouverture du fichier par son nom",
+      example = ':args *.lua puis ]a → saute au fichier suivant de la liste',
+    },
+    ['[a'] = {
+      title = "[a — aller au fichier précédent de la liste d'arguments",
+      body = "Comme ]a mais recule dans la liste d'arguments\nLe complément inverse de ]a",
+      example = "[a → revient au fichier précédent de la liste d'arguments",
+    },
+    ['ex:argdo'] = {
+      title = ":argdo — exécuter une commande sur chaque fichier de la liste d'arguments",
+      body = "Exécute une commande Ex une fois par fichier de la liste d'arguments, en chargeant chacun à son tour\nRemplace l'ouverture et l'édition manuelles de chaque fichier de la liste, un par un",
+      example = ":argdo %s/foo/bar/g | update → remplace foo par bar dans chaque fichier de la liste d'arguments",
     },
   },
 }
