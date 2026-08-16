@@ -37,6 +37,7 @@ package.path = vim.fn.getcwd() .. '/tests/differential/?.lua;' .. package.path
 local reference_model = require('reference_model_insert')
 local generator = require('generator_insert')
 local real_model = require('real_model_insert')
+local seed_bands = require('seed_bands')
 
 -- #334 (fixed): patterns.feed_macro()'s MACRO_EDIT_KEYS set ({d,c,y,>,<}
 -- plus EDIT_OP_KEYS = {x,X,i,I,a,A,o,O,s,S}) was designed for Normal-mode
@@ -163,6 +164,12 @@ end
 -- than a flaky one.
 local SEED_COUNT = tonumber(os.getenv('TOBIRA_DIFFERENTIAL_SEEDS')) or 150
 local BASE_SEED = 20260814
+
+-- This file uses 2 seed-offset bands below (BASE_SEED+i, +100000+i) to keep each loop's
+-- generator state independent of the other. Fails loudly, rather than silently losing
+-- coverage, if TOBIRA_DIFFERENTIAL_SEEDS is ever raised enough to make them overlap — see
+-- tests/differential/seed_bands.lua and issue #346.
+seed_bands.assert_no_band_collision(SEED_COUNT, { 0, 100000 })
 
 describe('patterns_insert.lua insert-mode state machine (differential test against a naive reference model)', function()
   describe('isolated corpus: one pattern family + safe noise at a time', function()
