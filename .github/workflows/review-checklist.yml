@@ -4,6 +4,9 @@ on:
   pull_request_target:
     types: [opened]
 
+permissions:
+  contents: read
+
 jobs:
   checklist:
     name: Post checklist for first-time contributors

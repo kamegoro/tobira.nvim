@@ -4,6 +4,9 @@ on:
   pull_request_target:
     types: [opened]
 
+permissions:
+  contents: read
+
 jobs:
   assign:
     name: Auto-assign PR author
