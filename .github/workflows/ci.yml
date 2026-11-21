@@ -12,6 +12,9 @@ on:
     # see #343).
     - cron: '0 18 * * *'
 
+permissions:
+  contents: read
+
 jobs:
   checks:
     name: Checks (lint & scripts)
@@ -19,6 +22,8 @@ jobs:
     if: github.event_name == 'push' || github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - parallel:
           - name: Check formatting (stylua)
@@ -50,6 +55,8 @@ jobs:
     if: github.event_name == 'push' || github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Install Neovim nightly
         uses: rhysd/action-setup-vim@v1
@@ -73,6 +80,8 @@ jobs:
     if: github.event_name == 'push' || github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Install Neovim nightly
         uses: rhysd/action-setup-vim@v1
@@ -98,6 +107,8 @@ jobs:
     if: github.event_name == 'push' || github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Install Neovim stable
         uses: rhysd/action-setup-vim@v1
@@ -130,6 +141,8 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Install Neovim nightly
         uses: rhysd/action-setup-vim@v1

@@ -18,9 +18,11 @@ jobs:
 
       - name: Fetch latest Neovim release tag
         id: latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG=$(curl -sf https://api.github.com/repos/neovim/neovim/releases/latest \
-            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Authorization: Bearer $GH_TOKEN" \
             | jq -r '.tag_name // empty')
           if [[ -z "$TAG" ]]; then
             echo "::error::Neovim リリース情報を取得できませんでした"
@@ -39,9 +41,12 @@ jobs:
 
       - name: Check if already up to date
         id: gate
+        env:
+          LATEST_TAG: ${{ steps.latest.outputs.tag }}
+          TRACKED_VERSION: ${{ steps.tracked.outputs.version }}
         run: |
-          LATEST="${{ steps.latest.outputs.tag }}"
-          TRACKED="${{ steps.tracked.outputs.version }}"
+          LATEST="$LATEST_TAG"
+          TRACKED="$TRACKED_VERSION"
           echo "latest=$LATEST  tracked=$TRACKED"
           if [[ "$LATEST" == "$TRACKED" ]]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
@@ -52,9 +57,12 @@ jobs:
       - name: Download index.txt files
         if: steps.gate.outputs.skip == 'false' && steps.tracked.outputs.version != ''
         id: download
+        env:
+          LATEST_TAG: ${{ steps.latest.outputs.tag }}
+          TRACKED_VERSION: ${{ steps.tracked.outputs.version }}
         run: |
-          OLD="${{ steps.tracked.outputs.version }}"
-          NEW="${{ steps.latest.outputs.tag }}"
+          OLD="$TRACKED_VERSION"
+          NEW="$LATEST_TAG"
           if curl -sf "https://raw.githubusercontent.com/neovim/neovim/${OLD}/runtime/doc/index.txt" \
                -o old_index.txt; then
             echo "old_ok=true" >> "$GITHUB_OUTPUT"
@@ -70,10 +78,13 @@ jobs:
           steps.gate.outputs.skip == 'false' &&
           steps.download.outputs.old_ok == 'true'
         id: diff
+        env:
+          LATEST_TAG: ${{ steps.latest.outputs.tag }}
+          TRACKED_VERSION: ${{ steps.tracked.outputs.version }}
         run: |
           python3 .github/scripts/diff_index.py \
-            "${{ steps.tracked.outputs.version }}" \
-            "${{ steps.latest.outputs.tag }}" \
+            "$TRACKED_VERSION" \
+            "$LATEST_TAG" \
             old_index.txt new_index.txt > diff_result.md
           if [[ -s diff_result.md ]]; then
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
@@ -86,9 +97,11 @@ jobs:
         id: existing
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LATEST_TAG: ${{ steps.latest.outputs.tag }}
+          TRACKED_VERSION: ${{ steps.tracked.outputs.version }}
         run: |
-          OLD="${{ steps.tracked.outputs.version }}"
-          NEW="${{ steps.latest.outputs.tag }}"
+          OLD="$TRACKED_VERSION"
+          NEW="$LATEST_TAG"
           TITLE="Neovim ${OLD} → ${NEW}: コマンド変更の確認"
           COUNT=$(gh issue list --state all --limit 100 --json title \
             --jq "[.[] | select(.title == \"${TITLE}\")] | length")
@@ -100,17 +113,21 @@ jobs:
           steps.existing.outputs.count == '0'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LATEST_TAG: ${{ steps.latest.outputs.tag }}
+          TRACKED_VERSION: ${{ steps.tracked.outputs.version }}
         run: |
-          OLD="${{ steps.tracked.outputs.version }}"
-          NEW="${{ steps.latest.outputs.tag }}"
+          OLD="$TRACKED_VERSION"
+          NEW="$LATEST_TAG"
           gh issue create \
             --title "Neovim ${OLD} → ${NEW}: コマンド変更の確認" \
             --body-file diff_result.md
 
       - name: Update tracked version
         if: steps.gate.outputs.skip == 'false'
+        env:
+          LATEST_TAG: ${{ steps.latest.outputs.tag }}
         run: |
-          NEW="${{ steps.latest.outputs.tag }}"
+          NEW="$LATEST_TAG"
           echo "$NEW" > .github/neovim_version.txt
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
