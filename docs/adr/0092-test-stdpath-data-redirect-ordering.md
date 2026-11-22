@@ -32,3 +32,19 @@ fresh `vim.fn.tempname()` directory for the rest of the process. Every other
 - Because the redirect is process-global and installed once, all specs in a given
   child process share the same temp data dir; specs must not assume a pristine
   directory unless they call `logger.reset()` themselves.
+
+### Addendum: isolation must not depend on how a spec is launched
+
+`minimal_init.lua` is not loaded by every launch path: `:PlenaryBustedFile` runs the spec in
+a child Neovim with no `-u`, and so does `PlenaryBustedDirectory` without
+`minimal_init = ...`. A single-file run that way used the real data dir, and
+`logger_spec.lua`'s `wipe_disk()` deleted a developer's real `usage.json`.
+
+The redirect now lives in `tests/isolate_data.lua`. Every spec file requires it on its first
+line, and `minimal_init.lua` requires it at the same point the inline redirect used to sit,
+so the ordering above still holds. If `tobira.core.logger` is already loaded with a data dir
+inside the real one, the helper raises an error instead of continuing.
+`tests/spec/unit/test_isolation_spec.lua` enforces the first-line rule for every spec file
+and runs `tests/isolation/touches_data_dir.lua` through `PlenaryBustedFile` with no
+`minimal_init`, against a fake `XDG_DATA_HOME`, to prove that file survives.
+

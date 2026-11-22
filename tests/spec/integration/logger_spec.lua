@@ -1,3 +1,5 @@
+require('tests.isolate_data')
+
 local logger = require('tobira.core.logger')
 
 -- Test-local disk cleanup. Production `logger.reset()` deliberately does no

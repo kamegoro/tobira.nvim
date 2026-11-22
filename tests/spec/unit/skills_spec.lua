@@ -1,3 +1,5 @@
+require('tests.isolate_data')
+
 local skills = require('tobira.core.skills')
 
 -- ── auto-generation from commands.registry ────────────────────────────────────

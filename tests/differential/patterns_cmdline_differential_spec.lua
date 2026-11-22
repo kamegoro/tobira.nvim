@@ -1,3 +1,5 @@
+require('tests.isolate_data')
+
 -- Differential ("fake"/reference-model) testing for patterns_cmdline.lua's
 -- four independent cmdline detectors — see issue #330/#327 for the
 -- technique and its rationale, and #316/#315 for the sibling suite this one

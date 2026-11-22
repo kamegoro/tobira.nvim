@@ -1,3 +1,5 @@
+require('tests.isolate_data')
+
 local float = require('tobira.ui.float')
 local logger = require('tobira.core.logger')
 local config = require('tobira.core.config')

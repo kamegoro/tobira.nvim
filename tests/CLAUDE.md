@@ -30,8 +30,8 @@ selene --display-style=quiet lua/ plugin/
 
 # 3. test suite
 # sequential = true is required — parallel execution makes logger_spec flaky
-# minimal_init = ... is required — without it stdpath('data') override does not apply
-#   and tests would read/write the real ~/.local/share/nvim/tobira/usage.json
+# minimal_init = ... is required (plenary bootstrap, coverage). The data-dir
+#   isolation itself lives in tests/isolate_data.lua, see "Data-dir isolation" below.
 nvim --headless --noplugin -u tests/minimal_init.lua \
   -c "PlenaryBustedDirectory tests/spec/ {minimal_init = 'tests/minimal_init.lua', sequential = true}" 2>&1
 
@@ -42,6 +42,27 @@ COVERAGE=1 nvim --headless --noplugin -u tests/minimal_init.lua \
 ~/.luarocks/bin/luacov
 grep 'Total' luacov.report.out   # must be 100.00%
 ```
+
+Single file: same command with the file path in place of the directory, e.g.
+`-c "PlenaryBustedDirectory tests/spec/integration/logger_spec.lua {minimal_init = 'tests/minimal_init.lua', sequential = true}"`.
+
+## Data-dir isolation (mandatory first line of every spec)
+
+Every `*_spec.lua` under `tests/spec/`, `tests/differential/` and `tests/regression/`
+must start with:
+
+```lua
+require('tests.isolate_data')
+```
+
+It redirects `stdpath('data')` to a per-process temp dir before `tobira.core.logger`
+is required, and hard-fails if the logger was already loaded with the real data dir.
+`tests/minimal_init.lua` requires it too, but a spec cannot rely on that:
+`:PlenaryBustedFile` (and `PlenaryBustedDirectory` without `minimal_init = ...`) runs
+the spec in a child Neovim that never loads `minimal_init.lua`. That is how a
+developer's real `usage.json` once got deleted by `wipe_disk()`.
+`tests/spec/unit/test_isolation_spec.lua` checks every spec's first line and launches a
+fixture through `PlenaryBustedFile` with no `minimal_init` against a fake data dir.
 
 ## Regression suites (`tests/regression/`)
 

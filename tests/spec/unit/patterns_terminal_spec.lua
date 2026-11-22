@@ -1,3 +1,5 @@
+require('tests.isolate_data')
+
 -- Pure terminal-mode key-streak detection. No vim.* calls —
 -- patterns_terminal.lua has zero Neovim dependencies.
 --

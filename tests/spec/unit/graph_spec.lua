@@ -1,3 +1,5 @@
+require('tests.isolate_data')
+
 local graph = require('tobira.core.graph')
 
 -- Helper: build usage data with given session history.
