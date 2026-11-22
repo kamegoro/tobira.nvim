@@ -77,3 +77,10 @@ state that survives across that gap the same way `last_op` itself does.
   `diw_then_insert` the same way as `dw_then_insert` (own `state.last_op_diw`
   field, own generator chunk, added to `M.TRACKED_PATTERNS`) — required by the
   differential fuzzer's "almost every pattern" coverage invariant.
+
+### Addendum
+
+`docs/adr/0120-then-insert-equivalence-gate.md` later narrowed this family to the
+follow-up keys that make the suggestion equivalent: `diw_then_insert` now fires only
+for `i`, and `dw_then_insert` only for a bare/counted `w`/`e` motion followed by `i`.
+`daw`, `di"` and the other text objects no longer fall back to `cw`.

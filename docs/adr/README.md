@@ -189,6 +189,7 @@ Ground-truth index of every ADR, grouped by which module actually points to it v
 - 0115 — prefix-consumer-streak-bookkeeping
 - 0116 — macro-edit-keys-mode-source-distinction
 - 0119 — diw-then-insert-text-object-variant-collapse
+- 0120 — then-insert-equivalence-gate
 
 ### lua/tobira/core/patterns_cmdline.lua
 

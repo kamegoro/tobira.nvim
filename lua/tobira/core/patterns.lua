@@ -41,6 +41,10 @@ function M.new_seq()
     -- Read by diw_then_insert to suggest the more precise ciw instead of
     -- dw_then_insert's cw. See docs/adr/0119-diw-then-insert-text-object-variant-collapse.md.
     last_op_diw = false,
+    -- Persists alongside last_op like last_op_diw: true only when the
+    -- 'dw' value came from a bare/counted w or e motion, the only shapes
+    -- whose delete + i equals cw. See docs/adr/0120-then-insert-equivalence-gate.md.
+    last_op_wordish = false,
     dd_streak = 0,
     cc_streak = 0,
     indent_streak = 0,
@@ -180,6 +184,16 @@ local INSERT_KEYS = {
   s = true,
   S = true,
 }
+
+-- Per delete shape, the follow-up insert keys that make delete + insert do
+-- exactly what the suggested change command does; any other insert key is a
+-- different edit and must not be suggested. See
+-- docs/adr/0120-then-insert-equivalence-gate.md.
+local DD_EQUIVALENT_INSERT = { O = true }
+local DW_EQUIVALENT_INSERT = { i = true }
+local X_EQUIVALENT_INSERT = { i = true }
+local D_EQUIVALENT_INSERT = { a = true, A = true }
+local DW_WORDISH_MOTIONS = { w = true, e = true }
 
 -- Motion keys that move the cursor rightward on the current line — the set
 -- checked by the p/P → gp/gP cursor-skip-past-paste pattern.
@@ -1025,6 +1039,7 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
     -- for every other text object (daw, di", ciw, ...). See
     -- docs/adr/0119-diw-then-insert-text-object-variant-collapse.md.
     seq.last_op_diw = op == 'd' and inner and key == 'w'
+    seq.last_op_wordish = false
     -- Sets key_consumed the same as pending_register/pending_mark/
     -- pending_bracket above -- without it, the completing key (e.g. the w of
     -- ciw/diw/yiw) also silently increments bare usage['w'].count on top of
@@ -1281,6 +1296,7 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
       -- A bare/counted charwise motion (dw, d3w, de, ...), never the diw
       -- text object — see docs/adr/0119-diw-then-insert-text-object-variant-collapse.md.
       seq.last_op_diw = false
+      seq.last_op_wordish = DW_WORDISH_MOTIONS[key] == true
       -- n-streak → change the match: suggest cgn (charwise-motion path, e.g.
       -- cw, ce, c3w). Text-object path (ciw, ci", ...) is handled in the
       -- pending_text_obj block above. See
@@ -1461,11 +1477,16 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
     return { pattern = 'dd_then_p', cmd = 'ddp' }
   end
 
-  -- ── dd → insert: suggest cc ──────────────────────────────────────────────
+  -- ── dd → O: suggest cc ───────────────────────────────────────────────────
+  -- Any insert key consumes last_op, but only O reopens the deleted line in
+  -- place — see docs/adr/0120-then-insert-equivalence-gate.md.
   if seq.last_op == 'dd' and INSERT_KEYS[key] then
     seq.last_op = nil
     seq.dd_streak = 0
-    return { pattern = 'dd_then_insert', cmd = 'cc' }
+    if DD_EQUIVALENT_INSERT[key] then
+      return { pattern = 'dd_then_insert', cmd = 'cc' }
+    end
+    return nil
   end
 
   -- ── p / P: arm cursor-skip-past-paste tracking ────────────────────────────
@@ -1506,7 +1527,7 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
   end
 
   -- ── x (exactly once) → insert: suggest s ─────────────────────────────────
-  if INSERT_KEYS[key] and seq.run.key == 'x' and seq.run.count == 1 then
+  if X_EQUIVALENT_INSERT[key] and seq.run.key == 'x' and seq.run.count == 1 then
     -- Reset the run so a second x -> insert round trip right after this one
     -- still sees count == 1 instead of a stale count == 2 from the first x.
     seq.run = { key = nil, count = 0 }
@@ -1514,7 +1535,7 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
   end
 
   -- ── D → insert: suggest C ────────────────────────────────────────────────
-  if INSERT_KEYS[key] and seq.run.key == 'D' then
+  if D_EQUIVALENT_INSERT[key] and seq.run.key == 'D' then
     return { pattern = 'D_then_insert', cmd = 'C' }
   end
 
@@ -1522,16 +1543,24 @@ local function inner_feed(seq, key, line, is_diff, now, is_wrapped)
   -- Checked before the generic dw → insert case below: diw is a more
   -- specific match than a bare/counted dw motion, so it gets the more
   -- precise suggestion. See docs/adr/0119-diw-then-insert-text-object-variant-collapse.md.
-  if seq.last_op == 'dw' and seq.last_op_diw and INSERT_KEYS[key] then
+  -- Any insert key consumes the 'dw' bucket; only i right after a dw/de/diw
+  -- shape is equivalent — see docs/adr/0120-then-insert-equivalence-gate.md.
+  if seq.last_op == 'dw' and INSERT_KEYS[key] then
+    local diw, wordish = seq.last_op_diw, seq.last_op_wordish
     seq.last_op = nil
     seq.last_op_diw = false
-    return { pattern = 'diw_then_insert', cmd = 'ciw' }
-  end
-
-  -- ── dw → insert: suggest cw ──────────────────────────────────────────────
-  if seq.last_op == 'dw' and INSERT_KEYS[key] then
-    seq.last_op = nil
-    return { pattern = 'dw_then_insert', cmd = 'cw' }
+    seq.last_op_wordish = false
+    if not DW_EQUIVALENT_INSERT[key] then
+      return nil
+    end
+    if diw then
+      return { pattern = 'diw_then_insert', cmd = 'ciw' }
+    end
+    -- ── dw → i: suggest cw ───────────────────────────────────────────────
+    if wordish then
+      return { pattern = 'dw_then_insert', cmd = 'cw' }
+    end
+    return nil
   end
 
   -- ── diff-hunk jump → insert: suggest do/dp ────────────────────────────────

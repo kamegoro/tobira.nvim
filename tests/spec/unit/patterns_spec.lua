@@ -637,22 +637,27 @@ end)
 -- ── D → insert (delete to EOL then re-enter insert) ──────────────────────────
 
 describe('when the user deletes to end of line then enters insert mode', function()
-  it('fires D_then_insert suggesting C', function()
-    local s = seq()
-    patterns.feed(s, 'D', 1)
-    local result = patterns.feed(s, 'i', 1)
-    assert.is_not_nil(result)
-    assert.equals('D_then_insert', result.pattern)
-    assert.equals('C', result.cmd)
-  end)
+  for _, k in ipairs({ 'a', 'A' }) do
+    it('fires D_then_insert suggesting C for D' .. k, function()
+      local s = seq()
+      patterns.feed(s, 'D', 1)
+      local result = patterns.feed(s, k, 1)
+      assert.is_not_nil(result)
+      assert.equals('D_then_insert', result.pattern)
+      assert.equals('C', result.cmd)
+    end)
+  end
 
-  it('also fires for A after D', function()
-    local s = seq()
-    patterns.feed(s, 'D', 1)
-    local result = patterns.feed(s, 'a', 1)
-    assert.is_not_nil(result)
-    assert.equals('D_then_insert', result.pattern)
-  end)
+  -- Only an insert key that resumes at the end of the line makes D + insert
+  -- equal C — see docs/adr/0120-then-insert-equivalence-gate.md.
+  for _, k in ipairs({ 'i', 'I', 'o', 'O', 's', 'S' }) do
+    it('does not fire for D' .. k .. ' (not what C does)', function()
+      local s = seq()
+      patterns.feed(s, 'D', 1)
+      local result = patterns.feed(s, k, 1)
+      assert.is_nil(result)
+    end)
+  end
 
   it('does not fire when another key separates D and the insert key', function()
     local s = seq()
@@ -833,14 +838,39 @@ describe('when the user deletes a word then enters insert mode to retype it', fu
     assert.equals('cw', result.cmd)
   end)
 
-  it('also fires when the user appends with a instead of i', function()
+  it('also fires for de then i (ce behaves the same as cw)', function()
     local s = seq()
-    patterns.feed(s, 'd', 1)
-    patterns.feed(s, 'w', 1)
-    local result = patterns.feed(s, 'a', 1)
+    local result = feed(s, { 'd', 'e', 'i' })
     assert.is_not_nil(result)
     assert.equals('dw_then_insert', result.pattern)
+    assert.equals('cw', result.cmd)
   end)
+
+  -- dwA / dwa / dwo ... resume typing somewhere other than where the word
+  -- was, so cw would do something different — see
+  -- docs/adr/0120-then-insert-equivalence-gate.md.
+  for _, k in ipairs({ 'a', 'A', 'I', 'o', 'O', 's', 'S' }) do
+    it('does not fire for dw' .. k .. ' (cw is not equivalent)', function()
+      local s = seq()
+      local result = feed(s, { 'd', 'w', k })
+      assert.is_nil(result)
+    end)
+  end
+
+  it('does not fire a stale suggestion on a later i after a non-equivalent dwA', function()
+    local s = seq()
+    feed(s, { 'd', 'w', 'A', '\27' })
+    local result = patterns.feed(s, 'i', 1)
+    assert.is_nil(result)
+  end)
+
+  for _, motion in ipairs({ 'b', 'h', 'l', 'W', 'E', '0', '}' }) do
+    it('does not fire for d' .. motion .. ' then i (cw is not what that deleted)', function()
+      local s = seq()
+      local result = feed(s, { 'd', motion, 'i' })
+      assert.is_nil(result)
+    end)
+  end
 
   it('fires when count prefix is used (d3w → i)', function()
     local s = seq()
@@ -852,25 +882,14 @@ describe('when the user deletes a word then enters insert mode to retype it', fu
     assert.equals('dw_then_insert', result.pattern)
   end)
 
-  it('fires for daw (around word text object)', function()
-    local s = seq()
-    patterns.feed(s, 'd', 1)
-    patterns.feed(s, 'a', 1)
-    patterns.feed(s, 'w', 1)
-    local result = patterns.feed(s, 'i', 1)
-    assert.is_not_nil(result)
-    assert.equals('dw_then_insert', result.pattern)
-  end)
-
-  it('fires for di" (inner quote text object)', function()
-    local s = seq()
-    patterns.feed(s, 'd', 1)
-    patterns.feed(s, 'i', 1)
-    patterns.feed(s, '"', 1)
-    local result = patterns.feed(s, 'i', 1)
-    assert.is_not_nil(result)
-    assert.equals('dw_then_insert', result.pattern)
-  end)
+  -- daw / di" + i equal caw / ci", not cw, so suggesting cw would be wrong.
+  for _, obj in ipairs({ { 'a', 'w' }, { 'i', '"' }, { 'a', '(' } }) do
+    it('does not suggest cw for d' .. obj[1] .. obj[2] .. ' then i', function()
+      local s = seq()
+      local result = feed(s, { 'd', obj[1], obj[2], 'i' })
+      assert.is_nil(result)
+    end)
+  end
 
   it('does NOT fire for diw — diw_then_insert (see below) is the more specific match', function()
     local s = seq()
@@ -900,16 +919,13 @@ describe('when the user deletes an inner word (diw) then enters insert mode to r
     assert.equals('ciw', result.cmd)
   end)
 
-  it('also fires when the user appends with a instead of i', function()
-    local s = seq()
-    patterns.feed(s, 'd', 1)
-    patterns.feed(s, 'i', 1)
-    patterns.feed(s, 'w', 1)
-    local result = patterns.feed(s, 'a', 1)
-    assert.is_not_nil(result)
-    assert.equals('diw_then_insert', result.pattern)
-    assert.equals('ciw', result.cmd)
-  end)
+  for _, k in ipairs({ 'a', 'A', 'I', 'o', 'O', 's', 'S' }) do
+    it('does not fire for diw' .. k .. ' (ciw is not equivalent)', function()
+      local s = seq()
+      local result = feed(s, { 'd', 'i', 'w', k })
+      assert.is_nil(result)
+    end)
+  end
 
   it('does not fire for a bare dw (no text-object prefix) — dw_then_insert covers that', function()
     local s = seq()
@@ -1292,13 +1308,14 @@ describe('when the user deletes one character then enters insert mode', function
     assert.equals('s', result.cmd)
   end)
 
-  it('also fires for a / o after x', function()
-    local s = seq()
-    patterns.feed(s, 'x', 1)
-    local result = patterns.feed(s, 'a', 1)
-    assert.is_not_nil(result)
-    assert.equals('x_then_insert', result.pattern)
-  end)
+  for _, k in ipairs({ 'a', 'A', 'I', 'o', 'O', 's', 'S' }) do
+    it('does not fire for x' .. k .. ' (s is not equivalent)', function()
+      local s = seq()
+      patterns.feed(s, 'x', 1)
+      local result = patterns.feed(s, k, 1)
+      assert.is_nil(result)
+    end)
+  end
 
   it('does not fire after x x x (x_repeat territory)', function()
     local s = seq()
@@ -1340,23 +1357,30 @@ end)
 -- ── dd → insert: suggest cc (change line instead of delete + re-enter) ────────
 
 describe('when the user deletes a line then enters insert mode', function()
-  it('fires dd_then_insert suggesting cc', function()
+  it('fires dd_then_insert suggesting cc for ddO (reopen the line where it was)', function()
     local s = seq()
-    patterns.feed(s, 'd', 1)
-    patterns.feed(s, 'd', 1)
-    local result = patterns.feed(s, 'i', 1)
+    local result = feed(s, { 'd', 'd', 'O' })
     assert.is_not_nil(result)
     assert.equals('dd_then_insert', result.pattern)
     assert.equals('cc', result.cmd)
   end)
 
-  it('also fires for a and o after dd', function()
+  -- ddo opens a line BELOW the next line, ddi edits the next line: neither
+  -- is what cc does — see
+  -- docs/adr/0120-then-insert-equivalence-gate.md.
+  for _, k in ipairs({ 'o', 'i', 'I', 'a', 'A', 's', 'S' }) do
+    it('does not fire for dd' .. k .. ' (cc is not equivalent)', function()
+      local s = seq()
+      local result = feed(s, { 'd', 'd', k })
+      assert.is_nil(result)
+    end)
+  end
+
+  it('does not fire a stale suggestion on a later O after a non-equivalent ddo', function()
     local s = seq()
-    patterns.feed(s, 'd', 1)
-    patterns.feed(s, 'd', 1)
-    local result = patterns.feed(s, 'o', 1)
-    assert.is_not_nil(result)
-    assert.equals('dd_then_insert', result.pattern)
+    feed(s, { 'd', 'd', 'o', '\27' })
+    local result = patterns.feed(s, 'O', 1)
+    assert.is_nil(result)
   end)
 end)
 

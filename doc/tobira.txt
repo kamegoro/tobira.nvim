@@ -408,16 +408,19 @@ EDIT ~
                                  (still fires even with Neovim's own default
                                  `nnoremap Y y$` in place — see the narrow
                                  exception under KEYMAP OVERRIDES above)
-  `dw` → `i`                    Suggest `cw`    — change word in one motion
+  `dw` / `de` → `i`             Suggest `cw`    — change word in one motion
   `diw` → `i`                   Suggest `ciw`   — change inner word in one motion
+                                 (these delete → insert suggestions fire only for
+                                 the insert key that makes them the same edit:
+                                 `dwA` or `ddo` suggest nothing)
   `yy` → `p`                    Suggest `yyp`   — duplicate the current line
   `dd` → `p`                    Suggest `ddp`   — swap current line with next
-  `dd` → `i` / `a` / `o`       Suggest `cc`    — change whole line
+  `dd` → `O`                    Suggest `cc`    — change whole line
   `dd` × 3                      Suggest `{n}dd` — delete N lines at once
   `ci"` × 3 (direct, not visual; nav ok between) Suggest `ya"` — yank around double quotes
   `ci'` × 3 (direct, not visual; nav ok between) Suggest `ya'` — yank around single quotes
-  `D` → `i` / `a` / `o`        Suggest `C`     — change to end of line
-  `x` (once) → `i` / `a` / `o` Suggest `s`     — substitute char (delete + insert)
+  `D` → `a` / `A`               Suggest `C`     — change to end of line
+  `x` (once) → `i`              Suggest `s`     — substitute char (delete + insert)
   `x` × 3                       Suggest `{n}x`  — delete N chars at once
   `p` × 3                       Suggest `{n}p`  — paste N times
   `P` × 3                       Suggest `{n}P`  — paste above N times

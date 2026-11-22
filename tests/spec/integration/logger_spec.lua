@@ -1279,6 +1279,57 @@ describe('when the user deletes a word then enters insert mode', function()
     assert.equals('dw_then_insert', fired.pattern)
     assert.equals('cw', fired.cmd)
   end)
+
+  it('does not suggest cw when the user appends at end of line instead (dwA)', function()
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, pattern .. '=' .. cmd)
+    end
+    logger.setup()
+
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'hello world' })
+    vim.fn.feedkeys('dwA', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+
+    assert.same({}, fired)
+  end)
+end)
+
+describe('when the user deletes a line then opens a new line', function()
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    logger.on_pattern = nil
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+    if vim.fn.mode() ~= 'n' then
+      vim.cmd('stopinsert')
+    end
+  end)
+
+  local function run(keys)
+    local fired = {}
+    logger.on_pattern = function(pattern, cmd)
+      table.insert(fired, pattern .. '=' .. cmd)
+    end
+    logger.setup()
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'aaa', 'bbb', 'ccc' })
+    vim.fn.feedkeys(keys, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    return fired
+  end
+
+  it('suggests cc for ddO, which reopens the deleted line in place', function()
+    assert.same({ 'dd_then_insert=cc' }, run('ddO'))
+  end)
+
+  it('does not suggest cc for ddo, which opens a line below the next one', function()
+    assert.same({}, run('ddo'))
+  end)
 end)
 
 -- ── ci" × 3 (direct, non-visual) → ya" ────────────────────────────────────────
