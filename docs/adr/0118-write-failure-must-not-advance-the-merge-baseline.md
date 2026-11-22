@@ -71,6 +71,6 @@ mechanism.
 
 ### Addendum: periodic save
 
-docs/adr/0120-periodic-save-and-corrupt-file-preservation.md adds debounced saves on
+docs/adr/0121-periodic-save-and-corrupt-file-preservation.md adds debounced saves on
 `CursorHold`/`CursorHoldI`/`FocusLost`. A failed write leaves the dirty flag set, so the
 next periodic trigger retries it; the retry no longer depends on another mutating action.

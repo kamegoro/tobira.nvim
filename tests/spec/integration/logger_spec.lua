@@ -3868,7 +3868,7 @@ describe('when the user switches buffers mid-streak', function()
 end)
 
 -- ── periodic save ─────────────────────────────────────────────────────────────
--- See docs/adr/0120-periodic-save-and-corrupt-file-preservation.md.
+-- See docs/adr/0121-periodic-save-and-corrupt-file-preservation.md.
 
 local function read_raw_disk()
   local f = io.open(_data_file, 'r')

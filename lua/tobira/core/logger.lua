@@ -42,7 +42,7 @@ M.on_pattern = nil
 -- path an unparsable usage.json was moved aside to.
 M.on_corrupt = nil
 
--- See docs/adr/0120-periodic-save-and-corrupt-file-preservation.md.
+-- See docs/adr/0121-periodic-save-and-corrupt-file-preservation.md.
 M.AUTOSAVE_INTERVAL_MS = 2 * 60 * 1000
 -- True once a count changed in memory since the last successful save().
 local _dirty = false
@@ -148,7 +148,7 @@ end
 
 -- Moves an unparsable usage.json aside instead of letting the next save()
 -- overwrite it. Returns false if the move failed, so callers must not write.
--- See docs/adr/0120-periodic-save-and-corrupt-file-preservation.md.
+-- See docs/adr/0121-periodic-save-and-corrupt-file-preservation.md.
 local function preserve_corrupt_file()
   local base = data_file .. '.corrupt-' .. os.date('%Y%m%d-%H%M%S')
   local target = base
@@ -885,7 +885,7 @@ function M.setup()
   })
 
   -- Bounds what a crash or kill -9 can lose. See
-  -- docs/adr/0120-periodic-save-and-corrupt-file-preservation.md.
+  -- docs/adr/0121-periodic-save-and-corrupt-file-preservation.md.
   _last_save_at = vim.loop.now()
   vim.api.nvim_create_autocmd({ 'CursorHold', 'CursorHoldI', 'FocusLost' }, {
     group = mode_group,
