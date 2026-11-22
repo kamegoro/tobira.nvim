@@ -68,3 +68,9 @@ mechanism.
   a new gap introduced by this fix — `close_session()` (bound to `VimLeave`) is itself
   one of the `save()`-calling paths, so the common "Neovim is exiting" case is already
   covered.
+
+### Addendum: periodic save
+
+docs/adr/0121-periodic-save-and-corrupt-file-preservation.md adds debounced saves on
+`CursorHold`/`CursorHoldI`/`FocusLost`. A failed write leaves the dirty flag set, so the
+next periodic trigger retries it; the retry no longer depends on another mutating action.

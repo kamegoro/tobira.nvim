@@ -38,9 +38,34 @@ describe('tobira.setup', function()
     logger.reset()
     assert.is_false(logger.is_guide_seen())
 
-    local deferred = capture_defer(function()
-      tobira.setup({})
+    -- An unparsable usage.json found during setup() itself must already reach
+    -- the user, so on_corrupt has to be wired before logger.setup() runs.
+    vim.fn.mkdir(vim.fn.fnamemodify(_data_file, ':h'), 'p')
+    local cf = io.open(_data_file, 'w')
+    cf:write('{"truncated": ')
+    cf:close()
+    local notified = {}
+    local orig_notify = vim.notify
+    vim.notify = function(msg, level)
+      table.insert(notified, { msg = msg, level = level })
+    end
+    local deferred
+    local ok0, err0 = pcall(function()
+      deferred = capture_defer(function()
+        tobira.setup({})
+      end)
     end)
+    vim.notify = orig_notify
+    assert.is_true(ok0, err0)
+    local moved = vim.fn.glob(_data_file .. '.corrupt-*', false, true)
+    assert.equals(1, #moved)
+    local warnings = vim.tbl_filter(function(n)
+      return n.level == vim.log.levels.WARN
+    end, notified)
+    assert.same({
+      { msg = require('tobira.locales.en').notifications.usage_corrupt:format(moved[1]), level = vim.log.levels.WARN },
+    }, warnings)
+    os.remove(moved[1])
 
     -- logger.on_pattern → suggest.queue
     assert.equals(suggest.queue, logger.on_pattern)
@@ -87,5 +112,77 @@ describe('tobira.setup', function()
     -- confirm it doesn't re-open the guide or throw, without re-wiring.
     local ok4, err4 = pcall(tobira.setup, {})
     assert.is_true(ok4, err4)
+  end)
+end)
+
+describe('when the user runs :TobiraReset', function()
+  local notified, confirm_answer, confirm_calls
+  local orig_notify, orig_confirm
+  local str = require('tobira.locales.en').notifications
+
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    logger.mark_shown('j')
+    notified = {}
+    confirm_calls = 0
+    orig_notify = vim.notify
+    orig_confirm = vim.fn.confirm
+    vim.notify = function(msg)
+      table.insert(notified, msg)
+    end
+    vim.fn.confirm = function()
+      confirm_calls = confirm_calls + 1
+      return confirm_answer
+    end
+  end)
+
+  after_each(function()
+    vim.notify = orig_notify
+    vim.fn.confirm = orig_confirm
+  end)
+
+  local function disk_has_j()
+    local f = io.open(_data_file, 'r')
+    local disk = vim.json.decode(f:read('*a'))
+    f:close()
+    return disk.j ~= nil
+  end
+
+  it('asks for confirmation and erases the data when confirmed', function()
+    confirm_answer = 1
+    tobira.reset(false)
+    assert.equals(1, confirm_calls)
+    assert.same({}, logger.get_all())
+    assert.is_false(disk_has_j())
+    assert.same({ str.reset }, notified)
+  end)
+
+  it('keeps the data when the user declines', function()
+    confirm_answer = 2
+    tobira.reset(false)
+    assert.equals(1, logger.get('j').shown)
+    assert.is_true(disk_has_j())
+    assert.same({ str.reset_cancelled }, notified)
+  end)
+
+  it('keeps the data when the prompt is dismissed with <Esc>', function()
+    confirm_answer = 0
+    tobira.reset(false)
+    assert.is_true(disk_has_j())
+  end)
+
+  it('skips the confirmation with :TobiraReset!', function()
+    tobira.reset(true)
+    assert.equals(0, confirm_calls)
+    assert.is_false(disk_has_j())
+    assert.same({ str.reset }, notified)
+  end)
+
+  it('is wired to the :TobiraReset command', function()
+    vim.cmd('runtime plugin/tobira.lua')
+    vim.cmd('TobiraReset!')
+    assert.is_false(disk_has_j())
+    assert.equals(0, confirm_calls)
   end)
 end)

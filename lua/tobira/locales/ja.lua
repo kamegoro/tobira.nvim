@@ -52,6 +52,10 @@ return {
     no_suggestions = 'tobira: 新しい提案はありません 🎉',
     invalid_config = 'tobira: 設定が不正です — ',
     remap_detected = 'tobira: %s は再マッピングされています（%s）— 提案候補から除外しました',
+    reset_confirm = 'tobira: 使用データをすべて消去しますか？元に戻せません。',
+    reset_choices = 'はい(&Y)\nいいえ(&N)',
+    reset_cancelled = 'tobira: リセットを取り消しました',
+    usage_corrupt = 'tobira: usage.json を読み込めなかったため %s に退避し、新しく記録を始めました。元のデータはそのファイルに残っています。',
   },
   stats = {
     title = 'tobira — 使用統計',

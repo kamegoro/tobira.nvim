@@ -3866,3 +3866,248 @@ describe('when the user switches buffers mid-streak', function()
     assert.is_true(saw_close_repeat, 'ctrl_w_close_repeat must still fire across <C-w>q-caused window switches')
   end)
 end)
+
+-- ── periodic save ─────────────────────────────────────────────────────────────
+-- See docs/adr/0121-periodic-save-and-corrupt-file-preservation.md.
+
+local function read_raw_disk()
+  local f = io.open(_data_file, 'r')
+  if not f then
+    return nil
+  end
+  local content = f:read('*a')
+  f:close()
+  return vim.json.decode(content)
+end
+
+local function write_raw_disk(content)
+  vim.fn.mkdir(vim.fn.fnamemodify(_data_file, ':h'), 'p')
+  local f = io.open(_data_file, 'w')
+  f:write(content)
+  f:close()
+end
+
+local function with_clock(now_ms, fn)
+  local real_now = vim.loop.now
+  vim.loop.now = function()
+    return now_ms
+  end
+  local ok, err = pcall(fn)
+  vim.loop.now = real_now
+  assert.is_true(ok, tostring(err))
+end
+
+local function corrupt_files()
+  local files = vim.fn.glob(_data_file .. '.corrupt-*', false, true)
+  table.sort(files)
+  return files
+end
+
+local function wipe_corrupt_files()
+  for _, path in ipairs(corrupt_files()) do
+    os.remove(path)
+  end
+end
+
+describe('when Neovim keeps running long enough to be killed before exiting', function()
+  local start = 1000000
+
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    with_clock(start, function()
+      logger.setup()
+    end)
+    vim.cmd('enew')
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'a', 'b', 'c', 'd', 'e', 'f' })
+  end)
+
+  local function type_j(n)
+    vim.fn.feedkeys(string.rep('j', n), 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+  end
+
+  it('saves usage on CursorHold once the autosave interval has passed', function()
+    type_j(3)
+    with_clock(start + logger.AUTOSAVE_INTERVAL_MS, function()
+      vim.api.nvim_exec_autocmds('CursorHold', {})
+    end)
+    assert.equals(3, read_raw_disk().j.count)
+  end)
+
+  it('does not save on CursorHold before the autosave interval has passed', function()
+    type_j(3)
+    with_clock(start + logger.AUTOSAVE_INTERVAL_MS - 1, function()
+      vim.api.nvim_exec_autocmds('CursorHold', {})
+    end)
+    assert.is_nil(read_raw_disk())
+  end)
+
+  it('saves usage in insert mode too (CursorHoldI)', function()
+    type_j(2)
+    with_clock(start + logger.AUTOSAVE_INTERVAL_MS, function()
+      vim.api.nvim_exec_autocmds('CursorHoldI', {})
+    end)
+    assert.equals(2, read_raw_disk().j.count)
+  end)
+
+  it('saves immediately when Neovim loses focus', function()
+    type_j(4)
+    with_clock(start + 1, function()
+      vim.api.nvim_exec_autocmds('FocusLost', {})
+    end)
+    assert.equals(4, read_raw_disk().j.count)
+  end)
+
+  it('writes nothing when no usage was recorded since the last save', function()
+    with_clock(start + logger.AUTOSAVE_INTERVAL_MS, function()
+      vim.api.nvim_exec_autocmds('FocusLost', {})
+    end)
+    assert.is_nil(read_raw_disk())
+  end)
+
+  it('restarts the interval after each save', function()
+    type_j(1)
+    with_clock(start + logger.AUTOSAVE_INTERVAL_MS, function()
+      vim.api.nvim_exec_autocmds('CursorHold', {})
+    end)
+    type_j(1)
+    with_clock(start + logger.AUTOSAVE_INTERVAL_MS + 1, function()
+      vim.api.nvim_exec_autocmds('CursorHold', {})
+    end)
+    assert.equals(1, read_raw_disk().j.count)
+  end)
+
+  it('merges with a concurrent instance and does not double count at exit', function()
+    type_j(3)
+    -- Another Neovim instance writes its own counts after this one started.
+    write_raw_disk(vim.json.encode({ j = { count = 100, sessions = { 5, 5, 5 } } }))
+    with_clock(start + 1, function()
+      vim.api.nvim_exec_autocmds('FocusLost', {})
+    end)
+    assert.equals(103, read_raw_disk().j.count)
+
+    type_j(2)
+    logger.close_session()
+    assert.equals(105, read_raw_disk().j.count)
+    assert.equals(4, #read_raw_disk().j.sessions)
+  end)
+end)
+
+-- ── unparsable usage.json ─────────────────────────────────────────────────────
+
+describe('when usage.json cannot be parsed', function()
+  local notices
+
+  before_each(function()
+    wipe_disk()
+    wipe_corrupt_files()
+    logger.reset()
+    notices = {}
+    logger.on_corrupt = function(path)
+      table.insert(notices, path)
+    end
+  end)
+
+  after_each(function()
+    logger.on_corrupt = nil
+    wipe_corrupt_files()
+  end)
+
+  it('moves the file aside instead of overwriting it', function()
+    write_raw_disk('{"ciw": {"count": 3000, "sessi')
+    logger.load_from_disk()
+    logger.mark_shown('j')
+
+    local moved = corrupt_files()
+    assert.equals(1, #moved)
+    local f = io.open(moved[1], 'r')
+    assert.equals('{"ciw": {"count": 3000, "sessi', f:read('*a'))
+    f:close()
+    assert.equals(0, read_raw_disk().j.count)
+  end)
+
+  it('names the moved file usage.json.corrupt-<timestamp>', function()
+    write_raw_disk('not json')
+    logger.load_from_disk()
+    assert.is_not_nil(corrupt_files()[1]:match('usage%.json%.corrupt%-%d%d%d%d%d%d%d%d%-%d%d%d%d%d%d$'))
+  end)
+
+  it('reports the moved path once through on_corrupt', function()
+    write_raw_disk('not json')
+    logger.load_from_disk()
+    logger.mark_shown('j')
+    logger.mark_shown('j')
+    assert.same(corrupt_files(), notices)
+  end)
+
+  it('treats valid JSON that is not an object as unparsable too', function()
+    write_raw_disk('42')
+    logger.load_from_disk()
+    assert.equals(1, #corrupt_files())
+  end)
+
+  it('treats an empty file as empty usage without moving it', function()
+    write_raw_disk('  \n')
+    logger.load_from_disk()
+    assert.same({}, corrupt_files())
+    assert.same({}, notices)
+  end)
+
+  it('does not need on_corrupt to be wired', function()
+    logger.on_corrupt = nil
+    write_raw_disk('not json')
+    assert.has_no_error(function()
+      logger.load_from_disk()
+    end)
+    assert.equals(1, #corrupt_files())
+  end)
+
+  it('never overwrites a second corrupt file moved aside in the same second', function()
+    local real_date = os.date
+    os.date = function()
+      return '20260101-000000'
+    end
+    local ok, err = pcall(function()
+      write_raw_disk('first')
+      logger.load_from_disk()
+      write_raw_disk('second')
+      logger.load_from_disk()
+    end)
+    os.date = real_date
+    assert.is_true(ok, tostring(err))
+
+    local moved = corrupt_files()
+    assert.equals(2, #moved)
+    local contents = {}
+    for _, path in ipairs(moved) do
+      local f = io.open(path, 'r')
+      table.insert(contents, f:read('*a'))
+      f:close()
+    end
+    table.sort(contents)
+    assert.same({ 'first', 'second' }, contents)
+  end)
+
+  it('keeps the file and the in-memory data when it cannot be moved aside', function()
+    logger.mark_shown('j')
+    write_raw_disk('not json')
+
+    local real_rename = os.rename
+    os.rename = function()
+      return nil, 'denied'
+    end
+    local ok, err = pcall(logger.save)
+    os.rename = real_rename
+    assert.is_true(ok, tostring(err))
+
+    local f = io.open(_data_file, 'r')
+    assert.equals('not json', f:read('*a'))
+    f:close()
+    assert.equals(1, logger.get('j').shown)
+
+    logger.save()
+    assert.equals(1, #corrupt_files())
+    assert.is_not_nil(read_raw_disk().j)
+  end)
+end)

@@ -52,6 +52,10 @@ return {
     no_suggestions = 'tobira: gerade keine neuen Vorschläge 🎉',
     invalid_config = 'tobira: ungültige Konfiguration — ',
     remap_detected = 'tobira: %s ist umgemappt (%s) — aus dem Vorschlagspool entfernt',
+    reset_confirm = 'tobira: Alle Nutzungsdaten löschen? Dies kann nicht rückgängig gemacht werden.',
+    reset_choices = '&Ja\n&Nein',
+    reset_cancelled = 'tobira: Zurücksetzen abgebrochen',
+    usage_corrupt = 'tobira: usage.json konnte nicht gelesen werden und wurde nach %s verschoben; ein neues Protokoll wurde begonnen. Deine alten Daten liegen weiterhin in dieser Datei.',
   },
   stats = {
     title = 'tobira — Nutzungsstatistik',

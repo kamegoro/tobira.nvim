@@ -128,9 +128,10 @@ Call `setup()` explicitly if not using lazy.nvim opts shorthand: >lua
     `<C-c>` Close the panel
 
                                                                  *:TobiraReset*
-:TobiraReset
+:TobiraReset[!]
   Reset all usage data. This clears the usage log stored at
-  `~/.local/share/nvim/tobira/usage.json`.
+  `~/.local/share/nvim/tobira/usage.json`. Asks for confirmation first;
+  with [!] the data is erased without asking.
 
                                                             *:checkhealth-tobira*
 :checkhealth tobira
@@ -268,7 +269,15 @@ Usage data is stored locally at: >
 
   ~/.local/share/nvim/tobira/usage.json
 <
-No data is sent externally. The file is updated on |VimLeave|.
+No data is sent externally. The file is updated on |VimLeave|, when
+Neovim loses focus (|FocusLost|), and on |CursorHold| at most every 2
+minutes, so a crash or `kill -9` loses at most a few minutes of counts.
+Writes go through a temporary file and are merged with what other running
+Neovim instances have saved.
+
+If `usage.json` cannot be parsed, tobira never overwrites it: the file is
+moved to `usage.json.corrupt-<timestamp>` next to it, a warning names the
+new path, and a fresh log starts.
 
                                                           *tobira-integrations*
 KEYMAP OVERRIDES AND PLUGIN INTEGRATIONS ~
@@ -579,15 +588,18 @@ Check these, roughly in order of likelihood:
 USAGE.JSON LOOKS CORRUPTED, OR MASTERY SEEMS STUCK/WRONG ~
 
 Run |:checkhealth-tobira| first — it validates `usage.json` as JSON
-and reports its exact path. If the file is not valid JSON, tobira does
-not error: it silently treats usage as empty until the file is fixed,
-which looks like every command has reverted to "never used".
+and reports its exact path. If the file is not valid JSON, tobira moves
+it aside to `usage.json.corrupt-<timestamp>` (warning you with the path)
+and starts a fresh log, so every command looks "never used" again. The
+old data is still in the moved file; if you repair its JSON you can put
+it back as `usage.json` while Neovim is closed.
 
 The file lives at: >
 
   ~/.local/share/nvim/tobira/usage.json
 <
-To start over deliberately, run |:TobiraReset|. It erases the file
+To start over deliberately, run |:TobiraReset| (or |:TobiraReset|! to
+skip the confirmation prompt). It erases the file
 completely — counts, per-session history, suppressed/pinned state, and
 mastery all go back to zero, with no partial undo. It does NOT touch
 your `setup()` options (`idle_delay`, `suggestion_cooldown`, and so
