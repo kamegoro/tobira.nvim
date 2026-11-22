@@ -47,6 +47,11 @@ return {
       to_next = '%d más para llegar a %s',
     },
   },
+  health = {
+    remaps_none = 'Ninguna tecla sugerible está remapeada',
+    remap_removed = '%s está remapeado (%s) — eliminado de las sugerencias',
+    remap_equivalent = '%s está remapeado (%s) — equivalente al predeterminado, se sigue sugiriendo',
+  },
   notifications = {
     reset = 'tobira: registro de uso reiniciado',
     no_suggestions = 'tobira: no hay sugerencias nuevas por ahora 🎉',

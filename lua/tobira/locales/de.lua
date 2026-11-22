@@ -47,6 +47,11 @@ return {
       to_next = 'noch %d bis %s',
     },
   },
+  health = {
+    remaps_none = 'Keine vorschlagbare Taste ist umgemappt',
+    remap_removed = '%s ist umgemappt (%s) — aus den Vorschlägen entfernt',
+    remap_equivalent = '%s ist umgemappt (%s) — gleichwertig zum Standard, wird weiterhin vorgeschlagen',
+  },
   notifications = {
     reset = 'tobira: Nutzungsprotokoll zurückgesetzt',
     no_suggestions = 'tobira: gerade keine neuen Vorschläge 🎉',

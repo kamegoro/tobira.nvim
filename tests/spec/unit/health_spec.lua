@@ -10,7 +10,7 @@ local config = require('tobira.core.config')
 -- Installs a fake vim.health, runs fn(), restores the real one even on error.
 -- Returns a table of captured calls: { start = {...}, ok = {...}, warn = {...}, error = {...} }.
 local function with_health_mock(fn)
-  local calls = { start = {}, ok = {}, warn = {}, error = {} }
+  local calls = { start = {}, ok = {}, info = {}, warn = {}, error = {} }
   local orig = vim.health
   vim.health = {
     start = function(msg)
@@ -18,6 +18,9 @@ local function with_health_mock(fn)
     end,
     ok = function(msg)
       table.insert(calls.ok, msg)
+    end,
+    info = function(msg)
+      table.insert(calls.info, msg)
     end,
     warn = function(msg)
       table.insert(calls.warn, msg)
@@ -260,6 +263,69 @@ describe('the lang config check', function()
   end)
 end)
 
+-- Overridden keys used to be announced with vim.notify at every startup,
+-- which raised a hit-enter prompt on stock Neovim (#354); they are listed
+-- here instead.
+describe('the keymap override check', function()
+  local integrations = require('tobira.core.integrations')
+  local orig_keymap
+
+  before_each(function()
+    integrations.reset()
+    config.reset()
+    orig_keymap = vim.api.nvim_get_keymap
+  end)
+  after_each(function()
+    vim.api.nvim_get_keymap = orig_keymap
+    integrations.reset()
+    config.reset()
+  end)
+
+  local function check_with_keymaps(by_mode)
+    vim.api.nvim_get_keymap = function(mode)
+      return by_mode[mode] or {}
+    end
+    return with_health_mock(function()
+      fresh_health().check()
+    end)
+  end
+
+  local function find(list, needle)
+    for _, msg in ipairs(list) do
+      if msg:find(needle, 1, true) then
+        return msg
+      end
+    end
+  end
+
+  it('reports ok when no suggestible key is remapped', function()
+    local calls = check_with_keymaps({})
+    local en = require('tobira.locales.en')
+    assert.is_not_nil(find(calls.ok, en.health.remaps_none))
+    assert.equals(0, #calls.info)
+  end)
+
+  it('lists a non-equivalent remap as removed from suggestions', function()
+    local calls = check_with_keymaps({ n = { { lhs = 's', rhs = '<Plug>(leap)', noremap = 0 } } })
+    local en = require('tobira.locales.en')
+    assert.same({ string.format(en.health.remap_removed, 's', '<Plug>(leap)') }, calls.info)
+  end)
+
+  it('lists an equivalent remap as still suggested, never as removed', function()
+    local calls =
+      check_with_keymaps({ n = { { lhs = '%', rhs = '<Plug>(MatchitNormalForward)', sid = 12, noremap = 0 } } })
+    local en = require('tobira.locales.en')
+    assert.same({ string.format(en.health.remap_equivalent, '%', '<Plug>(MatchitNormalForward)') }, calls.info)
+  end)
+
+  it('uses the configured locale', function()
+    config.setup({ lang = 'ja' })
+    local calls = check_with_keymaps({ n = { { lhs = 's', rhs = '<Plug>(leap)', noremap = 0 } } })
+    local ja = require('tobira.locales.ja')
+    assert.same({ string.format(ja.health.remap_removed, 's', '<Plug>(leap)') }, calls.info)
+  end)
+end)
+
 -- M.resolve_api adapts either the modern (Neovim >= 0.10) vim.health shape or
 -- the legacy require('health').report_* shape to a common interface. Tested
 -- directly with plain constructed tables rather than by trying to force
@@ -271,12 +337,14 @@ describe('resolve_api with the modern vim.health >= 0.10 shape', function()
     local modern = {
       start = function() end,
       ok = function() end,
+      info = function() end,
       warn = function() end,
       error = function() end,
     }
     local api = health.resolve_api(modern)
     assert.equals(modern.start, api.start)
     assert.equals(modern.ok, api.ok)
+    assert.equals(modern.info, api.info)
     assert.equals(modern.warn, api.warn)
     assert.equals(modern.error, api.error)
   end)
@@ -288,12 +356,14 @@ describe('resolve_api with the legacy require("health") < 0.10 shape', function(
     local legacy = {
       report_start = function() end,
       report_ok = function() end,
+      report_info = function() end,
       report_warn = function() end,
       report_error = function() end,
     }
     local api = health.resolve_api(legacy)
     assert.equals(legacy.report_start, api.start)
     assert.equals(legacy.report_ok, api.ok)
+    assert.equals(legacy.report_info, api.info)
     assert.equals(legacy.report_warn, api.warn)
     assert.equals(legacy.report_error, api.error)
   end)

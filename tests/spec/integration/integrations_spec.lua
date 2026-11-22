@@ -136,7 +136,7 @@ describe('M.refresh — Neovim built-in default mappings are not user overrides 
 
   -- Real desc text, empirically verified against a vanilla `nvim -u NONE` on
   -- Neovim 0.10.4 / 0.12.4 / nightly (0.13.0-dev) -- see the QA note above
-  -- BUILTIN_DEFAULT_DESC in integrations.lua for why the fixture needs this
+  -- BUILTIN_DEFAULTS in integrations.lua for why the fixture needs this
   -- field at all now (sid alone is not sufficient -- see below).
   local BUILTIN_DESC = {
     gx = 'Opens filepath or URI under cursor with the system handler (file explorer, web browser, …)',
@@ -161,6 +161,32 @@ describe('M.refresh — Neovim built-in default mappings are not user overrides 
       )
       assert.is_false(integrations.is_overridden(lhs), lhs .. ' should not be overridden (untouched built-in default)')
     end
+  end)
+
+  it('does not treat the Neovim 0.11+ ]a/[a argument-list defaults as overrides (#354)', function()
+    integrations.refresh(fake_keymap({
+      { lhs = ']a', rhs = '', callback = function() end, sid = -8, desc = ':next', noremap = 1 },
+      { lhs = '[a', rhs = '', callback = function() end, sid = -8, desc = ':previous', noremap = 1 },
+    }))
+    assert.is_false(integrations.is_overridden(']a'))
+    assert.is_false(integrations.is_overridden('[a'))
+  end)
+
+  it('accepts every desc variant a supported Neovim version ships for the same key', function()
+    -- 0.10 shipped ]d without "in the current buffer"; 0.11 had a stray
+    -- leading space on [<C-T>. Neither is taught today, so check the lookup
+    -- through a registry key that is: the table is keyed by lhs, not cmd.
+    integrations.refresh(fake_keymap({ { lhs = ']q', rhs = '', sid = -8, desc = ':cnext', noremap = 1 } }))
+    assert.is_false(integrations.is_overridden(']q'))
+    integrations.refresh(fake_keymap({ { lhs = ']q', rhs = '', sid = -8, desc = ':next', noremap = 1 } }))
+    assert.is_true(integrations.is_overridden(']q'), 'a desc shipped for a different key must not exempt ]q')
+  end)
+
+  it('does not exempt a normal-mode default desc found on an insert-mode mapping', function()
+    integrations.refresh(fake_keymap_by_mode({
+      i = { { lhs = '<C-w>', rhs = '', sid = -8, desc = ':help CTRL-L-default', noremap = 1 } },
+    }))
+    assert.is_true(integrations.is_overridden('<C-w>'))
   end)
 
   it("does not treat Neovim's own default Y=y$ mapping (sid=-8) as an override", function()
@@ -308,48 +334,52 @@ describe('M.refresh — insert-mode registry entries are checked against insert-
   end)
 end)
 
-describe('M.refresh — debug logging (#63 AC: "s is removed from the suggestion pool with a debug log line")', function()
+describe('M.refresh — silent at startup (#354)', function()
   before_each(function()
     integrations.reset()
     config.reset()
   end)
 
-  local function with_notify_spy(fn)
-    local calls = {}
+  it('never calls vim.notify, even for a genuine non-equivalent override', function()
+    local calls = 0
     local orig = vim.notify
-    vim.notify = function(msg, level)
-      table.insert(calls, { msg = msg, level = level })
+    vim.notify = function()
+      calls = calls + 1
     end
-    local ok, err = pcall(fn)
-    vim.notify = orig
-    assert.is_true(ok, err)
-    return calls
-  end
-
-  it('logs a DEBUG-level notification the first time an override is detected', function()
-    local calls = with_notify_spy(function()
+    local ok, err = pcall(function()
+      integrations.refresh(fake_keymap({ { lhs = 's', rhs = '<Plug>(some-plugin-thing)', noremap = 0 } }))
+      integrations.refresh(fake_keymap({}))
       integrations.refresh(fake_keymap({ { lhs = 's', rhs = '<Plug>(some-plugin-thing)', noremap = 0 } }))
     end)
-    assert.equals(1, #calls)
-    assert.equals(vim.log.levels.DEBUG, calls[1].level)
-    assert.is_not_nil(calls[1].msg:find('s', 1, true))
+    vim.notify = orig
+    assert.is_true(ok, err)
+    assert.equals(0, calls)
+    assert.is_true(integrations.is_overridden('s'))
+  end)
+end)
+
+describe('M.list_overrides', function()
+  before_each(function()
+    integrations.reset()
+    config.reset()
   end)
 
-  it('does not re-log an override that is still present on a later refresh', function()
-    integrations.refresh(fake_keymap({ { lhs = 's', rhs = '<Plug>(x)', noremap = 0 } }))
-    local calls = with_notify_spy(function()
-      integrations.refresh(fake_keymap({ { lhs = 's', rhs = '<Plug>(x)', noremap = 0 } }))
-    end)
-    assert.equals(0, #calls)
+  it('returns every override sorted by cmd, with rhs and equivalence', function()
+    integrations.refresh(fake_keymap({
+      { lhs = 's', rhs = '<Plug>(x)', noremap = 0 },
+      { lhs = 'Y', rhs = 'y$', noremap = 1 },
+      { lhs = '%', rhs = '<Plug>(MatchitNormalForward)', sid = 12, noremap = 0 },
+    }))
+    assert.same({
+      { cmd = '%', rhs = '<Plug>(MatchitNormalForward)', equivalent = true },
+      { cmd = 'Y', rhs = 'y$', equivalent = true },
+      { cmd = 's', rhs = '<Plug>(x)', equivalent = false },
+    }, integrations.list_overrides())
   end)
 
-  it('logs again if the override disappears and then reappears', function()
-    integrations.refresh(fake_keymap({ { lhs = 's', rhs = '<Plug>(x)', noremap = 0 } }))
+  it('is empty when nothing is overridden', function()
     integrations.refresh(fake_keymap({}))
-    local calls = with_notify_spy(function()
-      integrations.refresh(fake_keymap({ { lhs = 's', rhs = '<Plug>(x)', noremap = 0 } }))
-    end)
-    assert.equals(1, #calls)
+    assert.same({}, integrations.list_overrides())
   end)
 end)
 
@@ -533,5 +563,27 @@ describe('M.setup / M.reset', function()
     vim.api.nvim_get_keymap = orig
     assert.is_true(ok, err)
     assert.is_true(integrations.is_overridden('Y'))
+  end)
+end)
+
+-- Drift guard: whatever Neovim runs this suite (CI: nightly and stable), its
+-- own untouched defaults must never read as an override. A new default on a
+-- key commands.lua teaches, or a reworded desc, fails here instead of
+-- silently dropping that key from the suggestion pool for every user.
+describe('M.refresh — live Neovim defaults (#354)', function()
+  before_each(function()
+    integrations.reset()
+    config.reset()
+  end)
+
+  it('reports no non-equivalent override on a Neovim with no user mappings', function()
+    integrations.refresh()
+    local bad = {}
+    for _, o in ipairs(integrations.list_overrides()) do
+      if not o.equivalent then
+        bad[#bad + 1] = o.cmd .. ' -> ' .. o.rhs
+      end
+    end
+    assert.same({}, bad)
   end)
 end)

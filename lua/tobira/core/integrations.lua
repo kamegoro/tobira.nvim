@@ -17,10 +17,6 @@ local _overrides = {}
 -- integration tag -> true (e.g. surround = true) once any of its known
 -- modules is found on the runtimepath.
 local _plugins = {}
--- cmd -> true once a debug notification has been emitted for its current
--- override (dedup across VimEnter/SourcePost refreshes).
--- see docs/adr/0055-refresh-cadence-and-notification-dedup.md for why
-local _logged = {}
 
 local _initialized = false
 
@@ -34,42 +30,73 @@ local EQUIVALENT_REMAPS = {
   ['%'] = { '<Plug>(MatchitNormalForward)' },
 }
 
--- Neovim's own boot-time default mappings (gx, &, ]q/[q/]l/[l, Y=y$ on
--- 0.10+) register via the Lua/C API with no sourced script, so
--- nvim_get_keymap() reports sid == -8; a mapping from a real sourced script
--- gets a normal positive sid instead. See
--- docs/adr/0102-builtin-default-mapping-sid-detection.md -- sid alone is NOT
--- sufficient on its own (see is_untouched_builtin_default below).
+-- Neovim's own boot-time default mappings surface as sid == -8, but so does a
+-- genuine remap set from a deferred callback, so a mapping counts as an
+-- untouched default only when its desc also matches what Neovim shipped.
+-- see docs/adr/0102-builtin-default-mapping-sid-detection.md
 local NVIM_BUILTIN_DEFAULT_SID = -8
 
--- sid == -8 also occurs for a genuine remap set from a deferred callback
--- (vim.schedule/vim.defer_fn/VimEnter -- how lazy.nvim's event-based config
--- commonly runs), so sid alone would misclassify it as an untouched
--- default. Mitigated by also requiring an exact match against the curated
--- `desc` text Neovim's own _defaults.lua sets on each mapping, which a real
--- remap won't reproduce unless explicitly copied. Both signals must agree;
--- a key with no entry here falls through to the conservative "assume
--- override" behavior. See
--- docs/adr/0102-builtin-default-mapping-sid-detection.md's QA addendum for
--- the full investigation and why this isn't a generic "has any desc" check.
-local BUILTIN_DEFAULT_DESC = {
-  ['gx'] = 'Opens filepath or URI under cursor with the system handler (file explorer, web browser, …)',
-  ['&'] = ':help &-default',
-  [']q'] = ':cnext',
-  ['[q'] = ':cprevious',
-  [']l'] = ':lnext',
-  ['[l'] = ':lprevious',
-  ['Y'] = ':help Y-default',
-  ['<C-w>'] = ':help i_CTRL-W-default',
+-- mode -> keytrans-canonical lhs -> accepted desc text(s). Every sid == -8
+-- normal/insert-mode default from `nvim --clean` on 0.10.4, 0.11.0, 0.11.7
+-- and 0.12.6, not only keys commands.lua teaches today.
+local BUILTIN_DEFAULTS = {
+  n = {
+    ['gx'] = { 'Opens filepath or URI under cursor with the system handler (file explorer, web browser, …)' },
+    ['&'] = { ':help &-default' },
+    ['Y'] = { ':help Y-default' },
+    ['<C-L>'] = { ':help CTRL-L-default' },
+    ['gc'] = { 'Toggle comment' },
+    ['gcc'] = { 'Toggle comment line' },
+    ['gO'] = { 'vim.lsp.buf.document_symbol()' },
+    ['gra'] = { 'vim.lsp.buf.code_action()' },
+    ['gri'] = { 'vim.lsp.buf.implementation()' },
+    ['grn'] = { 'vim.lsp.buf.rename()' },
+    ['grr'] = { 'vim.lsp.buf.references()' },
+    ['grt'] = { 'vim.lsp.buf.type_definition()' },
+    ['grx'] = { 'vim.lsp.codelens.run()' },
+    ['<C-W>d'] = { 'Show diagnostics under the cursor' },
+    ['<C-W><C-D>'] = { 'Show diagnostics under the cursor' },
+    [']d'] = { 'Jump to the next diagnostic in the current buffer', 'Jump to the next diagnostic' },
+    ['[d'] = { 'Jump to the previous diagnostic in the current buffer', 'Jump to the previous diagnostic' },
+    [']D'] = { 'Jump to the last diagnostic in the current buffer' },
+    ['[D'] = { 'Jump to the first diagnostic in the current buffer' },
+    [']q'] = { ':cnext' },
+    ['[q'] = { ':cprevious' },
+    [']Q'] = { ':clast' },
+    ['[Q'] = { ':crewind' },
+    [']<C-Q>'] = { ':cnfile' },
+    ['[<C-Q>'] = { ':cpfile' },
+    [']l'] = { ':lnext' },
+    ['[l'] = { ':lprevious' },
+    [']L'] = { ':llast' },
+    ['[L'] = { ':lrewind' },
+    [']<C-L>'] = { ':lnfile' },
+    ['[<C-L>'] = { ':lpfile' },
+    [']t'] = { ':tnext' },
+    ['[t'] = { ':tprevious' },
+    [']T'] = { ':tlast' },
+    ['[T'] = { ':trewind' },
+    [']<C-T>'] = { ':ptnext' },
+    ['[<C-T>'] = { ':ptprevious', ' :ptprevious' },
+    [']a'] = { ':next' },
+    ['[a'] = { ':previous' },
+    [']A'] = { ':last' },
+    ['[A'] = { ':rewind' },
+    [']b'] = { ':bnext' },
+    ['[b'] = { ':bprevious' },
+    [']B'] = { ':blast' },
+    ['[B'] = { ':brewind' },
+    [']<Space>'] = { 'Add empty line below cursor' },
+    ['[<Space>'] = { 'Add empty line above cursor' },
+  },
+  i = {
+    ['<C-W>'] = { ':help i_CTRL-W-default' },
+    ['<C-U>'] = { ':help i_CTRL-U-default' },
+    ['<C-S>'] = { 'vim.lsp.buf.signature_help()' },
+    ['<Tab>'] = { 'vim.snippet.jump if active, otherwise <Tab>' },
+    ['<S-Tab>'] = { 'vim.snippet.jump if active, otherwise <S-Tab>' },
+  },
 }
-
--- True only when BOTH the sid sentinel and the curated desc text agree this
--- mapping is still exactly what Neovim shipped -- see BUILTIN_DEFAULT_DESC
--- above for why sid alone is not sufficient.
-local function is_untouched_builtin_default(registry_key, map)
-  local expected_desc = BUILTIN_DEFAULT_DESC[registry_key]
-  return expected_desc ~= nil and map.sid == NVIM_BUILTIN_DEFAULT_SID and map.desc == expected_desc
-end
 
 -- module path -> integration tag. Presence-only check (see module_available
 -- below) -- never actually require()s any of these.
@@ -150,12 +177,13 @@ local function canonical_lhs(lhs)
   return vim.fn.keytrans(bytes)
 end
 
-local function log_override(cmd, info)
-  local str = require('tobira.i18n').load()
-  vim.notify(
-    string.format(str.notifications.remap_detected, cmd, info.rhs ~= '' and info.rhs or '<lua function>'),
-    vim.log.levels.DEBUG
-  )
+-- True only when BOTH the sid sentinel and the shipped desc text agree.
+local function is_untouched_builtin_default(mode, map)
+  local accepted = BUILTIN_DEFAULTS[mode][canonical_lhs(map.lhs)]
+  if map.sid ~= NVIM_BUILTIN_DEFAULT_SID or not accepted then
+    return false
+  end
+  return vim.tbl_contains(accepted, map.desc)
 end
 
 -- module_available checks BOTH a flat `lua/<name>.lua` file and a
@@ -185,33 +213,19 @@ function M.refresh(keymap_fn)
   local watched_n, watched_i = suggestible_keys()
 
   local new_overrides = {}
-  -- maps: nvim_get_keymap(mode)'s raw list; watched: canon -> registry-key
+  -- mode: 'n'/'i' as passed to keymap_fn; watched: canon -> registry-key
   -- set for that same mode -- see the mode-split comment on suggestible_keys.
-  local function collect(maps, watched)
-    for _, map in ipairs(maps) do
+  local function collect(mode, watched)
+    for _, map in ipairs(keymap_fn(mode)) do
       local registry_key = watched[canonical_lhs(map.lhs)] or watched[map.lhs]
-      -- Skip Neovim's own untouched factory-default mapping -- not a real
-      -- override. sid alone is insufficient; see is_untouched_builtin_default.
-      if registry_key and not is_untouched_builtin_default(registry_key, map) then
+      if registry_key and not is_untouched_builtin_default(mode, map) then
         local rhs = rhs_of(map)
         new_overrides[registry_key] = { rhs = rhs, equivalent = is_equivalent(registry_key, rhs) }
       end
     end
   end
-  collect(keymap_fn('n'), watched_n)
-  collect(keymap_fn('i'), watched_i)
-
-  for cmd, info in pairs(new_overrides) do
-    if not _logged[cmd] then
-      _logged[cmd] = true
-      log_override(cmd, info)
-    end
-  end
-  for cmd in pairs(_logged) do
-    if not new_overrides[cmd] then
-      _logged[cmd] = nil
-    end
-  end
+  collect('n', watched_n)
+  collect('i', watched_i)
 
   _overrides = new_overrides
   _plugins = detect_plugins()
@@ -223,6 +237,19 @@ end
 
 function M.get_override(cmd)
   return _overrides[cmd]
+end
+
+-- Sorted array of { cmd, rhs, equivalent } for :checkhealth; refresh itself
+-- is silent. see docs/adr/0122-remap-report-in-checkhealth-not-startup-notify.md
+function M.list_overrides()
+  local list = {}
+  for cmd, info in pairs(_overrides) do
+    list[#list + 1] = { cmd = cmd, rhs = info.rhs, equivalent = info.equivalent }
+  end
+  table.sort(list, function(a, b)
+    return a.cmd < b.cmd
+  end)
+  return list
 end
 
 function M.is_overridden(cmd)
@@ -265,6 +292,7 @@ function M.setup()
 
   M.refresh()
 
+  -- see docs/adr/0055-refresh-cadence-and-notification-dedup.md
   local group = vim.api.nvim_create_augroup('tobira_integrations', { clear = true })
   vim.api.nvim_create_autocmd({ 'VimEnter', 'SourcePost' }, {
     group = group,
@@ -277,7 +305,6 @@ end
 function M.reset()
   _overrides = {}
   _plugins = {}
-  _logged = {}
   _initialized = false
 end
 

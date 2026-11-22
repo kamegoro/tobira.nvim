@@ -65,7 +65,7 @@ use {
 | `:TobiraProgress` | Show skill tree with mastery glyphs and a cursor-driven detail preview. `x` = suppress, `p` = pin, `g`/`s` = jump to guide/stats, `q`/`Esc`/`<C-c>` = close. |
 | `:TobiraStats` | Show usage stats: command distribution (never/tried/familiar/mastered) and efficiency gap suggestions |
 | `:TobiraReset` | Clear all usage data (asks for confirmation; `:TobiraReset!` skips it) |
-| `:checkhealth tobira` | Diagnose your install — Neovim version, data directory, usage.json validity, `lang` config |
+| `:checkhealth tobira` | Diagnose your install — Neovim version, data directory, usage.json validity, `lang` config, and which keys tobira treats as remapped |
 
 Full documentation is available in Neovim via `:help tobira`.
 
@@ -130,9 +130,11 @@ tobira always respects your own `:nmap`/`:nnoremap` overrides — it never sugge
 command you've remapped away, and `integrations` above only gates the optional
 plugin-detection boost, not that baseline behavior (see `:help tobira-integrations`).
 tobira also tells apart a genuine remap from Neovim's own factory-default mappings —
-`gx`, `&`, `]q`/`[q`/`]l`/`[l`, and (Neovim 0.10+) even `Y` = `y$` ship as built-in
-defaults out of the box, so none of them count as "remapped" on a stock install; they're
-suggested completely normally.
+`gx`, `&`, `]q`/`[q`/`]l`/`[l`, `]a`/`[a` (Neovim 0.11+), and (Neovim 0.10+) even `Y` =
+`y$` ship as built-in defaults out of the box, so none of them count as "remapped" on a
+stock install; they're suggested completely normally. tobira never prints anything about
+remaps at startup — run `:checkhealth tobira` to see which keys it treats as remapped and
+whether each one is still suggested.
 Two narrow exceptions cover a mapping that genuinely *was* set by something but still
 does what tobira teaches: if you personally add `nnoremap Y y$` yourself (redundant with
 the modern default above, but a real personal binding), it's recognized as equivalent,

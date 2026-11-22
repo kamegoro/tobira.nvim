@@ -47,6 +47,11 @@ return {
       to_next = 'encore %d pour atteindre %s',
     },
   },
+  health = {
+    remaps_none = "Aucune touche suggérable n'est remappée",
+    remap_removed = '%s est remappé (%s) — retiré des suggestions',
+    remap_equivalent = '%s est remappé (%s) — équivalent au comportement par défaut, toujours suggéré',
+  },
   notifications = {
     reset = "tobira : journal d'utilisation réinitialisé",
     no_suggestions = 'tobira : aucune nouvelle suggestion pour le moment 🎉',
