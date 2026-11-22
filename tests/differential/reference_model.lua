@@ -156,6 +156,7 @@ function M.new_state()
     -- recently set last_op = 'dw' was specifically the diw text object —
     -- see docs/adr/0119-diw-then-insert-text-object-variant-collapse.md.
     last_op_diw = false,
+    last_op_wordish = false,
 
     -- n-streak → reactive cgn watch — docs/adr/0107.
     n_watch = false,
@@ -403,6 +404,7 @@ local function resolve_pending_op(state, op, key)
       -- A bare/counted charwise motion, never the diw text object — see
       -- docs/adr/0119-diw-then-insert-text-object-variant-collapse.md.
       state.last_op_diw = false
+      state.last_op_wordish = key == 'w' or key == 'e'
     end
     if op == 'c' and state.n_watch then
       state.n_watch = false
@@ -418,10 +420,9 @@ local function resolve_pending_text_obj(state, op, inner, key)
   -- Real patterns.lua's pending_text_obj resolution unconditionally sets
   -- last_op = op..'w' for ANY op (d/c/y), BEFORE the ci-quote-streak checks
   -- below run — 'dw' is the one value this model's tracked reactive
-  -- patterns read (dw_then_insert/diw_then_insert), so daw/dit/... arm
-  -- dw_then_insert exactly like a direct 'dw'/'d3w' would, while diw
-  -- specifically (op='d', inner=true, key='w') arms the more specific
-  -- diw_then_insert instead — see
+  -- patterns read (dw_then_insert/diw_then_insert). daw/dit/... set it but
+  -- never fire either (not equivalent to cw — docs/adr/0120), while diw
+  -- specifically (op='d', inner=true, key='w') arms diw_then_insert — see
   -- docs/adr/0119-diw-then-insert-text-object-variant-collapse.md. 'cw'/'yw'
   -- themselves aren't read by anything this model tracks, but the
   -- assignment still OVERWRITES whatever last_op held before (e.g. a stale
@@ -429,6 +430,7 @@ local function resolve_pending_text_obj(state, op, inner, key)
   -- unconditionally for every op, not only op=='c'.
   state.last_op = op .. 'w'
   state.last_op_diw = op == 'd' and inner and key == 'w'
+  state.last_op_wordish = false
 
   if op == 'c' and inner and key == '"' then
     state.ci_squote_streak = 0
@@ -872,10 +874,15 @@ function M.step(state, key, ctx)
   end
 
   -- ── dd → insert: suggest cc ─────────────────────────────────────────────
+  -- Only the insert key that makes delete + insert the same edit fires —
+  -- see docs/adr/0120-then-insert-equivalence-gate.md.
   if state.last_op == 'dd' and INSERT_KEYS[key] then
     state.last_op = nil
     state.dd_streak = 0
-    return { pattern = 'dd_then_insert', cmd = 'cc' }
+    if key == 'O' then
+      return { pattern = 'dd_then_insert', cmd = 'cc' }
+    end
+    return nil
   end
 
   -- ── p / P: arm cursor-skip-past-paste tracking ─────────────────────────
@@ -902,21 +909,24 @@ function M.step(state, key, ctx)
     state.run = { key = nil, count = 0 }
     return { pattern = 'k_then_o', cmd = 'O' }
   end
-  if INSERT_KEYS[key] and prev_run_key == 'x' and prev_run_count == 1 then
+  if key == 'i' and prev_run_key == 'x' and prev_run_count == 1 then
     state.run = { key = nil, count = 0 }
     return { pattern = 'x_then_insert', cmd = 's' }
   end
-  if INSERT_KEYS[key] and prev_run_key == 'D' then
+  if (key == 'a' or key == 'A') and prev_run_key == 'D' then
     return { pattern = 'D_then_insert', cmd = 'C' }
   end
-  if state.last_op == 'dw' and state.last_op_diw and INSERT_KEYS[key] then
+  if state.last_op == 'dw' and INSERT_KEYS[key] then
+    local diw, wordish = state.last_op_diw, state.last_op_wordish
     state.last_op = nil
     state.last_op_diw = false
-    return { pattern = 'diw_then_insert', cmd = 'ciw' }
-  end
-  if state.last_op == 'dw' and INSERT_KEYS[key] then
-    state.last_op = nil
-    return { pattern = 'dw_then_insert', cmd = 'cw' }
+    state.last_op_wordish = false
+    if key == 'i' and diw then
+      return { pattern = 'diw_then_insert', cmd = 'ciw' }
+    elseif key == 'i' and wordish then
+      return { pattern = 'dw_then_insert', cmd = 'cw' }
+    end
+    return nil
   end
   if is_diff and state.diff_jump_dir and INSERT_KEYS[key] then
     local dir = state.diff_jump_dir

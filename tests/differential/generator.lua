@@ -223,21 +223,34 @@ local function emit_simple_streak(rng, out, key, max_reps)
   end
 end
 
+-- Each _then_insert chunk mixes in the one equivalent follow-up insert key
+-- (the only one that fires) with the whole INSERT_TRIGGERS set (which must
+-- not) — see docs/adr/0120-then-insert-equivalence-gate.md.
+local function emit_insert_trigger(rng, out, equivalent)
+  if rand_int(rng, 1, 2) == 1 then
+    table.insert(out, equivalent)
+  else
+    table.insert(out, INSERT_TRIGGERS[rand_int(rng, 1, #INSERT_TRIGGERS)])
+  end
+end
+
 local function emit_dd_then_insert(rng, out)
   table.insert(out, 'd')
   table.insert(out, 'd')
-  table.insert(out, INSERT_TRIGGERS[rand_int(rng, 1, #INSERT_TRIGGERS)])
+  emit_insert_trigger(rng, out, 'O')
 end
 
 -- Any non-$, non-same-op, non-i/a motion after 'd' generically becomes
 -- last_op == 'dw' in patterns.lua (the op..'w' suffix is hardcoded
 -- regardless of which motion character was actually pressed) — see
--- patterns.lua's own pending_op charwise-motion branch.
+-- patterns.lua's own pending_op charwise-motion branch. Only w/e then i
+-- fire dw_then_insert (docs/adr/0120); l/b/h keep the non-firing shapes in
+-- the corpus.
 local DW_MOTIONS = { 'w', 'e', 'l', 'b', 'h' }
 local function emit_dw_then_insert(rng, out)
   table.insert(out, 'd')
   table.insert(out, DW_MOTIONS[rand_int(rng, 1, #DW_MOTIONS)])
-  table.insert(out, INSERT_TRIGGERS[rand_int(rng, 1, #INSERT_TRIGGERS)])
+  emit_insert_trigger(rng, out, 'i')
 end
 
 -- diw specifically (op='d', inner=true, key='w') is the one text-object
@@ -247,21 +260,21 @@ local function emit_diw_then_insert(rng, out)
   table.insert(out, 'd')
   table.insert(out, 'i')
   table.insert(out, 'w')
-  table.insert(out, INSERT_TRIGGERS[rand_int(rng, 1, #INSERT_TRIGGERS)])
+  emit_insert_trigger(rng, out, 'i')
 end
 
 -- Must be EXACTLY one 'x' — x_then_insert requires seq.run.count == 1, not
 -- just seq.run.key == 'x'.
 local function emit_x_then_insert(rng, out)
   table.insert(out, 'x')
-  table.insert(out, INSERT_TRIGGERS[rand_int(rng, 1, #INSERT_TRIGGERS)])
+  emit_insert_trigger(rng, out, 'i')
 end
 
 -- A directly-typed 'D' keystroke (not the d$ compound — that produces
 -- last_op == nil via its own immediate-return path, never seq.run.key).
 local function emit_D_then_insert(rng, out)
   table.insert(out, 'D')
-  table.insert(out, INSERT_TRIGGERS[rand_int(rng, 1, #INSERT_TRIGGERS)])
+  emit_insert_trigger(rng, out, 'A')
 end
 
 -- Only 'i' specifically completes zero_then_insert/zero_col_then_insert (not
