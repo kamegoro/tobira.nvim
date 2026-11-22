@@ -1,3 +1,5 @@
+require('tests.isolate_data')
+
 local level = require('tobira.core.level')
 
 -- ── skill level detection (usage injected directly) ──────────────────────────

@@ -1,3 +1,5 @@
+require('tests.isolate_data')
+
 local tobira = require('tobira')
 local logger = require('tobira.core.logger')
 local suggest = require('tobira.core.suggest')

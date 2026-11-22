@@ -1,3 +1,5 @@
+require('tests.isolate_data')
+
 -- Realistic-scale regression suite (issue #317, part of the #315 umbrella).
 --
 -- Runs graph.find_best() / graph.efficiency_gaps() / graph.guide_commands() /

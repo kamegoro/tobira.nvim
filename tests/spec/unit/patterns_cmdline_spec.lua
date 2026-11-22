@@ -1,3 +1,5 @@
+require('tests.isolate_data')
+
 local patterns_cmdline = require('tobira.core.patterns_cmdline')
 
 -- patterns_cmdline.tokenize(text): pure function, text -> semantic command

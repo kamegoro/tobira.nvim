@@ -1,3 +1,5 @@
+require('tests.isolate_data')
+
 -- Differential ("fake"/reference-model) testing for patterns.lua's seq state
 -- machine — see issue #316/#315 for the technique and its rationale, and
 -- issue #328/#327 for the expansion this file implements.

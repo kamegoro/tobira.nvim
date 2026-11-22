@@ -1,3 +1,5 @@
+require('tests.isolate_data')
+
 -- Long, realistic-scale editing session driven entirely through the real
 -- vim.on_key() dispatch path (never a direct call into suggest.lua's or
 -- logger.lua's internals), asserting that per-session resource usage stays

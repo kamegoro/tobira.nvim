@@ -1,3 +1,5 @@
+require('tests.isolate_data')
+
 -- :checkhealth tobira.
 -- vim.health (Neovim >= 0.10) is mocked per-test so we can assert exactly
 -- which of start/ok/warn/error fired, without a real :checkhealth buffer.

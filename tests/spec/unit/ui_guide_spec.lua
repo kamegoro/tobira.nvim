@@ -1,3 +1,5 @@
+require('tests.isolate_data')
+
 -- Pure render tests for :TobiraGuide. Mirrors ui/stats.lua's pattern:
 -- M.build(usage) is pure (no logger.get_all() call inside it), so layout can
 -- be asserted without opening a real window.

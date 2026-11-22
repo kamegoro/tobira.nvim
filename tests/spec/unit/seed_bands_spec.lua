@@ -1,3 +1,5 @@
+require('tests.isolate_data')
+
 -- Pure unit tests for tests/differential/seed_bands.lua — the guard that fails loudly if
 -- TOBIRA_DIFFERENTIAL_SEEDS is set large enough to make a differential spec file's own
 -- internal seed-offset bands collide (issue #346).

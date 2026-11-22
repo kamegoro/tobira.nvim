@@ -1,3 +1,5 @@
+require('tests.isolate_data')
+
 -- Pure unit tests for insert-mode pattern detection (split out from patterns.lua).
 -- No vim.* calls — patterns_insert.lua has zero Neovim dependencies.
 --

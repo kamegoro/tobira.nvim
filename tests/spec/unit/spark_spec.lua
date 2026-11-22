@@ -1,3 +1,5 @@
+require('tests.isolate_data')
+
 local spark = require('tobira.ui.spark')
 
 describe('when sessions is empty', function()

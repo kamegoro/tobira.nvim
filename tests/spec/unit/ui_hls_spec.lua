@@ -1,3 +1,5 @@
+require('tests.isolate_data')
+
 local hls = require('tobira.ui.hls')
 
 -- Helper: run fn() with mocked hlexists + notify, restore unconditionally.

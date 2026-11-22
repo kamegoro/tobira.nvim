@@ -1,3 +1,5 @@
+require('tests.isolate_data')
+
 -- Pure unit tests for pattern detection.
 -- No vim.* calls — patterns.lua has zero Neovim dependencies.
 

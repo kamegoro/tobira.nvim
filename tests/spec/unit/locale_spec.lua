@@ -1,3 +1,5 @@
+require('tests.isolate_data')
+
 -- Structural sync guard between en.lua and every other locale file.
 -- Prevents adding a new key to en.lua without updating the other locales,
 -- and prevents a locale branch left open across a large refactor from

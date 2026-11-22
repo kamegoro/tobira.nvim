@@ -1,11 +1,11 @@
 -- ── Isolate tests from the user's real data ─────────────────────────────────
 --
--- Redirects vim.fn.stdpath('data') to a per-process temp dir so the suite
--- never touches the developer's real usage.json. Must install after plenary
+-- tests/isolate_data.lua (required below) redirects vim.fn.stdpath('data')
+-- to a per-process temp dir so the suite never touches the developer's real
+-- usage.json. Must install after plenary
 -- is located (under the real data dir) but before any spec requires
 -- tobira.core.logger (which captures data_dir at require time).
 -- see docs/adr/0092-test-stdpath-data-redirect-ordering.md for why
-local _tobira_real_stdpath = vim.fn.stdpath
 
 -- Enable luacov coverage tracking when COVERAGE=1 is set.
 -- PlenaryBustedDirectory spawns one child Neovim process per spec file, so the
@@ -70,11 +70,4 @@ vim.opt.rtp:prepend(plenary_path)
 vim.cmd('runtime plugin/plenary.vim')
 
 -- Plenary is now located; redirect stdpath('data') for the rest of this run.
-local _tobira_test_data = vim.fn.tempname()
-vim.fn.mkdir(_tobira_test_data, 'p')
-vim.fn.stdpath = function(what)
-  if what == 'data' then
-    return _tobira_test_data
-  end
-  return _tobira_real_stdpath(what)
-end
+require('tests.isolate_data')

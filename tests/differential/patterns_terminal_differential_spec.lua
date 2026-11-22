@@ -1,3 +1,5 @@
+require('tests.isolate_data')
+
 -- Differential ("fake"/reference-model) testing for patterns_terminal.lua's
 -- <Esc>-streak state machine — see issue #331/#327 for the technique and
 -- rationale, and tests/differential/patterns_seq_differential_spec.lua for

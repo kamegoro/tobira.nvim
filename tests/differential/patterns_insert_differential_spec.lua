@@ -1,3 +1,5 @@
+require('tests.isolate_data')
+
 -- Differential ("fake"/reference-model) testing for patterns_insert.lua's
 -- insert-mode state machine — see issue #329/#327 for the technique and
 -- rationale (mirrors #316's patterns.lua/seq suite, but is a fully parallel

@@ -1,3 +1,5 @@
+require('tests.isolate_data')
+
 local config = require('tobira.core.config')
 
 describe('the config values available to the rest of the plugin after setup or reset', function()

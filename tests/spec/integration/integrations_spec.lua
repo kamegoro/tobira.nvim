@@ -1,3 +1,5 @@
+require('tests.isolate_data')
+
 -- core/integrations.lua detects the user's actual keymap overrides
 -- (phase 1) and installed helper plugins (phase 2), so graph.find_best() and
 -- ui/guide.lua never present a remapped key as if it still did what

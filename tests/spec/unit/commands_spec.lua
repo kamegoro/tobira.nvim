@@ -1,3 +1,5 @@
+require('tests.isolate_data')
+
 local commands = require('tobira.commands')
 
 -- The registry is the single source of truth for all teachable commands.

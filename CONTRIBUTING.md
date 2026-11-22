@@ -31,6 +31,20 @@ nvim --headless --noplugin -u tests/minimal_init.lua \
   -c "PlenaryBustedDirectory tests/spec/ {minimal_init = 'tests/minimal_init.lua', sequential = true}"
 ```
 
+To run a single spec file, keep the same `minimal_init`:
+
+```bash
+nvim --headless --noplugin -u tests/minimal_init.lua \
+  -c "PlenaryBustedDirectory tests/spec/integration/logger_spec.lua {minimal_init = 'tests/minimal_init.lua', sequential = true}"
+```
+
+Every spec file starts with `require('tests.isolate_data')`, which points
+`stdpath('data')` at a temporary directory before anything else runs. That keeps
+your real `~/.local/share/nvim/tobira/usage.json` safe even when a spec is
+launched some other way, such as `:PlenaryBustedFile`, which cannot pass a
+`minimal_init`. New spec files must start with the same line;
+`tests/spec/unit/test_isolation_spec.lua` fails otherwise.
+
 ### Coverage (100% required)
 
 CI's `coverage` job enforces **100% statement coverage** on every `lua/tobira/` module via
@@ -138,6 +152,8 @@ This project follows strict TDD. **No implementation code without a failing test
 ```
 tests/
 ├── minimal_init.lua          # plenary bootstrap
+├── isolate_data.lua          # stdpath('data') redirect, required first by every spec
+├── isolation/                # fixture run by test_isolation_spec.lua (not a *_spec.lua)
 ├── CLAUDE.md                 # authoritative test-routing reference
 └── spec/
     ├── unit/                 # pure Lua logic, no vim.* — fast

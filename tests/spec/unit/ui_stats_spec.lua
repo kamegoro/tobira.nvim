@@ -1,3 +1,5 @@
+require('tests.isolate_data')
+
 -- Pure render tests for the :TobiraStats UI.
 -- ui/stats.lua must expose M.render(usage) as a pure function returning
 -- { title = string, body = string } so the layout can be asserted without
