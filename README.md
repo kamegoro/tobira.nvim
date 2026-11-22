@@ -64,7 +64,7 @@ use {
 | `:TobiraGuide` | Toggle the cheatsheet panel |
 | `:TobiraProgress` | Show skill tree with mastery glyphs and a cursor-driven detail preview. `x` = suppress, `p` = pin, `g`/`s` = jump to guide/stats, `q`/`Esc`/`<C-c>` = close. |
 | `:TobiraStats` | Show usage stats: command distribution (never/tried/familiar/mastered) and efficiency gap suggestions |
-| `:TobiraReset` | Clear all usage data |
+| `:TobiraReset` | Clear all usage data (asks for confirmation; `:TobiraReset!` skips it) |
 | `:checkhealth tobira` | Diagnose your install — Neovim version, data directory, usage.json validity, `lang` config |
 
 Full documentation is available in Neovim via `:help tobira`.
@@ -189,11 +189,11 @@ tobira is the only plugin that learns from **your actual usage** and shows you t
 
 | Question | Answer |
 |---|---|
-| Will tobira slow down my Neovim? | No — `vim.on_key()` stays minimal, no I/O per keystroke; usage data flushes only on exit. |
+| Will tobira slow down my Neovim? | No — `vim.on_key()` stays minimal, no I/O per keystroke; usage data is saved when you pause (at most every 2 minutes), when Neovim loses focus, and on exit. |
 | Does it send my keystrokes anywhere? | No. Everything stays local in `tobira/usage.json`. |
 | Can I use it alongside hardtime.nvim? | Yes — hardtime blocks bad habits, tobira teaches better ones. They complement each other. |
 | A suggestion keeps appearing for something I already know | Open `:TobiraProgress`, move to it, press `x` to suppress. |
-| How do I reset my data? | Run `:TobiraReset`. |
+| How do I reset my data? | Run `:TobiraReset` and confirm, or `:TobiraReset!` to skip the prompt. |
 
 ## 🦾 Contributing
 

@@ -38,6 +38,15 @@ local session_adopted = {}
 
 -- Wired by init.lua — logger has no direct dependency on suggest.
 M.on_pattern = nil
+-- Wired by init.lua (which owns the localized warning) — called with the
+-- path an unparsable usage.json was moved aside to.
+M.on_corrupt = nil
+
+-- See docs/adr/0120-periodic-save-and-corrupt-file-preservation.md.
+M.AUTOSAVE_INTERVAL_MS = 2 * 60 * 1000
+-- True once a count changed in memory since the last successful save().
+local _dirty = false
+local _last_save_at = 0
 
 local current_mode = 'n'
 
@@ -137,6 +146,28 @@ local function sync_baseline()
   end
 end
 
+-- Moves an unparsable usage.json aside instead of letting the next save()
+-- overwrite it. Returns false if the move failed, so callers must not write.
+-- See docs/adr/0120-periodic-save-and-corrupt-file-preservation.md.
+local function preserve_corrupt_file()
+  local base = data_file .. '.corrupt-' .. os.date('%Y%m%d-%H%M%S')
+  local target = base
+  local n = 1
+  while vim.fn.filereadable(target) == 1 do
+    n = n + 1
+    target = base .. '-' .. n
+  end
+  if not os.rename(data_file, target) then
+    return false
+  end
+  if M.on_corrupt then
+    M.on_corrupt(target)
+  end
+  return true
+end
+
+-- Returns the decoded disk data, or nil when the file is unparsable and could
+-- not be moved aside (nothing may be written over it then).
 local function read_disk()
   local f = io.open(data_file, 'r')
   if not f then
@@ -144,15 +175,18 @@ local function read_disk()
   end
   local content = f:read('*a')
   f:close()
-  local ok, data = pcall(vim.json.decode, content)
-  if not (ok and type(data) == 'table') then
+  if not content:find('%S') then
     return {}
   end
-  return data
+  local ok, data = pcall(vim.json.decode, content)
+  if ok and type(data) == 'table' then
+    return data
+  end
+  return preserve_corrupt_file() and {} or nil
 end
 
 local function load()
-  local data = read_disk()
+  local data = read_disk() or {}
   if type(data._meta) == 'table' then
     merge_meta(data._meta)
   end
@@ -270,6 +304,9 @@ local function save()
   ensure_dir()
 
   local disk_data = read_disk()
+  if not disk_data then
+    return
+  end
   if type(disk_data._meta) == 'table' then
     merge_meta(disk_data._meta)
   end
@@ -280,6 +317,8 @@ local function save()
 
   if write_file() then
     sync_baseline()
+    _dirty = false
+    _last_save_at = vim.loop.now()
   else
     -- The write failed after merge_with_disk() already ran. Roll `usage`
     -- back to its pre-merge in-memory state and leave
@@ -299,6 +338,7 @@ local function increment(cmd)
   end
   usage[cmd].count = usage[cmd].count + 1
   session_counts[cmd] = (session_counts[cmd] or 0) + 1
+  _dirty = true
 end
 
 -- Maps raw keystroke bytes -> registry key name for increment(). Multi-char
@@ -843,6 +883,19 @@ function M.setup()
     group = mode_group,
     callback = M.close_session,
   })
+
+  -- Bounds what a crash or kill -9 can lose. See
+  -- docs/adr/0120-periodic-save-and-corrupt-file-preservation.md.
+  _last_save_at = vim.loop.now()
+  vim.api.nvim_create_autocmd({ 'CursorHold', 'CursorHoldI', 'FocusLost' }, {
+    group = mode_group,
+    callback = function(ev)
+      local due = ev.event == 'FocusLost' or vim.loop.now() - _last_save_at >= M.AUTOSAVE_INTERVAL_MS
+      if _dirty and due then
+        save()
+      end
+    end,
+  })
 end
 
 -- Flush current-session key counts into usage.sessions, then save.
@@ -989,6 +1042,7 @@ function M.reset()
   session_adopted = {}
   _baseline = {}
   _sessions_appended = {}
+  _dirty = false
   meta = { guide_seen = false }
   seq = patterns.new_seq()
   insert_seq = patterns_insert.new_insert_seq()

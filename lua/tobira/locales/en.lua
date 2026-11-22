@@ -52,6 +52,10 @@ return {
     no_suggestions = 'tobira: no new suggestions right now 🎉',
     invalid_config = 'tobira: invalid config — ',
     remap_detected = 'tobira: %s is remapped (%s) — removed from suggestion pool',
+    reset_confirm = 'tobira: erase all usage data? This cannot be undone.',
+    reset_choices = '&Yes\n&No',
+    reset_cancelled = 'tobira: reset cancelled',
+    usage_corrupt = 'tobira: usage.json could not be read, so it was moved to %s and a new log was started. Your old data is still in that file.',
   },
   stats = {
     title = 'tobira — usage stats',

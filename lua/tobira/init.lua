@@ -14,6 +14,11 @@ function M.setup(opts)
   local integrations = require('tobira.core.integrations')
 
   cfg.setup(opts)
+  -- Wired before logger.setup(): its initial load can already find an
+  -- unparsable usage.json and move it aside.
+  logger.on_corrupt = function(path)
+    vim.notify(require('tobira.i18n').load().notifications.usage_corrupt:format(path), vim.log.levels.WARN)
+  end
   logger.setup()
   -- Populates the keymap-override / plugin-detection cache immediately,
   -- then keeps it fresh on VimEnter (late-loaded plugins) and SourcePost
@@ -41,6 +46,19 @@ function M.setup(opts)
       require('tobira.ui.guide').open()
     end, 300)
   end
+end
+
+-- :TobiraReset entry point; `force` is the bang, which skips the prompt.
+function M.reset(force)
+  local logger = require('tobira.core.logger')
+  local str = require('tobira.i18n').load().notifications
+  if not force and vim.fn.confirm(str.reset_confirm, str.reset_choices, 2) ~= 1 then
+    vim.notify(str.reset_cancelled, vim.log.levels.INFO)
+    return
+  end
+  logger.reset()
+  logger.clear_disk()
+  vim.notify(str.reset, vim.log.levels.INFO)
 end
 
 return M

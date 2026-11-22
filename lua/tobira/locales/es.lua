@@ -52,6 +52,10 @@ return {
     no_suggestions = 'tobira: no hay sugerencias nuevas por ahora 🎉',
     invalid_config = 'tobira: configuración inválida — ',
     remap_detected = 'tobira: %s está remapeado (%s) — eliminado del grupo de sugerencias',
+    reset_confirm = 'tobira: ¿borrar todos los datos de uso? No se puede deshacer.',
+    reset_choices = '&Sí\n&No',
+    reset_cancelled = 'tobira: reinicio cancelado',
+    usage_corrupt = 'tobira: no se pudo leer usage.json, así que se movió a %s y se empezó un registro nuevo. Tus datos anteriores siguen en ese archivo.',
   },
   stats = {
     title = 'tobira — estadísticas de uso',

@@ -52,6 +52,10 @@ return {
     no_suggestions = 'tobira: 目前没有新的建议 🎉',
     invalid_config = 'tobira: 配置无效 — ',
     remap_detected = 'tobira: %s 已被重新映射（%s）— 已从建议池中移除',
+    reset_confirm = 'tobira: 要清除所有使用数据吗？此操作无法撤销。',
+    reset_choices = '是(&Y)\n否(&N)',
+    reset_cancelled = 'tobira: 已取消重置',
+    usage_corrupt = 'tobira: 无法读取 usage.json，已将其移至 %s 并开始新的记录。旧数据仍保留在该文件中。',
   },
   stats = {
     title = 'tobira — 使用统计',

@@ -66,7 +66,10 @@ function M.check()
     if pcall(vim.json.decode, content) then
       ok('usage.json is valid JSON')
     else
-      err('usage.json exists but is not valid JSON — tobira will treat it as empty until fixed: ' .. data_file)
+      err(
+        'usage.json exists but is not valid JSON — tobira will move it aside to usage.json.corrupt-<timestamp> and start fresh: '
+          .. data_file
+      )
     end
   end
 
