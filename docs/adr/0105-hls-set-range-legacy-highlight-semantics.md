@@ -37,3 +37,15 @@ per-panel behavior changes. The cost is that `set_range()` always passes
 intentional out-of-range end-of-line sentinel) is silently clamped instead of
 raising — callers rely on tests, not a runtime assertion, to catch that class
 of bug.
+
+### Addendum: `strict = false` does not resolve `-1` before Neovim 0.12
+
+The Decision above assumed `strict = false` turns `end_col = -1` into the line length. That
+is only true on Neovim 0.12+. On 0.9.5, 0.10.4, 0.11.0 and 0.11.7,
+`nvim_buf_set_extmark(..., { end_col = -1, strict = false })` still raises
+`Invalid 'end_col': out of range`. Every panel (`:TobiraProgress`, `:TobiraGuide`,
+`:TobiraStats`) and any suggestion float with a reason line crashed there.
+
+`set_range()` now converts `-1` to the line's byte length itself before calling the API.
+`strict = false` stays for its other job, clamping a positive `end_col` past the end of the
+line, which every version tolerates. Callers keep passing `-1`.

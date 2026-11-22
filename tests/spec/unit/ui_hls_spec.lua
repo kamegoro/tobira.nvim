@@ -165,3 +165,55 @@ describe('re-evaluating nvim-notify availability on every hls.setup() call (#126
     assert.equals('FloatBorder', guide_border_link())
   end)
 end)
+
+-- Neovim < 0.12 rejects end_col = -1 even with strict = false ("Invalid
+-- 'end_col': out of range"), which crashed every panel and the suggestion
+-- float there. set_range must resolve -1 itself before calling the API.
+describe('M.set_range', function()
+  local buf, ns, calls, orig
+
+  before_each(function()
+    buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, { 'hello', '', 'ünï' })
+    ns = vim.api.nvim_create_namespace('tobira_set_range_spec')
+    calls = {}
+    orig = vim.api.nvim_buf_set_extmark
+    vim.api.nvim_buf_set_extmark = function(b, n, line, col, opts)
+      table.insert(calls, { line = line, col = col, end_col = opts.end_col })
+      return orig(b, n, line, col, opts)
+    end
+  end)
+
+  after_each(function()
+    vim.api.nvim_buf_set_extmark = orig
+    vim.api.nvim_buf_delete(buf, { force = true })
+  end)
+
+  it('resolves end_col -1 to the line byte length instead of passing it through', function()
+    hls.set_range(buf, ns, 'TobiraDim', 0, 0, -1)
+    assert.same({ { line = 0, col = 0, end_col = 5 } }, calls)
+  end)
+
+  it('uses the byte length, not the display width, for a multibyte line', function()
+    hls.set_range(buf, ns, 'TobiraDim', 2, 0, -1)
+    assert.equals(#'ünï', calls[1].end_col)
+  end)
+
+  it('resolves end_col -1 on an empty line to 0', function()
+    hls.set_range(buf, ns, 'TobiraDim', 1, 0, -1)
+    assert.equals(0, calls[1].end_col)
+  end)
+
+  it('passes a non-negative end_col through unchanged, even past the line end', function()
+    hls.set_range(buf, ns, 'TobiraDim', 0, 1, 3)
+    hls.set_range(buf, ns, 'TobiraDim', 0, 0, 99)
+    assert.same({ 3, 99 }, { calls[1].end_col, calls[2].end_col })
+  end)
+
+  it('highlights through the real end of the line', function()
+    hls.set_range(buf, ns, 'TobiraDim', 0, 0, -1)
+    local marks = vim.api.nvim_buf_get_extmarks(buf, ns, 0, -1, { details = true })
+    assert.equals(1, #marks)
+    assert.equals(5, marks[1][4].end_col)
+  end)
+end)

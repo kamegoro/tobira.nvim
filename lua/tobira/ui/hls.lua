@@ -68,6 +68,9 @@ end
 -- vim.hl.range(). See
 -- docs/adr/0105-hls-set-range-legacy-highlight-semantics.md for why.
 function M.set_range(buf, ns, group, lnum, col_start, col_end)
+  if col_end == -1 then
+    col_end = #vim.api.nvim_buf_get_lines(buf, lnum, lnum + 1, true)[1]
+  end
   vim.api.nvim_buf_set_extmark(buf, ns, lnum, col_start, {
     end_col = col_end,
     hl_group = group,
