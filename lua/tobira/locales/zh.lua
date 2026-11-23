@@ -47,6 +47,11 @@ return {
       to_next = '再用 %d 次达到 %s',
     },
   },
+  health = {
+    remaps_none = '没有可建议的按键被重新映射',
+    remap_removed = '%s 已被重新映射（%s）— 已从建议中移除',
+    remap_equivalent = '%s 已被重新映射（%s）— 与默认行为等效，仍会建议',
+  },
   notifications = {
     reset = 'tobira: 使用日志已重置',
     no_suggestions = 'tobira: 目前没有新的建议 🎉',

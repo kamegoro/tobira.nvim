@@ -137,8 +137,10 @@ Call `setup()` explicitly if not using lazy.nvim opts shorthand: >lua
 :checkhealth tobira
   Diagnose your install: Neovim version (and whether it is new enough for
   full `vim.on_key()` `typed`-argument accuracy), whether the data directory
-  is writable, whether `usage.json` contains valid JSON, and whether the
-  configured `lang` has a matching locale file.
+  is writable, whether `usage.json` contains valid JSON, whether the
+  configured `lang` has a matching locale file, and which teachable keys
+  you have remapped (each marked "removed from suggestions" or, for a
+  functionally equivalent remap, "still suggested").
 
 ==============================================================================
 4. CONFIGURATION                                                  *tobira-config*
@@ -306,8 +308,9 @@ otherwise qualify it.
 
 tobira also tells apart a genuine remap from Neovim's own factory-default
 mappings. Recent Neovim ships several teachable keys as built-in defaults
-out of the box: `gx`, `&`, `]q`/`[q`/`]l`/`[l`, and (0.10+) even `Y` = `y$`
-(see `:help Y-default`) instead of the Vi-compatible `yy`. None of these
+out of the box: `gx`, `&`, `]q`/`[q`/`]l`/`[l`, `]a`/`[a` (0.11+), and
+(0.10+) even `Y` = `y$` (see `:help Y-default`) instead of the
+Vi-compatible `yy`. None of these
 count as a remap on a stock install — nothing was actually touched, so
 they're suggested completely normally, exactly like any other
 never-customized command.
@@ -356,6 +359,10 @@ you create interactively afterwards (typing `:nnoremap` directly at the
 command line) may cause one stale suggestion before tobira notices on its
 next automatic refresh. This is expected and considered an acceptable
 trade-off against re-checking keymaps on every keystroke.
+
+tobira never announces a detected remap with a message at startup. Run
+|:checkhealth-tobira| to see every key it currently treats as remapped
+(it re-checks your keymaps when it runs).
 
 Separately, when `integrations` (see |tobira-config-integrations|) is
 enabled and tobira detects a supported helper plugin
@@ -542,7 +549,8 @@ EX ~
 
 START HERE: :checkhealth tobira ~
 
-Before anything else, run |:checkhealth-tobira|. It checks four things:
+Before anything else, run |:checkhealth-tobira|. It checks four things,
+then lists the keys it treats as remapped:
 
   1. Neovim version — errors if below 0.9 (the minimum tobira supports),
      warns if below 0.10 (`vim.on_key()`'s `typed` argument is not

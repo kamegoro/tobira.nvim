@@ -1,5 +1,7 @@
 # Refresh cadence (setup + VimEnter + SourcePost) and notification dedup (#63)
 
+**The notification and its `_logged` dedup are superseded by [docs/adr/0122-remap-report-in-checkhealth-not-startup-notify.md](0122-remap-report-in-checkhealth-not-startup-notify.md).** The refresh cadence still stands.
+
 ## Context
 
 Keymap overrides and plugin presence are not static for the lifetime of a Neovim

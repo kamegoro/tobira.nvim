@@ -47,10 +47,17 @@ return {
       to_next = '%d more to reach %s',
     },
   },
+  health = {
+    remaps_none = 'No suggestible key is remapped',
+    remap_removed = '%s is remapped (%s) — removed from suggestions',
+    remap_equivalent = '%s is remapped (%s) — equivalent to the default, still suggested',
+  },
   notifications = {
     reset = 'tobira: usage log reset',
     no_suggestions = 'tobira: no new suggestions right now 🎉',
     invalid_config = 'tobira: invalid config — ',
+    -- No longer emitted (overrides are listed in :checkhealth tobira); kept
+    -- because user configs read or filter on it.
     remap_detected = 'tobira: %s is remapped (%s) — removed from suggestion pool',
     reset_confirm = 'tobira: erase all usage data? This cannot be undone.',
     reset_choices = '&Yes\n&No',

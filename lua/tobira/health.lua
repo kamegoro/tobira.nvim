@@ -3,7 +3,7 @@
 local M = {}
 
 -- Neovim >= 0.10 renamed require('health').report_* to vim.health.*. Adapts
--- either shape to a common {start, ok, warn, error} table. Exposed (not local)
+-- either shape to a common {start, ok, info, warn, error} table. Exposed (not local)
 -- so it's directly unit-testable with a plain constructed table — vim.health
 -- itself can't be reliably forced to nil in tests, since `vim` resolves
 -- unknown fields through a metatable that keeps re-populating it.
@@ -11,6 +11,7 @@ function M.resolve_api(health_module)
   return {
     start = health_module.start or health_module.report_start,
     ok = health_module.ok or health_module.report_ok,
+    info = health_module.info or health_module.report_info,
     warn = health_module.warn or health_module.report_warn,
     error = health_module.error or health_module.report_error,
   }
@@ -19,7 +20,7 @@ end
 function M.check()
   -- Resolved per-call (not cached at module load) so tests can mock vim.health.
   local health = M.resolve_api(vim.health or require('health'))
-  local start, ok, warn, err = health.start, health.ok, health.warn, health.error
+  local start, ok, info, warn, err = health.start, health.ok, health.info, health.warn, health.error
 
   start('tobira.nvim')
 
@@ -79,6 +80,19 @@ function M.check()
     ok('lang = "' .. lang .. '" is a supported locale')
   else
     warn('lang = "' .. lang .. '" has no matching locale file — falling back to English')
+  end
+
+  -- Re-detected so the report reflects the live keymap even before setup().
+  -- see docs/adr/0122-remap-report-in-checkhealth-not-startup-notify.md
+  local integrations = require('tobira.core.integrations')
+  integrations.refresh()
+  local str = require('tobira.i18n').load().health
+  local overrides = integrations.list_overrides()
+  if #overrides == 0 then
+    ok(str.remaps_none)
+  end
+  for _, o in ipairs(overrides) do
+    info(string.format(o.equivalent and str.remap_equivalent or str.remap_removed, o.cmd, o.rhs))
   end
 end
 

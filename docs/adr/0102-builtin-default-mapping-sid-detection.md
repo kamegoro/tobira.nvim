@@ -153,3 +153,24 @@ have described. A generic "does this mapping carry any `desc` at all" check was 
 and rejected: plenty of real users set an explicit `desc` on their own remaps too (e.g.
 which-key.nvim conventionally wants one on every custom mapping), so a presence-only check
 would misclassify that common case as "still default".
+
+### Addendum: the table is keyed by mode and lhs, and covers every shipped default (#354)
+
+The per-registry-key `BUILTIN_DEFAULT_DESC` table missed the Neovim 0.11+ defaults `]a`/`[a`
+(`sid == -8`, `desc = ':next'`/`':previous'`), so on a stock 0.11/0.12 both read as overrides,
+were dropped from the suggestion pool, and triggered a startup notification. The table was
+only ever audited against the keys that happened to be in `commands.lua` at the time.
+
+It is now `BUILTIN_DEFAULTS[mode][canonical lhs] = { accepted desc, ... }` and lists every
+`sid == -8` normal- and insert-mode mapping that `nvim --clean` reports on 0.10.4, 0.11.0,
+0.11.7 and 0.12.6, whether or not tobira teaches that key today. A newly added registry
+entry for, say, `]b` is then covered without touching this table. Some keys ship
+different `desc` text across versions (0.10's `]d` lacks "in the current buffer"; 0.11's
+`[<C-T>` has a leading space), so each key accepts a list. The two-signal rule above is
+unchanged: sid alone or desc alone still does not exempt a mapping, and the desc must be
+one shipped for that same mode and lhs.
+
+A live test in `tests/spec/integration/integrations_spec.lua` runs `refresh()` against the
+Neovim running the suite (CI: nightly and stable) and fails if any override is reported
+that is not equivalent. A new default on a taught key, or a reworded desc, now fails CI
+instead of silently removing that key for every user.

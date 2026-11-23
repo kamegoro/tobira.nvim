@@ -47,6 +47,11 @@ return {
       to_next = 'あと%d回で%sに到達',
     },
   },
+  health = {
+    remaps_none = '提案対象のキーに再マッピングはありません',
+    remap_removed = '%s は再マッピングされています（%s）— 提案候補から除外しました',
+    remap_equivalent = '%s は再マッピングされています（%s）— 標準と同等なので引き続き提案します',
+  },
   notifications = {
     reset = 'tobira: 使用ログをリセットしました',
     no_suggestions = 'tobira: 新しい提案はありません 🎉',
