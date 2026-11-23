@@ -3,6 +3,7 @@ local logger = require('tobira.core.logger')
 local graph = require('tobira.core.graph')
 local level = require('tobira.core.level')
 local integrations = require('tobira.core.integrations')
+local buffers = require('tobira.core.buffers')
 
 local M = {}
 
@@ -102,7 +103,7 @@ end
 -- own independent rolling buffer (session.watches[cmd].buf), so adopting one
 -- suggested command still can't interfere with detecting another.
 local function adopt_on_key(key, typed)
-  if typed == '' then
+  if typed == '' or buffers.is_ignored(0) then
     return
   end
   local k = vim.fn.keytrans(typed or key)
@@ -330,7 +331,7 @@ end
 -- pattern: the patterns.lua event name that triggered this suggestion, or nil
 -- when there is no single triggering event (ambient idle pick, :Tobira manual).
 function M.show(cmd, pattern)
-  if cooldown_blocks(cmd) then
+  if cooldown_blocks(cmd) or buffers.is_ignored(0) then
     return
   end
   if do_show(cmd, false, pattern) then

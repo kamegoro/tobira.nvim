@@ -33,9 +33,11 @@ core/integrations.lua — requires commands + config (#63). Detects the user's o
                        hot-path — see its own header comment), which is why it is a
                        sibling of graph.lua rather than code inside it, per the
                        module-splitting policy below.
-core/logger.lua     — requires patterns + patterns_insert + patterns_cmdline + patterns_terminal + commands
+core/buffers.lua    — requires nothing; is_ignored(buf): buffers that are not user editing
+                       (docs/adr/0124-ignore-keys-in-non-editing-buffers.md)
+core/logger.lua     — requires patterns + patterns_insert + patterns_cmdline + patterns_terminal + commands + buffers
                       does NOT require suggest — notifies via on_pattern callback
-core/suggest.lua    — requires config / logger / graph / level / integrations
+core/suggest.lua    — requires config / logger / graph / level / integrations / buffers
                       ↓
 i18n.lua            — requires config + locales
 health.lua          — requires config / logger / locales (checkhealth entry point, not

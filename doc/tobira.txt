@@ -227,13 +227,21 @@ tobira's own commands (`:Tobira`, `:TobiraStats`, `:TobiraGuide`,
 `:TobiraProgress`, `:TobiraReset`) are excluded from this tracking, so
 checking your stats or resetting your log never shows up as usage itself.
 
+Keystrokes in buffers you are not editing are ignored too: they are not
+counted, no pattern is detected, and no automatic suggestion appears over
+them. That covers prompt buffers (`buftype=prompt`, e.g. picker prompts) and
+read-only (`nomodifiable`) `nofile`, `help` and `quickfix` buffers, which
+includes tobira's own panels and most plugin panels. A modifiable buffer of
+those types (a scratch buffer, the |cmdwin|) is still tracked, as are
+command-line and terminal-mode keys. |:Tobira| still works anywhere.
+
 When a pattern is detected and you then pause for `idle_delay` milliseconds
 (every keystroke restarts the wait), a suggestion appears in tobira's own
-floating window, near the top-right of the screen. The window shows what you just did (when a specific pattern
-triggered it), the command to try instead, and a short example. Its border
-is colored by category (motion / edit / search / window / fold / mark /
-macro / diff / ex / terminal) so a returning user can recognize the kind of
-suggestion at a glance.
+floating window, near the top-right of the screen. The window shows what
+you just did (when a specific pattern triggered it), the command to try
+instead, and a short example. Its border is colored by category (motion /
+edit / search / window / fold / mark / macro / diff / ex / terminal) so a
+returning user can recognize the kind of suggestion at a glance.
 The window auto-dismisses on its own after a few seconds — roughly
 scaled to how much text it is showing — and never steals focus or blocks
 input. (Manually running |:Tobira| instead opens a distinct "focused"

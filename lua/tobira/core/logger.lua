@@ -2,6 +2,7 @@ local patterns = require('tobira.core.patterns')
 local patterns_insert = require('tobira.core.patterns_insert')
 local patterns_cmdline = require('tobira.core.patterns_cmdline')
 local patterns_terminal = require('tobira.core.patterns_terminal')
+local buffers = require('tobira.core.buffers')
 local commands = require('tobira.commands')
 
 local M = {}
@@ -682,6 +683,10 @@ local function handle_terminal_key(key)
 end
 
 local function handle_key(key)
+  -- Command-line and Terminal mode keys are not edits of the current buffer.
+  if current_mode ~= 't' and current_mode:sub(1, 1) ~= 'c' and buffers.is_ignored(0) then
+    return
+  end
   if current_mode:sub(1, 1) == 'i' then
     local _re = vim.fn.reg_executing()
     if not (_recording_macro or _re ~= '') then

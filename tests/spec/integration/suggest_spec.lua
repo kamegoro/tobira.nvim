@@ -1873,3 +1873,66 @@ describe('when a keystroke lands after the pending timer expired but before its 
     assert.same({}, shown)
   end)
 end)
+
+-- ── buffers that are not user editing ─────────────────────────────────────────
+-- See docs/adr/0124-ignore-keys-in-non-editing-buffers.md.
+
+describe('when the current buffer is a read-only plugin panel', function()
+  local start_buf
+
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    config.reset()
+    suggest.reset_session()
+    start_buf = vim.api.nvim_get_current_buf()
+    local buf = vim.api.nvim_create_buf(false, true)
+    vim.bo[buf].modifiable = false
+    vim.api.nvim_set_current_buf(buf)
+  end)
+  after_each(function()
+    vim.api.nvim_set_current_buf(start_buf)
+    suggest.reset_session()
+  end)
+
+  it('does not show an automatic suggestion on top of it', function()
+    local shown = with_float_spy(function()
+      suggest.show(';')
+    end)
+    assert.is_false(shown)
+  end)
+
+  it('does not start the cooldown clock either', function()
+    with_float_spy(function()
+      suggest.show(';')
+    end)
+    vim.api.nvim_set_current_buf(start_buf)
+    local shown = with_float_spy(function()
+      suggest.show(',')
+    end)
+    assert.is_true(shown)
+  end)
+
+  it('still shows a suggestion requested with :Tobira', function()
+    local usage = logger.get_all()
+    usage['f'] = { count = 5, shown = 0, sessions = {}, suppressed = false }
+    local shown = with_float_spy(function()
+      suggest.manual()
+    end)
+    assert.is_true(shown)
+  end)
+
+  it('does not treat keys typed in it as adopting a shown suggestion', function()
+    local graph = require('tobira.core.graph')
+    vim.api.nvim_set_current_buf(start_buf)
+    with_float_spy(function()
+      suggest.show(';')
+    end)
+    local buf = vim.api.nvim_create_buf(false, true)
+    vim.bo[buf].modifiable = false
+    vim.api.nvim_set_current_buf(buf)
+    vim.fn.feedkeys(';', 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert.is_false(graph.is_adopted(logger.get(';')))
+  end)
+end)

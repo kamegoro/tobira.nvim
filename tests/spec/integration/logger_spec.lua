@@ -4111,3 +4111,123 @@ describe('when usage.json cannot be parsed', function()
     assert.is_not_nil(read_raw_disk().j)
   end)
 end)
+
+-- ── buffers that are not user editing ─────────────────────────────────────────
+-- See docs/adr/0124-ignore-keys-in-non-editing-buffers.md.
+
+describe('when the user moves around in a buffer that is not being edited', function()
+  local start_win, start_buf
+  local patterns_fired
+
+  local function type_j_streak()
+    for _ = 1, 12 do
+      vim.fn.feedkeys('j', 'xt')
+    end
+    vim.api.nvim_feedkeys('', 'x', false)
+  end
+
+  local function scratch(buftype, modifiable)
+    local buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, vim.fn.map(vim.fn.range(1, 40), '"line " . v:val'))
+    vim.bo[buf].buftype = buftype
+    vim.bo[buf].modifiable = modifiable
+    vim.api.nvim_set_current_buf(buf)
+    vim.cmd('normal! gg')
+    return buf
+  end
+
+  before_each(function()
+    wipe_disk()
+    logger.reset()
+    logger.setup()
+    start_win = vim.api.nvim_get_current_win()
+    start_buf = vim.api.nvim_get_current_buf()
+    patterns_fired = {}
+    logger.on_pattern = function(pattern)
+      table.insert(patterns_fired, pattern)
+    end
+  end)
+
+  after_each(function()
+    logger.on_pattern = nil
+    pcall(require('tobira.ui.progress').close)
+    if vim.api.nvim_win_is_valid(start_win) then
+      vim.api.nvim_set_current_win(start_win)
+    end
+    vim.cmd('silent! only')
+    vim.api.nvim_set_current_buf(start_buf)
+  end)
+
+  it('does not count keys or detect patterns in a read-only plugin panel (nofile, nomodifiable)', function()
+    scratch('nofile', false)
+    type_j_streak()
+    assert.equals(0, logger.get('j').count)
+    assert.same({}, patterns_fired)
+  end)
+
+  it("does not count keys or detect patterns in tobira's own Progress panel", function()
+    require('tobira.ui.progress').open()
+    type_j_streak()
+    assert.equals(0, logger.get('j').count)
+    assert.same({}, patterns_fired)
+  end)
+
+  it('does not count keys or detect patterns in a help window', function()
+    vim.cmd('help help')
+    vim.cmd('only')
+    type_j_streak()
+    assert.equals(0, logger.get('j').count)
+    assert.same({}, patterns_fired)
+  end)
+
+  it('does not count keys or detect patterns in the quickfix window', function()
+    vim.fn.setqflist(vim.tbl_map(function(i)
+      return { filename = 'f' .. i, lnum = 1, text = 'x' }
+    end, vim.fn.range(1, 40)))
+    vim.cmd('copen')
+    type_j_streak()
+    vim.cmd('cclose')
+    assert.equals(0, logger.get('j').count)
+    assert.same({}, patterns_fired)
+  end)
+
+  it('does not count keys or detect patterns in a prompt buffer', function()
+    scratch('prompt', true)
+    type_j_streak()
+    assert.equals(0, logger.get('j').count)
+    assert.same({}, patterns_fired)
+  end)
+
+  it('does not count keys in a prompt buffer in Insert mode either', function()
+    scratch('prompt', true)
+    local real_mode = vim.fn.mode
+    vim.fn.mode = function()
+      return 'i'
+    end
+    vim.api.nvim_exec_autocmds('ModeChanged', { modeline = false })
+    vim.fn.mode = real_mode
+    local ctrl_w = vim.api.nvim_replace_termcodes('<C-w>', true, false, true)
+    vim.fn.feedkeys(ctrl_w, 'xt')
+    vim.api.nvim_feedkeys('', 'x', false)
+    vim.api.nvim_exec_autocmds('ModeChanged', { modeline = false })
+    assert.equals(0, logger.get('<C-w>').count)
+  end)
+
+  it('still counts keys in an editable scratch buffer (nofile, modifiable)', function()
+    scratch('nofile', true)
+    type_j_streak()
+    assert.equals(12, logger.get('j').count)
+    assert.is_true(vim.tbl_contains(patterns_fired, 'j_many'))
+  end)
+
+  it('still counts keys in a modifiable quickfix window', function()
+    vim.fn.setqflist(vim.tbl_map(function(i)
+      return { filename = 'f' .. i, lnum = 1, text = 'x' }
+    end, vim.fn.range(1, 40)))
+    vim.cmd('copen')
+    vim.bo.modifiable = true
+    type_j_streak()
+    vim.cmd('cclose')
+    assert.equals(12, logger.get('j').count)
+  end)
+end)
