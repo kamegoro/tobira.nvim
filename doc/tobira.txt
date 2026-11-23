@@ -179,8 +179,10 @@ Default configuration: >lua
   interruptions within a short period.
 
   A suggestion that becomes eligible while the cooldown from an earlier,
-  unrelated suggestion is still active is not lost: it is shown as soon as
-  the cooldown lifts, rather than only at that exact moment.
+  unrelated suggestion is still active is not lost right away: it waits for
+  the cooldown to lift. When it does, it is shown only if you are idle, in
+  Normal mode, and still in the window and buffer where the pattern
+  happened; otherwise it is dropped.
 
   The terminal-mode suggestion (`<C-\><C-n>`, see below) is exempt from this
   cooldown: it only ever fires while you are actively stuck in terminal-job
@@ -225,9 +227,9 @@ tobira's own commands (`:Tobira`, `:TobiraStats`, `:TobiraGuide`,
 `:TobiraProgress`, `:TobiraReset`) are excluded from this tracking, so
 checking your stats or resetting your log never shows up as usage itself.
 
-When a pattern is detected and you are idle for `idle_delay` milliseconds, a
-suggestion appears in tobira's own floating window, near the top-right of the
-screen. The window shows what you just did (when a specific pattern
+When a pattern is detected and you then pause for `idle_delay` milliseconds
+(every keystroke restarts the wait), a suggestion appears in tobira's own
+floating window, near the top-right of the screen. The window shows what you just did (when a specific pattern
 triggered it), the command to try instead, and a short example. Its border
 is colored by category (motion / edit / search / window / fold / mark /
 macro / diff / ex / terminal) so a returning user can recognize the kind of
@@ -377,7 +379,9 @@ to load.
 6. DETECTED PATTERNS                                              *tobira-patterns*
 
 Each pattern fires at most once per trigger sequence. After firing, the
-suggestion is shown when you are next idle for `idle_delay` milliseconds.
+suggestion is shown when you are next idle for `idle_delay` milliseconds,
+if you are in Normal mode (Terminal mode for the terminal-mode tip) and
+still in the same window and buffer; otherwise it is dropped.
 
 MOTION ~
 
