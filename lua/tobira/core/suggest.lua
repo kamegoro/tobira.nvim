@@ -15,6 +15,9 @@ M.on_adopt = nil
 local session = {
   last_auto_at = nil,
   timer = nil,
+  -- The queued reactive suggestion: { pattern, cmd, buf, win }. buf/win are
+  -- filled in once the triggering keystroke has been applied.
+  pending = nil,
   -- cmd -> { buf = <rolling keytrans buffer>, match_target = <normalized cmd> },
   -- consumed by the single shared adopt_on_key callback below -- see
   -- docs/adr/0112-unified-suggestion-scheduling.md.
@@ -28,6 +31,9 @@ local _idle_ns = nil
 -- vim.on_key() attachment itself is added/removed as session.watches goes
 -- non-empty/empty. See docs/adr/0112-unified-suggestion-scheduling.md.
 local _adopt_ns = nil
+
+-- Attached only while a reactive suggestion is pending; restarts its timer.
+local _pending_ns = nil
 
 local KEY_BUF_MAX = 20
 
@@ -149,11 +155,12 @@ local function over_auto_limit()
 end
 
 -- Entries in the 'terminal' category bypass the global suggestion_cooldown, the
--- same way :Tobira manual already does (see M.manual()); scoped by category, not
--- the literal pattern name, so future 'terminal' entries inherit it automatically.
--- cmd values with no suggestion entry fall through to `false` (no bypass).
+-- same way :Tobira manual already does (see M.manual()), and are the only ones
+-- shown in Terminal mode. Scoped by category, not the literal pattern name, so
+-- future 'terminal' entries inherit it automatically. cmd values with no
+-- suggestion entry fall through to `false`.
 -- See docs/adr/0046-terminal-category-cooldown-bypass.md for why.
-local function bypasses_cooldown(cmd)
+local function is_terminal_category(cmd)
   local suggestion = graph.suggestions[cmd]
   return suggestion ~= nil and suggestion.category == 'terminal'
 end
@@ -161,7 +168,7 @@ end
 -- Choke point for "is cooldown blocking cmd", shared by M.queue and M.show
 -- (queue's deferred M.show re-checks it once idle_delay elapses).
 local function cooldown_blocks(cmd)
-  return over_auto_limit() and not bypasses_cooldown(cmd)
+  return over_auto_limit() and not is_terminal_category(cmd)
 end
 
 -- Milliseconds left until suggestion_cooldown lifts, given it is currently
@@ -177,7 +184,7 @@ local function fire_ambient()
   -- A reactive suggestion is queued (or waiting out a cooldown retry) for
   -- this same idle window -- yield to it instead of racing it. See
   -- docs/adr/0112-unified-suggestion-scheduling.md.
-  if session.timer then
+  if session.pending then
     return
   end
   if vim.fn.mode():sub(1, 1) ~= 'n' then
@@ -231,39 +238,93 @@ function M.teardown_idle()
   end
 end
 
--- Resolves a queued reactive suggestion once its idle_delay (or a later
--- cooldown-retry wait) elapses. If suggestion_cooldown from an earlier,
--- unrelated suggestion is still active, re-arms for exactly the remaining
--- cooldown instead of dropping the suggestion -- see
--- docs/adr/0112-unified-suggestion-scheduling.md for why.
-local function resolve_queued(pattern, cmd)
-  session.timer = nil
-  if should_suppress(cmd) then
-    return
+local function clear_pending()
+  cancel_timer()
+  session.pending = nil
+  if _pending_ns then
+    vim.on_key(nil, _pending_ns)
   end
-  if cooldown_blocks(cmd) then
-    session.timer = vim.defer_fn(function()
-      resolve_queued(pattern, cmd)
-    end, cooldown_remaining_ms())
-    return
-  end
-  M.show(cmd, pattern)
 end
 
--- Queues a reactive suggestion to fire after idle_delay. Only the most
--- recent reactive pattern within an unresolved window is kept (cancel_timer
--- below), matching the pre-existing single-pending-suggestion behavior of
--- this mechanism. cooldown is intentionally NOT checked here -- see
--- resolve_queued, which re-checks it once idle_delay elapses and requeues
--- for the remaining cooldown instead of dropping the suggestion outright.
+-- Still in Normal mode (or, for the terminal-mode tip, Terminal mode), in the
+-- same window and buffer the triggering keystroke left the user in. See
+-- docs/adr/0123-reactive-suggestions-idle-gated-in-their-own-context.md.
+local function in_trigger_context(p)
+  if vim.api.nvim_get_current_win() ~= p.win or vim.api.nvim_get_current_buf() ~= p.buf then
+    return false
+  end
+  local mode = vim.fn.mode()
+  return mode:sub(1, 1) == 'n' or (mode == 't' and is_terminal_category(p.cmd))
+end
+
+local resolve_queued
+
+-- A timer that already expired still runs its scheduled callback after
+-- cancel_timer(), so only the most recently armed one may resolve.
+local function arm_pending(delay_ms)
+  cancel_timer()
+  local timer
+  timer = vim.defer_fn(function()
+    if session.timer == timer then
+      resolve_queued()
+    end
+  end, delay_ms)
+  session.timer = timer
+end
+
+local function pending_on_key(_, typed)
+  if typed == '' then
+    return
+  end
+  arm_pending(config.values.idle_delay)
+end
+
+-- Resolves the pending reactive suggestion once the user has been idle for
+-- idle_delay. If suggestion_cooldown from an earlier, unrelated suggestion is
+-- still active, re-arms for exactly the remaining cooldown instead of
+-- dropping it -- see docs/adr/0112-unified-suggestion-scheduling.md -- and
+-- the context check applies when it finally fires.
+resolve_queued = function()
+  session.timer = nil
+  local p = session.pending
+  if should_suppress(p.cmd) then
+    clear_pending()
+    return
+  end
+  if cooldown_blocks(p.cmd) then
+    arm_pending(cooldown_remaining_ms())
+    return
+  end
+  clear_pending()
+  if in_trigger_context(p) then
+    M.show(p.cmd, p.pattern)
+  end
+end
+
+-- Queues a reactive suggestion for the next idle_delay pause. Only the most
+-- recent reactive pattern within an unresolved window is kept. cooldown is
+-- intentionally NOT checked here -- see resolve_queued. Called from inside
+-- logger's vim.on_key callback, so the context capture and the keystroke
+-- watcher wait for vim.schedule: the triggering key has been applied by then,
+-- and vim.on_key's callback table is not mutated mid-iteration.
 function M.queue(pattern, cmd)
   if should_suppress(cmd) then
     return
   end
-  cancel_timer()
-  session.timer = vim.defer_fn(function()
-    resolve_queued(pattern, cmd)
-  end, config.values.idle_delay)
+  local p = { pattern = pattern, cmd = cmd }
+  session.pending = p
+  arm_pending(config.values.idle_delay)
+  vim.schedule(function()
+    if session.pending ~= p then
+      return
+    end
+    p.buf = vim.api.nvim_get_current_buf()
+    p.win = vim.api.nvim_get_current_win()
+    if not _pending_ns then
+      _pending_ns = vim.api.nvim_create_namespace('tobira_pending')
+    end
+    vim.on_key(pending_on_key, _pending_ns)
+  end)
 end
 
 -- pattern: the patterns.lua event name that triggered this suggestion, or nil
@@ -278,7 +339,7 @@ function M.show(cmd, pattern)
 end
 
 function M.reset_session()
-  cancel_timer()
+  clear_pending()
   if _adopt_ns then
     vim.on_key(nil, _adopt_ns)
   end

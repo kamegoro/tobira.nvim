@@ -166,7 +166,7 @@ The callback fires on **every keystroke**. Keep it minimal.
 
 **Current optimizations in logger.lua:**
 - Mode is cached via `ModeChanged` autocmd — `vim.fn.mode()` is never called in the hot path
-- `suggest.queue()` debounces via `vim.defer_fn(fn, 1500)` — UI is never called directly
+- `suggest.queue()` waits for an `idle_delay` pause (each keystroke restarts it) — UI is never called directly
 
 ## patterns.lua — state machine
 
@@ -271,7 +271,7 @@ Normal-mode operator.
    - The `terminal` category also gets two other carve-outs keyed off
      `suggestion.category` rather than a per-entry flag: `ui/float.lua`'s
      `auto_close_duration()` gives it a longer on-screen window (#166), and
-     `core/suggest.lua`'s `bypasses_cooldown()` exempts it from
+     `core/suggest.lua`'s `is_terminal_category()` exempts it from
      `suggestion_cooldown` entirely (#166 follow-up) — both because this
      category's trigger condition means the user is, by definition, still
      actively stuck at the exact moment it fires, unlike every other

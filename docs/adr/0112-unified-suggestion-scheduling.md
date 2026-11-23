@@ -200,3 +200,10 @@ regardless of whether there's anything to watch for — keeping the
   `over_auto_limit()` whenever cooldown is active, and a cooldown-retry wait
   by definition only happens while cooldown is active — so the two checks
   never diverge in practice.
+
+### Addendum
+
+The cooldown retry is kept, but the suggestion is now only shown if the user
+is idle, in Normal mode, and in the window and buffer the pattern happened
+in when the retry finally fires. See
+[docs/adr/0123-reactive-suggestions-idle-gated-in-their-own-context.md](0123-reactive-suggestions-idle-gated-in-their-own-context.md).
